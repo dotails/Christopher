@@ -1,0 +1,14 @@
+# Build output
+/build/
+bin/
+obj/
+
+# Visual Studio / user files
+.vs/
+*.user
+*.suo
+
+# Compiled binaries
+*.exe
+*.pdb
+*.dll
