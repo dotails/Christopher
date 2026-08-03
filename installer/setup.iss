@@ -43,7 +43,11 @@ Name: "{userprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 
 [Run]
 ; Register the .ssc handler + startup check right after install (silent, no dialog).
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--register --silent"; Flags: runhidden; StatusMsg: "Registering .ssc file association..."
+; "nowait": if this child process is killed/blocked (e.g. by antivirus scanning a
+; freshly written, unsigned .exe) the wizard still finishes normally instead of
+; hanging or aborting on it. The app re-asserts the association on its own via
+; --startup-check anyway, so this is best-effort, not load-bearing.
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--register --silent"; Flags: runhidden nowait; StatusMsg: "Registering .ssc file association..."
 ; Optionally let the user open the config window (set the target folder) right away.
 Filename: "{app}\{#MyAppExeName}"; Description: "Open {#MyAppName} configuration"; Flags: postinstall nowait skipifsilent unchecked
 

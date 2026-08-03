@@ -67,7 +67,9 @@ namespace SscSwitcher
             }
             catch (Exception ex)
             {
-                Error(ex.Message);
+                // Respect --silent even on failure: an unattended/installer-driven
+                // run must never block on a dialog nobody is there to dismiss.
+                if (!silent) Error(ex.Message);
                 return 1;
             }
         }
