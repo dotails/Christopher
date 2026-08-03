@@ -106,6 +106,25 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -TargetFolder "C:\T
 powershell -ExecutionPolicy Bypass -File scripts\uninstall.ps1
 ```
 
+## Antivirus / Windows Defender
+
+`SscSwitcher.exe` is **not code-signed**. A freshly built, unsigned executable
+downloaded as a zip and run within seconds can get caught by Windows Defender's
+real-time protection or another antivirus's heuristics — sometimes it's removed
+moments *after* the installer copies it, which shows up as something like:
+
+```
+Unable to execute file: ...\SscSwitcher.exe
+CreateProcess failed; code 2. The system cannot find the file specified.
+```
+
+If you hit this, check **Windows Security → Virus & threat protection →
+Protection history** for a quarantine entry, restore it, and add an exclusion
+for the install folder (`%LOCALAPPDATA%\SscSwitcher` by default) or for
+`SscSwitcher.exe` specifically. This is standard behavior for any new unsigned
+binary, not a bug in the app; getting the executable code-signed is the
+long-term fix if this keeps happening in your environment.
+
 ## Notes on file associations in Windows 10/11
 
 Per-user `HKCU\Software\Classes` registration is what a non-admin app is allowed

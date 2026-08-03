@@ -8,7 +8,10 @@ namespace SscSwitcher
     /// <summary>
     /// The window shown when the app is launched directly. Lets the user pick
     /// the target folder + settings and manage the .ssc association. Built in
-    /// code (no .resx) so it compiles with a plain csc.exe.
+    /// code (no .resx) so it compiles with a plain csc.exe. Laid out with
+    /// TableLayoutPanel/anchoring so the window is resizable, labels wrap
+    /// instead of clipping, and everything scales correctly at any Windows
+    /// display (DPI) setting.
     /// </summary>
     public class ConfigForm : Form
     {
@@ -24,6 +27,9 @@ namespace SscSwitcher
 
         public ConfigForm()
         {
+            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScaleDimensions = new SizeF(96F, 96F);
+
             _cfg = AppConfig.Load();
             BuildUi();
             LoadFromConfig();
@@ -33,83 +39,178 @@ namespace SscSwitcher
         private void BuildUi()
         {
             Text = Defaults.ProductName + " — Configuration";
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
+            MinimizeBox = true;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(560, 452);
             Font = new Font("Segoe UI", 9f);
+            Size = new Size(640, 620);
+            MinimumSize = new Size(480, 420);
 
-            int x = 16;
-            int y = 16;
-            int w = ClientSize.Width - 32;
+            // Root: a scrollable field area on top, an action bar pinned to the bottom.
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            Controls.Add(root);
 
-            AddLabel("Target folder (contains " + Defaults.SrcSigExeName + " and the active .ssc):", x, y, w);
-            y += 22;
-            _txtTarget = new TextBox { Left = x, Top = y, Width = w - 90 };
-            var btnBrowse = new Button { Text = "Browse…", Left = x + w - 84, Top = y - 1, Width = 84 };
+            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+            root.Controls.Add(scroll, 0, 0);
+
+            var fields = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                ColumnCount = 1,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = new Padding(16)
+            };
+            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            scroll.Controls.Add(fields);
+
+            AddSectionLabel(fields, "Target folder (contains " + Defaults.SrcSigExeName + " and the active .ssc):");
+            _txtTarget = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            var btnBrowse = new Button { Text = "Browse…", AutoSize = true, Margin = new Padding(6, 0, 0, 0) };
             btnBrowse.Click += delegate { BrowseFolder(); };
-            Controls.Add(_txtTarget);
-            Controls.Add(btnBrowse);
-            y += 34;
+            AddRow(fields, MakeSideBySideRow(_txtTarget, btnBrowse));
+            AddSpacer(fields, 10);
 
-            AddLabel("Active file name (the .ssc that gets overwritten):", x, y, w);
-            y += 22;
-            _txtActive = new TextBox { Left = x, Top = y, Width = w };
-            Controls.Add(_txtActive);
-            y += 30;
+            AddSectionLabel(fields, "Active file name (the .ssc that gets overwritten):");
+            _txtActive = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            AddRow(fields, _txtActive);
+            AddSpacer(fields, 12);
 
             _chkAutoDetect = new CheckBox
             {
                 Text = "Auto-detect the active .ssc when the folder holds exactly one",
-                Left = x,
-                Top = y,
-                Width = w
+                AutoSize = true,
+                Dock = DockStyle.Top
             };
-            Controls.Add(_chkAutoDetect);
-            y += 32;
+            AddRow(fields, _chkAutoDetect);
+            AddSpacer(fields, 12);
 
-            AddLabel("Signing app to launch after the swap:", x, y, w);
-            y += 22;
-            _txtSrcSig = new TextBox { Left = x, Top = y, Width = w };
-            Controls.Add(_txtSrcSig);
-            y += 32;
+            AddSectionLabel(fields, "Signing app to launch after the swap:");
+            _txtSrcSig = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            AddRow(fields, _txtSrcSig);
+            AddSpacer(fields, 12);
 
             _chkBackup = new CheckBox
             {
                 Text = "Back up the overwritten file before swapping",
-                Left = x,
-                Top = y,
-                Width = w
+                AutoSize = true,
+                Dock = DockStyle.Top
             };
-            Controls.Add(_chkBackup);
-            y += 26;
+            AddRow(fields, _chkBackup);
+            AddSpacer(fields, 4);
 
             _chkLaunch = new CheckBox
             {
                 Text = "Launch the signing app after swapping",
-                Left = x,
-                Top = y,
-                Width = w
+                AutoSize = true,
+                Dock = DockStyle.Top
             };
-            Controls.Add(_chkLaunch);
-            y += 40;
+            AddRow(fields, _chkLaunch);
+            AddSpacer(fields, 16);
 
+            AddRow(fields, BuildAssociationGroup());
+
+            var buttonBar = BuildButtonBar();
+            root.Controls.Add(buttonBar, 0, 1);
+        }
+
+        /// <summary>A wrapping description label, full width, own row.</summary>
+        private static void AddSectionLabel(TableLayoutPanel fields, string text)
+        {
+            var lbl = new Label
+            {
+                Text = text,
+                AutoSize = true,
+                Dock = DockStyle.Top,
+                Margin = new Padding(0, 0, 0, 4)
+            };
+            AddRow(fields, lbl);
+        }
+
+        private static void AddSpacer(TableLayoutPanel fields, int height)
+        {
+            AddRow(fields, new Panel { Height = height, Dock = DockStyle.Top, Margin = Padding.Empty });
+        }
+
+        private static void AddRow(TableLayoutPanel fields, Control control)
+        {
+            int row = fields.RowCount;
+            fields.RowCount = row + 1;
+            fields.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            fields.Controls.Add(control, 0, row);
+        }
+
+        /// <summary>A stretchy control (e.g. a textbox) with a fixed-width control beside it.</summary>
+        private static Control MakeSideBySideRow(Control stretchy, Control fixedWidth)
+        {
+            var row = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                ColumnCount = 2,
+                RowCount = 1,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Margin = Padding.Empty
+            };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            row.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            stretchy.Dock = DockStyle.Fill;
+            row.Controls.Add(stretchy, 0, 0);
+            row.Controls.Add(fixedWidth, 1, 0);
+            return row;
+        }
+
+        private Control BuildAssociationGroup()
+        {
+            // Note: GroupBox has no public AutoSizeMode property (only AutoSize),
+            // and its DisplayRectangle override ignores Padding, so spacing below
+            // is applied on the inner panel instead.
             var grp = new GroupBox
             {
                 Text = "File association (.ssc)",
-                Left = x,
-                Top = y,
-                Width = w,
-                Height = 98
+                Dock = DockStyle.Top,
+                AutoSize = true
             };
-            _lblAssocStatus = new Label { Left = 12, Top = 22, Width = grp.Width - 24, Height = 20 };
+
+            var inner = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                ColumnCount = 1,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = new Padding(6, 4, 6, 10)
+            };
+            inner.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+
+            _lblAssocStatus = new Label
+            {
+                AutoSize = true,
+                Dock = DockStyle.Top,
+                Margin = new Padding(0, 4, 0, 8)
+            };
+            inner.RowCount = 1;
+            inner.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            inner.Controls.Add(_lblAssocStatus, 0, 0);
+
+            var buttons = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = true,
+                Margin = Padding.Empty
+            };
             var btnRegister = new Button
             {
                 Text = "Make " + Defaults.ProductName + " the .ssc handler",
-                Left = 12,
-                Top = 48,
-                Width = 250
+                AutoSize = true,
+                Margin = new Padding(0, 0, 8, 4)
             };
             btnRegister.Click += delegate
             {
@@ -124,9 +225,8 @@ namespace SscSwitcher
             var btnUnregister = new Button
             {
                 Text = "Remove association",
-                Left = 274,
-                Top = 48,
-                Width = 160
+                AutoSize = true,
+                Margin = new Padding(0, 0, 0, 4)
             };
             btnUnregister.Click += delegate
             {
@@ -137,29 +237,58 @@ namespace SscSwitcher
                 }
                 catch (Exception ex) { Err(ex); }
             };
-            grp.Controls.Add(_lblAssocStatus);
-            grp.Controls.Add(btnRegister);
-            grp.Controls.Add(btnUnregister);
-            Controls.Add(grp);
-            y += grp.Height + 14;
+            buttons.Controls.Add(btnRegister);
+            buttons.Controls.Add(btnUnregister);
 
-            var btnTest = new Button { Text = "Test swap…", Left = x, Top = y, Width = 110 };
+            inner.RowCount = 2;
+            inner.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            inner.Controls.Add(buttons, 0, 1);
+
+            grp.Controls.Add(inner);
+            return grp;
+        }
+
+        private Control BuildButtonBar()
+        {
+            var bar = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = new Padding(16, 10, 16, 14)
+            };
+            bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            bar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            bar.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            var btnTest = new Button { Text = "Test swap…", AutoSize = true, Anchor = AnchorStyles.Left };
             btnTest.Click += delegate { TestSwap(); };
-            var btnSave = new Button { Text = "Save", Left = x + w - 180, Top = y, Width = 84 };
-            btnSave.Click += delegate { SaveWithMessage(); };
-            var btnClose = new Button { Text = "Close", Left = x + w - 88, Top = y, Width = 84 };
+            bar.Controls.Add(btnTest, 0, 0);
+
+            var right = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Right,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.RightToLeft,
+                Margin = Padding.Empty
+            };
+            var btnClose = new Button { Text = "Close", AutoSize = true, Margin = new Padding(8, 0, 0, 0) };
             btnClose.Click += delegate { Close(); };
-            Controls.Add(btnTest);
-            Controls.Add(btnSave);
-            Controls.Add(btnClose);
+            var btnSave = new Button { Text = "Save", AutoSize = true, Margin = Padding.Empty };
+            btnSave.Click += delegate { SaveWithMessage(); };
+            // RightToLeft flow: first added ends up rightmost, so add Close then Save
+            // to read left-to-right as "Save  Close".
+            right.Controls.Add(btnClose);
+            right.Controls.Add(btnSave);
+            bar.Controls.Add(right, 1, 0);
 
             AcceptButton = btnSave;
             CancelButton = btnClose;
-        }
 
-        private void AddLabel(string text, int x, int y, int w)
-        {
-            Controls.Add(new Label { Text = text, Left = x, Top = y, Width = w, Height = 18 });
+            return bar;
         }
 
         private void LoadFromConfig()
