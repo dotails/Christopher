@@ -21,11 +21,10 @@ namespace SscSwitcher
         // ---------------------------------------------------------------------
         //  DEFAULT TARGET FOLDER  (the "specific folder")
         //  This is the folder that holds srcsig.exe and the active .ssc file.
-        //  The user can (and normally will) set this in the config GUI.
-        //  Leave it as "" to force the user to pick it on first run, or preset
-        //  a path here if you want a default.
+        //  The user can override this in the config GUI; this is just the
+        //  out-of-the-box default.
         // ---------------------------------------------------------------------
-        public const string TargetFolder = @"";
+        public const string TargetFolder = @"C:\Seismic_Source\Source_Signature\";
 
         // Name of the .ssc file inside TargetFolder that gets overwritten when a
         // .ssc file is opened. Used when auto-detect is off, or when the folder

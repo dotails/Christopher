@@ -45,7 +45,7 @@ Edit these in the configuration window; they are stored as JSON at
 
 | Setting | Meaning | Default |
 | --- | --- | --- |
-| Target folder | The "specific folder" holding `srcsig.exe` and the active `.ssc`. | *(empty — you choose it)* |
+| Target folder | The "specific folder" holding `srcsig.exe` and the active `.ssc`. | `C:\Seismic_Source\Source_Signature\` |
 | Active file name | The `.ssc` inside the folder that gets overwritten. | `active.ssc` |
 | Auto-detect active file | If the folder has exactly one `.ssc`, overwrite that one. | on |
 | Signing app | Executable launched after the swap. | `srcsig.exe` |
