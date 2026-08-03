@@ -63,6 +63,24 @@ spots, and they should match:
 Both currently default to `%LOCALAPPDATA%\SscSwitcher`. You can also override at
 install time with `-InstallFolder`.
 
+## Get a ready-built installer (no build tools needed)
+
+Every push builds `SscSwitcher.exe` **and** a double-click installer,
+`SscSwitcher-Setup.exe`, on GitHub's own Windows runners — nothing to install
+on your machine to get a working copy:
+
+1. On GitHub, open the **Actions** tab of this repo.
+2. Click the latest **Build SscSwitcher** run (for this branch).
+3. Scroll to **Artifacts** and download `SscSwitcher`. It's a zip containing
+   `SscSwitcher.exe` and `SscSwitcher-Setup.exe`.
+4. Run `SscSwitcher-Setup.exe`. No admin rights needed — it installs per-user,
+   registers the `.ssc` association, and enables the login startup check
+   automatically. You can optionally open the configuration window right after
+   install to confirm the target folder.
+
+Pushing a git tag like `v1.0.0` additionally publishes a **GitHub Release**
+with `SscSwitcher-Setup.exe` attached, for a stable, permanent download link.
+
 ## Build
 
 On a Windows machine (no Visual Studio required — uses the built-in `csc.exe`):

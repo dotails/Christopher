@@ -1,0 +1,65 @@
+name: Build SscSwitcher
+
+# Builds the Windows app and packages a double-click installer entirely on
+# GitHub's Windows runners. No local build tools needed on your machine.
+#
+# - Runs on every push that touches this branch (and can be run manually).
+# - The compiled .exe and the installer are attached as downloadable
+#   workflow artifacts (Actions tab -> this run -> Artifacts).
+# - Pushing a tag like "v1.0.0" also publishes a GitHub Release with the
+#   installer attached, for a stable download link.
+
+on:
+  push:
+    branches:
+      - "claude/**"
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build SscSwitcher.exe
+        shell: pwsh
+        run: |
+          dotnet build src\SscSwitcher\SscSwitcher.csproj -c Release -o build
+          if (-not (Test-Path build\SscSwitcher.exe)) { throw "Build did not produce SscSwitcher.exe" }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer (SscSwitcher-Setup.exe)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          & "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" installer\setup.iss
+
+      - name: Upload build + installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SscSwitcher
+          path: |
+            build\SscSwitcher.exe
+            dist\SscSwitcher-Setup.exe
+          if-no-files-found: error
+
+      - name: Publish GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist\SscSwitcher-Setup.exe
+            build\SscSwitcher.exe
