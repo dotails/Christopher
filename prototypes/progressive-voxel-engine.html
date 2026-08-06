@@ -2338,7 +2338,7 @@ const World = {
   /* ---- ② Distance-driven traversal → the frame's render list ----------- */
   collect(out) {
     this.frame++;
-    let proxyBudget = 60;
+    let proxyBudget = 160;
     let animBudget = 400;      // inline bakes/frame for shapes that move every frame
     let key = 0, chunks = 0, streaming = 0, deepest = 0, finest = 1e9;
     const cam = camera.position;
@@ -2363,7 +2363,10 @@ const World = {
       // budget defer it leaves half its chunks holding an old pose — the tearing
       // and the wrong-looking lighting both come from that.
       const live = n.patch.animate && State.animate;
-      if (!live && proxyBudget <= 0) return !!n.proxy;        // reuse stale rather than pop
+      // The budget may only defer REFRESHING a proxy that already exists.
+      // Deferring a node's very first one leaves nothing to draw there at all,
+      // and a node skipped for want of budget is a hole in the surface.
+      if (n.proxy && !live && proxyBudget <= 0) return true;
       if (!live) proxyBudget--;
       n.proxy = Baker.bakeProxy(n);
       n.proxyPV = n.patch.version;
@@ -2398,24 +2401,17 @@ const World = {
           // so a split never opens a one-frame hole in the surface.
           if (!n.children && proxyBudget >= 4) for (const c of n.split()) ensureProxy(c);
           if (n.children) {
-            // HOLD THE COARSE LEVEL UNTIL THE FINE ONE EXISTS. Descending the
-            // moment a split is decided retires this node's big flecks while
-            // the children are still queued, which is what thins the surface
-            // during an up-rez pass. Keep drawing the parent and queue the
-            // children; hand over only once every one of them is baked.
-            let ready = true;
-            for (const c of n.children) {
-              // The child is not on the draw stack while we hold the parent, so
-              // nothing else marks it as seen — and the bake queue drops jobs
-              // for nodes it thinks the camera has left. Without this the child
-              // is discarded before it can bake, so it never becomes ready, the
-              // parent is held forever and the cut never gets past the coarsest
-              // level. Claiming it here is what lets the fine passes happen.
-              c.lastSeen = this.frame;
-              const cf = c.rep && c.repPV === p.version && c.repBV === State.bakeVersion;
-              if (!cf) { ready = false; JobQueue.add(c, c.box.distanceToPoint(cam)); }
-            }
-            if (ready) { for (const c of n.children) stack.push(c); continue; }
+            // DESCEND IMMEDIATELY. Holding the parent until every child had a
+            // refined bake sounded like "don't retire the big flecks early",
+            // but the parent's stand-in is a 3x3 proxy covering the whole node
+            // — far SPARSER than the four children's proxies that replace it.
+            // Under load hundreds of parents stayed held indefinitely, each
+            // covering a large area with a handful of flecks, which is what
+            // produced the patchy checkerboard. The coarse-until-fine promise
+            // is already kept by the proxy chain: every child draws its own
+            // proxy from the frame it appears until its refined bake lands.
+            for (const c of n.children) stack.push(c);
+            continue;
           }
         }
         // --- leaf: draw the refined bake if it is current, else the proxy ---
@@ -2527,6 +2523,20 @@ const World = {
   /** LRU sweep: matter far from the pilot is released back to pure math. */
   sweep() {
     const cutoff = this.frame - 260;
+    // Baked matter is the memory hog: every chunk holds several Float32Arrays,
+    // and at a deep cut there are thousands of them. A node the camera has not
+    // looked at for a while gives its refined bake back and keeps only the
+    // cheap proxy, so wandering a large world does not grow the heap without
+    // bound. Re-baking it later costs one job, which is what the queue is for.
+    const repCutoff = this.frame - 90;
+    for (const p of this.patches) {
+      const st = [p.root];
+      while (st.length) {
+        const n = st.pop();
+        if (n.rep && n.lastSeen < repCutoff) { n.rep = null; n.repPV = -1; }
+        if (n.children) for (const c of n.children) st.push(c);
+      }
+    }
     for (const p of this.patches) {
       const stack = [p.root];
       while (stack.length) {
