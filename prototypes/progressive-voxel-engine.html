@@ -101,7 +101,6 @@
   .keyrow b{color:var(--ink);font-weight:500}
 
   /* ---- Legend for the render-state colour code ---- */
-  #swatches{position:absolute;bottom:14px;left:294px;width:206px}
   .sw{display:flex;align-items:center;gap:9px;font-size:11px;padding:3px 0;color:var(--ink-dim)}
   .sw i{width:11px;height:11px;border-radius:3px;flex:0 0 auto;box-shadow:0 0 8px currentColor}
 
@@ -114,6 +113,15 @@
   #cross.t-carve:before,#cross.t-carve:after{background:var(--warn);box-shadow:0 0 8px var(--warn)}
   #cross.t-carve{opacity:.85}
   #cross.t-select:before,#cross.t-select:after{background:var(--good);box-shadow:0 0 8px var(--good)}
+
+  /* ---- Mouse capture indicator ---- */
+  #capture{
+    position:absolute;left:50%;bottom:112px;transform:translateX(-50%);
+    font:600 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+    color:var(--good);background:rgba(10,16,24,.7);border:1px solid rgba(94,242,168,.3);
+    padding:6px 12px;border-radius:14px;pointer-events:none;white-space:nowrap;transition:.2s;
+  }
+  #capture.free{color:var(--warn);border-color:rgba(255,176,87,.35)}
 
   /* ---- Tool bar ---- */
   #toolbar{
@@ -151,7 +159,7 @@
 
   /* ---- Toast / status line ---- */
   #toast{
-    position:absolute;left:50%;bottom:104px;transform:translateX(-50%);
+    position:absolute;left:50%;bottom:148px;transform:translateX(-50%);
     font:500 12px var(--sans);color:var(--ink);background:var(--panel);border:1px solid var(--panel-line);
     padding:8px 16px;border-radius:20px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;
     backdrop-filter:blur(12px);
@@ -221,12 +229,13 @@
       <label class="chk"><input type="checkbox" id="t-lod"><span>Colour by LOD depth</span><small>debug</small></label>
       <label class="chk"><input type="checkbox" id="t-bounds"><span>Show chunk bounds</span><small>quadtree</small></label>
       <label class="chk"><input type="checkbox" id="t-hover" checked><span>Highlight on hover</span><small>select tool</small></label>
+      <label class="chk"><input type="checkbox" id="t-anim" checked><span>Animated shapes</span><small>live re-bake</small></label>
 
       <div class="lbl">Tuning</div>
       <div class="slider"><label>LOD reach</label><input type="range" id="r-lod" min="0.4" max="3" step="0.05" value="1.15"><span class="num" id="n-lod">1.15</span></div>
       <div class="slider"><label>Flatness ε</label><input type="range" id="r-flat" min="0.0002" max="0.02" step="0.0002" value="0.0035"><span class="num" id="n-flat">.0035</span></div>
       <div class="slider"><label>Splat softness</label><input type="range" id="r-soft" min="0" max="1" step="0.01" value="0.36"><span class="num" id="n-soft">.36</span></div>
-      <div class="slider"><label>Dig radius</label><input type="range" id="r-dig" min="0.8" max="6" step="0.1" value="2.4"><span class="num" id="n-dig">2.4</span></div>
+      <div class="slider"><label>Brush radius</label><input type="range" id="r-dig" min="0.8" max="6" step="0.1" value="2.4"><span class="num" id="n-dig">2.4</span></div>
       <div class="slider"><label>Fly speed</label><input type="range" id="r-spd" min="4" max="80" step="1" value="22"><span class="num" id="n-spd">22</span></div>
 
       <div class="lbl">Authoring layer (math handles)</div>
@@ -248,7 +257,7 @@
         <button id="b-reset">Reset all shapes</button>
       </div>
       <div class="btns" style="grid-template-columns:1fr">
-        <button id="b-clear">Undo all carving</button>
+        <button id="b-clear">Undo all sculpting</button>
       </div>
     </div>
   </section>
@@ -260,29 +269,29 @@
       <div class="keyrow"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><b>fly horizontally</b></div>
       <div class="keyrow"><kbd>E</kbd><kbd>Q</kbd><b>ascend / descend</b></div>
       <div class="keyrow"><kbd>⇧</kbd><b>boost ×4</b></div>
-      <div class="keyrow"><kbd>drag</kbd><b>look around (either button)</b></div>
-      <div class="keyrow"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><b>Fly / Select / Carve tool</b></div>
-      <div class="keyrow"><kbd>click</kbd><b>Select: reveal an object's handles</b></div>
-      <div class="keyrow"><kbd>click</kbd><b>Carve: bite a sphere out of matter</b></div>
+      <div class="keyrow"><kbd>drag</kbd><b>look around — no button needed</b></div>
+      <div class="keyrow"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><b>Fly / Select / Sculpt tool</b></div>
+      <div class="keyrow"><kbd>ctrl</kbd><b>+ drag = use the active tool</b></div>
+      <div class="keyrow"><kbd>ctrl</kbd><b>+ click = select an object</b></div>
+      <div class="keyrow"><kbd>ctrl</kbd><b>+ drag = sculpt material ON</b></div>
+      <div class="keyrow"><kbd>⇧ctrl</kbd><b>+ drag = carve material AWAY</b></div>
       <div class="keyrow"><kbd>drag</kbd><b>a handle to re-author the curve</b></div>
       <div class="keyrow"><kbd>R</kbd><b>respawn at origin</b></div>
-    </div>
-  </section>
-
-  <section id="swatches" class="panel">
-    <h2><span class="dot"></span> Render State</h2>
-    <div class="body">
-      <div class="sw"><i style="background:#57d2ff;color:#57d2ff"></i>Optimized polygon (flat)</div>
-      <div class="sw"><i style="background:#c58bff;color:#c58bff"></i>Anisotropic Gaussian splat</div>
-      <div class="sw"><i style="background:#6d7a90;color:#6d7a90"></i>Voxel proxy (far / loading)</div>
+      <div class="sep"></div>
+      <div class="sw"><i style="background:#57d2ff;color:#57d2ff"></i>Optimized polygon (flat section)</div>
+      <div class="sw"><i style="background:#c58bff;color:#c58bff"></i>Anisotropic Gaussian splat (curved)</div>
+      <div class="sw"><i style="background:#6d7a90;color:#6d7a90"></i>Voxel blocks (explicit mode only)</div>
       <div class="sw"><i style="background:#ffb057;color:#ffb057"></i>Dirty region re-baking</div>
     </div>
   </section>
 
+
+  <div id="capture">mouse captured · ctrl frees it</div>
+
   <div id="toolbar" class="panel">
     <button data-tool="fly"><span class="ic">✥</span>Fly<span class="kb">1</span></button>
     <button data-tool="select" class="on"><span class="ic">◈</span>Select<span class="kb">2</span></button>
-    <button data-tool="carve"><span class="ic">◐</span>Carve<span class="kb">3</span></button>
+    <button data-tool="carve"><span class="ic">◐</span>Sculpt<span class="kb">3</span></button>
   </div>
 
   <div id="toast"></div>
@@ -423,8 +432,22 @@ class Patch {
     this.tint = o.tint.clone();
     this.maxDepth = o.maxDepth ?? 5;
     this.hero = !!o.hero;                // hero patches expose editable handles
+    // An animated patch drives its OWN control nodes every frame. Nothing about
+    // the runtime is special-cased for it: it just goes dirty continuously, so
+    // it doubles as a live stress test of the whole re-bake pipeline.
+    this.animate = o.animate || null;
+    // Which parameter boundaries are a real exposed edge of the solid. Tiles of
+    // a larger continuous field set the shared ones false so no rim wall — and
+    // no silhouette inset — is generated along a seam that is not really there.
+    this.edges = o.edges || { u0: true, u1: true, v0: true, v1: true };
 
     this.carves = [];                    // destructive CSG: spheres subtracted
+    // Additive sculpt. A bump both pushes the mid-surface out along its normal
+    // and swells the slab locally, so "adding material" genuinely adds solid
+    // rather than just denting the sheet. Centres live in BASE space (the
+    // un-warped loft) so the falloff cannot chase its own displacement.
+    this.bumps = [];
+    this.activeBumps = null;             // per-chunk prefilter, set by the baker
     this.version = 1;                    // bumped whenever the math graph moves
 
     this.root = new QuadNode(this, 0, 0, 1, 0, 1);
@@ -457,13 +480,56 @@ class Patch {
     return out;
   }
 
+  /** Smooth compact-support falloff, 1 at the centre and 0 at radius. */
+  static falloff(d2, r2) { const t = 1 - d2 / r2; return t * t; }
+
+  /** Outward displacement contributed by sculpt bumps at a BASE position. */
+  displaceAt(b) {
+    const list = this.activeBumps || this.bumps;
+    let d = 0;
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i];
+      const dx = b.x - m.x, dy = b.y - m.y, dz = b.z - m.z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < m.r2) d += m.amp * Patch.falloff(d2, m.r2);
+    }
+    return d;
+  }
+
+  /** Extra slab thickness contributed by sculpt bumps at a BASE position. */
+  swellAt(b) {
+    const list = this.activeBumps || this.bumps;
+    let t = 0;
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i];
+      const dx = b.x - m.x, dy = b.y - m.y, dz = b.z - m.z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < m.r2) t += m.swell * Patch.falloff(d2, m.r2);
+    }
+    return t;
+  }
+
+  bumpsIn(box, pad) {
+    if (!this.bumps.length) return EMPTY;
+    const out = [];
+    for (const m of this.bumps) {
+      const g = m.r + pad;
+      if (box.min.x - g < m.x && m.x < box.max.x + g &&
+          box.min.y - g < m.y && m.y < box.max.y + g &&
+          box.min.z - g < m.z && m.z < box.max.z + g) out.push(m);
+    }
+    return out;
+  }
+
   /** Final displaced surface position (no thickness applied yet). */
   evalRaw(u, v, out) {
     this.railA.eval(u, _erA); this.railB.eval(u, _erB);
     out.lerpVectors(_erA, _erB, v);
-    if (this.warp) {
-      this.baseNormal(u, v, _erN);
-      out.addScaledVector(_erN, this.warp(u, v, out));
+    const hasBumps = (this.activeBumps || this.bumps).length > 0;
+    if (this.warp || hasBumps) {
+      let d = this.warp ? this.warp(u, v, out) : 0;
+      if (hasBumps) d += this.displaceAt(out);
+      if (d !== 0) { this.baseNormal(u, v, _erN); out.addScaledVector(_erN, d); }
     }
     return out;
   }
@@ -473,8 +539,9 @@ class Patch {
    * Normals come from central differences of the *warped* surface, so splats
    * orient correctly even across a deformed handle edit.
    */
-  sample(u, v, outP, outN, outT) {
+  sample(u, v, outP, outN, outT, outBase) {
     const h = 0.0012;
+    if (outBase) this.baseAt(u, v, outBase);
     this.evalRaw(u, v, outP);
     this.evalRaw(clamp(u + h, 0, 1), v, _sA);
     this.evalRaw(clamp(u - h, 0, 1), v, _sB);
@@ -594,12 +661,14 @@ class QuadNode {
  * ---------------------------------------------------------------------------*/
 const R_LEAF = 5;                    // (R+1)² samples per baked leaf
 const MIN_LEAF = 1.5;                // finest chunk edge, in world units
-const R_PROXY = 3;                   // proxy voxel cells per axis
+const R_PROXY = 3;                   // cells per axis in the coarse stand-in bake
 const GRID_MAX = (R_LEAF + 2) * (R_LEAF + 2);
 const gP = new Float32Array(GRID_MAX * 3);
 const gN = new Float32Array(GRID_MAX * 3);
 const gT = new Float32Array(GRID_MAX * 3);
 const gS = new Uint8Array(GRID_MAX);
+const gH = new Float32Array(GRID_MAX);   // local slab thickness (sculpt swells it)
+const _bs = V();
 
 const COL_VOXEL = new THREE.Color(0x6d7a90);
 const LOD_COLORS = [0xff4d6d, 0xff9f43, 0xffd93d, 0x6bf178, 0x4dd2ff, 0x9d7bff, 0xff7bd5].map(h => new THREE.Color(h));
@@ -611,21 +680,69 @@ const Baker = {
   _grid(node, R) {
     const p = node.patch;
     // An un-bounded node cannot be carve-culled safely — fall back to the full list.
-    const cs = node.box.isEmpty() ? p.carves : p.carvesIn(node.box);
+    const empty = node.box.isEmpty();
+    const cs = empty ? p.carves : p.carvesIn(node.box);
+    // Prefilter sculpt bumps to this chunk so the inner evaluation loop stays
+    // short no matter how long a stroke the user painted.
+    p.activeBumps = empty ? null : p.bumpsIn(node.box, 2 + p.thickness);
     const du = (node.u1 - node.u0) / R, dv = (node.v1 - node.v0) / R;
     let k = 0;
     for (let j = 0; j <= R; j++) {
       const v = node.v0 + dv * j;
       for (let i = 0; i <= R; i++, k++) {
         const u = node.u0 + du * i;
-        p.sample(u, v, _tmp1, _tmp2, _tmp3);
+        p.sample(u, v, _tmp1, _tmp2, _tmp3, _bs);
         gP[k * 3] = _tmp1.x; gP[k * 3 + 1] = _tmp1.y; gP[k * 3 + 2] = _tmp1.z;
         gN[k * 3] = _tmp2.x; gN[k * 3 + 1] = _tmp2.y; gN[k * 3 + 2] = _tmp2.z;
         gT[k * 3] = _tmp3.x; gT[k * 3 + 1] = _tmp3.y; gT[k * 3 + 2] = _tmp3.z;
+        gH[k] = p.thickness + p.swellAt(_bs);
         gS[k] = p.isSolid(_tmp1, cs) ? 1 : 0;
       }
     }
     return cs;
+  },
+
+  /**
+   * Cache a node's world bounds and its extent along each parameter axis,
+   * straight off whatever grid was last sampled. The LOD test, the adaptive
+   * split and the minimum-leaf cutoff all read these, so every bake that can
+   * be the first thing a node ever does must call it.
+   */
+  _measure(node, R) {
+    const S = R + 1, N = S * S;
+    let x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
+    for (let k = 0; k < N; k++) {
+      const px = gP[k * 3], py = gP[k * 3 + 1], pz = gP[k * 3 + 2];
+      const half = gH[k] * 0.5;
+      const nx = gN[k * 3] * half, ny = gN[k * 3 + 1] * half, nz = gN[k * 3 + 2] * half;
+      if (px - Math.abs(nx) < x0) x0 = px - Math.abs(nx);
+      if (py - Math.abs(ny) < y0) y0 = py - Math.abs(ny);
+      if (pz - Math.abs(nz) < z0) z0 = pz - Math.abs(nz);
+      if (px + Math.abs(nx) > x1) x1 = px + Math.abs(nx);
+      if (py + Math.abs(ny) > y1) y1 = py + Math.abs(ny);
+      if (pz + Math.abs(nz) > z1) z1 = pz + Math.abs(nz);
+    }
+    node.box.min.set(x0, y0, z0); node.box.max.set(x1, y1, z1);
+    node.box.getCenter(node.center);
+    node.radius = Math.max(node.box.min.distanceTo(node.box.max) * 0.5, 0.15);
+    const c00 = 0, c10 = R, c01 = R * S, c11 = N - 1;
+    const d3 = (a, b) => Math.hypot(gP[a * 3] - gP[b * 3], gP[a * 3 + 1] - gP[b * 3 + 1], gP[a * 3 + 2] - gP[b * 3 + 2]);
+    node.wu = Math.max(0.5 * (d3(c10, c00) + d3(c11, c01)), 1e-3);
+    node.wv = Math.max(0.5 * (d3(c01, c00) + d3(c11, c10)), 1e-3);
+  },
+
+  /**
+   * The stand-in a node draws while its own refined bake is still queued, and
+   * the only thing distant nodes ever draw. It is a COARSE SPLAT SET, not a
+   * voxel block field: swapping between two splat sets on the same surface is
+   * nearly invisible, whereas blocks popping in and out read as flashing. The
+   * blocky representation is now reachable only by asking for it explicitly.
+   */
+  bakeProxy(node) {
+    const carves = this._grid(node, R_PROXY);
+    this._measure(node, R_PROXY);
+    if (State.mode === 'voxels') return this.bakeVoxels(node, R_PROXY, true);
+    return this.bakeSplats(node, carves, R_PROXY);
   },
 
   /* ---- colour of this chunk, honouring the LOD-debug view ---------------- */
@@ -636,11 +753,10 @@ const Baker = {
   },
 
   /* ═════ VOXEL: coarse blocks that fill the slab's AABB, per cell ═════════ */
-  bakeVoxels(node, R) {
+  bakeVoxels(node, R, gridReady) {
     const p = node.patch;
-    this._grid(node, R);
+    if (!gridReady) { this._grid(node, R); this._measure(node, R); }
     const pos = [], scl = [], col = [];
-    const half = p.thickness * 0.5;
     const tint = this._tint(p, node, 'voxel');
     const bmin = V(1e9, 1e9, 1e9), bmax = V(-1e9, -1e9, -1e9);
     const lo = V(), hi = V(), c = V(), n = V();
@@ -654,7 +770,7 @@ const Baker = {
           const k = (j + dj) * (R + 1) + (i + di);
           if (gS[k]) solid++;
           c.set(gP[k * 3], gP[k * 3 + 1], gP[k * 3 + 2]);
-          n.set(gN[k * 3], gN[k * 3 + 1], gN[k * 3 + 2]).multiplyScalar(half);
+          n.set(gN[k * 3], gN[k * 3 + 1], gN[k * 3 + 2]).multiplyScalar(gH[k] * 0.5);
           _tmp1.copy(c).add(n); lo.min(_tmp1); hi.max(_tmp1);
           _tmp1.copy(c).sub(n); lo.min(_tmp1); hi.max(_tmp1);
         }
@@ -667,18 +783,6 @@ const Baker = {
         col.push(tint.r * shade, tint.g * shade, tint.b * shade);
       }
     }
-    // The AABB is a by-product of baking — the LOD test needs it, so cache it.
-    node.box.min.copy(bmin); node.box.max.copy(bmax);
-    node.box.getCenter(node.center);
-    node.radius = Math.max(node.box.min.distanceTo(node.box.max) * 0.5, 0.15);
-
-    // World extents along each parameter axis, straight off the sampled grid.
-    // These drive adaptive subdivision and the minimum-leaf-size cutoff.
-    const S = R + 1, c00 = 0, c10 = R, c01 = R * S, c11 = S * S - 1;
-    const d3 = (a, b) => Math.hypot(gP[a * 3] - gP[b * 3], gP[a * 3 + 1] - gP[b * 3 + 1], gP[a * 3 + 2] - gP[b * 3 + 2]);
-    node.wu = Math.max(0.5 * (d3(c10, c00) + d3(c11, c01)), 1e-3);
-    node.wv = Math.max(0.5 * (d3(c01, c00) + d3(c11, c10)), 1e-3);
-
     return { kind: 'voxel', n: pos.length / 3, born: Clock.t,
              pos: new Float32Array(pos), scl: new Float32Array(scl), col: new Float32Array(col) };
   },
@@ -697,6 +801,11 @@ const Baker = {
       if (d < minDot) minDot = d;
     }
     if (minDot < 0.99985) return null;
+    // Uniform thickness too: a sculpted swell keeps the surface planar but turns
+    // the slab into a wedge, which the two-triangle path cannot represent.
+    let hmin = 1e9, hmax = -1e9;
+    for (let k = 0; k < (R + 1) * (R + 1); k++) { if (gH[k] < hmin) hmin = gH[k]; if (gH[k] > hmax) hmax = gH[k]; }
+    if (hmax - hmin > 1e-4) return null;
     // …and no interior sample may leave the plane by more than ε·diagonal
     const ox = gP[c0 * 3], oy = gP[c0 * 3 + 1], oz = gP[c0 * 3 + 2];
     const diag = Math.hypot(gP[c3 * 3] - ox, gP[c3 * 3 + 1] - oy, gP[c3 * 3 + 2] - oz) || 1;
@@ -711,7 +820,7 @@ const Baker = {
 
   /* ═════ MESH: a clean solid slab — two tris top, two bottom, rims on borders */
   bakeMesh(node, planeN) {
-    const p = node.patch, R = R_LEAF, half = p.thickness * 0.5;
+    const p = node.patch, R = R_LEAF, half = gH[0] * 0.5;
     const tint = this._tint(p, node, 'mesh');
     const pos = [], nrm = [], col = [];
     const idx = [0, R, R * (R + 1), (R + 1) * (R + 1) - 1];   // 00 10 01 11
@@ -743,22 +852,24 @@ const Baker = {
       const sn = _tmp2.crossVectors(e, n).normalize().clone();
       quad(top[i0], top[i1], bot[i0], bot[i1], sn);
     };
-    if (node.v0 <= EPS) side(0, 1);
-    if (node.v1 >= 1 - EPS) side(3, 2);
-    if (node.u0 <= EPS) side(2, 0);
-    if (node.u1 >= 1 - EPS) side(1, 3);
+    const E = p.edges;
+    if (E.v0 && node.v0 <= EPS) side(0, 1);
+    if (E.v1 && node.v1 >= 1 - EPS) side(3, 2);
+    if (E.u0 && node.u0 <= EPS) side(2, 0);
+    if (E.u1 && node.u1 >= 1 - EPS) side(1, 3);
 
     return { kind: 'mesh', n: pos.length / 3, born: Clock.t,
              pos: new Float32Array(pos), nrm: new Float32Array(nrm), col: new Float32Array(col) };
   },
 
   /* ═════ SPLAT: anisotropic gaussian flecks hugging a curved / carved slice ═ */
-  bakeSplats(node, carves) {
-    const p = node.patch, R = R_LEAF, half = p.thickness * 0.5;
+  bakeSplats(node, carves, res) {
+    const p = node.patch, R = res || R_LEAF;
     const tint = this._tint(p, node, 'splat');
     const pos = [], nrm = [], tan = [], scl = [], col = [];
     const stride = R + 1;
-    const a = V(), b = V(), c = V(), nv = V(), tv = V(), rimN = V(), vDir = V();
+    const a = V(), b = V(), c = V(), nv = V(), tv = V(), rimN = V(), vDir = V(), ins = V();
+    const E = p.edges, VIS = 0.36;   // VIS = half the fraction of its width a fleck paints
 
     const emit = (P, N, T, sx, sy, shade) => {
       pos.push(P.x, P.y, P.z); nrm.push(N.x, N.y, N.z); tan.push(T.x, T.y, T.z);
@@ -790,6 +901,12 @@ const Baker = {
         vDir.subVectors(a, b);                          // in-surface direction of +v
         if (vDir.lengthSq() > 1e-12) vDir.normalize(); else vDir.crossVectors(nv, tv).normalize();
 
+        // Is this sample on a boundary the solid actually ends at?
+        const edgeU0 = i === 0 && node.u0 <= 1e-6 && E.u0;
+        const edgeU1 = i === R && node.u1 >= 1 - 1e-6 && E.u1;
+        const edgeV0 = j === 0 && node.v0 <= 1e-6 && E.v0;
+        const edgeV1 = j === R && node.v1 >= 1 - 1e-6 && E.v1;
+
         // Least-curvature direction gets the long axis: a fleck lying on a
         // cylinder stretches along the ruling, not across it.
         //
@@ -806,16 +923,28 @@ const Baker = {
         const sx = Math.max(du * K * aniso, du * K, 0.02);
         const sy = Math.max(dv * K / aniso, dv * K, 0.02);
 
-        emit(_tmp2.copy(c).addScaledVector(nv, half), nv, tv, sx, sy, 1.0);
-        _tmp3.copy(nv).negate();
-        emit(_tmp2.copy(c).addScaledVector(nv, -half), _tmp3, tv, sx, sy, 0.52);
+        // SILHOUETTE INSET. A fleck paints 0.72 of its width, so one centred on
+        // the last sample of a real edge overhangs the true boundary by 0.36·s
+        // and the surface looks like it has a frayed lip. Sliding the centre
+        // inward by exactly that much puts the painted edge on the boundary,
+        // and the fleck still reaches 0.72·s inward — well past its neighbour.
+        ins.set(0, 0, 0);
+        if (edgeU0) ins.addScaledVector(tv, VIS * sx);
+        if (edgeU1) ins.addScaledVector(tv, -VIS * sx);
+        if (edgeV0) ins.addScaledVector(vDir, VIS * sy);
+        if (edgeV1) ins.addScaledVector(vDir, -VIS * sy);
+        _tmp2.copy(c).add(ins);
+
+        const half = gH[k] * 0.5;
+        emit(_tmp3.copy(_tmp2).addScaledVector(nv, half), nv, tv, sx, sy, 1.0);
+        rimN.copy(nv).negate();
+        emit(_tmp3.copy(_tmp2).addScaledVector(nv, -half), rimN, tv, sx, sy, 0.52);
 
         // --- rim flecks: seal the exposed thickness at holes and borders ---
         const nb1 = j * stride + Math.min(i + 1, R), nb2 = j * stride + Math.max(i - 1, 0);
         const nb3 = Math.min(j + 1, R) * stride + i, nb4 = Math.max(j - 1, 0) * stride + i;
         const open = !gS[nb1] || !gS[nb2] || !gS[nb3] || !gS[nb4];
-        const border = (i === 0 && node.u0 <= 1e-6) || (i === R && node.u1 >= 1 - 1e-6) ||
-                       (j === 0 && node.v0 <= 1e-6) || (j === R && node.v1 >= 1 - 1e-6);
+        const border = edgeU0 || edgeU1 || edgeV0 || edgeV1;
         if (open || border) {
           rimN.set(0, 0, 0);
           if (open) {
@@ -834,10 +963,10 @@ const Baker = {
             // Patch border: the wall faces OUT along whichever parameter axis
             // actually ran off the edge — u-borders use the u-tangent, v-borders
             // the v-direction. (Corners get the sum, which is what you want.)
-            if (i === 0 && node.u0 <= 1e-6) rimN.addScaledVector(tv, -1);
-            if (i === R && node.u1 >= 1 - 1e-6) rimN.addScaledVector(tv, 1);
-            if (j === 0 && node.v0 <= 1e-6) rimN.addScaledVector(vDir, -1);
-            if (j === R && node.v1 >= 1 - 1e-6) rimN.addScaledVector(vDir, 1);
+            if (edgeU0) rimN.addScaledVector(tv, -1);
+            if (edgeU1) rimN.addScaledVector(tv, 1);
+            if (edgeV0) rimN.addScaledVector(vDir, -1);
+            if (edgeV1) rimN.addScaledVector(vDir, 1);
           }
           if (rimN.lengthSq() < 1e-8) continue;
           rimN.normalize();
@@ -845,7 +974,7 @@ const Baker = {
           // normal) and its local y runs along the edge — so those two axes take
           // the thickness and the sample spacing respectively, each with the same
           // coverage headroom as the face flecks or the edge beads up into blobs.
-          emit(c, rimN, nv, p.thickness * 1.5, Math.max(du, dv) * K, 0.82);
+          emit(_tmp2, rimN, nv, gH[k] * 1.06, Math.max(du, dv) * K, 0.82);
         }
       }
     }
@@ -858,6 +987,7 @@ const Baker = {
   bakeLeaf(node) {
     if (State.mode === 'voxels') return this.bakeVoxels(node, R_LEAF);
     const carves = this._grid(node, R_LEAF);
+    this._measure(node, R_LEAF);
     // A fully-carved slice has nothing to draw at all.
     let any = 0; const N = (R_LEAF + 1) * (R_LEAF + 1);
     for (let k = 0; k < N; k++) any += gS[k];
@@ -889,9 +1019,9 @@ const LIGHT_CHUNK = `
     float key  = max(dot(n, uLightDir), 0.0);
     float fill = max(dot(n, uFillDir), 0.0);
     float sky  = 0.5 + 0.5 * n.y;
-    vec3 c = base * (0.14 + 0.80 * key);
-    c += base * uFillCol * (fill * 0.30);
-    c += uSkyCol * sky * 0.18;
+    vec3 c = base * (0.34 + 0.72 * key);
+    c += base * uFillCol * (fill * 0.26);
+    c += base * uSkyCol * sky * 0.30;
     return c;
   }`;
 
@@ -914,12 +1044,12 @@ function commonUniforms() {
     uStreamDur: { value: 0.8 },
     uLightDir:  { value: new THREE.Vector3(0.42, 0.86, 0.28).normalize() },
     uFillDir:   { value: new THREE.Vector3(-0.55, 0.22, -0.70).normalize() },
-    uFillCol:   { value: new THREE.Color(0x4a6fa8).convertSRGBToLinear() },
-    uSkyCol:    { value: new THREE.Color(0x1a2c46).convertSRGBToLinear() },
-    uStreamCol: { value: new THREE.Color(0x1d5c96).convertSRGBToLinear() },
-    uFogColor:  { value: new THREE.Color(0x07090d).convertSRGBToLinear() },
-    uFogNear:   { value: 90 },
-    uFogFar:    { value: 340 },
+    uFillCol:   { value: new THREE.Color(0x8fb0cf).convertSRGBToLinear() },
+    uSkyCol:    { value: new THREE.Color(0x8fb6d8).convertSRGBToLinear() },
+    uStreamCol: { value: new THREE.Color(0xa8c4dc).convertSRGBToLinear() },
+    uFogColor:  { value: SKY_HORIZON.clone().convertSRGBToLinear() },
+    uFogNear:   { value: 160 },
+    uFogFar:    { value: 900 },
     uCore:      { value: 0.30 }   // Gaussian level dividing opaque core from alpha fringe (see r-soft)
   };
 }
@@ -1250,6 +1380,8 @@ const State = {
   lodColor: false,
   showBounds: false,
   tool: 'select',          // fly | select | carve — set from the toolbar
+  freeMouse: false,        // ctrl toggles: captured mouselook vs free cursor
+  animate: true,           // drive self-animating shapes
   hoverHint: true,
   lodScale: 1.15,
   digRadius: 2.4,
@@ -1261,11 +1393,40 @@ const Clock = { t: 0, dt: 0 };
 
 /* ═══════════════════════════════════════════════════════════ §9 SCENE SETUP ══ */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x07090d);
+scene.background = new THREE.Color(0x9fc4e4);
 scene.fog = null;                                   // fog is done in-shader
 
+/* A gradient sky dome. Distant matter is fogged toward the horizon colour, so
+ * the two have to agree or the world ends in a visible band. */
+const SKY_ZENITH = new THREE.Color(0x2f6ea8);
+const SKY_HORIZON = new THREE.Color(0xcfe0ee);
+const skyDome = new THREE.Mesh(
+  new THREE.SphereGeometry(1700, 32, 20),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { uTop: { value: SKY_ZENITH.clone().convertSRGBToLinear() },
+                uBot: { value: SKY_HORIZON.clone().convertSRGBToLinear() },
+                uSun: { value: new THREE.Vector3(0.42, 0.86, 0.28).normalize() } },
+    vertexShader: `
+      varying vec3 vDir;
+      void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      uniform vec3 uTop, uBot, uSun;
+      varying vec3 vDir;
+      void main(){
+        vec3 d = normalize(vDir);
+        vec3 col = mix(uBot, uTop, pow(clamp(d.y * 0.5 + 0.5, 0.0, 1.0), 1.25));
+        col += vec3(0.55, 0.45, 0.30) * pow(max(dot(d, uSun), 0.0), 26.0);   // soft sun
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+      }` })
+);
+skyDome.frustumCulled = false;
+skyDome.renderOrder = -1;
+scene.add(skyDome);
+
 const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.12, 2400);
-camera.position.set(-34, 20, 56);
+camera.position.set(-34, 20, 56);   // corrected against the terrain at boot
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -1273,15 +1434,6 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
-// Ground reference grid + horizon glow
-const grid = new THREE.GridHelper(1200, 240, 0x1d3550, 0x111b28);
-grid.position.y = -12;
-grid.material.transparent = true; grid.material.opacity = 0.5;
-scene.add(grid);
-const grid2 = new THREE.GridHelper(1200, 24, 0x2a4d75, 0x1a2c42);
-grid2.position.y = -11.98;
-grid2.material.transparent = true; grid2.material.opacity = 0.55;
-scene.add(grid2);
 
 const splats = new SplatField(scene);
 const voxels = new VoxelField(scene);
@@ -1292,10 +1444,10 @@ const FIELDS = [splats, voxels, meshes];
  *  Three hand-authored lofted solids, each ~600 bytes of control points.
  * ---------------------------------------------------------------------------*/
 const TINT = {
-  bridge:  new THREE.Color(0x8fb8e8).convertSRGBToLinear(),
-  wall:    new THREE.Color(0xc58bff).convertSRGBToLinear(),
-  terrain: new THREE.Color(0x5fd8b4).convertSRGBToLinear(),
-  far:     new THREE.Color(0x7e93b8).convertSRGBToLinear()
+  bridge:  new THREE.Color(0xb9c2cc).convertSRGBToLinear(),   // pale concrete
+  wall:    new THREE.Color(0xa89ec0).convertSRGBToLinear(),   // muted lilac stone
+  terrain: new THREE.Color(0x8fa870).convertSRGBToLinear(),   // dry grass
+  far:     new THREE.Color(0x9aa7b5).convertSRGBToLinear()    // hazy distance
 };
 
 function buildHeroPatches() {
@@ -1309,7 +1461,7 @@ function buildHeroPatches() {
    *  while the crown, which is genuinely curved, falls through to splats.
    *  One object, both branches of the classifier, visible side by side.     */
   const bx = [-46, -34, -22, 0, 22, 34, 46];
-  const by = [3.2, 3.2, 3.2, 11.6, 3.2, 3.2, 3.2];
+  const by = [9.5, 9.5, 9.5, 19.5, 9.5, 9.5, 9.5];
   out.push(new Patch({
     name: 'Arched Bridge',
     // railA at +z so ∂u × ∂v points up (see the terrain note below).
@@ -1321,8 +1473,8 @@ function buildHeroPatches() {
   /* ---- ② Winding thin wall: rails share an S-plan but sit at different
    *        heights, so the loft is a vertical ribbon. A travelling ripple in
    *        the warp field keeps almost every slice non-planar.             */
-  const plan = [V(-34, -3, 34), V(-14, -3, 15), V(4, -3, 25), V(22, -3, 6), V(38, -3, 20)];
-  const tops = [7.5, 9.5, 6.5, 10.5, 7.0];
+  const plan = [V(-34, 1, 34), V(-14, 1, 15), V(4, 1, 25), V(22, 1, 6), V(38, 1, 20)];
+  const tops = [14.5, 17.5, 13.5, 18.5, 14.0];
   out.push(new Patch({
     name: 'Winding Wall',
     railA: railFrom(plan.map(p => p.clone())),
@@ -1331,34 +1483,150 @@ function buildHeroPatches() {
     warp: (u, v) => 0.85 * Math.sin(u * 15.5) * v * v + 0.3 * Math.sin(v * 7.0 + u * 9.0)
   }));
 
-  /* ---- ③ Organic terrain sheet: a flat base loft carrying a summed-sine
-   *        height field, with a smoothstep-masked plaza that is EXACTLY flat.
-   *        One patch therefore exercises both branches of the classifier.  */
+  /* ---- ④ Kinetic Ribbon: an animated shape type. Its control graph is a
+   *        function of time, so the engine re-bakes it every single frame —
+   *        proof that authoring edits and streaming refinement are the same
+   *        code path, just at different rates. Its handles are still live;
+   *        drag one and you are editing the curve the animation rides on.   */
+  const kx = [-30, -15, 0, 15, 30];
   out.push(new Patch({
-    name: 'Terrain Sheet',
-    // railA at +z, railB at −z: this winding makes ∂u × ∂v point skyward, so
-    // every derived normal (and therefore every splat) faces the right way.
-    railA: railFrom([V(-70, -8, 70), V(0, -8, 70), V(70, -8, 70)]),
-    railB: railFrom([V(-70, -8, -70), V(0, -8, -70), V(70, -8, -70)]),
-    thickness: 1.9, tint: TINT.terrain, maxDepth: 9, hero: true,
-    warp: (u, v, p) => {
-      const x = p.x, z = p.z;
-      const h = 3.1 * Math.sin(x * 0.055) * Math.cos(z * 0.048)
-              + 1.6 * Math.sin(x * 0.128 + z * 0.091)
-              + 0.8 * Math.sin(z * 0.205)
-              + 0.45 * Math.sin(x * 0.31 + 1.7);
-      // Perfectly level plaza — the polygon optimiser's showcase. Sized well
-      // above one leaf so whole chunks land inside it and bake to meshes.
-      const plaza = smoothstep(21, 36, Math.hypot(x - 22, z + 18));
-      // A straight, level causeway strip as a second flat region.
-      const road = smoothstep(7, 15, Math.abs(z + 50));
-      const m = Math.min(plaza, road);
-      return h * m + (1 - plaza) * 1.2 + (1 - road) * 0.5;
+    name: 'Kinetic Ribbon',
+    railA: railFrom(kx.map(x => V(x + 62, 24, 4))),
+    railB: railFrom(kx.map(x => V(x + 62, 24, -4))),
+    thickness: 0.55, tint: new THREE.Color(0xe8b26a).convertSRGBToLinear(),
+    maxDepth: 8, hero: true,
+    animate(t) {
+      for (const rail of [this.railA, this.railB]) {
+        rail.nodes.forEach((n, i) => {
+          // Offsets ride ON TOP of the authored node, so hand edits survive.
+          n.p.y = n.p0.y + Math.sin(t * 1.15 + i * 0.9) * 5.5;
+          n.p.z = n.p0.z + Math.cos(t * 0.83 + i * 1.3) * 3.2;
+        });
+      }
     }
   }));
 
   return out;
 }
+
+/* ══════════════════════════════════════════ §11a ENDLESS TERRAIN FIELD ══
+ *  The ground is ONE object, not a patch. It is an unbounded height field that
+ *  is *authored by handles*: every hill and hollow is an attractor with a
+ *  position, a radius and a signed amplitude. Drag an attractor up and the land
+ *  rises under it; drag it below the datum and it becomes a crater.
+ *
+ *  It is drawn as square tiles streamed around the camera. Tiles are only a
+ *  paging device — they all sample the same continuous function and declare
+ *  their shared borders closed, so no seam, rim wall or silhouette inset is
+ *  ever generated between them and the surface reads as one endless sheet.
+ * ---------------------------------------------------------------------------*/
+const TILE = 64, TERRAIN_R = 260, TERRAIN_RELEASE = 340, TERRAIN_Y = -9;
+
+const Terrain = {
+  name: 'Endless Terrain',
+  isTerrain: true,
+  hero: true,
+  edited: false,
+  attractors: [],
+  tiles: new Map(),
+  version: 1,
+
+  init() {
+    // A handful of authored landforms; everything else is procedural relief.
+    const A = (x, z, amp, r) => this.attractors.push({
+      p: V(x, TERRAIN_Y + amp, z), r,
+      p0: V(x, TERRAIN_Y + amp, z), r0: r
+    });
+    A(-46, 22, 26, 62);      // a big hill
+    A(38, -34, 18, 48);      // a ridge shoulder
+    A(6, -78, -12, 44);      // a crater
+    A(96, 46, 22, 58);
+    A(-104, -60, -9, 50);
+  },
+
+  /** amplitude is just the handle's height above the datum — no hidden state */
+  ampOf(a) { return a.p.y - TERRAIN_Y; },
+
+  /** Procedural relief so the world stays interesting past the authored bits. */
+  base(x, z) {
+    return 2.6 * Math.sin(x * 0.0135) * Math.cos(z * 0.0121)
+         + 1.5 * Math.sin(x * 0.031 + z * 0.024)
+         + 0.7 * Math.sin(z * 0.058 - x * 0.017)
+         + 0.35 * Math.sin(x * 0.11 + 1.7) * Math.cos(z * 0.09);
+  },
+
+  height(x, z) {
+    let h = this.base(x, z);
+    for (const a of this.attractors) {
+      const dx = x - a.p.x, dz = z - a.p.z;
+      const d2 = dx * dx + dz * dz, r2 = a.r * a.r;
+      if (d2 < r2) { const t = 1 - d2 / r2; h += this.ampOf(a) * t * t; }
+    }
+    return h;
+  },
+
+  byteSize() { return this.attractors.length * 4 * 4 + 24; },
+
+  /** Rebuild every tile an attractor's disc of influence touches. */
+  dirtyAround(a, extra) {
+    this.version++;
+    const R = a.r + (extra || 0);
+    for (const [, p] of this.tiles) {
+      const b = p.root.box;
+      if (a.p.x + R < b.min.x || a.p.x - R > b.max.x) continue;
+      if (a.p.z + R < b.min.z || a.p.z - R > b.max.z) continue;
+      World.markPatchDirty(p);
+    }
+  },
+  dirtyAll() { this.version++; for (const [, p] of this.tiles) World.markPatchDirty(p); },
+
+  makeTile(tx, tz) {
+    const x0 = tx * TILE, z0 = tz * TILE, x1 = x0 + TILE, z1 = z0 + TILE;
+    const p = new Patch({
+      name: `Endless Terrain [${tx},${tz}]`,
+      // Straight rails: the loft is a flat plane and ALL the shape comes from
+      // the warp, which is the handle-authored height field.
+      railA: railFrom([V(x0, TERRAIN_Y, z1), V((x0 + x1) / 2, TERRAIN_Y, z1), V(x1, TERRAIN_Y, z1)]),
+      railB: railFrom([V(x0, TERRAIN_Y, z0), V((x0 + x1) / 2, TERRAIN_Y, z0), V(x1, TERRAIN_Y, z0)]),
+      thickness: 2.4, tint: TINT.terrain, maxDepth: 9,
+      edges: { u0: false, u1: false, v0: false, v1: false },   // interior seams
+      warp: (u, v, q) => Terrain.height(q.x, q.z)
+    });
+    p.owner = Terrain;          // clicking a tile selects the whole field
+    p.tileKey = tx + ',' + tz;
+    return p;
+  },
+
+  stream() {
+    const tx0 = Math.round(camera.position.x / TILE), tz0 = Math.round(camera.position.z / TILE);
+    const span = Math.ceil(TERRAIN_R / TILE);
+    for (let dz = -span; dz <= span; dz++) for (let dx = -span; dx <= span; dx++) {
+      const tx = tx0 + dx, tz = tz0 + dz;
+      const cx = tx * TILE + TILE / 2, cz = tz * TILE + TILE / 2;
+      if (Math.hypot(cx - camera.position.x, cz - camera.position.z) > TERRAIN_R) continue;
+      const key = tx + ',' + tz;
+      if (this.tiles.has(key)) continue;
+      const p = this.makeTile(tx, tz);
+      if (this.edits.has(key)) restorePatch(p, this.edits.get(key));
+      seedRoot(p);
+      this.tiles.set(key, p);
+      World.patches.push(p);
+    }
+    for (const [key, p] of this.tiles) {
+      const [tx, tz] = key.split(',').map(Number);
+      const cx = tx * TILE + TILE / 2, cz = tz * TILE + TILE / 2;
+      if (Math.hypot(cx - camera.position.x, cz - camera.position.z) <= TERRAIN_RELEASE) continue;
+      if (p.carves.length || p.bumps.length) this.edits.set(key, snapshotPatch(p));
+      onPatchReleased(p);
+      JobQueue.purge(p);
+      this.tiles.delete(key);
+      const i = World.patches.indexOf(p);
+      if (i >= 0) World.patches.splice(i, 1);
+      World.dirtyBuffers = true;
+    }
+  },
+  edits: new Map()
+};
 
 /* ═══════════════════════════════════════ §11 INFINITE FAR-FIELD STREAMING ══
  *  Beyond the authored world, patches are *generated* per spatial hash cell
@@ -1371,7 +1639,7 @@ function generateCellPatch(cx, cz) {
   const rng = mulberry32(hash2(cx, cz));
   const ox = cx * CELL + (rng() - 0.5) * CELL * 0.5;
   const oz = cz * CELL + (rng() - 0.5) * CELL * 0.5;
-  const kind = (rng() * 3) | 0;
+  const kind = (rng() * 2) | 0;   // 0 arch ribbon, 1 winding wall (ground is Terrain's job)
   const rot = rng() * Math.PI * 2, cr = Math.cos(rot), sr = Math.sin(rot);
   const put = (x, y, z) => V(ox + x * cr - z * sr, y, oz + x * sr + z * cr);
 
@@ -1424,7 +1692,9 @@ function rng0(cx, cz) {
  * exactly as you left it, even though the patch object itself was destroyed. */
 function snapshotPatch(p) {
   const rail = r => r.nodes.map(n => [n.p.x, n.p.y, n.p.z, n.t.x, n.t.y, n.t.z]);
-  return { A: rail(p.railA), B: rail(p.railB), carves: p.carves.map(c => [c.x, c.y, c.z, c.r]) };
+  return { A: rail(p.railA), B: rail(p.railB),
+           carves: p.carves.map(c => [c.x, c.y, c.z, c.r]),
+           bumps: p.bumps.map(m => [m.x, m.y, m.z, m.r, m.amp, m.swell]) };
 }
 function restorePatch(p, snap) {
   const rail = (r, rows) => r.nodes.forEach((n, i) => {
@@ -1433,13 +1703,14 @@ function restorePatch(p, snap) {
   });
   rail(p.railA, snap.A); rail(p.railB, snap.B);
   p.carves = snap.carves.map(([x, y, z, r]) => ({ x, y, z, r, r2: r * r }));
+  p.bumps = (snap.bumps || []).map(([x, y, z, r, amp, swell]) => ({ x, y, z, r, r2: r * r, amp, swell }));
   p.edited = true;
 }
 
 /** A patch must own a root voxel proxy the instant it exists — that is what
  *  makes a newly streamed structure pop into view blocky rather than absent. */
 function seedRoot(p) {
-  p.root.proxy = Baker.bakeVoxels(p.root, R_PROXY);
+  p.root.proxy = Baker.bakeProxy(p.root);
   p.root.proxyPV = p.version;
 }
 
@@ -1457,6 +1728,8 @@ const World = {
     this.heroes = buildHeroPatches();
     this.patches = this.heroes.slice();
     for (const p of this.patches) seedRoot(p);
+    Terrain.init();
+    Terrain.stream();
     this.streamCells(true);
   },
 
@@ -1513,7 +1786,7 @@ const World = {
       if (n.proxy && n.proxyPV === n.patch.version) return true;
       if (proxyBudget <= 0) return !!n.proxy;                 // reuse stale rather than pop
       proxyBudget--;
-      n.proxy = Baker.bakeVoxels(n, R_PROXY);
+      n.proxy = Baker.bakeProxy(n);
       n.proxyPV = n.patch.version;
       this.dirtyBuffers = true;
       return true;
@@ -1616,11 +1889,15 @@ const World = {
 const COLLIDER_RES = 22;
 function collider(patch) {
   if (patch.collider && patch.colliderVersion === patch.version) return patch.collider;
-  const R = COLLIDER_RES, pos = [], idx = [];
+  const R = COLLIDER_RES, pos = [], idx = [], uvs = [];
   const P = V(), N = V();
+  patch.activeBumps = null;                       // collide against the whole shape
   for (let j = 0; j <= R; j++) for (let i = 0; i <= R; i++) {
     patch.sample(i / R, j / R, P, N, null);
     pos.push(P.x, P.y, P.z);
+    // Storing the parameters as UVs means a raycast hit hands back the (u,v)
+    // it landed on, which is what sculpting needs to place a bump in base space.
+    uvs.push(i / R, j / R);
   }
   for (let j = 0; j < R; j++) for (let i = 0; i < R; i++) {
     const a = j * (R + 1) + i, b = a + 1, c = a + R + 1, d = c + 1;
@@ -1628,6 +1905,7 @@ function collider(patch) {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.setIndex(idx);
   g.computeBoundingSphere();
   const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
@@ -1679,6 +1957,11 @@ const matNode = new THREE.MeshBasicMaterial({ color: 0x57d2ff, ...handleOpts });
 const matTan = new THREE.MeshBasicMaterial({ color: 0xffb057, ...handleOpts });
 const matLink = new THREE.LineBasicMaterial({ color: 0x6fa8cf, depthTest: false, transparent: true, opacity: 0.75 });
 const TAN_VIS = 0.3;                                   // tangent handle display scale
+const ringGeo = (() => {
+  const pts = [];
+  for (let i = 0; i <= 64; i++) { const t = i / 64 * Math.PI * 2; pts.push(V(Math.cos(t), 0, Math.sin(t))); }
+  return new THREE.BufferGeometry().setFromPoints(pts);
+})();
 
 const handles = [];
 
@@ -1709,7 +1992,7 @@ function fitBox(obj, box) {
 function selectPatch(p) {
   selected = p || null;
   buildHandles(selected);
-  selBox.visible = !!selected;
+  selBox.visible = !!selected && !selected.isTerrain;   // the field has no bounds
   updateSelUI();
   if (selected) toast(`“${selected.name}” selected — ${handles.length} handles live. Drag one to re-author it.`);
 }
@@ -1730,6 +2013,13 @@ function updateSelUI() {
   }
   box.classList.remove('empty');
   nm.textContent = selected.name;
+  if (selected.isTerrain) {
+    me.innerHTML =
+      `<b>${selected.attractors.length}</b> attractors shaping an unbounded field<br>` +
+      `<b>${selected.byteSize()} bytes</b> of maths · <b>${selected.tiles.size}</b> tiles resident<br>` +
+      `drag a marker up for a hill, below the datum for a crater;<br>the amber ring handle sets its reach`;
+    return;
+  }
   const nodes = selected.railA.nodes.length + selected.railB.nodes.length;
   me.innerHTML =
     `<b>${nodes}</b> control nodes · <b>${nodes}</b> tangent handles<br>` +
@@ -1743,6 +2033,38 @@ function buildHandles(patch) {
   handleGroup.clear();
   handles.length = 0;
   if (!patch) return;
+
+  if (patch.isTerrain) {
+    // Terrain is authored by attractors, so THOSE are its handles. Height above
+    // the datum is the amplitude — there is no separate hidden parameter.
+    for (const at of patch.attractors) {
+      const hp = new THREE.Mesh(handleGeoP, matNode);
+      hp.renderOrder = 999;
+      hp.userData = { attractor: at, kind: 'a' };
+      handleGroup.add(hp); handles.push(hp);
+
+      const hr = new THREE.Mesh(handleGeoT, matTan);
+      hr.renderOrder = 999;
+      hr.userData = { attractor: at, kind: 'r' };
+      handleGroup.add(hr); handles.push(hr);
+
+      const lg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+      const ln = new THREE.Line(lg, matLink);
+      ln.frustumCulled = false; ln.renderOrder = 998;
+      ln.userData = { attractor: at };
+      handleGroup.add(ln);
+
+      // A ring on the ground showing the attractor's disc of influence.
+      const ring = new THREE.Line(ringGeo, matLink);
+      ring.frustumCulled = false; ring.renderOrder = 998;
+      ring.userData = { attractor: at, ring: true };
+      handleGroup.add(ring);
+    }
+    syncHandles();
+    return;
+  }
+
   for (const rail of [patch.railA, patch.railB]) {
     for (const node of rail.nodes) {
       const hp = new THREE.Mesh(handleGeoP, matNode);
@@ -1767,10 +2089,34 @@ function buildHandles(patch) {
   syncHandles();
 }
 
+/** Keep handles a constant apparent size: an attractor 200 m away still has to
+ *  be visible and clickable, and a node right in front must not swallow the view. */
+function scaleHandles() {
+  for (const o of handles) {
+    const d = camera.position.distanceTo(o.position);
+    o.scale.setScalar(clamp(d * 0.017, 0.3, 9));
+  }
+}
+
 /** Handles are a *view* of the graph — they follow programmatic edits too. */
 function syncHandles() {
   for (const o of handleGroup.children) {
     const d = o.userData;
+    if (d && d.attractor) {
+      const a = d.attractor;
+      if (d.ring) {
+        o.position.set(a.p.x, TERRAIN_Y + Terrain.base(a.p.x, a.p.z) + 0.4, a.p.z);
+        o.scale.setScalar(a.r);
+      } else if (d.kind === 'a') o.position.copy(a.p);
+      else if (d.kind === 'r') o.position.set(a.p.x + a.r, a.p.y, a.p.z);
+      else {
+        const arr = o.geometry.attributes.position.array;
+        arr[0] = a.p.x; arr[1] = a.p.y; arr[2] = a.p.z;
+        arr[3] = a.p.x; arr[4] = TERRAIN_Y + Terrain.base(a.p.x, a.p.z); arr[5] = a.p.z;
+        o.geometry.attributes.position.needsUpdate = true;
+      }
+      continue;
+    }
     if (!d || !d.node) continue;
     if (o.isLine) {
       const arr = o.geometry.attributes.position.array;
@@ -1785,6 +2131,25 @@ function syncHandles() {
   }
 }
 
+/* Dragging an attractor: the position marker moves the landform (its height
+ * above the datum IS the amplitude), the ring marker sets the radius. Only the
+ * tiles the disc touches — before AND after the move — are invalidated. */
+function moveAttractor(obj, target) {
+  const d = obj.userData, a = d.attractor;
+  const reach = a.r;
+  if (d.kind === 'a') a.p.copy(target);
+  else a.r = clamp(target.distanceTo(_tmp2.set(a.p.x, target.y, a.p.z)), 6, 260);
+  Terrain.edited = true;
+  Terrain.dirtyAround(a, Math.max(reach, a.r));
+}
+
+/** Drop in above whatever the terrain happens to be doing at the spawn point. */
+function respawn() {
+  const x = -34, z = 56;
+  camera.position.set(x, TERRAIN_Y + Terrain.height(x, z) + 26, z);
+  yaw = -0.42; pitch = -0.30;
+}
+
 /* ═══════════════════════════════════════════════ §16 CAMERA + INPUT LAYER ══ */
 const keys = new Set();
 let yaw = -0.42, pitch = -0.30;
@@ -1793,11 +2158,15 @@ const fwd = V(), right = V(), up = V(0, 1, 0);
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   keys.add(e.code);
-  if (e.code === 'KeyR') { camera.position.set(-34, 20, 56); yaw = -0.42; pitch = -0.30; toast('Respawned at origin'); }
+  if (e.code === 'KeyR') { respawn(); toast('Respawned at origin'); }
   if (e.code === 'Digit1') setTool('fly');
   if (e.code === 'Digit2') setTool('select');
   if (e.code === 'Digit3') setTool('carve');
   if (e.code === 'Escape') selectPatch(null);
+  if ((e.code === 'ControlLeft' || e.code === 'ControlRight') && !e.repeat) {
+    e.preventDefault();
+    setCapture(State.freeMouse);          // toggle
+  }
 });
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
@@ -1817,93 +2186,64 @@ function updateCamera(dt) {
   if (keys.has('KeyQ')) camera.position.addScaledVector(up, -v);
 }
 
-/* ---- Pointer: drag = look, click = carve, handle-drag = re-author ------- */
+/* Filled in by the terrain field (§11a); a no-op for rail-handle patches. */
+/* ---------------------------------------------------------------------- *
+ *  POINTER MODEL
+ *
+ *  Captured (the default): the mouse IS the view. Moving it looks around with
+ *  no button held, and the crosshair at screen centre is the cursor — so
+ *  holding the left button and sweeping paints a tool stroke across whatever
+ *  you look at. Ctrl toggles the pointer free so you can reach the HUD and
+ *  grab handles precisely; dragging still applies the tool there, and the
+ *  right button still looks. Pointer lock can only be entered from a user
+ *  gesture, so the first click on the canvas is what captures it.
+ * ---------------------------------------------------------------------- */
 const ray = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
-let dragging = false, dragDist = 0, lastX = 0, lastY = 0;
+const LOOK_SENS = 0.0023;
+let dragging = false, dragBtn = 0, dragDist = 0, lastX = 0, lastY = 0;
+let strokeAt = -1e9, strokeRemove = false;
+const lastStroke = V(1e9, 1e9, 1e9);
 let grabbed = null;
 const grabPlane = new THREE.Plane();
 const grabHit = V(), grabOff = V();
+// While a handle is held under pointer lock the mouse must move the handle,
+// not the view, so we run a virtual cursor offset from the crosshair.
+const vCursor = new THREE.Vector2();
 
 const cv = renderer.domElement;
 cv.addEventListener('contextmenu', e => e.preventDefault());
 
-cv.addEventListener('pointerdown', e => {
-  cv.setPointerCapture(e.pointerId);
-  dragging = true; dragDist = 0; lastX = e.clientX; lastY = e.clientY;
-  grabbed = null;
+const isLocked = () => document.pointerLockElement === cv;
+const shiftHeld = (e) => !!(e && e.shiftKey) || keys.has('ShiftLeft') || keys.has('ShiftRight');
 
-  if (handles.length) {
-    setNDC(e);
-    ray.setFromCamera(ndc, camera);
-    const hit = ray.intersectObjects(handles, false)[0];
-    if (hit) {
-      grabbed = hit.object;
-      // Drag in the screen-parallel plane through the handle.
-      grabPlane.setFromNormalAndCoplanarPoint(fwd.clone().negate(), hit.object.position);
-      ray.ray.intersectPlane(grabPlane, grabHit);
-      grabOff.copy(hit.object.position).sub(grabHit);
-    }
-  }
+function setCapture(on) {
+  State.freeMouse = !on;
+  if (on) { if (!isLocked()) cv.requestPointerLock?.(); }
+  else if (isLocked()) document.exitPointerLock();
+  updateCaptureUI();
+}
+function updateCaptureUI() {
+  const el = $('capture');
+  const on = isLocked();
+  el.textContent = on ? 'mouse captured · ctrl frees it' : 'free cursor · ctrl captures · click to capture';
+  el.classList.toggle('free', !on);
+  $('cross').style.opacity = on ? '' : '0.25';
+}
+document.addEventListener('pointerlockerror', () => {
+  State.freeMouse = true;
+  updateCaptureUI();
+  toast('Pointer capture unavailable here — using a free cursor');
+});
+document.addEventListener('pointerlockchange', () => {
+  // Esc releases the lock behind our back; keep our own flag honest.
+  State.freeMouse = !isLocked();
+  updateCaptureUI();
 });
 
-let hoverAt = 0;
-cv.addEventListener('pointermove', e => {
-  if (!dragging) {
-    // Cheap throttled pick so the Select tool tells you what you are about to
-    // grab before you commit to it.
-    if (State.tool === 'select' && State.hoverHint && Clock.t - hoverAt > 0.09) {
-      hoverAt = Clock.t;
-      setNDC(e);
-      const h = castMatter(220);
-      const hit = h.solid || h.any;
-      hovered = hit ? hit.object.userData.patch : null;
-      hovBox.visible = !!hovered && hovered !== selected;
-    }
-    return;
-  }
-  const dx = e.clientX - lastX, dy = e.clientY - lastY;
-  lastX = e.clientX; lastY = e.clientY;
-  dragDist += Math.abs(dx) + Math.abs(dy);
-
-  if (grabbed) {
-    setNDC(e);
-    ray.setFromCamera(ndc, camera);
-    if (!ray.ray.intersectPlane(grabPlane, grabHit)) return;
-    grabHit.add(grabOff);
-    const { patch, node, kind } = grabbed.userData;
-    if (kind === 'p') node.p.copy(grabHit);
-    else node.t.copy(grabHit).sub(node.p).divideScalar(TAN_VIS);
-    patch.edited = true;
-    World.markPatchDirty(patch);
-    syncHandles();
-    return;
-  }
-  yaw -= dx * 0.0032;
-  pitch = clamp(pitch - dy * 0.0032, -1.5, 1.5);
-});
-
-cv.addEventListener('pointerup', e => {
-  dragging = false;
-  if (grabbed) {
-    const { patch } = grabbed.userData;
-    flashRegion(patch.root.box.clone());
-    updateSelUI();
-    toast(`Re-authored “${patch.name}” — re-baking asynchronously, no reload`);
-    grabbed = null;
-    return;
-  }
-  if (dragDist >= 7) return;                        // that was a look-drag
-  setNDC(e);
-  if (State.tool === 'carve') dig();
-  else if (State.tool === 'select') {
-    const h = castMatter();
-    selectPatch(h.solid ? h.solid.object.userData.patch
-              : h.any ? h.any.object.userData.patch : null);
-  }
-});
-
+/** Where the tool acts: the crosshair when captured, the cursor when free. */
 function setNDC(e) {
+  if (isLocked()) { ndc.copy(vCursor); return; }
   const r = cv.getBoundingClientRect();
   ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
   ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
@@ -1926,26 +2266,178 @@ function castMatter(maxDist = 320) {
   return { solid, any: hits[0] || null };
 }
 
-/* ---- The destructive operation ---------------------------------------- */
-function dig() {
+function tryGrabHandle(e) {
+  if (!handles.length) return false;
+  setNDC(e);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(handles, false)[0];
+  if (!hit) return false;
+  grabbed = hit.object;
+  grabPlane.setFromNormalAndCoplanarPoint(fwd.clone().negate(), hit.object.position);
+  ray.ray.intersectPlane(grabPlane, grabHit);
+  grabOff.copy(hit.object.position).sub(grabHit);
+  return true;
+}
+
+cv.addEventListener('pointerdown', e => {
+  // Pointer lock can only be entered from a gesture, so the first canvas click
+  // asks for it — but it must NOT swallow that click. If the browser refuses
+  // (sandboxed iframe, headless, permission policy) the app has to stay fully
+  // usable with a free cursor rather than silently eating every input.
+  if (!isLocked() && !State.freeMouse && e.button === 0) {
+    try { cv.requestPointerLock?.(); } catch (_) { /* fall through to free cursor */ }
+  }
+
+  try { cv.setPointerCapture(e.pointerId); } catch (_) { /* pointer already gone */ }
+  dragging = true; dragBtn = e.button; dragDist = 0;
+  lastX = e.clientX; lastY = e.clientY;
+  grabbed = null;
+  strokeAt = -1e9; lastStroke.set(1e9, 1e9, 1e9);
+  vCursor.set(0, 0);
+  // Latch add-vs-remove for the WHOLE stroke. Sampling the modifier per motion
+  // event lets a stroke flip mode halfway through if the key state flickers,
+  // which is both surprising to use and unreliable to detect.
+  strokeRemove = shiftHeld(e);
+
+  if (e.button === 0) tryGrabHandle(e);
+});
+
+let hoverAt = 0;
+cv.addEventListener('pointermove', e => {
+  const locked = isLocked();
+  const dx = locked ? e.movementX : e.clientX - lastX;
+  const dy = locked ? e.movementY : e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+
+  if (grabbed) {
+    // Handle drag: the mouse steers the handle, never the camera.
+    if (locked) {
+      const r = cv.getBoundingClientRect();
+      vCursor.x = clamp(vCursor.x + dx * 2 / r.width, -1, 1);
+      vCursor.y = clamp(vCursor.y - dy * 2 / r.height, -1, 1);
+    }
+    setNDC(e);
+    ray.setFromCamera(ndc, camera);
+    if (!ray.ray.intersectPlane(grabPlane, grabHit)) return;
+    grabHit.add(grabOff);
+    const { patch, node, kind, attractor } = grabbed.userData;
+    if (attractor) moveAttractor(grabbed, grabHit);
+    else if (kind === 'p') node.p.copy(grabHit);
+    else node.t.copy(grabHit).sub(node.p).divideScalar(TAN_VIS);
+    if (patch) { patch.edited = true; World.markPatchDirty(patch); }
+    syncHandles();
+    return;
+  }
+
+  if (dragging) dragDist += Math.abs(dx) + Math.abs(dy);
+
+  // Look: always when captured — including mid-stroke, which is exactly how you
+  // sweep the crosshair across a surface. Right-drag when the cursor is free.
+  if (locked || (dragging && dragBtn === 2)) {
+    yaw -= dx * LOOK_SENS;
+    pitch = clamp(pitch - dy * LOOK_SENS, -1.5, 1.5);
+  }
+
+  // Tool stroke: left button held, in either mode.
+  if (dragging && dragBtn === 0) { setNDC(e); applyTool(strokeRemove, true); return; }
+
+  // Idle hover preview (free cursor only — when captured the crosshair is fixed).
+  if (!dragging && !locked && State.tool !== 'fly' && State.hoverHint && Clock.t - hoverAt > 0.09) {
+    hoverAt = Clock.t;
+    setNDC(e);
+    const h = castMatter(220);
+    const hit = h.solid || h.any;
+    hovered = hit ? (hit.object.userData.patch.owner || hit.object.userData.patch) : null;
+    hovBox.visible = !!hovered && hovered !== selected;
+  }
+});
+
+cv.addEventListener('pointerup', e => {
+  const wasDragging = dragging;
+  dragging = false;
+  if (grabbed) {
+    const { patch } = grabbed.userData;
+    if (patch) { flashRegion(patch.root.box.clone()); toast(`Re-authored “${patch.name}” — re-baking asynchronously`); }
+    updateSelUI();
+    grabbed = null; vCursor.set(0, 0);
+    return;
+  }
+  if (!wasDragging || e.button !== 0) return;
+  if (dragDist < 7) { setNDC(e); applyTool(strokeRemove, false); }
+});
+
+/* ═════════════════════════════════════════════════════ TOOL APPLICATION ══
+ *  One entry point for every tool, used identically by a single Ctrl-click and
+ *  by each step of a Ctrl-drag stroke. Strokes are rate- and distance-limited
+ *  so painting a trench costs a sane number of edits instead of one per pixel.
+ * ---------------------------------------------------------------------------*/
+function applyTool(shift, isStroke) {
+  if (State.tool === 'fly') return;
+  if (State.tool === 'select') { if (!isStroke) pickSelection(); return; }
+
+  const r = State.digRadius;
+  if (isStroke) {
+    if (Clock.t - strokeAt < 0.035) return;
+    const h = castMatter(220).solid;
+    if (!h) return;
+    if (h.point.distanceToSquared(lastStroke) < (r * 0.5) ** 2) return;
+    strokeAt = Clock.t; lastStroke.copy(h.point);
+    sculpt(h, shift, r, true);
+    return;
+  }
   const h = castMatter(220).solid;
   if (!h) { toast('No matter under the cursor'); return; }
+  lastStroke.copy(h.point); strokeAt = Clock.t;
+  sculpt(h, shift, r, false);
+}
+
+function pickSelection() {
+  const h = castMatter();
+  const hit = h.solid || h.any;
+  selectPatch(hit ? (hit.object.userData.patch.owner || hit.object.userData.patch) : null);
+}
+
+/**
+ * SHIFT removes, plain adds — the tool is a sculpt brush, not a drill.
+ *
+ *  add    a bump in BASE space that pushes the mid-surface out along its normal
+ *         AND swells the slab locally, so the result is genuinely more solid.
+ *  remove a sphere subtracted from the density field, which opens real holes.
+ */
+function sculpt(h, remove, r, quiet) {
   const patch = h.object.userData.patch;
-  const r = State.digRadius;
-  patch.carves.push({ x: h.point.x, y: h.point.y, z: h.point.z, r, r2: r * r });
-  if (patch.carves.length > 600) patch.carves.shift();
-  patch.edited = true;
   const box = new THREE.Box3(
     V(h.point.x - r, h.point.y - r, h.point.z - r),
     V(h.point.x + r, h.point.y + r, h.point.z + r)
   );
+
+  if (remove) {
+    patch.carves.push({ x: h.point.x, y: h.point.y, z: h.point.z, r, r2: r * r });
+    if (patch.carves.length > 900) patch.carves.shift();
+  } else {
+    // The hit's UV is the patch parameter it landed on, so the bump can be
+    // anchored to the un-warped loft and will not drift as it displaces.
+    const uv = h.uv;
+    if (!uv) { if (!quiet) toast('Cannot sculpt that surface'); return; }
+    patch.baseAt(uv.x, uv.y, _tmp1);
+    const amp = r * 0.42;
+    patch.bumps.push({ x: _tmp1.x, y: _tmp1.y, z: _tmp1.z, r, r2: r * r, amp, swell: r * 0.5 });
+    if (patch.bumps.length > 900) patch.bumps.shift();
+    box.expandByScalar(amp + r * 0.5);
+  }
+
+  patch.edited = true;
   // ONLY the intersected sub-tree is invalidated. Everything else keeps its
   // baked matter — no scene reload, no traversal stall.
   World.markDirty(patch, box);
   patch.colliderVersion = -1;
-  flashRegion(box);
-  if (patch === selected) updateSelUI();
-  toast(`Carved ${(4 / 3 * Math.PI * r ** 3).toFixed(1)} m³ from “${patch.name}” — local re-bake queued`);
+  if (patch === selected || patch.owner === selected) updateSelUI();
+  if (!quiet) {
+    flashRegion(box);
+    const vol = (4 / 3 * Math.PI * r ** 3).toFixed(1);
+    toast(remove ? `Removed ${vol} m³ from “${patch.name}” — local re-bake queued`
+                 : `Added ${vol} m³ to “${patch.name}” — local re-bake queued`);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════ §17 HUD WIRING ══ */
@@ -1983,6 +2475,11 @@ $('t-arrive').onchange = e => {
 };
 $('t-lod').onchange = e => { State.lodColor = e.target.checked; rebakeAll('Colouring by quadtree depth'); };
 $('t-bounds').onchange = e => { State.showBounds = e.target.checked; };
+$('t-anim').onchange = e => {
+  State.animate = e.target.checked;
+  toast(e.target.checked ? 'Animated shapes driving their own control graphs'
+                         : 'Animation paused — shapes hold their current curve');
+};
 $('t-hover').onchange = e => {
   State.hoverHint = e.target.checked;
   if (!e.target.checked) { hovered = null; hovBox.visible = false; }
@@ -1990,15 +2487,15 @@ $('t-hover').onchange = e => {
 
 /* ---- Tool bar ---------------------------------------------------------- */
 const TOOL_HINT = {
-  fly:    'Fly tool — drag to look, clicks do nothing',
-  select: 'Select tool — click any structure to expose the handles that define it',
-  carve:  'Carve tool — click to bite a sphere out of matter'
+  fly:    'Fly — drag to look around',
+  select: 'Select — ctrl-click any structure to expose the handles that define it',
+  carve:  'Sculpt — ctrl-drag adds material, ctrl-shift-drag removes it'
 };
 function setTool(t) {
   State.tool = t;
   for (const b of $('toolbar').children) b.classList.toggle('on', b.dataset.tool === t);
   $('cross').className = 't-' + t;
-  cv.style.cursor = t === 'carve' ? 'crosshair' : 'default';
+  cv.style.cursor = t === 'fly' ? 'default' : 'crosshair';
   if (t !== 'select') { hovered = null; hovBox.visible = false; }
   toast(TOOL_HINT[t]);
 }
@@ -2026,10 +2523,10 @@ bindRange('r-spd', 'n-spd', v => State.flySpeed = v, v => String(v | 0));
 function fillQuickSelect() {
   const box = $('quicksel');
   box.innerHTML = '';
-  for (const p of World.heroes) {
+  for (const p of [Terrain, ...World.heroes]) {
     const b = document.createElement('button');
     b.textContent = p.name;
-    b.onclick = () => { selectPatch(p); frameOn(p); };
+    b.onclick = () => { selectPatch(p); if (!p.isTerrain) frameOn(p); };
     box.appendChild(b);
   }
 }
@@ -2046,6 +2543,13 @@ function frameOn(p) {
 $('b-deselect').onclick = () => selectPatch(null);
 $('b-resetsel').onclick = () => {
   if (!selected) { toast('Nothing selected'); return; }
+  if (selected.isTerrain) {
+    for (const a of selected.attractors) { a.p.copy(a.p0); a.r = a.r0; }
+    selected.edited = false;
+    selected.dirtyAll(); syncHandles(); updateSelUI();
+    toast('Terrain attractors restored');
+    return;
+  }
   for (const rail of [selected.railA, selected.railB])
     for (const n of rail.nodes) { n.p.copy(n.p0); n.t.copy(n.t0); }
   selected.edited = false;
@@ -2093,10 +2597,18 @@ $('b-wall').onclick = () => {
   }, 'Wall curve re-authored — only its quadtree went dirty');
 };
 $('b-terr').onclick = () => {
-  const p = World.heroes[2];
-  deform(p, (n, s, k, ni) => { n.p.y = s.p.y + (ni % 2 ? 9 : -5) * k; }, 'Terrain rails heaved — sheet re-baking progressively');
+  const snap = Terrain.attractors.map(a => a.p.y);
+  tween(0.8, k => {
+    Terrain.attractors.forEach((a, i) => { a.p.y = snap[i] + (i % 2 ? 16 : -11) * k; });
+    Terrain.edited = true;
+    Terrain.dirtyAll();
+    syncHandles();
+  });
+  toast('Terrain attractors heaved — the field re-bakes around you');
 };
 $('b-reset').onclick = () => {
+  for (const a of Terrain.attractors) { a.p.copy(a.p0); a.r = a.r0; }
+  Terrain.edited = false; Terrain.dirtyAll();
   for (const p of World.heroes) {
     for (const rail of [p.railA, p.railB]) for (const n of rail.nodes) { n.p.copy(n.p0); n.t.copy(n.t0); }
     p.edited = false;
@@ -2107,12 +2619,14 @@ $('b-reset').onclick = () => {
 };
 $('b-clear').onclick = () => {
   let n = 0;
+  Terrain.edits.clear();
   for (const p of World.patches) {
-    if (!p.carves.length) continue;
-    n += p.carves.length; p.carves.length = 0;
+    if (!p.carves.length && !p.bumps.length) continue;
+    n += p.carves.length + p.bumps.length;
+    p.carves.length = 0; p.bumps.length = 0;
     World.markPatchDirty(p);
   }
-  toast(n ? `${n} carve volumes removed — matter re-materialising` : 'Nothing carved yet');
+  toast(n ? `${n} sculpt volumes removed — matter re-materialising` : 'Nothing sculpted yet');
 };
 
 /* A HUD control must never keep keyboard focus: the pilot has to nudge a slider
@@ -2159,9 +2673,12 @@ function drawBounds() {
 
 /* ══════════════════════════════════════════════════════════ §18 MAIN LOOP ══ */
 World.init();
+respawn();
+Terrain.stream();          // re-page around the corrected spawn
 fillQuickSelect();
 updateSelUI();
 setTool(State.tool);
+updateCaptureUI();
 
 const renderList = [];
 let last = performance.now() / 1000;
@@ -2176,13 +2693,24 @@ function frame() {
 
   updateCamera(dt);
   runTweens(dt);
+  if (State.animate) {
+    for (const p of World.patches) {
+      if (!p.animate) continue;
+      p.animate(now);
+      World.markPatchDirty(p);
+    }
+    if (selected && selected.animate) syncHandles();
+  }
   updateDirtyCues(dt);
-  if (selected) fitBox(selBox, selected.root.box);
-  if (hovBox.visible && hovered) fitBox(hovBox, hovered.root.box);
+  // The terrain field is unbounded, so it has no root node and no outline.
+  if (handles.length) scaleHandles();
+  if (selected && selected.root) fitBox(selBox, selected.root.box);
+  if (hovBox.visible && hovered && hovered.root) fitBox(hovBox, hovered.root.box);
+  else if (hovBox.visible && hovered && !hovered.root) hovBox.visible = false;
 
   // ① streaming: resident patch set follows the camera (4 Hz is plenty)
   streamTimer += dt;
-  if (streamTimer > 0.25) { streamTimer = 0; World.streamCells(); }
+  if (streamTimer > 0.25) { streamTimer = 0; Terrain.stream(); World.streamCells(); }
 
   // ② Euclidean LOD traversal → render list
   renderList.length = 0;
@@ -2200,8 +2728,7 @@ function frame() {
 
   for (const f of FIELDS) f.mat.uniforms.uTime.value = now;
   drawBounds();
-  grid.position.x = grid2.position.x = Math.round(camera.position.x / 5) * 5;
-  grid.position.z = grid2.position.z = Math.round(camera.position.z / 5) * 5;
+  skyDome.position.copy(camera.position);
 
   renderer.render(scene, camera);
 
@@ -2234,7 +2761,7 @@ function frame() {
 /* Console handle: `__ENGINE.World`, `.Baker`, `.State`, `.camera` — handy for
  * poking at the graph or the classifier from devtools. */
 window.__ENGINE = {
-  World, Baker, State, JobQueue, camera, THREE,
+  World, Baker, State, JobQueue, camera, THREE, Terrain,
   setLook: (y, p) => { yaw = y; pitch = p; },
   get look() { return { yaw, pitch }; }
 };
