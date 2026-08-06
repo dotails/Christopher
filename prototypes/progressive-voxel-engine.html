@@ -77,7 +77,22 @@
   .slider input[type=range]{flex:1 1 0;min-width:0;appearance:none;height:3px;border-radius:2px;background:rgba(255,255,255,.12);outline:0;cursor:pointer}
   .slider input[type=range]::-webkit-slider-thumb{appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(87,210,255,.7);cursor:pointer}
   .slider input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:var(--accent)}
-  .slider .num{font-family:var(--mono);font-size:10.5px;color:var(--ink);flex:0 0 44px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .slider .num{
+    font-family:var(--mono);font-size:10.5px;color:var(--ink);flex:0 0 52px;text-align:right;
+    font-variant-numeric:tabular-nums;background:rgba(255,255,255,.05);border:1px solid var(--panel-line);
+    border-radius:5px;padding:3px 5px;outline:0;-moz-appearance:textfield;
+  }
+  .slider .num::-webkit-outer-spin-button,.slider .num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .slider .num:focus{border-color:rgba(87,210,255,.55);background:rgba(87,210,255,.09)}
+
+  /* ---- Multi-thumb LOD band control ---- */
+  .bands{position:relative;height:34px;margin:2px 0 8px;cursor:pointer}
+  .bands .track{position:absolute;left:0;right:0;top:15px;height:4px;border-radius:2px;
+    background:linear-gradient(90deg,rgba(87,210,255,.35),rgba(157,123,255,.35))}
+  .bands .th{position:absolute;top:8px;width:9px;height:18px;margin-left:-4.5px;border-radius:3px;
+    background:linear-gradient(180deg,#eaf7ff,#8fd6f5);box-shadow:0 0 7px rgba(87,210,255,.75);cursor:ew-resize}
+  .bands .th.on{background:linear-gradient(180deg,#fff,#ffd79a);box-shadow:0 0 10px rgba(255,176,87,.9)}
+  .bands .lab{position:absolute;top:0;font:600 8px var(--mono);color:var(--ink-dim);transform:translateX(-50%)}
   .btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px}
   .btns button{
     border:1px solid var(--panel-line);background:rgba(255,255,255,.04);color:var(--ink);
@@ -114,6 +129,10 @@
   #cross.t-carve{opacity:.85}
   #cross.t-select:before,#cross.t-select:after{background:var(--good);box-shadow:0 0 8px var(--good)}
 
+  /* ---- Box-select marquee ---- */
+  #marquee{position:absolute;border:1px solid rgba(94,242,168,.9);background:rgba(94,242,168,.13);
+    border-radius:2px;display:none;pointer-events:none}
+
   /* ---- Mouse capture indicator ---- */
   #capture{
     position:absolute;left:50%;bottom:112px;transform:translateX(-50%);
@@ -140,6 +159,7 @@
     border-color:rgba(87,210,255,.42);box-shadow:0 0 18px rgba(87,210,255,.22)}
   #toolbar button.on[data-tool="carve"]{color:#fff0dd;background:linear-gradient(180deg,rgba(255,176,87,.30),rgba(255,176,87,.12));
     border-color:rgba(255,176,87,.45);box-shadow:0 0 18px rgba(255,176,87,.22)}
+  #toolbar button.on[data-tool="create"]{color:#f3e6ff;background:linear-gradient(180deg,rgba(157,123,255,.30),rgba(157,123,255,.12));border-color:rgba(157,123,255,.45);box-shadow:0 0 18px rgba(157,123,255,.22)}
   #toolbar button.on[data-tool="select"]{color:#e6fff4;background:linear-gradient(180deg,rgba(94,242,168,.28),rgba(94,242,168,.11));
     border-color:rgba(94,242,168,.42);box-shadow:0 0 18px rgba(94,242,168,.2)}
 
@@ -232,11 +252,14 @@
       <label class="chk"><input type="checkbox" id="t-anim" checked><span>Animated shapes</span><small>live re-bake</small></label>
 
       <div class="lbl">Tuning</div>
-      <div class="slider"><label>LOD reach</label><input type="range" id="r-lod" min="0.4" max="3" step="0.05" value="1.15"><span class="num" id="n-lod">1.15</span></div>
-      <div class="slider"><label>Flatness ε</label><input type="range" id="r-flat" min="0.0002" max="0.02" step="0.0002" value="0.0035"><span class="num" id="n-flat">.0035</span></div>
-      <div class="slider"><label>Splat softness</label><input type="range" id="r-soft" min="0" max="1" step="0.01" value="0.36"><span class="num" id="n-soft">.36</span></div>
-      <div class="slider"><label>Brush radius</label><input type="range" id="r-dig" min="0.8" max="6" step="0.1" value="2.4"><span class="num" id="n-dig">2.4</span></div>
-      <div class="slider"><label>Fly speed</label><input type="range" id="r-spd" min="4" max="80" step="1" value="22"><span class="num" id="n-spd">22</span></div>
+      <div class="slider"><label>Draw distance</label><input type="range" id="r-far" min="200" max="4000" step="20" value="900"><input class="num" type="number" id="n-far" value="900"></div>
+      <div class="slider"><label>LOD reach</label><input type="range" id="r-lod" min="0.4" max="3" step="0.05" value="1.15"><input class="num" type="number" id="n-lod" value="1.15"></div>
+      <div class="lbl" style="margin-top:9px">LOD band per level <span style="text-transform:none;letter-spacing:0">(0 = coarsest)</span></div>
+      <div class="bands" id="bands"><div class="track"></div></div>
+      <div class="slider"><label>Flatness ε</label><input type="range" id="r-flat" min="0.0002" max="0.02" step="0.0002" value="0.0035"><input class="num" type="number" id="n-flat" value=".0035"></div>
+      <div class="slider"><label>Splat softness</label><input type="range" id="r-soft" min="0" max="1" step="0.01" value="0.36"><input class="num" type="number" id="n-soft" value=".36"></div>
+      <div class="slider"><label>Brush radius</label><input type="range" id="r-dig" min="0.8" max="6" step="0.1" value="2.4"><input class="num" type="number" id="n-dig" value="2.4"></div>
+      <div class="slider"><label>Fly speed</label><input type="range" id="r-spd" min="4" max="80" step="1" value="22"><input class="num" type="number" id="n-spd" value="22"></div>
 
       <div class="lbl">Authoring layer (math handles)</div>
       <div class="selbox empty" id="selbox">
@@ -271,10 +294,10 @@
       <div class="keyrow"><kbd>⇧</kbd><b>boost ×4</b></div>
       <div class="keyrow"><kbd>drag</kbd><b>look around — no button needed</b></div>
       <div class="keyrow"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><b>Fly / Select / Sculpt tool</b></div>
-      <div class="keyrow"><kbd>ctrl</kbd><b>+ drag = use the active tool</b></div>
-      <div class="keyrow"><kbd>ctrl</kbd><b>+ click = select an object</b></div>
-      <div class="keyrow"><kbd>ctrl</kbd><b>+ drag = sculpt material ON</b></div>
-      <div class="keyrow"><kbd>⇧ctrl</kbd><b>+ drag = carve material AWAY</b></div>
+      <div class="keyrow"><kbd>tab</kbd><b>toggle captured / free mouse</b></div>
+      <div class="keyrow"><kbd>drag</kbd><b>use the active tool</b></div>
+      <div class="keyrow"><kbd>⇧</kbd><b>+ drag = carve material AWAY</b></div>
+      <div class="keyrow"><kbd>⇧</kbd><b>+ drag = box-select (Select tool)</b></div>
       <div class="keyrow"><kbd>drag</kbd><b>a handle to re-author the curve</b></div>
       <div class="keyrow"><kbd>R</kbd><b>respawn at origin</b></div>
       <div class="sep"></div>
@@ -286,12 +309,15 @@
   </section>
 
 
+  <div id="marquee"></div>
+
   <div id="capture">mouse captured · ctrl frees it</div>
 
   <div id="toolbar" class="panel">
     <button data-tool="fly"><span class="ic">✥</span>Fly<span class="kb">1</span></button>
     <button data-tool="select" class="on"><span class="ic">◈</span>Select<span class="kb">2</span></button>
     <button data-tool="carve"><span class="ic">◐</span>Sculpt<span class="kb">3</span></button>
+    <button data-tool="create"><span class="ic">✚</span><span id="createlabel">Create</span><span class="kb">4</span></button>
   </div>
 
   <div id="toast"></div>
@@ -441,13 +467,25 @@ class Patch {
     // no silhouette inset — is generated along a seam that is not really there.
     this.edges = o.edges || { u0: true, u1: true, v0: true, v1: true };
 
-    this.carves = [];                    // destructive CSG: spheres subtracted
-    // Additive sculpt. A bump both pushes the mid-surface out along its normal
-    // and swells the slab locally, so "adding material" genuinely adds solid
-    // rather than just denting the sheet. Centres live in BASE space (the
-    // un-warped loft) so the falloff cannot chase its own displacement.
-    this.bumps = [];
-    this.activeBumps = null;             // per-chunk prefilter, set by the baker
+    /* ------------------------------------------------------------------ *
+     *  SCULPT EDITS LIVE IN PARAMETER SPACE, NOT WORLD SPACE.
+     *
+     *  A hole recorded as a world-space sphere is stamped into the air: move a
+     *  control handle and the surface slides out from under it. Recording the
+     *  edit as (u, v) with radii in parameter units instead makes it intrinsic
+     *  to the object — re-author the curve and the hole travels, rotates and
+     *  STRETCHES with the surface, because (u, v) is what the surface is made
+     *  of. It also means a region that subdivides into more flecks under
+     *  stretching automatically hands every new fleck the same edit values, so
+     *  a hole grows with the material rather than staying a fixed-size dot.
+     *
+     *    remove : clears the density field  -> real holes
+     *    add    : displaces the mid-surface along its normal AND swells the
+     *             slab locally -> genuinely more solid, not a dent
+     *    force  : an add/remove edit that also carries a draggable handle
+     * ------------------------------------------------------------------ */
+    this.edits = [];
+    this.activeEdits = null;             // per-chunk prefilter, set by the baker
     this.version = 1;                    // bumped whenever the math graph moves
 
     this.root = new QuadNode(this, 0, 0, 1, 0, 1);
@@ -480,44 +518,71 @@ class Patch {
     return out;
   }
 
-  /** Smooth compact-support falloff, 1 at the centre and 0 at radius. */
-  static falloff(d2, r2) { const t = 1 - d2 / r2; return t * t; }
+  /** Normalised squared distance of (u,v) from an edit's elliptical support. */
+  static editD2(e, u, v) {
+    const du = (u - e.u) / e.ru, dv = (v - e.v) / e.rv;
+    return du * du + dv * dv;
+  }
 
-  /** Outward displacement contributed by sculpt bumps at a BASE position. */
-  displaceAt(b) {
-    const list = this.activeBumps || this.bumps;
+  /** Outward displacement from additive edits at parameter (u, v). */
+  displaceUV(u, v) {
+    const list = this.activeEdits || this.edits;
     let d = 0;
     for (let i = 0; i < list.length; i++) {
-      const m = list[i];
-      const dx = b.x - m.x, dy = b.y - m.y, dz = b.z - m.z;
-      const d2 = dx * dx + dy * dy + dz * dz;
-      if (d2 < m.r2) d += m.amp * Patch.falloff(d2, m.r2);
+      const e = list[i];
+      if (e.remove) continue;
+      const d2 = Patch.editD2(e, u, v);
+      if (d2 < 1) { const t = 1 - d2; d += e.amp * t * t; }
     }
     return d;
   }
 
-  /** Extra slab thickness contributed by sculpt bumps at a BASE position. */
-  swellAt(b) {
-    const list = this.activeBumps || this.bumps;
+  /** Extra slab thickness from additive edits at parameter (u, v). */
+  swellUV(u, v) {
+    const list = this.activeEdits || this.edits;
     let t = 0;
     for (let i = 0; i < list.length; i++) {
-      const m = list[i];
-      const dx = b.x - m.x, dy = b.y - m.y, dz = b.z - m.z;
-      const d2 = dx * dx + dy * dy + dz * dz;
-      if (d2 < m.r2) t += m.swell * Patch.falloff(d2, m.r2);
+      const e = list[i];
+      if (e.remove) continue;
+      const d2 = Patch.editD2(e, u, v);
+      if (d2 < 1) { const k = 1 - d2; t += e.swell * k * k; }
     }
     return t;
   }
 
-  bumpsIn(box, pad) {
-    if (!this.bumps.length) return EMPTY;
-    const out = [];
-    for (const m of this.bumps) {
-      const g = m.r + pad;
-      if (box.min.x - g < m.x && m.x < box.max.x + g &&
-          box.min.y - g < m.y && m.y < box.max.y + g &&
-          box.min.z - g < m.z && m.z < box.max.z + g) out.push(m);
+  /** Is parameter (u, v) still matter, or has it been carved away? */
+  solidUV(u, v) {
+    const list = this.activeEdits || this.edits;
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      if (e.remove && Patch.editD2(e, u, v) < 1) return false;
     }
+    return true;
+  }
+
+  /** Edits overlapping a chunk's parameter rectangle — a trivial box test now. */
+  editsIn(u0, u1, v0, v1) {
+    if (!this.edits.length) return EMPTY;
+    const out = [];
+    for (const e of this.edits) {
+      if (e.u + e.ru < u0 || e.u - e.ru > u1) continue;
+      if (e.v + e.rv < v0 || e.v - e.rv > v1) continue;
+      out.push(e);
+    }
+    return out;
+  }
+
+  /** Convert a world-space brush radius into parameter radii at (u, v). */
+  paramRadii(u, v, r, out) {
+    const h = 0.002;
+    this.evalRaw(clamp(u + h, 0, 1), v, _pr1);
+    this.evalRaw(clamp(u - h, 0, 1), v, _pr2);
+    const su = _pr1.distanceTo(_pr2) / (2 * h);      // world units per unit u
+    this.evalRaw(u, clamp(v + h, 0, 1), _pr1);
+    this.evalRaw(u, clamp(v - h, 0, 1), _pr2);
+    const sv = _pr1.distanceTo(_pr2) / (2 * h);
+    out.ru = clamp(r / Math.max(su, 1e-4), 0.002, 1.5);
+    out.rv = clamp(r / Math.max(sv, 1e-4), 0.002, 1.5);
     return out;
   }
 
@@ -525,10 +590,10 @@ class Patch {
   evalRaw(u, v, out) {
     this.railA.eval(u, _erA); this.railB.eval(u, _erB);
     out.lerpVectors(_erA, _erB, v);
-    const hasBumps = (this.activeBumps || this.bumps).length > 0;
-    if (this.warp || hasBumps) {
+    const hasEdits = (this.activeEdits || this.edits).length > 0;
+    if (this.warp || hasEdits) {
       let d = this.warp ? this.warp(u, v, out) : 0;
-      if (hasBumps) d += this.displaceAt(out);
+      if (hasEdits) d += this.displaceUV(u, v);
       if (d !== 0) { this.baseNormal(u, v, _erN); out.addScaledVector(_erN, d); }
     }
     return out;
@@ -555,28 +620,6 @@ class Patch {
     return outP;
   }
 
-  /** Destructive query: is world point `p` still matter? */
-  isSolid(p, list) {
-    const cs = list || this.carves;
-    for (let i = 0; i < cs.length; i++) {
-      const c = cs[i];
-      const dx = p.x - c.x, dy = p.y - c.y, dz = p.z - c.z;
-      if (dx * dx + dy * dy + dz * dz < c.r2) return false;
-    }
-    return true;
-  }
-
-  /** Carves overlapping a chunk box — pre-filtered so isSolid stays O(1)-ish. */
-  carvesIn(box) {
-    if (!this.carves.length) return EMPTY;
-    const out = [];
-    for (const c of this.carves) {
-      if (box.min.x - c.r < c.x && c.x < box.max.x + c.r &&
-          box.min.y - c.r < c.y && c.y < box.max.y + c.r &&
-          box.min.z - c.r < c.z && c.z < box.max.z + c.r) out.push(c);
-    }
-    return out;
-  }
 }
 const EMPTY = [];
 
@@ -669,6 +712,7 @@ const gT = new Float32Array(GRID_MAX * 3);
 const gS = new Uint8Array(GRID_MAX);
 const gH = new Float32Array(GRID_MAX);   // local slab thickness (sculpt swells it)
 const _bs = V();
+const _pr1 = V(), _pr2 = V();
 
 const COL_VOXEL = new THREE.Color(0x6d7a90);
 const LOD_COLORS = [0xff4d6d, 0xff9f43, 0xffd93d, 0x6bf178, 0x4dd2ff, 0x9d7bff, 0xff7bd5].map(h => new THREE.Color(h));
@@ -680,23 +724,22 @@ const Baker = {
   _grid(node, R) {
     const p = node.patch;
     // An un-bounded node cannot be carve-culled safely — fall back to the full list.
-    const empty = node.box.isEmpty();
-    const cs = empty ? p.carves : p.carvesIn(node.box);
-    // Prefilter sculpt bumps to this chunk so the inner evaluation loop stays
-    // short no matter how long a stroke the user painted.
-    p.activeBumps = empty ? null : p.bumpsIn(node.box, 2 + p.thickness);
+    // Prefiltering is now a plain rectangle test in (u,v) — no world bounds
+    // needed, so it is correct even before a node has ever been measured.
+    const cs = p.editsIn(node.u0, node.u1, node.v0, node.v1);
+    p.activeEdits = cs;
     const du = (node.u1 - node.u0) / R, dv = (node.v1 - node.v0) / R;
     let k = 0;
     for (let j = 0; j <= R; j++) {
       const v = node.v0 + dv * j;
       for (let i = 0; i <= R; i++, k++) {
         const u = node.u0 + du * i;
-        p.sample(u, v, _tmp1, _tmp2, _tmp3, _bs);
+        p.sample(u, v, _tmp1, _tmp2, _tmp3);
         gP[k * 3] = _tmp1.x; gP[k * 3 + 1] = _tmp1.y; gP[k * 3 + 2] = _tmp1.z;
         gN[k * 3] = _tmp2.x; gN[k * 3 + 1] = _tmp2.y; gN[k * 3 + 2] = _tmp2.z;
         gT[k * 3] = _tmp3.x; gT[k * 3 + 1] = _tmp3.y; gT[k * 3 + 2] = _tmp3.z;
-        gH[k] = p.thickness + p.swellAt(_bs);
-        gS[k] = p.isSolid(_tmp1, cs) ? 1 : 0;
+        gH[k] = p.thickness + p.swellUV(u, v);
+        gS[k] = p.solidUV(u, v) ? 1 : 0;
       }
     }
     return cs;
@@ -741,8 +784,11 @@ const Baker = {
   bakeProxy(node) {
     const carves = this._grid(node, R_PROXY);
     this._measure(node, R_PROXY);
-    if (State.mode === 'voxels') return this.bakeVoxels(node, R_PROXY, true);
-    return this.bakeSplats(node, carves, R_PROXY);
+    const rep = State.mode === 'voxels'
+      ? this.bakeVoxels(node, R_PROXY, true)
+      : this.bakeSplats(node, carves, R_PROXY);
+    node.patch.activeEdits = null;
+    return rep;
   },
 
   /* ---- colour of this chunk, honouring the LOD-debug view ---------------- */
@@ -783,7 +829,7 @@ const Baker = {
         col.push(tint.r * shade, tint.g * shade, tint.b * shade);
       }
     }
-    return { kind: 'voxel', n: pos.length / 3, born: Clock.t,
+    return { key: node.uid, kind: 'voxel', n: pos.length / 3, born: Clock.t,
              pos: new Float32Array(pos), scl: new Float32Array(scl), col: new Float32Array(col) };
   },
 
@@ -858,7 +904,7 @@ const Baker = {
     if (E.u0 && node.u0 <= EPS) side(2, 0);
     if (E.u1 && node.u1 >= 1 - EPS) side(1, 3);
 
-    return { kind: 'mesh', n: pos.length / 3, born: Clock.t,
+    return { key: node.uid, kind: 'mesh', n: pos.length / 3, born: Clock.t,
              pos: new Float32Array(pos), nrm: new Float32Array(nrm), col: new Float32Array(col) };
   },
 
@@ -907,6 +953,14 @@ const Baker = {
         const edgeV0 = j === 0 && node.v0 <= 1e-6 && E.v0;
         const edgeV1 = j === R && node.v1 >= 1 - 1e-6 && E.v1;
 
+        // A chunk samples [u0,u1] INCLUSIVE, so its last column is its
+        // neighbour's first: emitting both stacks two flecks on every internal
+        // seam, and those doubled pairs are the ribbing along the edges. Each
+        // chunk therefore owns a half-open rectangle and emits its far column
+        // only where the shape genuinely ends (which the neighbour cannot cover).
+        if (i === R && !edgeU1) continue;
+        if (j === R && !edgeV1) continue;
+
         // Least-curvature direction gets the long axis: a fleck lying on a
         // cylinder stretches along the ruling, not across it.
         //
@@ -920,8 +974,13 @@ const Baker = {
         //   *lengthen* an axis, never shorten one past this floor.
         const K = 2.0;
         const aniso = clamp(Math.sqrt((kV + 1e-4) / (kU + 1e-4)), 0.62, 1.75);
-        const sx = Math.max(du * K * aniso, du * K, 0.02);
-        const sy = Math.max(dv * K / aniso, dv * K, 0.02);
+        let sx = Math.max(du * K * aniso, du * K, 0.02);
+        let sy = Math.max(dv * K / aniso, dv * K, 0.02);
+        // Never let a fleck become a needle. Coverage sets the floors above;
+        // this caps the ratio so a chunk with a lopsided parameterisation
+        // produces stretched ovals rather than spikes.
+        const ratio = 4.0;
+        if (sx > sy * ratio) sx = sy * ratio; else if (sy > sx * ratio) sy = sx * ratio;
 
         // SILHOUETTE INSET. A fleck paints 0.72 of its width, so one centred on
         // the last sample of a real edge overhangs the true boundary by 0.36·s
@@ -945,19 +1004,24 @@ const Baker = {
         const nb3 = Math.min(j + 1, R) * stride + i, nb4 = Math.max(j - 1, 0) * stride + i;
         const open = !gS[nb1] || !gS[nb2] || !gS[nb3] || !gS[nb4];
         const border = edgeU0 || edgeU1 || edgeV0 || edgeV1;
-        if (open || border) {
+        // At coarse LOD the slab wall is far thinner than the sampling, so a rim
+        // fleck degenerates into a long hair-thin sliver — the stray spikes seen
+        // on distant objects. It contributes nothing at that range; skip it.
+        const wallWorthIt = gH[k] > Math.max(du, dv) * 0.35;
+        if ((open || border) && wallWorthIt) {
           rimN.set(0, 0, 0);
           if (open) {
-            // face the nearest carve sphere's centre, projected into the surface
+            // Face the nearest carve, using its PARAMETER offset mapped onto the
+            // surface tangents — the hole wall then stays put as the shape moves.
             let best = null, bd = 1e9;
+            const su = node.u0 + (node.u1 - node.u0) * (i / R);
+            const sv = node.v0 + (node.v1 - node.v0) * (j / R);
             for (const cc of carves) {
-              const d = (c.x - cc.x) ** 2 + (c.y - cc.y) ** 2 + (c.z - cc.z) ** 2;
+              if (!cc.remove) continue;
+              const d = Patch.editD2(cc, su, sv);
               if (d < bd) { bd = d; best = cc; }
             }
-            if (best) {
-              rimN.set(best.x - c.x, best.y - c.y, best.z - c.z);
-              rimN.addScaledVector(nv, -rimN.dot(nv));
-            }
+            if (best) rimN.copy(tv).multiplyScalar(best.u - su).addScaledVector(vDir, best.v - sv);
           }
           if (rimN.lengthSq() < 1e-8) {
             // Patch border: the wall faces OUT along whichever parameter axis
@@ -974,24 +1038,37 @@ const Baker = {
           // normal) and its local y runs along the edge — so those two axes take
           // the thickness and the sample spacing respectively, each with the same
           // coverage headroom as the face flecks or the edge beads up into blobs.
-          emit(_tmp2, rimN, nv, gH[k] * 1.06, Math.max(du, dv) * K, 0.82);
+          // The wall belongs AT the boundary; only the faces are inset. Its
+          // length runs along the edge, so it takes that axis's spacing —
+          // max(du,dv) made it overshoot into a spike on long thin chunks.
+          const along = (edgeU0 || edgeU1) ? dv : du;
+          emit(c, rimN, nv, gH[k] * 1.02, along * K, 0.82);
         }
       }
     }
-    return { kind: 'splat', n: pos.length / 3, born: Clock.t,
+    return { key: node.uid, kind: 'splat', n: pos.length / 3, born: Clock.t,
              pos: new Float32Array(pos), nrm: new Float32Array(nrm), tan: new Float32Array(tan),
              scl: new Float32Array(scl), col: new Float32Array(col) };
   },
 
   /* ═════ Entry point: classify, then bake the matching representation ════ */
   bakeLeaf(node) {
+    const rep = this._bakeLeaf(node);
+    // The per-chunk prefilter is scratch state. Leaving it on the patch would
+    // make any later query — the raycast solidity test above all — see only the
+    // handful of edits that happened to touch the last chunk baked.
+    node.patch.activeEdits = null;
+    return rep;
+  },
+
+  _bakeLeaf(node) {
     if (State.mode === 'voxels') return this.bakeVoxels(node, R_LEAF);
     const carves = this._grid(node, R_LEAF);
     this._measure(node, R_LEAF);
     // A fully-carved slice has nothing to draw at all.
     let any = 0; const N = (R_LEAF + 1) * (R_LEAF + 1);
     for (let k = 0; k < N; k++) any += gS[k];
-    if (!any) return { kind: 'empty', n: 0, born: Clock.t };
+    if (!any) return { key: node.uid, kind: 'empty', n: 0, born: Clock.t };
     if (State.mode === 'auto' && State.polyOptim && any === N && carves.length === 0) {
       const pn = this._isPlanar(R_LEAF);
       if (pn) return this.bakeMesh(node, pn);
@@ -1156,7 +1233,10 @@ class SplatField {
       side: THREE.DoubleSide,
       vertexShader: vert, fragmentShader: frag(true),
       transparent: true, depthWrite: false, depthTest: true,
-      blending: THREE.NormalBlending
+      blending: THREE.NormalBlending,
+      // Bias the fringe away from the viewer so a neighbouring core always wins
+      // the depth test outright instead of z-fighting with it.
+      polygonOffset: true, polygonOffsetFactor: 1.0, polygonOffsetUnits: 2.0
     });
 
     this.mesh = new THREE.Mesh(g, this.mat);
@@ -1379,9 +1459,12 @@ const State = {
   netLatency: false,
   lodColor: false,
   showBounds: false,
-  tool: 'select',          // fly | select | carve — set from the toolbar
+  tool: 'select',          // fly | select | carve | create — set from the toolbar
+  subTool: 0,              // index into SUBTOOLS, cycled with the wheel
   freeMouse: false,        // ctrl toggles: captured mouselook vs free cursor
   animate: true,           // drive self-animating shapes
+  drawDistance: 900,       // fog far plane; also scales what is kept resident
+  lodK: [2.35, 2.35, 2.35, 2.35, 2.35, 2.35, 2.35, 2.35, 2.35, 2.35],
   hoverHint: true,
   lodScale: 1.15,
   digRadius: 2.4,
@@ -1494,7 +1577,7 @@ function buildHeroPatches() {
     railA: railFrom(kx.map(x => V(x + 62, 24, 4))),
     railB: railFrom(kx.map(x => V(x + 62, 24, -4))),
     thickness: 0.55, tint: new THREE.Color(0xe8b26a).convertSRGBToLinear(),
-    maxDepth: 8, hero: true,
+    maxDepth: 6, hero: true,
     animate(t) {
       for (const rail of [this.railA, this.railB]) {
         rail.nodes.forEach((n, i) => {
@@ -1520,7 +1603,9 @@ function buildHeroPatches() {
  *  their shared borders closed, so no seam, rim wall or silhouette inset is
  *  ever generated between them and the surface reads as one endless sheet.
  * ---------------------------------------------------------------------------*/
-const TILE = 64, TERRAIN_R = 260, TERRAIN_RELEASE = 340, TERRAIN_Y = -9;
+const TILE = 64, TERRAIN_Y = -9;
+const terrainR = () => clamp(State.drawDistance * 0.40, 200, 1300);
+const terrainRelease = () => terrainR() * 1.3;
 
 const Terrain = {
   name: 'Endless Terrain',
@@ -1599,11 +1684,11 @@ const Terrain = {
 
   stream() {
     const tx0 = Math.round(camera.position.x / TILE), tz0 = Math.round(camera.position.z / TILE);
-    const span = Math.ceil(TERRAIN_R / TILE);
+    const span = Math.ceil(terrainR() / TILE);
     for (let dz = -span; dz <= span; dz++) for (let dx = -span; dx <= span; dx++) {
       const tx = tx0 + dx, tz = tz0 + dz;
       const cx = tx * TILE + TILE / 2, cz = tz * TILE + TILE / 2;
-      if (Math.hypot(cx - camera.position.x, cz - camera.position.z) > TERRAIN_R) continue;
+      if (Math.hypot(cx - camera.position.x, cz - camera.position.z) > terrainR()) continue;
       const key = tx + ',' + tz;
       if (this.tiles.has(key)) continue;
       const p = this.makeTile(tx, tz);
@@ -1615,8 +1700,8 @@ const Terrain = {
     for (const [key, p] of this.tiles) {
       const [tx, tz] = key.split(',').map(Number);
       const cx = tx * TILE + TILE / 2, cz = tz * TILE + TILE / 2;
-      if (Math.hypot(cx - camera.position.x, cz - camera.position.z) <= TERRAIN_RELEASE) continue;
-      if (p.carves.length || p.bumps.length) this.edits.set(key, snapshotPatch(p));
+      if (Math.hypot(cx - camera.position.x, cz - camera.position.z) <= terrainRelease()) continue;
+      if (p.edits.length) this.edits.set(key, snapshotPatch(p));
       onPatchReleased(p);
       JobQueue.purge(p);
       this.tiles.delete(key);
@@ -1633,7 +1718,9 @@ const Terrain = {
  *  within a radius of the camera and released when the pilot leaves. Nothing
  *  is stored on disk; the world is unbounded in every direction.
  * ---------------------------------------------------------------------------*/
-const CELL = 110, STREAM_R = 300, RELEASE_R = 380;
+const CELL = 110;
+const streamR = () => clamp(State.drawDistance * 0.42, 220, 1400);
+const releaseR = () => streamR() * 1.3;
 
 function generateCellPatch(cx, cz) {
   const rng = mulberry32(hash2(cx, cz));
@@ -1693,8 +1780,7 @@ function rng0(cx, cz) {
 function snapshotPatch(p) {
   const rail = r => r.nodes.map(n => [n.p.x, n.p.y, n.p.z, n.t.x, n.t.y, n.t.z]);
   return { A: rail(p.railA), B: rail(p.railB),
-           carves: p.carves.map(c => [c.x, c.y, c.z, c.r]),
-           bumps: p.bumps.map(m => [m.x, m.y, m.z, m.r, m.amp, m.swell]) };
+           edits: p.edits.map(e => [e.u, e.v, e.ru, e.rv, e.r, e.remove ? 1 : 0, e.amp, e.swell]) };
 }
 function restorePatch(p, snap) {
   const rail = (r, rows) => r.nodes.forEach((n, i) => {
@@ -1702,8 +1788,8 @@ function restorePatch(p, snap) {
     n.p.set(v[0], v[1], v[2]); n.t.set(v[3], v[4], v[5]);
   });
   rail(p.railA, snap.A); rail(p.railB, snap.B);
-  p.carves = snap.carves.map(([x, y, z, r]) => ({ x, y, z, r, r2: r * r }));
-  p.bumps = (snap.bumps || []).map(([x, y, z, r, amp, swell]) => ({ x, y, z, r, r2: r * r, amp, swell }));
+  p.edits = (snap.edits || []).map(([u, v, ru, rv, r, rem, amp, swell]) =>
+    ({ u, v, ru, rv, r, remove: !!rem, amp, swell }));
   p.edited = true;
 }
 
@@ -1736,13 +1822,13 @@ const World = {
   /* ---- ① Infinite Euclidean search: resident set follows the camera ---- */
   streamCells(force) {
     const cx0 = Math.round(camera.position.x / CELL), cz0 = Math.round(camera.position.z / CELL);
-    const span = Math.ceil(STREAM_R / CELL);
+    const span = Math.ceil(streamR() / CELL);
     for (let dz = -span; dz <= span; dz++) {
       for (let dx = -span; dx <= span; dx++) {
         const cx = cx0 + dx, cz = cz0 + dz;
         if (Math.abs(cx) <= 1 && Math.abs(cz) <= 1) continue;          // hero real estate
         const wx = cx * CELL - camera.position.x, wz = cz * CELL - camera.position.z;
-        if (Math.hypot(wx, wz) > STREAM_R) continue;
+        if (Math.hypot(wx, wz) > streamR()) continue;
         const key = cx + ',' + cz;
         if (this.cells.has(key)) continue;
         const p = generateCellPatch(cx, cz);
@@ -1757,7 +1843,7 @@ const World = {
     for (const [key, p] of this.cells) {
       const [cx, cz] = key.split(',').map(Number);
       if (p === selected) continue;                       // never evict what you are editing
-      if (Math.hypot(cx * CELL - camera.position.x, cz * CELL - camera.position.z) > RELEASE_R) {
+      if (Math.hypot(cx * CELL - camera.position.x, cz * CELL - camera.position.z) > releaseR()) {
         // The graph IS the asset, so any hand edit to a streamed shape is kept
         // (a couple of hundred bytes) and replayed when the cell regenerates.
         if (p.edited) this.edits.set(key, snapshotPatch(p));
@@ -1775,9 +1861,10 @@ const World = {
   collect(out) {
     this.frame++;
     let proxyBudget = 60;
+    let animBudget = 220;      // inline bakes/frame reserved for animated shapes
     let key = 0, chunks = 0, streaming = 0;
     const cam = camera.position;
-    const K = 2.35 * State.lodScale;
+    const KS = State.lodK, KN = KS.length;
 
     // The proxy bake is also what computes a node's world AABB, so it doubles as
     // "make this node's bounds current". Budgeted: when the whole world goes
@@ -1802,6 +1889,9 @@ const World = {
         // Refine while the chunk is both near enough AND still coarser than the
         // engine's finest element. Size, not tree depth, is the real cutoff.
         const refinable = n.depth < p.maxDepth && Math.max(n.wu, n.wv) > MIN_LEAF;
+        // Each depth has its own reach multiplier, so the bands can be tuned
+        // independently instead of sharing one global aggressiveness.
+        const K = KS[Math.min(n.depth, KN - 1)] * State.lodScale;
         if (refinable && dist < n.radius * K) {
           // Only subdivide if we can afford bounds for every child right now,
           // so a split never opens a one-frame hole in the surface.
@@ -1809,6 +1899,17 @@ const World = {
           if (n.children) { for (const c of n.children) stack.push(c); continue; }
         }
         // --- leaf: draw the refined bake if it is current, else the proxy ---
+        // A patch that re-authors itself every frame cannot go through the
+        // deferred queue: the queue would refresh a handful of its chunks per
+        // frame and the rest would hold a stale pose, so the shape visibly
+        // tears into moving and frozen pieces and lights from stale normals.
+        // Animated patches bake inline, under their own budget.
+        if (p.animate && State.animate && animBudget > 0) {
+          animBudget--;
+          n.rep = Baker.bakeLeaf(n);
+          n.repPV = p.version; n.repBV = State.bakeVersion;
+          this.dirtyBuffers = true;
+        }
         const fresh = n.rep && n.repPV === p.version && n.repBV === State.bakeVersion;
         if (fresh) {
           if (n.rep.n) out.push(n.rep);
@@ -1831,6 +1932,10 @@ const World = {
 
   /* ---- ③ Blit the render list into the three GPU fields ---------------- */
   upload(list) {
+    // Draw order must not depend on traversal order. Overlapping opaque flecks
+    // tie on depth; whichever is drawn last wins, so an unstable order makes
+    // the winner flip every frame and the surface shimmers as you move.
+    list.sort((a, b) => a.key - b.key);
     for (const f of FIELDS) f.begin();
     for (const c of list) {
       if (c.kind === 'splat') splats.push(c);
@@ -1841,6 +1946,27 @@ const World = {
     this.stats.splats = splats.count;
     this.stats.voxels = voxels.count;
     this.stats.meshTris = meshes.count / 3;
+  },
+
+  /**
+   * Invalidate every chunk whose parameter rectangle overlaps an edit. Working
+   * in (u,v) rather than world bounds means this stays exact even when the
+   * shape has just been re-authored and the cached world boxes are stale.
+   * Returns the world box that was touched, for the visual cue.
+   */
+  markDirtyUV(patch, u0, u1, v0, v1) {
+    const hit = new THREE.Box3();
+    let any = false;
+    const stack = [patch.root];
+    while (stack.length) {
+      const n = stack.pop();
+      if (n.u1 < u0 || n.u0 > u1 || n.v1 < v0 || n.v0 > v1) continue;
+      n.rep = null; n.repPV = -1; n.proxyPV = -1;
+      if (!n.box.isEmpty()) { hit.union(n.box); any = true; }
+      if (n.children) for (const c of n.children) stack.push(c);
+    }
+    this.dirtyBuffers = true;
+    return any ? hit : null;
   },
 
   /* ---- ④ Destructive edit: flag only the intersected bounding boxes ---- */
@@ -1891,7 +2017,7 @@ function collider(patch) {
   if (patch.collider && patch.colliderVersion === patch.version) return patch.collider;
   const R = COLLIDER_RES, pos = [], idx = [], uvs = [];
   const P = V(), N = V();
-  patch.activeBumps = null;                       // collide against the whole shape
+  patch.activeEdits = null;                       // collide against the whole shape
   for (let j = 0; j <= R; j++) for (let i = 0; i <= R; i++) {
     patch.sample(i / R, j / R, P, N, null);
     pos.push(P.x, P.y, P.z);
@@ -1911,6 +2037,7 @@ function collider(patch) {
   const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
   m.userData.patch = patch;
   m.updateMatrixWorld(true);
+  patch.activeEdits = null;
   patch.collider = m;
   patch.colliderVersion = patch.version;
   return m;
@@ -1955,8 +2082,11 @@ const handleGeoT = new THREE.OctahedronGeometry(0.5, 0);
 const handleOpts = { depthTest: false, transparent: true, opacity: 0.95 };
 const matNode = new THREE.MeshBasicMaterial({ color: 0x57d2ff, ...handleOpts });
 const matTan = new THREE.MeshBasicMaterial({ color: 0xffb057, ...handleOpts });
+const matForce = new THREE.MeshBasicMaterial({ color: 0x9d7bff, ...handleOpts });
+const matSel = new THREE.MeshBasicMaterial({ color: 0x5ef2a8, ...handleOpts });
 const matLink = new THREE.LineBasicMaterial({ color: 0x6fa8cf, depthTest: false, transparent: true, opacity: 0.75 });
 const TAN_VIS = 0.3;                                   // tangent handle display scale
+const _hp1 = V(), _hp2 = V();
 const ringGeo = (() => {
   const pts = [];
   for (let i = 0; i <= 64; i++) { const t = i / 64 * Math.PI * 2; pts.push(V(Math.cos(t), 0, Math.sin(t))); }
@@ -1964,6 +2094,40 @@ const ringGeo = (() => {
 })();
 
 const handles = [];
+/* Shift-clicking handles extends the selection CONSECUTIVELY along the graph,
+ * because control nodes are an ordered chain and "these three in a row" is the
+ * selection you actually want when reshaping a curve. */
+const handleSel = new Set();
+let lastHandleIdx = -1;
+const handleHome = new Map();     // handle -> its position when a group drag began
+
+function markHandle(o, on) {
+  o.material = on ? matSel : (o.userData.kind === 't' ? matTan : o.userData.kind === 'f' ? matForce : matNode);
+}
+function clearHandleSel() { for (const o of handleSel) markHandle(o, false); handleSel.clear(); lastHandleIdx = -1; }
+function selectHandle(o, additive) {
+  const idx = handles.indexOf(o);
+  if (!additive) { clearHandleSel(); handleSel.add(o); markHandle(o, true); lastHandleIdx = idx; return; }
+  if (lastHandleIdx >= 0) {
+    const a = Math.min(lastHandleIdx, idx), b = Math.max(lastHandleIdx, idx);
+    for (let i = a; i <= b; i++) { handleSel.add(handles[i]); markHandle(handles[i], true); }
+  } else { handleSel.add(o); markHandle(o, true); }
+  lastHandleIdx = idx;
+}
+/** Apply the primary handle's delta to every other handle in the selection. */
+function moveSelectedHandles(primary) {
+  const home = handleHome.get(primary);
+  if (!home) return;
+  _tmp1.subVectors(primary.userData.kind === 'p' ? primary.userData.node.p : primary.position, home);
+  for (const o of handleSel) {
+    if (o === primary) continue;
+    const h = handleHome.get(o), d = o.userData;
+    if (!h || !d.node) continue;
+    if (d.kind === 'p') d.node.p.copy(h).add(_tmp1);
+    else d.node.t.copy(h).add(_tmp1).sub(d.node.p).divideScalar(TAN_VIS);
+    if (d.patch) { d.patch.edited = true; World.markPatchDirty(d.patch); }
+  }
+}
 
 /* ---------------------------------------------------------------------- *
  *  SELECTION. Every patch in the world — the three authored hero shapes and
@@ -1973,6 +2137,10 @@ const handles = [];
  *  of object, because there is no other kind of object.
  * ---------------------------------------------------------------------- */
 let selected = null, hovered = null;
+/* Selection is a SET. `selected` is just its primary member — the one the info
+ * panel describes — while handles and outlines cover every member. */
+const selection = new Set();
+const selBoxPool = [];
 
 const selBoxGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
 const selBox = new THREE.LineSegments(selBoxGeo,
@@ -1989,12 +2157,30 @@ function fitBox(obj, box) {
   obj.scale.set(Math.max(_tmp1.x, .05), Math.max(_tmp1.y, .05), Math.max(_tmp1.z, .05));
 }
 
-function selectPatch(p) {
-  selected = p || null;
-  buildHandles(selected);
-  selBox.visible = !!selected && !selected.isTerrain;   // the field has no bounds
+function selectPatch(p, additive) {
+  if (!additive) selection.clear();
+  if (p) { if (additive && selection.has(p)) selection.delete(p); else selection.add(p); }
+  selected = selection.values().next().value || null;
+  buildHandles([...selection]);
+  selBox.visible = false;
+  syncSelBoxes();
   updateSelUI();
-  if (selected) toast(`“${selected.name}” selected — ${handles.length} handles live. Drag one to re-author it.`);
+  if (selected) {
+    toast(selection.size > 1
+      ? `${selection.size} objects selected — ${handles.length} handles live`
+      : `“${selected.name}” selected — ${handles.length} handles live. Drag one to re-author it.`);
+  }
+}
+
+/** One outline per selected object, pooled. */
+function syncSelBoxes() {
+  const list = [...selection].filter(o => o.root);
+  while (selBoxPool.length < list.length) {
+    const b = new THREE.LineSegments(selBoxGeo, selBox.material);
+    b.frustumCulled = false; b.renderOrder = 997;
+    scene.add(b); selBoxPool.push(b);
+  }
+  selBoxPool.forEach((b, i) => { b.visible = i < list.length; if (b.visible) fitBox(b, list[i].root.box); });
 }
 
 /** Called by the streamer when a patch leaves the resident set. */
@@ -2025,13 +2211,19 @@ function updateSelUI() {
     `<b>${nodes}</b> control nodes · <b>${nodes}</b> tangent handles<br>` +
     `defined by <b>${selected.byteSize()} bytes</b> of maths · thickness <b>${selected.thickness.toFixed(2)}</b><br>` +
     `${selected.hero ? 'authored' : 'procedurally generated'}${selected.edited ? ' · <b>edited</b>' : ''}` +
-    `${selected.carves.length ? ` · <b>${selected.carves.length}</b> carves` : ''}`;
+    `${selected.edits.length ? ` · <b>${selected.edits.length}</b> sculpt edits` : ''}`;
 }
 
-function buildHandles(patch) {
+function buildHandles(targets) {
   for (const o of handleGroup.children) if (o.isLine) o.geometry.dispose();
   handleGroup.clear();
   handles.length = 0;
+  handleSel.clear(); handleHome.clear(); lastHandleIdx = -1;
+  const list = Array.isArray(targets) ? targets : (targets ? [targets] : []);
+  for (const t of list) buildHandlesFor(t);
+}
+
+function buildHandlesFor(patch) {
   if (!patch) return;
 
   if (patch.isTerrain) {
@@ -2063,6 +2255,15 @@ function buildHandles(patch) {
     }
     syncHandles();
     return;
+  }
+
+  // Force handles created on this shape are part of its control graph too.
+  for (const e of patch.edits) {
+    if (!e.force) continue;
+    const hf = new THREE.Mesh(handleGeoP, matForce);
+    hf.renderOrder = 999;
+    hf.userData = { patch, force: e, kind: 'f' };
+    handleGroup.add(hf); handles.push(hf);
   }
 
   for (const rail of [patch.railA, patch.railB]) {
@@ -2102,6 +2303,12 @@ function scaleHandles() {
 function syncHandles() {
   for (const o of handleGroup.children) {
     const d = o.userData;
+    if (d && d.force) {
+      // A force handle rides the surface it belongs to, lifted by its amplitude.
+      d.patch.sample(d.force.u, d.force.v, _hp1, _hp2, null);
+      o.position.copy(_hp1).addScaledVector(_hp2, d.force.amp >= 0 ? 2.2 : -2.2);
+      continue;
+    }
     if (d && d.attractor) {
       const a = d.attractor;
       if (d.ring) {
@@ -2162,9 +2369,10 @@ addEventListener('keydown', e => {
   if (e.code === 'Digit1') setTool('fly');
   if (e.code === 'Digit2') setTool('select');
   if (e.code === 'Digit3') setTool('carve');
+  if (e.code === 'Digit4') setTool('create');
   if (e.code === 'Escape') selectPatch(null);
-  if ((e.code === 'ControlLeft' || e.code === 'ControlRight') && !e.repeat) {
-    e.preventDefault();
+  if (e.code === 'Tab' && !e.repeat) {
+    e.preventDefault();                   // never let it walk the HUD focus ring
     setCapture(State.freeMouse);          // toggle
   }
 });
@@ -2213,6 +2421,11 @@ const vCursor = new THREE.Vector2();
 
 const cv = renderer.domElement;
 cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('wheel', e => {
+  if (State.tool !== 'create') return;
+  e.preventDefault();
+  setSubTool(State.subTool + (e.deltaY > 0 ? 1 : -1));
+}, { passive: false });
 
 const isLocked = () => document.pointerLockElement === cv;
 const shiftHeld = (e) => !!(e && e.shiftKey) || keys.has('ShiftLeft') || keys.has('ShiftRight');
@@ -2226,7 +2439,7 @@ function setCapture(on) {
 function updateCaptureUI() {
   const el = $('capture');
   const on = isLocked();
-  el.textContent = on ? 'mouse captured · ctrl frees it' : 'free cursor · ctrl captures · click to capture';
+  el.textContent = on ? 'mouse captured · tab frees it' : 'free cursor · tab captures · click to capture';
   el.classList.toggle('free', !on);
   $('cross').style.opacity = on ? '' : '0.25';
 }
@@ -2262,7 +2475,10 @@ function castMatter(maxDist = 320) {
     .map(collider);
   const hits = ray.intersectObjects(targets, false);
   let solid = null;
-  for (const h of hits) if (h.object.userData.patch.isSolid(h.point)) { solid = h; break; }
+  for (const h of hits) {
+    const pt = h.object.userData.patch;
+    if (!h.uv || pt.solidUV(h.uv.x, h.uv.y)) { solid = h; break; }
+  }
   return { solid, any: hits[0] || null };
 }
 
@@ -2273,6 +2489,13 @@ function tryGrabHandle(e) {
   const hit = ray.intersectObjects(handles, false)[0];
   if (!hit) return false;
   grabbed = hit.object;
+  if (!handleSel.has(grabbed)) selectHandle(grabbed, shiftHeld(e) && State.tool === 'select');
+  handleHome.clear();
+  for (const o of handleSel) {
+    const d = o.userData;
+    handleHome.set(o, d.node ? (d.kind === 'p' ? d.node.p.clone()
+      : d.node.p.clone().addScaledVector(d.node.t, TAN_VIS)) : o.position.clone());
+  }
   grabPlane.setFromNormalAndCoplanarPoint(fwd.clone().negate(), hit.object.position);
   ray.ray.intersectPlane(grabPlane, grabHit);
   grabOff.copy(hit.object.position).sub(grabHit);
@@ -2299,7 +2522,10 @@ cv.addEventListener('pointerdown', e => {
   // which is both surprising to use and unreliable to detect.
   strokeRemove = shiftHeld(e);
 
-  if (e.button === 0) tryGrabHandle(e);
+  if (e.button === 0) {
+    const grabbedHandle = tryGrabHandle(e);
+    if (!grabbedHandle && State.tool === 'select' && shiftHeld(e)) marqueeStart(e);
+  }
 });
 
 let hoverAt = 0;
@@ -2320,16 +2546,27 @@ cv.addEventListener('pointermove', e => {
     ray.setFromCamera(ndc, camera);
     if (!ray.ray.intersectPlane(grabPlane, grabHit)) return;
     grabHit.add(grabOff);
-    const { patch, node, kind, attractor } = grabbed.userData;
+    const { patch, node, kind, attractor, force } = grabbed.userData;
     if (attractor) moveAttractor(grabbed, grabHit);
+    else if (force) {
+      // Project the drag onto the surface normal: out bulges, in dents.
+      patch.sample(force.u, force.v, _hp1, _hp2, null);
+      force.amp = clamp(_tmp3.subVectors(grabHit, _hp1).dot(_hp2) - 2.2, -60, 60);
+      patch.colliderVersion = -1;
+      World.markDirtyUV(patch, force.u - force.ru, force.u + force.ru, force.v - force.rv, force.v + force.rv);
+      patch.edited = true;
+    }
     else if (kind === 'p') node.p.copy(grabHit);
     else node.t.copy(grabHit).sub(node.p).divideScalar(TAN_VIS);
-    if (patch) { patch.edited = true; World.markPatchDirty(patch); }
+    // Move every other handle the user has selected by the same delta.
+    if (!attractor && !force && handleSel.size > 1 && handleSel.has(grabbed)) moveSelectedHandles(grabbed);
+    if (patch && !force) { patch.edited = true; World.markPatchDirty(patch); }
     syncHandles();
     return;
   }
 
   if (dragging) dragDist += Math.abs(dx) + Math.abs(dy);
+  if (marquee) { marqueeMove(e, dx, dy); return; }
 
   // Look: always when captured — including mid-stroke, which is exactly how you
   // sweep the crosshair across a surface. Right-drag when the cursor is free.
@@ -2339,7 +2576,7 @@ cv.addEventListener('pointermove', e => {
   }
 
   // Tool stroke: left button held, in either mode.
-  if (dragging && dragBtn === 0) { setNDC(e); applyTool(strokeRemove, true); return; }
+  if (dragging && dragBtn === 0 && State.tool !== 'select') { setNDC(e); applyTool(strokeRemove, true); return; }
 
   // Idle hover preview (free cursor only — when captured the crosshair is fixed).
   if (!dragging && !locked && State.tool !== 'fly' && State.hoverHint && Clock.t - hoverAt > 0.09) {
@@ -2352,9 +2589,59 @@ cv.addEventListener('pointermove', e => {
   }
 });
 
+/* Shift-drag with the Select tool sweeps a screen rectangle over the world and
+ * takes everything whose bounds project inside it. Works with the cursor free
+ * or captured — when captured the rectangle grows from the crosshair. */
+let marquee = null;
+const marqEl = document.getElementById('marquee');   // $ is declared later
+function marqueeStart(e) {
+  const r = cv.getBoundingClientRect();
+  const x = isLocked() ? r.width / 2 : e.clientX - r.left;
+  const y = isLocked() ? r.height / 2 : e.clientY - r.top;
+  marquee = { x0: x, y0: y, x: x, y: y };
+  marqEl.style.display = 'block';
+}
+function marqueeMove(e, dx, dy) {
+  if (!marquee) return;
+  const r = cv.getBoundingClientRect();
+  if (isLocked()) { marquee.x = clamp(marquee.x + dx, 0, r.width); marquee.y = clamp(marquee.y + dy, 0, r.height); }
+  else { marquee.x = e.clientX - r.left; marquee.y = e.clientY - r.top; }
+  const l = Math.min(marquee.x0, marquee.x), t = Math.min(marquee.y0, marquee.y);
+  marqEl.style.left = l + 'px'; marqEl.style.top = t + 'px';
+  marqEl.style.width = Math.abs(marquee.x - marquee.x0) + 'px';
+  marqEl.style.height = Math.abs(marquee.y - marquee.y0) + 'px';
+}
+function marqueeEnd() {
+  if (!marquee) return;
+  marqEl.style.display = 'none';
+  const r = cv.getBoundingClientRect();
+  const l = Math.min(marquee.x0, marquee.x), t = Math.min(marquee.y0, marquee.y);
+  const rr = Math.max(marquee.x0, marquee.x), bb = Math.max(marquee.y0, marquee.y);
+  marquee = null;
+  if (rr - l < 4 && bb - t < 4) return;
+  selection.clear();
+  const seen = new Set();
+  for (const p of World.patches) {
+    const target = p.owner || p;
+    if (seen.has(target)) continue;
+    if (!p.root || p.root.box.isEmpty()) continue;
+    p.root.box.getCenter(_tmp1).project(camera);
+    if (_tmp1.z > 1) continue;                     // behind the camera
+    const sx = (_tmp1.x * 0.5 + 0.5) * r.width, sy = (-_tmp1.y * 0.5 + 0.5) * r.height;
+    if (sx < l || sx > rr || sy < t || sy > bb) continue;
+    seen.add(target); selection.add(target);
+  }
+  selected = selection.values().next().value || null;
+  buildHandles([...selection]);
+  syncSelBoxes();
+  updateSelUI();
+  toast(selection.size ? `${selection.size} object${selection.size > 1 ? 's' : ''} box-selected` : 'Box select found nothing');
+}
+
 cv.addEventListener('pointerup', e => {
   const wasDragging = dragging;
   dragging = false;
+  if (marquee) { marqueeEnd(); return; }
   if (grabbed) {
     const { patch } = grabbed.userData;
     if (patch) { flashRegion(patch.root.box.clone()); toast(`Re-authored “${patch.name}” — re-baking asynchronously`); }
@@ -2373,7 +2660,8 @@ cv.addEventListener('pointerup', e => {
  * ---------------------------------------------------------------------------*/
 function applyTool(shift, isStroke) {
   if (State.tool === 'fly') return;
-  if (State.tool === 'select') { if (!isStroke) pickSelection(); return; }
+  if (State.tool === 'select') { if (!isStroke) pickSelection(shift); return; }
+  if (State.tool === 'create') { if (!isStroke) applyCreate(); return; }
 
   const r = State.digRadius;
   if (isStroke) {
@@ -2391,10 +2679,97 @@ function applyTool(shift, isStroke) {
   sculpt(h, shift, r, false);
 }
 
-function pickSelection() {
+/* ---- Create-tool actions ---------------------------------------------- */
+
+/** Insert a control node into BOTH rails at the clicked parameter. */
+function insertNode(patch, u, bow) {
+  for (const rail of [patch.railA, patch.railB]) {
+    const n = rail.nodes.length - 1;
+    const i = clamp(Math.floor(clamp(u, 0, 1) * n), 0, n - 1);
+    const pos = rail.eval(u, V());
+    const tan = rail.eval(Math.min(u + 0.02, 1), V()).sub(rail.eval(Math.max(u - 0.02, 0), V())).multiplyScalar(1 / 0.04 / n);
+    const node = { p: pos, t: tan, p0: pos.clone(), t0: tan.clone() };
+    if (bow) {
+      // A "curve handle" is a node whose tangent has been pulled, so the
+      // segment through it bows instead of running straight.
+      node.t.multiplyScalar(2.2);
+      node.t0.copy(node.t);
+    }
+    rail.nodes.splice(i + 1, 0, node);
+  }
+  patch.edited = true;
+  World.markPatchDirty(patch);
+}
+
+/** Attach a force handle: a parameter-space push/pull owned by the shape. */
+function addForce(patch, u, v, r) {
+  patch.paramRadii(u, v, r, _rad);
+  const e = { u, v, ru: _rad.ru * 2.2, rv: _rad.rv * 2.2, r: r * 2.2,
+              remove: false, amp: r * 0.9, swell: 0, force: true };
+  patch.edits.push(e);
+  patch.edited = true;
+  patch.colliderVersion = -1;
+  World.markDirtyUV(patch, e.u - e.ru, e.u + e.ru, e.v - e.rv, e.v + e.rv);
+  return e;
+}
+
+/** Spawn a new patch sitting on the surface you clicked. */
+function spawnPatch(kind, point, normal) {
+  const up = Math.abs(normal.y) > 0.9 ? V(1, 0, 0) : V(0, 1, 0);
+  const t1 = V().crossVectors(normal, up).normalize();
+  const t2 = V().crossVectors(normal, t1).normalize();
+  const L = kind === 'edge' ? 16 : 13, W = kind === 'edge' ? 0.9 : 11;
+  const base = point.clone().addScaledVector(normal, 1.2);
+  const row = (off) => railFrom([-1, 0, 1].map(k =>
+    base.clone().addScaledVector(t1, k * L).addScaledVector(t2, off)));
+  const p = new Patch({
+    name: `${kind === 'edge' ? 'Edge' : 'Surface'} ${++SPAWN_N}`,
+    railA: row(W), railB: row(-W),
+    thickness: kind === 'edge' ? 0.8 : 0.7,
+    tint: new THREE.Color(kind === 'edge' ? 0xd98fa8 : 0x7fc4a8).convertSRGBToLinear(),
+    maxDepth: 8, hero: true
+  });
+  seedRoot(p);
+  World.patches.push(p);
+  World.heroes.push(p);
+  fillQuickSelect();
+  return p;
+}
+let SPAWN_N = 0;
+
+function applyCreate() {
   const h = castMatter();
   const hit = h.solid || h.any;
-  selectPatch(hit ? (hit.object.userData.patch.owner || hit.object.userData.patch) : null);
+  const sub = SUBTOOLS[State.subTool];
+
+  if (sub === 'surface' || sub === 'edge') {
+    let point, normal;
+    if (hit) { point = hit.point.clone(); normal = (hit.face ? hit.face.normal.clone() : V(0, 1, 0)); }
+    else { point = camera.position.clone().addScaledVector(fwd, 26); normal = fwd.clone().negate(); }
+    if (normal.lengthSq() < 1e-6) normal.set(0, 1, 0);
+    const p = spawnPatch(sub, point, normal.normalize());
+    selectPatch(p);
+    toast(`Created “${p.name}” — ${p.railA.nodes.length * 2} handles, ${p.byteSize()} bytes of maths`);
+    return;
+  }
+
+  if (!hit || !hit.uv) { toast('Point at a shape to add to it'); return; }
+  const patch = hit.object.userData.patch;
+  if (sub === 'force') {
+    addForce(patch, hit.uv.x, hit.uv.y, State.digRadius);
+    selectPatch(patch.owner || patch);
+    toast(`Force handle attached to “${patch.name}” — drag it to push or pull the surface`);
+  } else {
+    insertNode(patch, hit.uv.x, sub === 'curve');
+    selectPatch(patch.owner || patch);
+    toast(`${sub === 'curve' ? 'Curve handle' : 'Control node'} inserted into “${patch.name}”`);
+  }
+}
+
+function pickSelection(additive) {
+  const h = castMatter();
+  const hit = h.solid || h.any;
+  selectPatch(hit ? (hit.object.userData.patch.owner || hit.object.userData.patch) : null, additive);
 }
 
 /**
@@ -2404,36 +2779,28 @@ function pickSelection() {
  *         AND swells the slab locally, so the result is genuinely more solid.
  *  remove a sphere subtracted from the density field, which opens real holes.
  */
+const _rad = { ru: 0, rv: 0 };
 function sculpt(h, remove, r, quiet) {
   const patch = h.object.userData.patch;
-  const box = new THREE.Box3(
-    V(h.point.x - r, h.point.y - r, h.point.z - r),
-    V(h.point.x + r, h.point.y + r, h.point.z + r)
-  );
+  const uv = h.uv;
+  if (!uv) { if (!quiet) toast('That surface carries no parameters to sculpt'); return; }
 
-  if (remove) {
-    patch.carves.push({ x: h.point.x, y: h.point.y, z: h.point.z, r, r2: r * r });
-    if (patch.carves.length > 900) patch.carves.shift();
-  } else {
-    // The hit's UV is the patch parameter it landed on, so the bump can be
-    // anchored to the un-warped loft and will not drift as it displaces.
-    const uv = h.uv;
-    if (!uv) { if (!quiet) toast('Cannot sculpt that surface'); return; }
-    patch.baseAt(uv.x, uv.y, _tmp1);
-    const amp = r * 0.42;
-    patch.bumps.push({ x: _tmp1.x, y: _tmp1.y, z: _tmp1.z, r, r2: r * r, amp, swell: r * 0.5 });
-    if (patch.bumps.length > 900) patch.bumps.shift();
-    box.expandByScalar(amp + r * 0.5);
-  }
+  // Record the edit where the SHAPE lives, not where the camera happened to be.
+  patch.paramRadii(uv.x, uv.y, r, _rad);
+  patch.edits.push({
+    u: uv.x, v: uv.y, ru: _rad.ru, rv: _rad.rv, r,
+    remove, amp: remove ? 0 : r * 0.42, swell: remove ? 0 : r * 0.5
+  });
+  if (patch.edits.length > 1200) patch.edits.shift();
 
   patch.edited = true;
-  // ONLY the intersected sub-tree is invalidated. Everything else keeps its
-  // baked matter — no scene reload, no traversal stall.
-  World.markDirty(patch, box);
   patch.colliderVersion = -1;
+  // ONLY the affected parameter rectangle is invalidated. Everything else keeps
+  // its baked matter — no scene reload, no traversal stall.
+  const box = World.markDirtyUV(patch, uv.x - _rad.ru, uv.x + _rad.ru, uv.y - _rad.rv, uv.y + _rad.rv);
   if (patch === selected || patch.owner === selected) updateSelUI();
   if (!quiet) {
-    flashRegion(box);
+    if (box) flashRegion(box);
     const vol = (4 / 3 * Math.PI * r ** 3).toFixed(1);
     toast(remove ? `Removed ${vol} m³ from “${patch.name}” — local re-bake queued`
                  : `Added ${vol} m³ to “${patch.name}” — local re-bake queued`);
@@ -2486,28 +2853,84 @@ $('t-hover').onchange = e => {
 };
 
 /* ---- Tool bar ---------------------------------------------------------- */
-const TOOL_HINT = {
-  fly:    'Fly — drag to look around',
-  select: 'Select — ctrl-click any structure to expose the handles that define it',
-  carve:  'Sculpt — ctrl-drag adds material, ctrl-shift-drag removes it'
+/* ---------------------------------------------------------------------- *
+ *  CREATE TOOL. One tool, five sub-tools, cycled with the scroll wheel:
+ *
+ *    point   insert a control node into the shape you clicked
+ *    curve   the same, but with a pulled tangent so the segment bows
+ *    surface spawn a new lofted surface patch on the surface normal
+ *    edge    spawn a new thin ribbon — an "edge" object — likewise
+ *    force   attach a draggable force handle to the shape you clicked,
+ *            which pushes or pulls its surface locally
+ *
+ *  Force and curve handles attach to whatever you clicked, so both edges and
+ *  surfaces can carry them: every object here is the same kind of thing.
+ * ---------------------------------------------------------------------- */
+const SUBTOOLS = ['point', 'curve', 'surface', 'edge', 'force'];
+const SUB_HINT = {
+  point:   'Create ▸ Point — click a shape to insert a control node',
+  curve:   'Create ▸ Curve handle — click a shape to insert a bowed control node',
+  surface: 'Create ▸ Surface — click to spawn a new lofted surface',
+  edge:    'Create ▸ Edge — click to spawn a new thin ribbon',
+  force:   'Create ▸ Force handle — click a shape to attach a push/pull handle'
 };
+
+const TOOL_HINT = {
+  fly:    'Fly — move the mouse to look around',
+  select: 'Select — click a structure for its handles, shift-drag to box-select',
+  carve:  'Sculpt — drag adds material, shift-drag removes it',
+  create: 'Create — scroll to change sub-tool, click to place'
+};
+function setSubTool(i) {
+  State.subTool = (i + SUBTOOLS.length) % SUBTOOLS.length;
+  const name = SUBTOOLS[State.subTool];
+  $('createlabel').textContent = name[0].toUpperCase() + name.slice(1);
+  if (State.tool === 'create') toast(SUB_HINT[name]);
+}
+
 function setTool(t) {
   State.tool = t;
   for (const b of $('toolbar').children) b.classList.toggle('on', b.dataset.tool === t);
   $('cross').className = 't-' + t;
   cv.style.cursor = t === 'fly' ? 'default' : 'crosshair';
   if (t !== 'select') { hovered = null; hovBox.visible = false; }
-  toast(TOOL_HINT[t]);
+  toast(t === 'create' ? SUB_HINT[SUBTOOLS[State.subTool]] : TOOL_HINT[t]);
 }
 $('toolbar').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (b) setTool(b.dataset.tool);
 });
 
+/**
+ * Slider + editable number field. Typing a value outside the slider's current
+ * range does not clamp it — it EXTENDS that end of the range and keeps going,
+ * so the sliders are sensible defaults rather than hard limits.
+ */
 const bindRange = (id, num, fn, fmtv) => {
   const r = $(id), n = $(num);
-  r.oninput = () => { const v = parseFloat(r.value); n.textContent = fmtv ? fmtv(v) : v; fn(v); };
+  const show = v => { n.value = fmtv ? fmtv(v) : String(v); };
+  const push = v => { r.value = String(v); fn(v); };
+  r.oninput = () => { const v = parseFloat(r.value); show(v); fn(v); };
+  const commit = () => {
+    let v = parseFloat(n.value);
+    if (!isFinite(v)) { show(parseFloat(r.value)); return; }
+    if (v < parseFloat(r.min)) r.min = String(v);      // grow the range downward
+    if (v > parseFloat(r.max)) r.max = String(v);      // ...or upward
+    push(v); show(v);
+  };
+  n.addEventListener('change', commit);
+  n.addEventListener('keydown', e => { if (e.key === 'Enter') { commit(); n.blur(); } });
 };
+bindRange('r-far', 'n-far', v => {
+  State.drawDistance = v;
+  camera.far = Math.max(v * 2.6, 1200);
+  camera.updateProjectionMatrix();
+  for (const f of FIELDS) {
+    f.mat.uniforms.uFogFar.value = v;
+    f.mat.uniforms.uFogNear.value = v * 0.18;
+  }
+  skyDome.scale.setScalar(Math.max(v * 2.0, 1000) / 1700);
+}, v => String(v | 0));
 bindRange('r-lod', 'n-lod', v => State.lodScale = v, v => v.toFixed(2));
 bindRange('r-flat', 'n-flat', v => { Baker.flatEps = v; rebakeAll(null); }, v => v.toFixed(4).slice(1));
 // Softness 0 → the whole quad is opaque core (hard flecks).
@@ -2518,6 +2941,70 @@ bindRange('r-soft', 'n-soft', v => {
 }, v => v >= 1 ? '1.00' : v.toFixed(2).slice(1));
 bindRange('r-dig', 'n-dig', v => State.digRadius = v, v => v.toFixed(1));
 bindRange('r-spd', 'n-spd', v => State.flySpeed = v, v => String(v | 0));
+
+/* ---------------------------------------------------------------------- *
+ *  LOD BAND STRIP — one draggable thumb per quadtree depth.
+ *
+ *  Each level's reach multiplier is independent, so you can make the coarse
+ *  levels split early and the fine ones hold back (or the reverse) instead of
+ *  scaling the whole ladder with a single number.
+ * ---------------------------------------------------------------------- */
+const BAND_MIN = 0.25, BAND_MAX = 9;
+function buildBands() {
+  const host = $('bands');
+  const thumbs = [];
+  const toPct = v => (v - BAND_MIN) / (BAND_MAX - BAND_MIN) * 100;
+  const fromPct = p => clamp(BAND_MIN + p / 100 * (BAND_MAX - BAND_MIN), BAND_MIN, BAND_MAX);
+
+  State.lodK.forEach((v, i) => {
+    const th = document.createElement('div');
+    th.className = 'th';
+    th.title = `LOD level ${i} reach`;
+    const lab = document.createElement('div');
+    lab.className = 'lab';
+    lab.textContent = String(i);
+    host.append(th, lab);
+    thumbs.push({ th, lab, i });
+  });
+
+  const layout = () => {
+    for (const t of thumbs) {
+      const pct = toPct(State.lodK[t.i]);
+      t.th.style.left = pct + '%';
+      t.lab.style.left = pct + '%';
+    }
+  };
+
+  let drag = null;
+  const pick = (clientX) => {
+    const r = host.getBoundingClientRect();
+    let best = null, bd = 1e9;
+    for (const t of thumbs) {
+      const x = r.left + toPct(State.lodK[t.i]) / 100 * r.width;
+      const d = Math.abs(clientX - x);
+      if (d < bd) { bd = d; best = t; }
+    }
+    return best;
+  };
+  const apply = (clientX) => {
+    const r = host.getBoundingClientRect();
+    State.lodK[drag.i] = fromPct((clientX - r.left) / r.width * 100);
+    layout();
+  };
+  host.addEventListener('pointerdown', e => {
+    drag = pick(e.clientX);
+    if (!drag) return;
+    host.setPointerCapture(e.pointerId);
+    drag.th.classList.add('on');
+    apply(e.clientX);
+  });
+  host.addEventListener('pointermove', e => { if (drag) apply(e.clientX); });
+  host.addEventListener('pointerup', () => {
+    if (drag) { drag.th.classList.remove('on'); toast(`LOD level ${drag.i} reach = ${State.lodK[drag.i].toFixed(2)}`); }
+    drag = null;
+  });
+  layout();
+}
 
 /* ---- Quick-select chips for the three authored hero patches ------------ */
 function fillQuickSelect() {
@@ -2621,9 +3108,9 @@ $('b-clear').onclick = () => {
   let n = 0;
   Terrain.edits.clear();
   for (const p of World.patches) {
-    if (!p.carves.length && !p.bumps.length) continue;
-    n += p.carves.length + p.bumps.length;
-    p.carves.length = 0; p.bumps.length = 0;
+    if (!p.edits.length) continue;
+    n += p.edits.length;
+    p.edits.length = 0;
     World.markPatchDirty(p);
   }
   toast(n ? `${n} sculpt volumes removed — matter re-materialising` : 'Nothing sculpted yet');
@@ -2676,7 +3163,9 @@ World.init();
 respawn();
 Terrain.stream();          // re-page around the corrected spawn
 fillQuickSelect();
+buildBands();
 updateSelUI();
+setSubTool(State.subTool);
 setTool(State.tool);
 updateCaptureUI();
 
@@ -2704,6 +3193,7 @@ function frame() {
   updateDirtyCues(dt);
   // The terrain field is unbounded, so it has no root node and no outline.
   if (handles.length) scaleHandles();
+  if (selection.size) syncSelBoxes();
   if (selected && selected.root) fitBox(selBox, selected.root.box);
   if (hovBox.visible && hovered && hovered.root) fitBox(hovBox, hovered.root.box);
   else if (hovBox.visible && hovered && !hovered.root) hovBox.visible = false;
@@ -2762,6 +3252,7 @@ function frame() {
  * poking at the graph or the classifier from devtools. */
 window.__ENGINE = {
   World, Baker, State, JobQueue, camera, THREE, Terrain,
+  setSubTool, selectionSize: () => selection.size,
   setLook: (y, p) => { yaw = y; pitch = p; },
   get look() { return { yaw, pitch }; }
 };
