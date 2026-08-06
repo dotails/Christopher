@@ -186,6 +186,7 @@
     padding:6px 12px;border-radius:14px;pointer-events:none;white-space:nowrap;transition:.2s;
   }
   #capture.free{color:var(--warn);border-color:rgba(255,176,87,.35)}
+  #capture.walking{color:var(--accent-2);border-color:rgba(157,123,255,.45)}
 
   /* ---- Tool bar ---- */
   #toolbar{
@@ -298,6 +299,7 @@
       <label class="chk"><input type="checkbox" id="t-bounds"><span>Show chunk bounds</span><small>quadtree</small></label>
       <label class="chk"><input type="checkbox" id="t-hover" checked><span>Highlight on hover</span><small>select tool</small></label>
       <label class="chk"><input type="checkbox" id="t-anim" checked><span>Animated shapes</span><small>live re-bake</small></label>
+      <label class="chk"><input type="checkbox" id="t-far"><span>Procedural far field</span><small>scattered</small></label>
 
       <div class="lbl">Tuning</div>
       <div class="slider"><label>Draw distance</label><input class="num" type="number" id="n-far" value="900"><input type="range" id="r-far" min="200" max="4000" step="20" value="900"></div>
@@ -320,10 +322,21 @@
         <button id="b-deselect">Deselect</button>
       </div>
 
+      <div class="lbl">Walk physics <span style="text-transform:none;letter-spacing:0">(shift+tab)</span></div>
+      <div class="slider"><label>Gravity</label><input class="num" type="number" id="n-grav" value="26"><input type="range" id="r-grav" min="0" max="60" step="1" value="26"></div>
+      <div class="slider"><label>Walk speed</label><input class="num" type="number" id="n-wspd" value="8"><input type="range" id="r-wspd" min="1" max="30" step="0.5" value="8"></div>
+      <div class="slider"><label>Jump speed</label><input class="num" type="number" id="n-jump" value="11"><input type="range" id="r-jump" min="0" max="35" step="0.5" value="11"></div>
+      <div class="slider"><label>Eye height</label><input class="num" type="number" id="n-eye" value="1.75"><input type="range" id="r-eye" min="0.3" max="6" step="0.05" value="1.75"></div>
+      <div class="slider"><label>Body radius</label><input class="num" type="number" id="n-body" value="0.5"><input type="range" id="r-body" min="0.1" max="4" step="0.05" value="0.5"></div>
+      <div class="slider"><label>Step height</label><input class="num" type="number" id="n-step" value="0.8"><input type="range" id="r-step" min="0" max="4" step="0.05" value="0.8"></div>
+
+      <div class="lbl">Prefabs <span style="text-transform:none;letter-spacing:0">(spawn ahead of you)</span></div>
+      <div class="chips" id="prefabs"></div>
+
       <div class="lbl">Scripted deformations</div>
       <div class="btns">
-        <button id="b-arch">Bend the arch</button>
-        <button id="b-wall">Ripple the wall</button>
+        <button id="b-wave">Wave selected</button>
+        <button id="b-twist">Twist selected</button>
         <button id="b-terr">Heave terrain</button>
         <button id="b-reset">Reset all shapes</button>
       </div>
@@ -348,6 +361,8 @@
       <div class="keyrow"><kbd>drag</kbd><b>look around — no button needed</b></div>
       <div class="keyrow"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><b>Fly / Select / Sculpt tool</b></div>
       <div class="keyrow"><kbd>tab</kbd><b>toggle captured / free mouse</b></div>
+      <div class="keyrow"><kbd>⇧tab</kbd><b>walk mode: gravity + collision</b></div>
+      <div class="keyrow"><kbd>space</kbd><b>jump (walking)</b></div>
       <div class="keyrow"><kbd>drag</kbd><b>use the active tool</b></div>
       <div class="keyrow"><kbd>scroll</kbd><b>Sculpt: power (negative carves)</b></div>
       <div class="keyrow"><kbd>⇧scroll</kbd><b>Sculpt: brush width</b></div>
@@ -1579,6 +1594,14 @@ const State = {
   selMode: 0,              // index into SELMODES, likewise
   freeMouse: false,        // ctrl toggles: captured mouselook vs free cursor
   animate: true,           // drive self-animating shapes
+  farField: false,         // procedurally scattered structures — off by default
+  walk: false,             // shift-tab: gravity, ground contact and jumping
+  gravity: 26,
+  walkSpeed: 8,
+  jumpSpeed: 11,
+  eyeHeight: 1.75,
+  bodyRadius: 0.5,
+  stepHeight: 0.8,
   drawDistance: 900,       // fog far plane; also scales what is kept resident
   // Reach multiplier per quadtree depth. Spread by default so each thumb sits
   // on its own boundary and moving one visibly changes where that level kicks in.
@@ -1654,64 +1677,103 @@ const TINT = {
   far:     new THREE.Color(0x9aa7b5).convertSRGBToLinear()    // hazy distance
 };
 
-function buildHeroPatches() {
-  const out = [];
+/* ---------------------------------------------------------------------- *
+ *  PREFABS. The world starts empty on purpose — flat ground and nothing else,
+ *  so what is in it is what you put there. These are the same Patch
+ *  constructions the demo used to spawn on boot, now behind buttons and
+ *  parameterised by an origin so they land where you are looking.
+ * ---------------------------------------------------------------------- */
+function prefabOrigin(dist) {
+  const o = camera.position.clone().addScaledVector(fwd, dist || 60);
+  o.y = TERRAIN_Y + Terrain.height(o.x, o.z);
+  return o;
+}
 
-  /* ---- ① Arched bridge: a straight-in-v, arcing-in-u ruled solid.
-   *
-   *  The three collinear, equal-height nodes at each end give those Hermite
-   *  segments zero vertical tangent AND equal endpoints, so they are EXACTLY
-   *  planar — the approach ramps therefore bake to clean two-triangle slabs
-   *  while the crown, which is genuinely curved, falls through to splats.
-   *  One object, both branches of the classifier, visible side by side.     */
-  const bx = [-46, -34, -22, 0, 22, 34, 46];
-  const by = [9.5, 9.5, 9.5, 19.5, 9.5, 9.5, 9.5];
-  out.push(new Patch({
-    name: 'Arched Bridge',
-    // railA at +z so ∂u × ∂v points up (see the terrain note below).
-    railA: railFrom(bx.map((x, i) => V(x, by[i], 4.5))),
-    railB: railFrom(bx.map((x, i) => V(x, by[i], -4.5))),
-    thickness: 1.15, tint: TINT.bridge, maxDepth: 9, hero: true
-  }));
+const PREFABS = {
+  'Arched bridge': (o) => {
+    // Three collinear equal-height nodes at each end make those Hermite
+    // segments exactly planar, so the approaches bake to clean polygon slabs
+    // while the curved crown falls through to splats — both classifier
+    // branches visible on one object.
+    const bx = [-46, -34, -22, 0, 22, 34, 46];
+    const by = [6.0, 6.0, 6.0, 16.3, 6.0, 6.0, 6.0];
+    const at = (x, y, z) => V(o.x + x, o.y + y, o.z + z);
+    return new Patch({
+      name: 'Arched Bridge',
+      railA: railFrom(bx.map((x, i) => at(x, by[i], 4.5))),
+      railB: railFrom(bx.map((x, i) => at(x, by[i], -4.5))),
+      thickness: 1.15, tint: TINT.bridge, maxDepth: 9, hero: true
+    });
+  },
 
-  /* ---- ② Winding thin wall: rails share an S-plan but sit at different
-   *        heights, so the loft is a vertical ribbon. A travelling ripple in
-   *        the warp field keeps almost every slice non-planar.             */
-  const plan = [V(-34, 1, 34), V(-14, 1, 15), V(4, 1, 25), V(22, 1, 6), V(38, 1, 20)];
-  const tops = [14.5, 17.5, 13.5, 18.5, 14.0];
-  out.push(new Patch({
-    name: 'Winding Wall',
-    railA: railFrom(plan.map(p => p.clone())),
-    railB: railFrom(plan.map((p, i) => V(p.x * 1.04, tops[i], p.z * 1.04))),
-    thickness: 0.5, tint: TINT.wall, maxDepth: 9, hero: true,
-    warp: (u, v) => 0.85 * Math.sin(u * 15.5) * v * v + 0.3 * Math.sin(v * 7.0 + u * 9.0)
-  }));
+  'Winding wall': (o) => {
+    const plan = [[-34, 34], [-14, 15], [4, 25], [22, 6], [38, 20]];
+    const tops = [11.5, 14.5, 10.5, 15.5, 11.0];
+    return new Patch({
+      name: 'Winding Wall',
+      railA: railFrom(plan.map(([x, z]) => V(o.x + x, o.y + 1, o.z + z))),
+      railB: railFrom(plan.map(([x, z], i) => V(o.x + x * 1.04, o.y + tops[i], o.z + z * 1.04))),
+      thickness: 0.5, tint: TINT.wall, maxDepth: 9, hero: true,
+      warp: (u, v) => 0.85 * Math.sin(u * 15.5) * v * v + 0.3 * Math.sin(v * 7.0 + u * 9.0)
+    });
+  },
 
-  /* ---- ④ Kinetic Ribbon: an animated shape type. Its control graph is a
-   *        function of time, so the engine re-bakes it every single frame —
-   *        proof that authoring edits and streaming refinement are the same
-   *        code path, just at different rates. Its handles are still live;
-   *        drag one and you are editing the curve the animation rides on.   */
-  const kx = [-30, -15, 0, 15, 30];
-  out.push(new Patch({
-    name: 'Kinetic Ribbon',
-    railA: railFrom(kx.map(x => V(x + 62, 24, 4))),
-    railB: railFrom(kx.map(x => V(x + 62, 24, -4))),
-    thickness: 0.55, tint: new THREE.Color(0xe8b26a).convertSRGBToLinear(),
-    maxDepth: 5, hero: true,
-    animate(t) {
-      for (const rail of [this.railA, this.railB]) {
-        rail.nodes.forEach((n, i) => {
-          // Offsets ride ON TOP of the authored node, so hand edits survive.
-          const A = this.animAmp ?? 1;
-          n.p.y = n.p0.y + Math.sin(t * 1.15 + i * 0.9) * 5.5 * A;
-          n.p.z = n.p0.z + Math.cos(t * 0.83 + i * 1.3) * 3.2 * A;
-        });
+  'Kinetic ribbon': (o) => {
+    // Its control graph is a function of time, so it re-authors itself every
+    // frame through the ordinary edit path.
+    const kx = [-30, -15, 0, 15, 30];
+    return new Patch({
+      name: 'Kinetic Ribbon',
+      railA: railFrom(kx.map(x => V(o.x + x, o.y + 22, o.z + 4))),
+      railB: railFrom(kx.map(x => V(o.x + x, o.y + 22, o.z - 4))),
+      thickness: 0.55, tint: new THREE.Color(0xe8b26a).convertSRGBToLinear(),
+      maxDepth: 5, hero: true,
+      animate(t) {
+        for (const rail of [this.railA, this.railB]) {
+          rail.nodes.forEach((n, i) => {
+            const A = this.animAmp ?? 1;
+            n.p.y = n.p0.y + Math.sin(t * 1.15 + i * 0.9) * 5.5 * A;
+            n.p.z = n.p0.z + Math.cos(t * 0.83 + i * 1.3) * 3.2 * A;
+          });
+        }
       }
-    }
-  }));
+    });
+  },
 
-  return out;
+  'Flat surface': (o) => {
+    const row = (off) => railFrom([-1, 0, 1].map(k =>
+      V(o.x + k * 16, o.y + 8, o.z + off)));
+    return new Patch({
+      name: 'Surface', railA: row(13), railB: row(-13),
+      thickness: 0.7, tint: new THREE.Color(0x7fc4a8).convertSRGBToLinear(),
+      maxDepth: 8, hero: true
+    });
+  },
+
+  'Tube edge': (o) => {
+    const spine = railFrom([-1, -0.34, 0.34, 1].map(k =>
+      V(o.x + k * 18, o.y + 7 + Math.sin(k * 2.2) * 4, o.z + Math.cos(k * 1.7) * 5)));
+    return new Patch({
+      name: 'Edge', railA: spine, railB: spine,
+      tube: true, radius: 1.5, thickness: 0.9,
+      tint: new THREE.Color(0xd98fa8).convertSRGBToLinear(),
+      maxDepth: 8, hero: true,
+      edges: { u0: true, u1: true, v0: false, v1: false }
+    });
+  }
+};
+
+let PREFAB_N = 0;
+function spawnPrefab(name) {
+  const p = PREFABS[name](prefabOrigin(64));
+  p.name = `${p.name} ${++PREFAB_N}`;
+  seedRoot(p);
+  World.patches.push(p);
+  World.heroes.push(p);
+  fillQuickSelect();
+  selectPatch(p);
+  toast(`Added “${p.name}” — ${handles.length} handles, ${p.byteSize()} bytes of maths`);
+  return p;
 }
 
 /* ══════════════════════════════════════════ §11a ENDLESS TERRAIN FIELD ══
@@ -1725,7 +1787,7 @@ function buildHeroPatches() {
  *  their shared borders closed, so no seam, rim wall or silhouette inset is
  *  ever generated between them and the surface reads as one endless sheet.
  * ---------------------------------------------------------------------------*/
-const TILE = 64, TERRAIN_Y = -9;
+const TILE = 64, TERRAIN_Y = -9, TERRAIN_THICK = 40;
 const terrainR = () => clamp(State.drawDistance * 0.40, 200, 1300);
 const terrainRelease = () => terrainR() * 1.3;
 
@@ -1739,36 +1801,33 @@ const Terrain = {
   version: 1,
 
   init() {
-    // A handful of authored landforms; everything else is procedural relief.
-    const A = (x, z, amp, r) => this.attractors.push({
-      p: V(x, TERRAIN_Y + amp, z), r,
-      p0: V(x, TERRAIN_Y + amp, z), r0: r
-    });
-    A(-46, 22, 26, 62);      // a big hill
-    A(38, -34, 18, 48);      // a ridge shoulder
-    A(6, -78, -12, 44);      // a crater
-    A(96, 46, 22, 58);
-    A(-104, -60, -9, 50);
+    // Dead flat to begin with: no attractors and no procedural relief. Add
+    // attractors, upload a height map or just sculpt it — whichever you want.
+    this.attractors.length = 0;
+    this.reliefScale = 0;
   },
 
   /** amplitude is just the handle's height above the datum — no hidden state */
   ampOf(a) { return a.p.y - TERRAIN_Y; },
 
   /** Procedural relief so the world stays interesting past the authored bits. */
-  reliefScale: 1,
+  reliefScale: 0,
   /* An uploaded image can drive the ground: brightness becomes height. It tiles
    * across the world so an endless terrain stays endless, and it simply adds to
    * the procedural relief and the attractors rather than replacing them. */
   heightMap: null,        // { w, h, data: Float32Array } luminance in 0..1
-  mapSpan: 600,           // world units the image covers before repeating
+  // Independent X/Z footprint and Y height, so the map can be sized to the
+  // ground it was drawn for rather than forced square.
+  mapSpanX: 600,
+  mapSpanZ: 600,
   mapAmp: 30,
 
   sampleMap(x, z) {
     const m = this.heightMap;
     if (!m) return 0;
     // Bilinear, wrapped — no seams and no edges to fall off.
-    const fx = ((x / this.mapSpan) % 1 + 1) % 1 * m.w;
-    const fz = ((z / this.mapSpan) % 1 + 1) % 1 * m.h;
+    const fx = ((x / this.mapSpanX) % 1 + 1) % 1 * m.w;
+    const fz = ((z / this.mapSpanZ) % 1 + 1) % 1 * m.h;
     const x0 = Math.floor(fx), z0 = Math.floor(fz);
     const tx = fx - x0, tz = fz - z0;
     const x1 = (x0 + 1) % m.w, z1 = (z0 + 1) % m.h;
@@ -1797,6 +1856,21 @@ const Terrain = {
 
   byteSize() { return this.attractors.length * 4 * 4 + 24; },
 
+  /** Top of the ground slab at a world point — analytic, so it costs nothing. */
+  surfaceY(x, z) { return TERRAIN_Y + this.height(x, z) + TERRAIN_THICK * 0.5; },
+
+  /** False where the ground has been dug away, so you can fall into your holes. */
+  solidAt(x, z) {
+    const tx = Math.floor(x / TILE), tz = Math.floor(z / TILE);
+    const p = this.tiles.get(tx + ',' + tz);
+    if (!p || !p.edits.length) return true;
+    // Tile rails run +x along u and +z from v=1 to v=0 (see makeTile).
+    const u = clamp((x - tx * TILE) / TILE, 0, 1);
+    const v = clamp(1 - (z - tz * TILE) / TILE, 0, 1);
+    p.activeEdits = null;
+    return p.solidUV(u, v);
+  },
+
   /** Rebuild every tile an attractor's disc of influence touches. */
   dirtyAround(a, extra) {
     this.version++;
@@ -1820,7 +1894,7 @@ const Terrain = {
       railB: railFrom([V(x0, TERRAIN_Y, z0), V((x0 + x1) / 2, TERRAIN_Y, z0), V(x1, TERRAIN_Y, z0)]),
       // Deep by default: the ground is a solid mass you can dig down into,
       // not a sheet you punch through.
-      thickness: 40, oneSided: true, tint: TINT.terrain, maxDepth: 9,
+      thickness: TERRAIN_THICK, oneSided: true, tint: TINT.terrain, maxDepth: 9,
       edges: { u0: false, u1: false, v0: false, v1: false },   // interior seams
       warp: (u, v, q) => Terrain.height(q.x, q.z)
     });
@@ -1958,9 +2032,10 @@ const World = {
   stats: { splats: 0, voxels: 0, meshTris: 0, chunks: 0, streaming: 0 },
 
   init() {
-    this.heroes = buildHeroPatches();
-    this.patches = this.heroes.slice();
-    for (const p of this.patches) seedRoot(p);
+    // Nothing is placed for you. Flat ground, and the Prefabs buttons or the
+    // Create tool put whatever you want on it.
+    this.heroes = [];
+    this.patches = [];
     Terrain.init();
     Terrain.stream();
     this.streamCells(true);
@@ -1968,6 +2043,17 @@ const World = {
 
   /* ---- ① Infinite Euclidean search: resident set follows the camera ---- */
   streamCells(force) {
+    if (!State.farField) {
+      // Release anything already generated when the layer is switched off.
+      if (this.cells.size) {
+        for (const [key, p] of this.cells) {
+          onPatchReleased(p); JobQueue.purge(p);
+          const i = this.patches.indexOf(p); if (i >= 0) this.patches.splice(i, 1);
+        }
+        this.cells.clear(); this.dirtyBuffers = true;
+      }
+      return;
+    }
     const cx0 = Math.round(camera.position.x / CELL), cz0 = Math.round(camera.position.z / CELL);
     const span = Math.ceil(streamR() / CELL);
     for (let dz = -span; dz <= span; dz++) {
@@ -2615,11 +2701,86 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'Tab' && !e.repeat) {
     e.preventDefault();                   // never let it walk the HUD focus ring
-    setCapture(State.freeMouse);          // toggle
+    // Shift-tab is the movement-mode toggle; pressing it again returns you to
+    // whichever mode you came from. Plain tab still frees or captures the mouse.
+    if (e.shiftKey) setWalk(!State.walk);
+    else setCapture(State.freeMouse);
   }
 });
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
+
+/* ---------------------------------------------------------------------- *
+ *  WALK MODE (shift-tab). Gravity, ground contact, jumping and collision.
+ *
+ *  Ground is queried from the CONTINUOUS surface function, never from the
+ *  voxel or fleck representation — those are just how matter is drawn. So
+ *  crossing bumpy ground interpolates smoothly instead of stair-stepping,
+ *  because the thing being followed is the analytic height field itself.
+ * ---------------------------------------------------------------------- */
+const vel = V();
+let grounded = false, jumpLatch = false;
+const physRay = new THREE.Raycaster();
+const _DOWN = V(0, -1, 0);
+const _pd = V(), _pn = V(), _pp = V();
+
+/** Colliders worth testing against for walls — the ground is analytic. */
+function solidColliders(pos, reach) {
+  const out = [];
+  for (const p of World.patches) {
+    if (p.owner) continue;                       // terrain is the floor, not a wall
+    if (!p.root || p.root.box.isEmpty()) continue;
+    if (p.root.box.distanceToPoint(pos) > reach) continue;
+    out.push(collider(p));
+  }
+  return out;
+}
+
+/** Highest walkable surface under a point: smooth terrain, plus object tops. */
+function groundHeightAt(x, z, fromY) {
+  let g = Terrain.solidAt(x, z) ? Terrain.surfaceY(x, z) : -1e7;
+  const objs = solidColliders(_pp.set(x, fromY, z), 40);
+  if (objs.length) {
+    physRay.set(_pp.set(x, fromY + 2.5, z), _DOWN);
+    physRay.far = 200;
+    for (const h of physRay.intersectObjects(objs, false)) {
+      const top = h.point.y + (h.object.userData.patch.thickness || 0) * 0.5;
+      if (top <= fromY + State.stepHeight && top > g) g = top;
+    }
+  }
+  return g;
+}
+
+/** Move horizontally, sliding along anything solid rather than stopping dead. */
+function moveWithCollision(pos, delta) {
+  for (let pass = 0; pass < 2; pass++) {
+    const len = Math.hypot(delta.x, delta.z);
+    if (len < 1e-5) break;
+    _pd.set(delta.x / len, 0, delta.z / len);
+    const objs = solidColliders(pos, 40);
+    if (!objs.length) break;
+    physRay.set(_pp.copy(pos).setY(pos.y - State.eyeHeight * 0.5), _pd);
+    physRay.far = len + State.bodyRadius;
+    const h = physRay.intersectObjects(objs, false)[0];
+    if (!h) break;
+    _pn.copy(h.face ? h.face.normal : _pd).setY(0);
+    if (_pn.lengthSq() < 1e-6) break;
+    _pn.normalize();
+    if (_pn.dot(_pd) > 0) _pn.negate();
+    const into = delta.x * _pn.x + delta.z * _pn.z;
+    if (into < 0) { delta.x -= _pn.x * into; delta.z -= _pn.z * into; }
+  }
+  pos.x += delta.x; pos.z += delta.z;
+}
+
+function setWalk(on) {
+  State.walk = on;
+  vel.set(0, 0, 0);
+  if (on) camera.position.y = Math.max(camera.position.y, groundHeightAt(camera.position.x, camera.position.z, camera.position.y) + State.eyeHeight);
+  $('capture').classList.toggle('walking', on);
+  toast(on ? 'Walk mode — gravity, collision and jumping. Shift-tab returns to flying.'
+           : 'Flying — no gravity.');
+}
 
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 function updateCamera(dt) {
@@ -2627,13 +2788,63 @@ function updateCamera(dt) {
   camera.quaternion.setFromEuler(_euler);
   fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
   right.set(1, 0, 0).applyQuaternion(camera.quaternion);
-  let v = State.flySpeed * (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 4 : 1) * dt;
+  const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
+
+  if (State.walk) {
+    // Physics runs on a FIXED timestep, sub-stepped to catch up with the real
+    // frame time. The frame dt is clamped to keep a stall from teleporting you,
+    // but integrating gravity against a clamped dt makes falling run in slow
+    // motion whenever the frame rate dips — the simulation has to be decoupled.
+    physAcc = Math.min(physAcc + dt, 0.25);
+    while (physAcc >= PHYS_STEP) { physAcc -= PHYS_STEP; walkStep(PHYS_STEP); }
+    return;
+  }
+
+  grounded = false;
+  let v = State.flySpeed * (sprint ? 4 : 1) * dt;
   if (keys.has('KeyW')) camera.position.addScaledVector(fwd, v);
   if (keys.has('KeyS')) camera.position.addScaledVector(fwd, -v);
   if (keys.has('KeyD')) camera.position.addScaledVector(right, v);
   if (keys.has('KeyA')) camera.position.addScaledVector(right, -v);
   if (keys.has('KeyE') || keys.has('Space')) camera.position.addScaledVector(up, v);
   if (keys.has('KeyQ')) camera.position.addScaledVector(up, -v);
+}
+
+let physAcc = 0;
+const PHYS_STEP = 1 / 60;
+
+function walkStep(dt) {
+  {
+    const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
+    // Horizontal intent, flattened: looking up must not launch you.
+    _pd.set(fwd.x, 0, fwd.z);
+    if (_pd.lengthSq() < 1e-6) _pd.set(right.z, 0, -right.x);
+    _pd.normalize();
+    _pn.set(right.x, 0, right.z).normalize();
+    _pp.set(0, 0, 0);
+    if (keys.has('KeyW')) _pp.add(_pd);
+    if (keys.has('KeyS')) _pp.sub(_pd);
+    if (keys.has('KeyD')) _pp.add(_pn);
+    if (keys.has('KeyA')) _pp.sub(_pn);
+    if (_pp.lengthSq() > 1e-6) _pp.normalize().multiplyScalar(State.walkSpeed * (sprint ? 2 : 1));
+
+    vel.x = _pp.x; vel.z = _pp.z;
+    vel.y -= State.gravity * dt;
+    if ((keys.has('Space') || keys.has('KeyE')) && grounded && !jumpLatch) { vel.y = State.jumpSpeed; jumpLatch = true; }
+    if (!keys.has('Space') && !keys.has('KeyE')) jumpLatch = false;
+
+    _tmp1.set(vel.x * dt, 0, vel.z * dt);
+    moveWithCollision(camera.position, _tmp1);
+    camera.position.y += vel.y * dt;
+
+    const foot = groundHeightAt(camera.position.x, camera.position.z, camera.position.y) + State.eyeHeight;
+    if (camera.position.y <= foot) {
+      camera.position.y = foot; vel.y = 0; grounded = true;
+    } else if (grounded && vel.y <= 0 && camera.position.y - foot < State.stepHeight) {
+      // Stick to the ground on the way down a slope instead of hopping off it.
+      camera.position.y = foot; vel.y = 0;
+    } else grounded = false;
+  }
 }
 
 /* Filled in by the terrain field (§11a); a no-op for rail-handle patches. */
@@ -3264,6 +3475,12 @@ bindRange('r-soft', 'n-soft', v => {
 }, v => v >= 1 ? '1.00' : v.toFixed(2).slice(1));
 bindRange('r-dig', 'n-dig', v => State.digRadius = v, v => v.toFixed(1));
 bindRange('r-spd', 'n-spd', v => State.flySpeed = v, v => String(v | 0));
+bindRange('r-grav', 'n-grav', v => State.gravity = v, v => v.toFixed(0));
+bindRange('r-wspd', 'n-wspd', v => State.walkSpeed = v, v => v.toFixed(1));
+bindRange('r-jump', 'n-jump', v => State.jumpSpeed = v, v => v.toFixed(1));
+bindRange('r-eye', 'n-eye', v => State.eyeHeight = v, v => v.toFixed(2));
+bindRange('r-body', 'n-body', v => State.bodyRadius = v, v => v.toFixed(2));
+bindRange('r-step', 'n-step', v => State.stepHeight = v, v => v.toFixed(2));
 
 /* ---------------------------------------------------------------------- *
  *  LOD BAND STRIP — one draggable thumb per quadtree depth.
@@ -3405,7 +3622,7 @@ function buildProps() {
           Terrain.heightMap = { w: W, h: H, data };
           Terrain.edited = true; Terrain.dirtyAll();
           status.textContent = `loaded ${W}×${H}`;
-          toast(`Height map applied — ${W}×${H}, tiling every ${Terrain.mapSpan} m`);
+          toast(`Height map applied — ${W}×${H}, tiling every ${Terrain.mapSpanX}×${Terrain.mapSpanZ} m`);
           buildProps();
         };
         img.onerror = () => toast('That file could not be decoded as an image');
@@ -3414,14 +3631,27 @@ function buildProps() {
       rd.readAsDataURL(f);
     };
 
-    const mapAmp = document.createElement('input'); mapAmp.type = 'number'; mapAmp.step = '2';
-    mapAmp.value = String(Terrain.mapAmp);
-    row('map height', mapAmp);
-    mapAmp.onchange = () => { const x = parseFloat(mapAmp.value); if (isFinite(x)) { Terrain.mapAmp = clamp(x, 0, 400); Terrain.dirtyAll(); } };
-    const mapSpan = document.createElement('input'); mapSpan.type = 'number'; mapSpan.step = '50';
-    mapSpan.value = String(Terrain.mapSpan);
-    row('map tile size', mapSpan);
-    mapSpan.onchange = () => { const x = parseFloat(mapSpan.value); if (isFinite(x)) { Terrain.mapSpan = clamp(x, 20, 20000); Terrain.dirtyAll(); } };
+    // X / Y / Z scale. Drag to eyeball the footprint against the ground; Y is
+    // the total height the full black-to-white range spans.
+    const axis = (label, get, set, max, step) => {
+      const n = document.createElement('input'); n.type = 'number'; n.step = String(step);
+      n.value = String(get());
+      row(label, n);
+      const r = document.createElement('input');
+      r.type = 'range'; r.min = String(step); r.max = String(max); r.step = String(step);
+      r.value = String(clamp(get(), step, max));
+      r.style.cssText = 'grid-column:1/-1;width:100%';
+      host.append(r);
+      const apply = x => { set(clamp(x, step, 1e6)); n.value = String(+get().toFixed(2));
+                           r.value = String(clamp(get(), step, parseFloat(r.max))); Terrain.dirtyAll(); };
+      r.oninput = () => apply(parseFloat(r.value));
+      n.onchange = () => { const x = parseFloat(n.value); if (!isFinite(x)) return;
+                           if (x > parseFloat(r.max)) r.max = String(x); apply(x); };
+    };
+    axis('X size (m)', () => Terrain.mapSpanX, v => Terrain.mapSpanX = v, 4000, 10);
+    axis('Z size (m)', () => Terrain.mapSpanZ, v => Terrain.mapSpanZ = v, 4000, 10);
+    axis('Y height (m)', () => Terrain.mapAmp, v => Terrain.mapAmp = v, 400, 1);
+
     if (Terrain.heightMap) {
       const clr = document.createElement('button'); clr.className = 'wide'; clr.textContent = 'Remove height map';
       clr.onclick = () => { Terrain.heightMap = null; Terrain.dirtyAll(); buildProps(); toast('Height map removed'); };
@@ -3634,21 +3864,60 @@ function deform(patch, mutate, label) {
   const b = patch.root.box.clone(); b.expandByScalar(4); flashRegion(b);
   toast(label);
 }
-$('b-arch').onclick = () => {
-  const p = World.heroes[0], dir = Math.random() < 0.5 ? 1 : -1;
-  deform(p, (n, s, k, ni, ri, len) => {
-    const w = Math.sin((ni / (len - 1)) * Math.PI);
-    n.p.y = s.p.y + dir * 7.5 * w * k;
-  }, 'Bridge arch re-authored — patch re-baking around you');
+function fillPrefabs() {
+  const box = $('prefabs');
+  box.innerHTML = '';
+  for (const name of Object.keys(PREFABS)) {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.onclick = () => { const p = spawnPrefab(name); frameOn(p); };
+    box.appendChild(b);
+  }
+}
+
+$('t-far').onchange = e => {
+  State.farField = e.target.checked;
+  World.streamCells();
+  toast(e.target.checked ? 'Procedural structures streaming around you' : 'Far field cleared');
 };
-$('b-wall').onclick = () => {
-  const p = World.heroes[1];
-  deform(p, (n, s, k, ni) => {
-    n.p.z = s.p.z + Math.sin(ni * 2.1 + 0.7) * 11 * k;
-    n.p.x = s.p.x + Math.cos(ni * 1.7) * 5 * k;
-  }, 'Wall curve re-authored — only its quadtree went dirty');
-};
+
+/* The scripted deformations act on whatever is selected rather than on shapes
+ * the demo assumed were there. */
+function deformSelected(label, mutate) {
+  const targets = [...selection].filter(o => !o.isTerrain && o.railA);
+  if (!targets.length) { toast('Select an object first'); return; }
+  for (const patch of targets) {
+    const rails = patch.railA === patch.railB ? [patch.railA] : [patch.railA, patch.railB];
+    const snap = rails.map(r => r.nodes.map(n => ({ p: n.p.clone(), t: n.t.clone() })));
+    tween(0.8, k => {
+      rails.forEach((rail, ri) => rail.nodes.forEach((n, ni) => mutate(n, snap[ri][ni], k, ni, rail.nodes.length)));
+      patch.edited = true;
+      World.markPatchDirty(patch);
+      syncHandles();
+    });
+    const b = patch.root.box.clone(); b.expandByScalar(4); flashRegion(b);
+  }
+  toast(`${label} — ${targets.length} object${targets.length === 1 ? '' : 's'} re-baking around you`);
+}
+
+$('b-wave').onclick = () => deformSelected('Waved', (n, s0, k, ni, len) => {
+  const w = Math.sin((ni / Math.max(len - 1, 1)) * Math.PI);
+  n.p.y = s0.p.y + 9 * w * k;
+});
+$('b-twist').onclick = () => deformSelected('Twisted', (n, s0, k, ni) => {
+  n.p.x = s0.p.x + Math.cos(ni * 1.7) * 7 * k;
+  n.p.z = s0.p.z + Math.sin(ni * 2.1 + 0.7) * 7 * k;
+});
+
 $('b-terr').onclick = () => {
+  if (!Terrain.attractors.length) {
+    const x = camera.position.x + fwd.x * 50, z = camera.position.z + fwd.z * 50;
+    Terrain.attractors.push({ p: V(x, TERRAIN_Y + 20, z), r: 55, p0: V(x, TERRAIN_Y + 20, z), r0: 55 });
+    Terrain.edited = true; Terrain.dirtyAll();
+    if (selected === Terrain) buildHandles([...selection]);
+    toast('Terrain is flat — added an attractor ahead of you to shape it');
+    return;
+  }
   const snap = Terrain.attractors.map(a => a.p.y);
   tween(0.8, k => {
     Terrain.attractors.forEach((a, i) => { a.p.y = snap[i] + (i % 2 ? 16 : -11) * k; });
@@ -3658,17 +3927,20 @@ $('b-terr').onclick = () => {
   });
   toast('Terrain attractors heaved — the field re-bakes around you');
 };
+
 $('b-reset').onclick = () => {
   for (const a of Terrain.attractors) { a.p.copy(a.p0); a.r = a.r0; }
   Terrain.edited = false; Terrain.dirtyAll();
   for (const p of World.heroes) {
-    for (const rail of [p.railA, p.railB]) for (const n of rail.nodes) { n.p.copy(n.p0); n.t.copy(n.t0); }
+    const rails = p.railA === p.railB ? [p.railA] : [p.railA, p.railB];
+    for (const rail of rails) for (const n of rail.nodes) { n.p.copy(n.p0); n.t.copy(n.t0); }
     p.edited = false;
     World.markPatchDirty(p);
   }
   syncHandles();
   toast('Mathematical graph restored to authored state');
 };
+
 $('b-clear').onclick = () => {
   let n = 0;
   Terrain.edits.clear();
@@ -3748,6 +4020,7 @@ World.init();
 respawn();
 Terrain.stream();          // re-page around the corrected spawn
 fillQuickSelect();
+fillPrefabs();
 buildBands();
 updateSelUI();
 buildProps();
