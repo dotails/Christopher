@@ -591,6 +591,10 @@ class Patch {
     this.tube = !!o.tube;
     this.radius = o.radius || 1;
     this.twist = o.twist || 0;
+    // On a tube the girth IS the radius; the slab thickness is just the shell
+    // that makes it read as solid, so it is derived rather than offered as a
+    // second, redundant control.
+    if (this.tube) this.thickness = Math.min(this.thickness, this.radius * 0.7);
     // Which parameter boundaries are a real exposed edge of the solid. Tiles of
     // a larger continuous field set the shared ones false so no rim wall — and
     // no silhouette inset — is generated along a seam that is not really there.
@@ -740,8 +744,11 @@ class Patch {
 
   /** Final displaced surface position (no thickness applied yet). */
   evalRaw(u, v, out) {
-    this.railA.eval(u, _erA); this.railB.eval(u, _erB);
-    out.lerpVectors(_erA, _erB, v);
+    // Must go through baseAt: it is the one place that knows a tube from a
+    // loft. Inlining the loft here made every tube evaluate as
+    // lerp(railA, railA, v) — a single curve with no area at all, which is why
+    // an edge rendered as nothing no matter what radius it was given.
+    this.baseAt(u, v, out);
     const hasEdits = (this.activeEdits || this.edits).length > 0;
     if (this.warp || hasEdits) {
       let d = this.warp ? this.warp(u, v, out) : 0;
@@ -1467,6 +1474,7 @@ class SplatField {
     this.seen = new Set();
     this.top = 0;                // high-water mark of the bump allocator
     this.trisPerSplat = 1;
+    this.needsCompact = false;
     this.lo = Infinity; this.hi = -1;
   }
   /** Grow the instance buffers when the budget is raised past their capacity. */
@@ -1480,7 +1488,7 @@ class SplatField {
       this.a[k] = at;
       this.geo.setAttribute(k, at);
     }
-    this.slots.clear(); this.free.clear(); this.top = 0;   // offsets are stale now
+    this.slots.clear(); this.free.clear(); this.top = 0; this.freeCount = 0;   // offsets are stale now
     World.dirtyBuffers = true;
   }
   /* ------------------------------------------------------------------ *
@@ -1519,9 +1527,40 @@ class SplatField {
 
   _alloc(n) {
     const pool = this.free.get(n);
-    if (pool && pool.length) return pool.pop();
+    if (pool && pool.length) { this.freeCount -= n; return pool.pop(); }
+    // Best fit among the other freed sizes. Without this the allocator only
+    // ever reuses an exactly-matching hole, so the buffer fragments, the bump
+    // pointer runs into the cap while plenty of space sits free, and chunks
+    // start vanishing even though the budget is nowhere near spent.
+    let bk = -1, bn = Infinity;
+    for (const [size, list] of this.free) {
+      if (size >= n && size < bn && list.length) { bn = size; bk = size; }
+    }
+    if (bk >= 0) {
+      const off = this.free.get(bk).pop();
+      this.freeCount -= bk;
+      if (bn > n) {                                  // hand the tail back
+        const rest = off + n, restN = bn - n;
+        this.a.iScl.array.fill(0, rest * 2, (rest + restN) * 2);
+        let pool2 = this.free.get(restN);
+        if (!pool2) this.free.set(restN, pool2 = []);
+        pool2.push(rest);
+        this.freeCount += restN;
+        this._touch(rest, restN);
+      }
+      return off;
+    }
     const cap = Math.min(State.maxSplats, MAX_SPLATS);
-    if (this.top + n > cap) return -1;
+    if (this.top + n > cap) {
+      // Only worth compacting if the space exists and is merely fragmented.
+      // When the buffer is genuinely full, compacting cannot help — and since
+      // the list is longer than the cap, doing it anyway wipes every slot,
+      // fails to refit, and wipes them again next frame, so NOTHING is drawn.
+      // Full means: stop adding. The list is nearest-first, so what is dropped
+      // is the far tail, which is the right thing to lose.
+      if (this.freeCount >= n) this.needsCompact = true;
+      return -1;
+    }
     const off = this.top; this.top += n;
     return off;
   }
@@ -1532,6 +1571,7 @@ class SplatField {
     let pool = this.free.get(slot.n);
     if (!pool) this.free.set(slot.n, pool = []);
     pool.push(slot.off);
+    this.freeCount += slot.n;
   }
 
   push(c) {
@@ -1552,6 +1592,16 @@ class SplatField {
       if (this.seen.has(key)) continue;
       this._release(slot);
       this.slots.delete(key);
+    }
+    if (this.needsCompact) {
+      // Genuinely out of room even after best fit. Drop every slot so the set
+      // can be laid down contiguously from zero — and flag it, because waiting
+      // for the next frame to do that leaves whatever failed to allocate
+      // missing from the picture in the meantime.
+      this.needsCompact = false;
+      this.compacted = true;
+      this.slots.clear(); this.free.clear(); this.top = 0; this.freeCount = 0;
+      World.dirtyBuffers = true;
     }
     this.count = 0;
     for (const [, slot] of this.slots) this.count += slot.n;
@@ -2418,6 +2468,16 @@ const World = {
       else if (c.kind === 'mesh') meshes.push(c);
     }
     for (const f of FIELDS) f.end();
+    // If the splat buffer had to compact, everything that failed to allocate is
+    // absent right now. Lay the same set down again immediately against the
+    // freshly emptied buffer instead of showing a hole for a frame.
+    if (splats.compacted) {
+      splats.compacted = false;
+      splats.begin();
+      for (const c of list) if (c.kind === 'splat') splats.push(c);
+      splats.end();
+      splats.compacted = false;
+    }
     this.stats.splats = splats.count;
     this.stats.voxels = voxels.count;
     this.stats.meshTris = meshes.count / 3;
@@ -3729,7 +3789,7 @@ bindRange('r-leaf', 'n-leaf', v => { State.minLeaf = Math.max(0.05, v); }, v => 
 bindRange('r-splat', 'n-splat', v => {
   State.maxSplats = Math.max(1000, Math.round(v));
   splats.ensure(State.maxSplats);
-}, v => v >= 1000 ? Math.round(v / 1000) + 'k' : String(v | 0));
+}, v => String(Math.round(v)));   // a number input rejects '400k' and blanks itself
 bindRange('r-flat', 'n-flat', v => { Baker.flatEps = v; rebakeAll(null); }, v => v.toFixed(4).slice(1));
 // Softness 0 → the whole quad is opaque core (hard flecks).
 // Softness 1 → the core all but vanishes and the surface is carried almost
@@ -3903,10 +3963,14 @@ function buildProps() {
     };
     return i;
   };
-  num('thickness', o => o.thickness, (o, x) => o.thickness = x, 0.1, 0.02, 40);
+  if (!targets.every(o => o.tube)) {
+    num('thickness', o => o.thickness, (o, x) => o.thickness = x, 0.1, 0.02, 40);
+  }
 
   if (targets.some(o => o.tube)) {
-    num('tube radius', o => o.radius, (o, x) => { o.radius = x; }, 0.1, 0.05, 40);
+    // Radius drives the shell too, so there is one girth control, not two.
+    num('tube radius', o => o.radius,
+        (o, x) => { o.radius = x; o.thickness = Math.min(o.thickness, x * 0.7); }, 0.1, 0.05, 40);
     num('twist turns', o => o.twist, (o, x) => { o.twist = x; }, 0.1, -8, 8);
   }
 
@@ -4635,6 +4699,13 @@ window.__ENGINE = {
   backCull: () => splats.mat.uniforms.uBackCull.value,
   colliderOf: collider,
   triPerSplat: () => splats.trisPerSplat,
+  splatEnsure: (n) => splats.ensure(n), splatHasSlot: (k) => splats.slots.has(k),
+  // How much of the list we were actually asked to draw made it into the buffer.
+  splatCoverage: () => {
+    let want = 0, got = 0;
+    for (const c of renderList) if (c.kind === 'splat' && c.n) { want += c.n; if (splats.slots.has(c.key)) got += c.n; }
+    return { want, got, missing: want - got };
+  },
   serializeWorld, applyWorld, serializeSettings, applySettings,
   selectPatch,
   setLook: (y, p) => { yaw = y; pitch = p; },
