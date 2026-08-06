@@ -320,6 +320,7 @@
       <div class="slider"><label>Fog distance</label><input class="num" type="number" id="n-fog" value="900"><input type="range" id="r-fog" min="100" max="8000" step="50" value="900"></div>
       <div class="slider"><label>Finest detail (m)</label><input class="num" type="number" id="n-leaf" value="0.7"><input type="range" id="r-leaf" min="0.1" max="6" step="0.05" value="0.7"></div>
       <div class="slider"><label>Max splats</label><input class="num" type="number" id="n-splat" value="260000"><input type="range" id="r-splat" min="20000" max="1500000" step="10000" value="260000"></div>
+      <div class="slider"><label>LOD levels</label><input class="num" type="number" id="n-lvl" value="3"><input type="range" id="r-lvl" min="1" max="10" step="1" value="3"></div>
       <div class="lbl" style="margin-top:9px">LOD bands <span style="text-transform:none;letter-spacing:0">(camera → draw distance)</span></div>
       <div class="bands" id="bands"><div class="track"></div><div class="fillbar"></div></div>
       <div class="bandgrid" id="bandgrid"></div>
@@ -1791,7 +1792,8 @@ const State = {
    * is as fine as it gets. Each band therefore starts where the previous one
    * ended. The budget feedback below scales the whole table, it does not
    * reinterpret it. */
-  lodBands: [1400, 820, 500, 310, 195, 125, 80, 52, 34, 22],
+  lodLevels: 3,
+  lodBands: [900, 300, 90],
   digRadius: 2.4,
   // Signed brush power: positive adds matter, negative removes it, so the wheel
   // sweeps continuously from carving through nothing to building up.
@@ -2339,7 +2341,8 @@ const World = {
         // what actually redistributes the flecks over the new surface.
         const sculpted = p.edits.length > 0 && p.editsIn(n.u0, n.u1, n.v0, n.v1).length > 0;
         const floor = sculpted ? MIN_LEAF() * 0.45 : MIN_LEAF();
-        const refinable = n.depth < p.maxDepth && Math.max(n.wu, n.wv) > floor;
+        const refinable = n.depth < Math.min(p.maxDepth, State.lodLevels)
+                       && Math.max(n.wu, n.wv) > floor;
         if (refinable && dist < bandAt(n.depth)) {
           // Only subdivide if we can afford bounds for every child right now,
           // so a split never opens a one-frame hole in the surface.
@@ -2352,6 +2355,13 @@ const World = {
             // children; hand over only once every one of them is baked.
             let ready = true;
             for (const c of n.children) {
+              // The child is not on the draw stack while we hold the parent, so
+              // nothing else marks it as seen — and the bake queue drops jobs
+              // for nodes it thinks the camera has left. Without this the child
+              // is discarded before it can bake, so it never becomes ready, the
+              // parent is held forever and the cut never gets past the coarsest
+              // level. Claiming it here is what lets the fine passes happen.
+              c.lastSeen = this.frame;
               const cf = c.rep && c.repPV === p.version && c.repBV === State.bakeVersion;
               if (!cf) { ready = false; JobQueue.add(c, c.box.distanceToPoint(cam)); }
             }
@@ -3705,6 +3715,16 @@ bindRange('r-far', 'n-far', v => {
   skyDome.scale.setScalar(Math.max(v * 2.2, 1200) / 1700);
 }, v => String(v | 0));
 bindRange('r-fog', 'n-fog', v => { State.fogDistance = v; applyFog(); }, v => String(v | 0));
+bindRange('r-lvl', 'n-lvl', v => {
+  const n = clamp(Math.round(v), 1, 12);
+  State.lodLevels = n;
+  // Resize the band table, spreading any new levels between the last one and
+  // the camera so they arrive somewhere sensible rather than at zero.
+  const b = State.lodBands;
+  while (b.length > n) b.pop();
+  while (b.length < n) b.push(Math.max(4, (b[b.length - 1] || bandAxisMax()) * 0.42));
+  buildBandGrid();
+}, v => String(v | 0));
 bindRange('r-leaf', 'n-leaf', v => { State.minLeaf = Math.max(0.05, v); }, v => v.toFixed(2));
 bindRange('r-splat', 'n-splat', v => {
   State.maxSplats = Math.max(1000, Math.round(v));
@@ -4107,7 +4127,7 @@ const SETTING_KEYS = [
   'tool', 'subTool', 'selMode', 'polyOptim', 'netLatency', 'lodColor', 'showBounds',
   'hoverHint', 'animate', 'farField', 'freeMouse', 'walk', 'gravity', 'walkSpeed',
   'jumpSpeed', 'eyeHeight', 'bodyRadius', 'stepHeight', 'digRadius', 'brushPower',
-  'flySpeed', 'drawDistance', 'fogDistance', 'maxSplats', 'minLeaf', 'lodBands'
+  'flySpeed', 'drawDistance', 'fogDistance', 'maxSplats', 'minLeaf', 'lodLevels', 'lodBands'
 ];
 
 function download(name, text) {
@@ -4156,6 +4176,7 @@ function applySettings(j) {
   put('r-fog', State.fogDistance); put('n-fog', State.fogDistance);
   put('r-splat', State.maxSplats); put('n-splat', State.maxSplats);
   put('r-leaf', State.minLeaf); put('n-leaf', State.minLeaf);
+  put('r-lvl', State.lodLevels); put('n-lvl', State.lodLevels);
   put('r-dig', State.digRadius); put('n-dig', State.digRadius);
   put('r-spd', State.flySpeed); put('n-spd', State.flySpeed);
   put('r-grav', State.gravity); put('n-grav', State.gravity);
