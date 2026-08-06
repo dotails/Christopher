@@ -553,6 +553,12 @@ class Patch {
     // its bottom face is pure cost. Carved walls are still built, so digging
     // into it still reads correctly.
     this.oneSided = !!o.oneSided;
+    /* A ground plane should never be punched through. On a noHoles patch a
+     * negative brush becomes a downward DISPLACEMENT instead of a density
+     * subtraction, so digging pushes the surface down and the sheet stays
+     * closed — no hole to fill in afterwards, and no thickness needed to dig
+     * "into". Solid objects keep the subtractive behaviour. */
+    this.noHoles = !!o.noHoles;
     this.tube = !!o.tube;
     this.radius = o.radius || 1;
     this.twist = o.twist || 0;
@@ -1394,6 +1400,11 @@ class SplatField {
     this.geo = g;
     scene.add(this.mesh, this.skirt);
     this.count = 0;
+    this.slots = new Map();      // chunk key -> {off, n, born}
+    this.free = new Map();       // slice length -> [offsets]
+    this.seen = new Set();
+    this.top = 0;                // high-water mark of the bump allocator
+    this.lo = Infinity; this.hi = -1;
   }
   /** Grow the instance buffers when the budget is raised past their capacity. */
   ensure(cap) {
@@ -1406,23 +1417,84 @@ class SplatField {
       this.a[k] = at;
       this.geo.setAttribute(k, at);
     }
+    this.slots.clear(); this.free.clear(); this.top = 0;   // offsets are stale now
     World.dirtyBuffers = true;
   }
-  begin() { this.count = 0; }
-  push(c) {
-    const n = Math.min(c.n, Math.min(State.maxSplats, MAX_SPLATS) - this.count);
-    if (n <= 0) return 0;
-    const o = this.count;
-    this.a.iPos.array.set(c.pos.subarray(0, n * 3), o * 3);
-    this.a.iNrm.array.set(c.nrm.subarray(0, n * 3), o * 3);
-    this.a.iTan.array.set(c.tan.subarray(0, n * 3), o * 3);
-    this.a.iScl.array.set(c.scl.subarray(0, n * 2), o * 2);
-    this.a.iCol.array.set(c.col.subarray(0, n * 3), o * 3);
-    this.a.iBorn.array.fill(c.born, o, o + n);
-    this.count += n;
-    return n;
+  /* ------------------------------------------------------------------ *
+   *  PERSISTENT SLOTS.
+   *
+   *  Re-blitting every visible fleck whenever the cut changes means pushing
+   *  megabytes to the GPU on every frame you move, which dwarfs the cost of
+   *  actually drawing them. Instead each chunk keeps the slice of the buffer
+   *  it was written into for as long as it stays visible, so a frame only
+   *  writes the handful of chunks that genuinely changed, and only that byte
+   *  range is uploaded. A retired slice has its scale zeroed, which makes its
+   *  quads degenerate — free to rasterise — until it is reused.
+   * ------------------------------------------------------------------ */
+  begin() { this.seen.clear(); this.lo = Infinity; this.hi = -1; }
+
+  _touch(off, n) { if (off < this.lo) this.lo = off; if (off + n > this.hi) this.hi = off + n; }
+
+  _write(off, c, n) {
+    this.a.iPos.array.set(c.pos.subarray(0, n * 3), off * 3);
+    this.a.iNrm.array.set(c.nrm.subarray(0, n * 3), off * 3);
+    this.a.iTan.array.set(c.tan.subarray(0, n * 3), off * 3);
+    this.a.iScl.array.set(c.scl.subarray(0, n * 2), off * 2);
+    this.a.iCol.array.set(c.col.subarray(0, n * 3), off * 3);
+    this.a.iBorn.array.fill(c.born, off, off + n);
+    this._touch(off, n);
   }
-  end() { for (const k in this.a) this.a[k].needsUpdate = true; this.geo.instanceCount = this.count; }
+
+  _alloc(n) {
+    const pool = this.free.get(n);
+    if (pool && pool.length) return pool.pop();
+    const cap = Math.min(State.maxSplats, MAX_SPLATS);
+    if (this.top + n > cap) return -1;
+    const off = this.top; this.top += n;
+    return off;
+  }
+
+  _release(slot) {
+    this.a.iScl.array.fill(0, slot.off * 2, (slot.off + slot.n) * 2);  // degenerate
+    this._touch(slot.off, slot.n);
+    let pool = this.free.get(slot.n);
+    if (!pool) this.free.set(slot.n, pool = []);
+    pool.push(slot.off);
+  }
+
+  push(c) {
+    if (c.n <= 0) return 0;
+    this.seen.add(c.key);
+    const cur = this.slots.get(c.key);
+    if (cur && cur.n === c.n && cur.born === c.born) return c.n;   // unchanged: no GPU work
+    if (cur && cur.n !== c.n) { this._release(cur); this.slots.delete(c.key); }
+    let off = cur && cur.n === c.n ? cur.off : this._alloc(c.n);
+    if (off < 0) return 0;                                         // budget exhausted
+    this._write(off, c, c.n);
+    this.slots.set(c.key, { off, n: c.n, born: c.born });
+    return c.n;
+  }
+
+  end() {
+    for (const [key, slot] of this.slots) {
+      if (this.seen.has(key)) continue;
+      this._release(slot);
+      this.slots.delete(key);
+    }
+    this.count = 0;
+    for (const [, slot] of this.slots) this.count += slot.n;
+    if (this.hi > this.lo) {
+      for (const k in this.a) {
+        const a = this.a[k], size = a.itemSize;
+        // r159 still exposes updateRange but warns; addUpdateRange is the
+        // forward-compatible spelling and exists here too.
+        if (a.clearUpdateRanges) { a.clearUpdateRanges(); a.addUpdateRange(this.lo * size, (this.hi - this.lo) * size); }
+        else { a.updateRange.offset = this.lo * size; a.updateRange.count = (this.hi - this.lo) * size; }
+        a.needsUpdate = true;
+      }
+    }
+    this.geo.instanceCount = this.top;
+  }
 }
 
 /* ---- VOXEL BLOCK FIELD ------------------------------------------------- */
@@ -1827,7 +1899,9 @@ function spawnPrefab(name) {
  *  their shared borders closed, so no seam, rim wall or silhouette inset is
  *  ever generated between them and the surface reads as one endless sheet.
  * ---------------------------------------------------------------------------*/
-const TILE = 64, TERRAIN_Y = -9, TERRAIN_THICK = 40;
+const TILE = 64, TERRAIN_Y = -9;
+// One plane of matter: the ground is a sheet that deforms, not a block to bore.
+const TERRAIN_THICK = 1.6;
 // No upper clamp: a typed draw distance has to actually extend the world,
 // not quietly stop paging at a hard-coded ceiling.
 const terrainR = () => Math.max(State.drawDistance * 0.40, 120);
@@ -1901,8 +1975,12 @@ const Terrain = {
   /** Top of the ground slab at a world point — analytic, so it costs nothing. */
   surfaceY(x, z) { return TERRAIN_Y + this.height(x, z) + TERRAIN_THICK * 0.5; },
 
-  /** False where the ground has been dug away, so you can fall into your holes. */
+  /** The ground sheet is never perforated — digging deforms it downward. */
   solidAt(x, z) {
+    return true;
+  },
+
+  _solidAtUnused(x, z) {
     const tx = Math.floor(x / TILE), tz = Math.floor(z / TILE);
     const p = this.tiles.get(tx + ',' + tz);
     if (!p || !p.edits.length) return true;
@@ -1936,7 +2014,7 @@ const Terrain = {
       railB: railFrom([V(x0, TERRAIN_Y, z0), V((x0 + x1) / 2, TERRAIN_Y, z0), V(x1, TERRAIN_Y, z0)]),
       // Deep by default: the ground is a solid mass you can dig down into,
       // not a sheet you punch through.
-      thickness: TERRAIN_THICK, oneSided: true, tint: TINT.terrain, maxDepth: 9,
+      thickness: TERRAIN_THICK, oneSided: true, noHoles: true, tint: TINT.terrain, maxDepth: 9,
       edges: { u0: false, u1: false, v0: false, v1: false },   // interior seams
       warp: (u, v, q) => Terrain.height(q.x, q.z)
     });
@@ -2158,7 +2236,12 @@ const World = {
       return true;
     };
 
-    for (const p of this.patches) {
+    // Nearest patches first: the proxy and bake budgets are finite, so whatever
+    // you are standing next to must claim them before the horizon does.
+    const order = this.patches.slice().sort((a, b) =>
+      (a.root.box.isEmpty() ? 1e9 : a.root.box.distanceToPoint(cam)) -
+      (b.root.box.isEmpty() ? 1e9 : b.root.box.distanceToPoint(cam)));
+    for (const p of order) {
       const stack = [p.root];
       while (stack.length) {
         const n = stack.pop();
@@ -2178,7 +2261,19 @@ const World = {
           // Only subdivide if we can afford bounds for every child right now,
           // so a split never opens a one-frame hole in the surface.
           if (!n.children && proxyBudget >= 4) for (const c of n.split()) ensureProxy(c);
-          if (n.children) { for (const c of n.children) stack.push(c); continue; }
+          if (n.children) {
+            // HOLD THE COARSE LEVEL UNTIL THE FINE ONE EXISTS. Descending the
+            // moment a split is decided retires this node's big flecks while
+            // the children are still queued, which is what thins the surface
+            // during an up-rez pass. Keep drawing the parent and queue the
+            // children; hand over only once every one of them is baked.
+            let ready = true;
+            for (const c of n.children) {
+              const cf = c.rep && c.repPV === p.version && c.repBV === State.bakeVersion;
+              if (!cf) { ready = false; JobQueue.add(c, c.box.distanceToPoint(cam)); }
+            }
+            if (ready) { for (const c of n.children) stack.push(c); continue; }
+          }
         }
         // --- leaf: draw the refined bake if it is current, else the proxy ---
         // A patch that re-authors itself every frame cannot go through the
@@ -2300,8 +2395,14 @@ function collider(patch) {
   const R = COLLIDER_RES, pos = [], idx = [], uvs = [];
   const P = V(), N = V();
   patch.activeEdits = null;                       // collide against the whole shape
+  // The collider must lie on the face you can SEE, not on the mid-surface.
+  // For a 40 m thick ground the mid-surface is 20 m down: aiming straight
+  // down that barely matters, but at a shallow angle the ray has to travel
+  // far further to descend those 20 m, so the hit lands way beyond where you
+  // pointed — which is exactly the sculpt offset that grows with pitch.
   for (let j = 0; j <= R; j++) for (let i = 0; i <= R; i++) {
     patch.sample(i / R, j / R, P, N, null);
+    P.addScaledVector(N, (patch.thickness + patch.swellUV(i / R, j / R)) * 0.5);
     pos.push(P.x, P.y, P.z);
     // Storing the parameters as UVs means a raycast hit hands back the (u,v)
     // it landed on, which is what sculpting needs to place a bump in base space.
@@ -2783,7 +2884,7 @@ function groundHeightAt(x, z, fromY) {
     physRay.set(_pp.set(x, fromY + 2.5, z), _DOWN);
     physRay.far = 200;
     for (const h of physRay.intersectObjects(objs, false)) {
-      const top = h.point.y + (h.object.userData.patch.thickness || 0) * 0.5;
+      const top = h.point.y;            // collider already sits on the top face
       if (top <= fromY + State.stepHeight && top > g) g = top;
     }
   }
@@ -3319,12 +3420,19 @@ function sculpt(h, remove, r, quiet) {
 
   // Record the edit where the SHAPE lives, not where the camera happened to be.
   patch.paramRadii(uv.x, uv.y, r, _rad);
-  patch.edits.push({
-    u: uv.x, v: uv.y, ru: _rad.ru, rv: _rad.rv, r,
-    remove,
-    amp: remove ? 0 : r * 0.42 * Math.abs(State.brushPower),
-    swell: remove ? 0 : r * 0.5 * Math.abs(State.brushPower)
-  });
+  const power = Math.abs(State.brushPower);
+  if (remove && patch.noHoles) {
+    // Push the sheet down rather than cutting it open.
+    patch.edits.push({ u: uv.x, v: uv.y, ru: _rad.ru, rv: _rad.rv, r,
+                       remove: false, amp: -r * 0.42 * power, swell: 0 });
+  } else {
+    patch.edits.push({
+      u: uv.x, v: uv.y, ru: _rad.ru, rv: _rad.rv, r,
+      remove,
+      amp: remove ? 0 : r * 0.42 * power,
+      swell: remove ? 0 : r * 0.5 * power
+    });
+  }
   if (patch.edits.length > 1200) patch.edits.shift();
 
   patch.edited = true;
@@ -4154,6 +4262,7 @@ window.__ENGINE = {
   setSelMode, selectionSet: () => selection,
   maxSplatCap: () => MAX_SPLATS, fogFar: () => splats.mat.uniforms.uFogFar.value,
   backCull: () => splats.mat.uniforms.uBackCull.value,
+  colliderOf: collider,
   selectPatch,
   setLook: (y, p) => { yaw = y; pitch = p; },
   get look() { return { yaw, pitch }; }
