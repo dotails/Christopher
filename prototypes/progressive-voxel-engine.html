@@ -313,6 +313,7 @@
       <label class="chk"><input type="checkbox" id="t-anim" checked><span>Animated shapes</span><small>live re-bake</small></label>
       <label class="chk"><input type="checkbox" id="t-far"><span>Procedural far field</span><small>scattered</small></label>
       <label class="chk"><input type="checkbox" id="t-cull" checked><span>Cull back-facing flecks</span><small>splats</small></label>
+      <label class="chk"><input type="checkbox" id="t-tri" checked><span>Triangle fleck proxy</span><small>1 vs 2 tris</small></label>
 
       <div class="lbl">Tuning</div>
       <div class="slider"><label>Draw distance</label><input class="num" type="number" id="n-far" value="900"><input type="range" id="r-far" min="200" max="12000" step="50" value="900"></div>
@@ -1302,18 +1303,42 @@ function commonUniforms() {
     uCore:      { value: 0.30 },  // Gaussian level dividing opaque core from alpha fringe (see r-soft)
     // Cull threshold on dot(normal, toCamera). Slightly negative so flecks at a
     // silhouette survive instead of popping as they rotate past edge-on.
-    uBackCull:  { value: -0.12 }
+    uBackCull:  { value: -0.12 },
+    // position.xy * this = kernel coords. Quad verts are at +/-0.5, so 2.0
+    // reproduces the old mapping; the triangle's verts are at radius 1 and its
+    // inscribed circle at 0.5, so 2.1 gives the same reach with a little margin.
+    uSplatSpan: { value: 2.1 }
   };
 }
 
 /* ---- ANISOTROPIC GAUSSIAN SPLAT FIELD --------------------------------- */
 class SplatField {
   constructor(scene) {
-    const base = new THREE.PlaneGeometry(1, 1);
+    /* ------------------------------------------------------------------ *
+     *  SPLAT PROXY GEOMETRY: triangle or quad.
+     *
+     *  The kernel is radial and fades to nothing, so the proxy only has to
+     *  CONTAIN the disc — its corners are never seen. A quad needs 2 triangles
+     *  to do that; one triangle circumscribing the same disc does it with 1,
+     *  which halves primitive setup and vertex work.
+     *
+     *  It is not free, though: an equilateral triangle circumscribing a circle
+     *  of radius r has area 3*sqrt(3)*r^2 = 5.20 r^2, against 4 r^2 for the
+     *  square, so it rasterises ~30% more fragments. Which way that lands
+     *  depends on the scene — many small flecks are primitive-bound and the
+     *  triangle wins; a few large ones are fill-bound and the quad wins. Hence
+     *  a toggle rather than a decision made for you.
+     * ------------------------------------------------------------------ */
+    const tri = new THREE.BufferGeometry();
+    // Vertices at circumradius 1, so the inscribed circle sits at 0.5.
+    tri.setAttribute('position', new THREE.Float32BufferAttribute(
+      [0, 1, 0, -0.8660254, -0.5, 0, 0.8660254, -0.5, 0], 3));
+    const quad = new THREE.PlaneGeometry(1, 1);
+    this.triGeo = tri; this.quadGeo = quad;
+
     const g = new THREE.InstancedBufferGeometry();
-    g.index = base.index;
-    g.setAttribute('position', base.attributes.position);
-    g.setAttribute('uv', base.attributes.uv);
+    g.index = tri.index;
+    g.setAttribute('position', tri.attributes.position);
     this.a = {
       iPos:  new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 3), 3),
       iNrm:  new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 3), 3),
@@ -1351,6 +1376,7 @@ class SplatField {
         attribute vec2 iScl;
         attribute float iBorn;
         uniform float uBackCull;
+        uniform float uSplatSpan;
         ${STREAM_CHUNK}
         varying vec2 vQ; varying vec3 vC, vN; varying float vS, vD, vM;
         void main(){
@@ -1375,8 +1401,12 @@ class SplatField {
             vQ = vec2(0.0); vC = iCol; vN = n; vS = s; vD = 0.0; vM = 0.0;
             return;
           }
-          vec3 world = iPos + t * position.x * iScl.x + b * position.y * iScl.y;
-          vQ = position.xy * 2.0; vC = iCol; vN = n; vS = s;
+          // uSplatFit maps the proxy's inscribed circle onto the kernel radius
+          // we actually need to draw, so the triangle stays as tight as it can
+          // be at whatever softness is set (and is 1.0 for the quad).
+          vec2 q = position.xy * uSplatSpan;
+          vec3 world = iPos + t * (q.x * 0.5) * iScl.x + b * (q.y * 0.5) * iScl.y;
+          vQ = q; vC = iCol; vN = n; vS = s;
           vM = fract(sin(iPos.x * 12.9898 + iPos.y * 4.1414 + iPos.z * 78.233) * 43758.5453);
           vec4 mv = modelViewMatrix * vec4(world, 1.0);
           vD = -mv.z;
@@ -1435,6 +1465,7 @@ class SplatField {
     this.free = new Map();       // slice length -> [offsets]
     this.seen = new Set();
     this.top = 0;                // high-water mark of the bump allocator
+    this.trisPerSplat = 1;
     this.lo = Infinity; this.hi = -1;
   }
   /** Grow the instance buffers when the budget is raised past their capacity. */
@@ -1462,6 +1493,15 @@ class SplatField {
    *  range is uploaded. A retired slice has its scale zeroed, which makes its
    *  quads degenerate — free to rasterise — until it is reused.
    * ------------------------------------------------------------------ */
+  /** Swap the instanced proxy between one triangle and two. */
+  setProxy(useTriangle) {
+    const src = useTriangle ? this.triGeo : this.quadGeo;
+    this.geo.index = src.index || null;
+    this.geo.setAttribute('position', src.attributes.position);
+    this.mat.uniforms.uSplatSpan.value = useTriangle ? 2.1 : 2.0;
+    this.trisPerSplat = useTriangle ? 1 : 2;
+  }
+
   begin() { this.seen.clear(); this.lo = Infinity; this.hi = -1; }
 
   _touch(off, n) { if (off < this.lo) this.lo = off; if (off + n > this.hi) this.hi = off + n; }
@@ -1807,6 +1847,7 @@ document.body.appendChild(renderer.domElement);
 
 
 const splats = new SplatField(scene);
+splats.setProxy(true);
 const voxels = new VoxelField(scene);
 const meshes = new MeshField(scene);
 const FIELDS = [splats, voxels, meshes];
@@ -4297,6 +4338,12 @@ function fillPrefabs() {
   }
 }
 
+$('t-tri').onchange = e => {
+  splats.setProxy(e.target.checked);
+  toast(e.target.checked
+    ? 'One triangle per fleck — half the primitives, ~30% more fill'
+    : 'Two triangles per fleck — more primitives, tighter fill');
+};
 $('t-cull').onchange = e => {
   splats.mat.uniforms.uBackCull.value = e.target.checked ? -0.12 : -2.0;
   toast(e.target.checked ? 'Back-facing flecks culled' : 'Drawing both sides of every fleck');
@@ -4533,7 +4580,7 @@ function frame() {
   if (hudTimer > 0.22) {
     const fps = fpsN / fpsAcc;
     const s = World.stats;
-    const tris = s.meshTris + s.splats * 2 + s.voxels * 12;
+    const tris = s.meshTris + s.splats * splats.trisPerSplat + s.voxels * 12;
     $('s-fps').textContent = fps.toFixed(0);
     $('s-fps').className = 'v ' + (fps > 50 ? 'ok' : fps < 28 ? 'hot' : '');
     $('s-fpsbar').style.width = clamp(fps / 120 * 100, 0, 100) + '%';
@@ -4566,6 +4613,7 @@ window.__ENGINE = {
   maxSplatCap: () => MAX_SPLATS, fogFar: () => splats.mat.uniforms.uFogFar.value,
   backCull: () => splats.mat.uniforms.uBackCull.value,
   colliderOf: collider,
+  triPerSplat: () => splats.trisPerSplat,
   serializeWorld, applyWorld, serializeSettings, applySettings,
   selectPatch,
   setLook: (y, p) => { yaw = y; pitch = p; },
