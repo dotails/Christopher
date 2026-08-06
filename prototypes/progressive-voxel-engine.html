@@ -179,6 +179,7 @@
       <div class="lbl">Pipeline toggles</div>
       <label class="chk"><input type="checkbox" id="t-poly" checked><span>Optimized polygons</span><small>flat→mesh</small></label>
       <label class="chk"><input type="checkbox" id="t-net"><span>Simulate network latency</span><small>120–700 ms</small></label>
+      <label class="chk"><input type="checkbox" id="t-arrive" checked><span>Arrival cue</span><small>blur→sharp</small></label>
       <label class="chk"><input type="checkbox" id="t-lod"><span>Colour by LOD depth</span><small>debug</small></label>
       <label class="chk"><input type="checkbox" id="t-bounds"><span>Show chunk bounds</span><small>quadtree</small></label>
       <label class="chk"><input type="checkbox" id="t-dig" checked><span>Left-click digs</span><small>carve</small></label>
@@ -856,7 +857,7 @@ const STREAM_CHUNK = `
 function commonUniforms() {
   return {
     uTime:      { value: 0 },
-    uStreamDur: { value: 1.4 },
+    uStreamDur: { value: 0.8 },
     uLightDir:  { value: new THREE.Vector3(0.42, 0.86, 0.28).normalize() },
     uFillDir:   { value: new THREE.Vector3(-0.55, 0.22, -0.70).normalize() },
     uFillCol:   { value: new THREE.Color(0x4a6fa8).convertSRGBToLinear() },
@@ -924,12 +925,12 @@ class SplatField {
           float tl = length(t);
           t = tl > 1e-4 ? t / tl : normalize(cross(n, vec3(0.0, 1.0, 0.017)));
           vec3 b = cross(n, t);
-          // Progressive refinement cue: flecks arrive oversized + jittered,
-          // then settle onto their exact analytic position.
-          float grow = mix(2.6, 1.0, s);
-          float h = sin(iPos.x * 7.3 + iPos.z * 5.1 + iPos.y * 3.7);
-          vec3 wob = n * (1.0 - s) * h * 0.5;
-          vec3 world = iPos + wob + t * position.x * iScl.x * grow + b * position.y * iScl.y * grow;
+          // A fleck is ALWAYS placed at its exact analytic size and position.
+          // Arrival is expressed by defocusing the kernel (see the fragment
+          // stage), never by moving or rescaling geometry — growing and then
+          // shrinking reads as parts snapping into place, and it overshoots the
+          // true silhouette while it does so.
+          vec3 world = iPos + t * position.x * iScl.x + b * position.y * iScl.y;
           vQ = position.xy * 2.0; vC = iCol; vN = n; vS = s;
           vM = fract(sin(iPos.x * 12.9898 + iPos.y * 4.1414 + iPos.z * 78.233) * 43758.5453);
           vec4 mv = modelViewMatrix * vec4(world, 1.0);
@@ -944,7 +945,11 @@ class SplatField {
         ${FOG_CHUNK}
         varying vec2 vQ; varying vec3 vC, vN; varying float vS, vD, vM;
         void main(){
-          float g = exp(-2.3 * dot(vQ, vQ));           // the anisotropic Gaussian kernel
+          // The arrival cue is pure defocus: a freshly baked fleck starts with a
+          // broad, soft kernel and tightens to the crisp one. The quad — and so
+          // the silhouette — never changes size.
+          float sharp = mix(1.55, 2.3, vS);
+          float g = exp(-sharp * dot(vQ, vQ));         // the anisotropic Gaussian kernel
           ${skirt
             ? `if (g >= uCore || g < 0.012) discard;    // fringe only
                float a = smoothstep(0.0, 1.0, g / max(uCore, 0.001));`
@@ -1023,8 +1028,9 @@ class VoxelField {
         varying vec3 vC, vN, vL; varying float vS, vD, vM;
         void main(){
           float s = streamT(iBorn);
-          vec3 sc = iScl * mix(1.22, 1.0, s);
-          vec3 world = iPos + position * sc;
+          // Blocks occupy their true cell from the first frame; only the tint
+          // below marks them as provisional.
+          vec3 world = iPos + position * iScl;
           vN = normal; vC = iCol; vS = s; vL = position + 0.5;
           vM = fract(sin(iPos.x * 12.9898 + iPos.y * 4.1414 + iPos.z * 78.233) * 43758.5453);
           vec4 mv = modelViewMatrix * vec4(world, 1.0);
@@ -1092,11 +1098,10 @@ class MeshField {
         varying vec3 vC, vN; varying float vS, vD;
         void main(){
           float s = streamT(aBorn);
-          // Polygons also "arrive": they inflate off the surface then snap flat.
-          float h = sin(position.x * 4.1 + position.z * 3.3 + position.y * 2.2);
-          vec3 p = position + aNrm * (1.0 - s) * h * 0.55;
+          // A polygon slab is exact by construction — the whole point of the
+          // flat path is a perfect silhouette, so it must never be displaced.
           vC = aCol; vN = aNrm; vS = s;
-          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
           vD = -mv.z;
           gl_Position = projectionMatrix * mv;
         }`,
@@ -1455,7 +1460,7 @@ const World = {
         if (fresh) {
           if (n.rep.n) out.push(n.rep);
           key += n.uid * 3;
-          if (Clock.t - n.rep.born < 1.4) streaming++;
+          if (Clock.t - n.rep.born < 0.8) streaming++;
         } else {
           ensureProxy(n);
           if (n.proxy && n.proxy.n) out.push(n.proxy);
@@ -1795,6 +1800,13 @@ $('mode').addEventListener('click', e => {
 });
 $('t-poly').onchange = e => { State.polyOptim = e.target.checked; rebakeAll(e.target.checked ? 'Flat slices bake to polygons' : 'Polygon optimiser off — all matter is splats'); };
 $('t-net').onchange = e => { State.netLatency = e.target.checked; toast(e.target.checked ? 'Simulating 120–700 ms chunk latency' : 'Latency simulation off'); };
+$('t-arrive').onchange = e => {
+  // Off => zero-length transition, so every chunk is drawn fully settled the
+  // instant it is baked. Nothing about placement or size changes either way.
+  const d = e.target.checked ? 0.8 : 1e-4;
+  for (const f of FIELDS) f.mat.uniforms.uStreamDur.value = d;
+  toast(e.target.checked ? 'Chunks resolve over 0.8 s as they arrive' : 'Chunks appear fully settled on arrival');
+};
 $('t-lod').onchange = e => { State.lodColor = e.target.checked; rebakeAll('Colouring by quadtree depth'); };
 $('t-bounds').onchange = e => { State.showBounds = e.target.checked; };
 $('t-dig').onchange = e => { State.digOnClick = e.target.checked; };
