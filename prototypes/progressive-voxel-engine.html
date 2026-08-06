@@ -144,6 +144,16 @@
   .phead:first-child{margin-top:0;padding-top:0;border-top:0}
   .pmixed{color:var(--warn)}
 
+  /* ---- LOD band multislider: a real distance axis ---- */
+  .bands{position:relative;height:30px;margin:4px 0 6px;cursor:ew-resize;touch-action:none}
+  .bands .track{position:absolute;left:0;right:0;top:19px;height:4px;border-radius:2px;
+    background:linear-gradient(90deg,rgba(94,242,168,.55),rgba(87,210,255,.4),rgba(157,123,255,.3))}
+  .bands .fillbar{position:absolute;left:0;top:19px;height:4px;border-radius:2px;background:rgba(255,255,255,.06)}
+  .bands .th{position:absolute;top:12px;width:7px;height:18px;margin-left:-3.5px;border-radius:2px;
+    background:linear-gradient(180deg,#eaf7ff,#7fc9ec);box-shadow:0 0 6px rgba(87,210,255,.7)}
+  .bands .th.on{background:linear-gradient(180deg,#fff,#ffcf8a);box-shadow:0 0 10px rgba(255,176,87,.95);z-index:2}
+  .bands .lab{position:absolute;top:0;font:600 8px var(--mono);color:var(--ink-dim);transform:translateX(-50%);pointer-events:none}
+
   /* ---- LOD band end distances ---- */
   .bandgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 6px;margin:2px 0 4px}
   .bandgrid label{display:flex;align-items:center;gap:5px;font:600 9.5px var(--mono);color:var(--ink-dim)}
@@ -272,6 +282,7 @@
       <div class="sep"></div>
       <div class="row"><span class="k">visible chunks</span><span class="v" id="s-chunks">0</span></div>
       <div class="row"><span class="k">splat budget</span><span class="v" id="s-budget">–</span></div>
+      <div class="row"><span class="k">finest chunk</span><span class="v" id="s-fine">–</span></div>
       <div class="row"><span class="k">bake queue</span><span class="v" id="s-queue">0</span></div>
       <div class="row"><span class="k">streaming now</span><span class="v" id="s-stream">0</span></div>
       <div class="row"><span class="k">patches resident</span><span class="v" id="s-patches">0</span></div>
@@ -306,9 +317,15 @@
       <div class="lbl">Tuning</div>
       <div class="slider"><label>Draw distance</label><input class="num" type="number" id="n-far" value="900"><input type="range" id="r-far" min="200" max="12000" step="50" value="900"></div>
       <div class="slider"><label>Fog distance</label><input class="num" type="number" id="n-fog" value="900"><input type="range" id="r-fog" min="100" max="8000" step="50" value="900"></div>
+      <div class="slider"><label>Finest detail (m)</label><input class="num" type="number" id="n-leaf" value="0.7"><input type="range" id="r-leaf" min="0.1" max="6" step="0.05" value="0.7"></div>
       <div class="slider"><label>Max splats</label><input class="num" type="number" id="n-splat" value="260000"><input type="range" id="r-splat" min="20000" max="1500000" step="10000" value="260000"></div>
-      <div class="lbl" style="margin-top:9px">LOD band end distance <span style="text-transform:none;letter-spacing:0">(m, per level)</span></div>
+      <div class="lbl" style="margin-top:9px">LOD bands <span style="text-transform:none;letter-spacing:0">(camera → draw distance)</span></div>
+      <div class="bands" id="bands"><div class="track"></div><div class="fillbar"></div></div>
       <div class="bandgrid" id="bandgrid"></div>
+      <div class="btns" style="grid-template-columns:1fr 1fr">
+        <button id="b-bandspread">Distribute evenly</button>
+        <button id="b-bandlog">Distribute by area</button>
+      </div>
       <div class="slider"><label>Flatness ε</label><input class="num" type="number" id="n-flat" value=".0035"><input type="range" id="r-flat" min="0.0002" max="0.02" step="0.0002" value="0.0035"></div>
       <div class="slider"><label>Splat softness</label><input class="num" type="number" id="n-soft" value=".36"><input type="range" id="r-soft" min="0" max="1" step="0.01" value="0.36"></div>
       <div class="slider"><label>Brush radius</label><input class="num" type="number" id="n-dig" value="2.4"><input type="range" id="r-dig" min="0.8" max="6" step="0.1" value="2.4"></div>
@@ -324,6 +341,16 @@
         <button id="b-resetsel">Reset this shape</button>
         <button id="b-deselect">Deselect</button>
       </div>
+
+      <div class="lbl">Save / load</div>
+      <div class="btns">
+        <button id="b-savecfg">Save settings</button>
+        <button id="b-loadcfg">Load settings</button>
+        <button id="b-saveworld">Save world</button>
+        <button id="b-loadworld">Load world</button>
+      </div>
+      <input type="file" id="f-cfg" accept=".json,application/json" style="display:none">
+      <input type="file" id="f-world" accept=".json,application/json" style="display:none">
 
       <div class="lbl">Walk physics <span style="text-transform:none;letter-spacing:0">(shift+tab)</span></div>
       <div class="slider"><label>Gravity</label><input class="num" type="number" id="n-grav" value="26"><input type="range" id="r-grav" min="0" max="60" step="1" value="26"></div>
@@ -827,7 +854,11 @@ class QuadNode {
  * ---------------------------------------------------------------------------*/
 const R_LEAF = 5;                    // (R+1)² samples per baked leaf
 const R_SCULPT = 8;                  // denser grid where the surface was sculpted
-const MIN_LEAF = 1.5;                // finest chunk edge, in world units
+/* Finest chunk edge, in world units. This — not the splat budget — is what
+ * ultimately caps how small a fleck can get: once every chunk has reached it,
+ * more budget buys nothing and refinement simply stops improving. It is a
+ * setting for exactly that reason. */
+const MIN_LEAF = () => State.minLeaf;
 const R_PROXY = 3;                   // cells per axis in the coarse stand-in bake
 const GRID_MAX = (R_SCULPT + 2) * (R_SCULPT + 2);
 const gP = new Float32Array(GRID_MAX * 3);
@@ -1711,6 +1742,7 @@ const State = {
   // overshoots, so the world resolves in passes rather than stopping at a fixed
   // distance rule. lodAuto is that feedback term.
   maxSplats: 260000,
+  minLeaf: 0.7,            // finest chunk edge; the true ceiling on fleck size
   lodAuto: 1,
   fogDistance: 900,       // independent of draw distance: push haze back on its own
   hoverHint: true,
@@ -2215,9 +2247,19 @@ const World = {
     this.frame++;
     let proxyBudget = 60;
     let animBudget = 400;      // inline bakes/frame for shapes that move every frame
-    let key = 0, chunks = 0, streaming = 0;
+    let key = 0, chunks = 0, streaming = 0, deepest = 0, finest = 1e9;
     const cam = camera.position;
-    const BANDS = State.lodBands, NB = BANDS.length, BSCALE = State.lodAuto;
+    const BANDS = State.lodBands, NB = BANDS.length;
+    // Budget pressure is applied unevenly on purpose. Scaling every band alike
+    // pulls the near field back just as hard as the horizon, so raising the
+    // budget mostly buys MORE far-away chunks at the same fleck size instead of
+    // smaller flecks where you are looking. Weighting the exponent by depth
+    // leaves the nearest band untouched and coarsens the distance first.
+    const AUTO = State.lodAuto;
+    const bandAt = (d) => {
+      const i = Math.min(d, NB - 1);
+      return BANDS[i] * (AUTO >= 1 ? 1 : Math.pow(AUTO, 1 - i / Math.max(NB - 1, 1)));
+    };
 
     // The proxy bake is also what computes a node's world AABB, so it doubles as
     // "make this node's bounds current". Budgeted: when the whole world goes
@@ -2255,9 +2297,9 @@ const World = {
         // edits is allowed to subdivide well past the normal floor, which is
         // what actually redistributes the flecks over the new surface.
         const sculpted = p.edits.length > 0 && p.editsIn(n.u0, n.u1, n.v0, n.v1).length > 0;
-        const floor = sculpted ? MIN_LEAF * 0.45 : MIN_LEAF;
+        const floor = sculpted ? MIN_LEAF() * 0.45 : MIN_LEAF();
         const refinable = n.depth < p.maxDepth && Math.max(n.wu, n.wv) > floor;
-        if (refinable && dist < BANDS[Math.min(n.depth, NB - 1)] * BSCALE) {
+        if (refinable && dist < bandAt(n.depth)) {
           // Only subdivide if we can afford bounds for every child right now,
           // so a split never opens a one-frame hole in the surface.
           if (!n.children && proxyBudget >= 4) for (const c of n.split()) ensureProxy(c);
@@ -2289,30 +2331,35 @@ const World = {
         }
         const fresh = n.rep && n.repPV === p.version && n.repBV === State.bakeVersion;
         if (fresh) {
-          if (n.rep.n) out.push(n.rep);
+          if (n.rep.n) { n.rep.d = dist; out.push(n.rep); }
           key += n.uid * 3;
           if (Clock.t - n.rep.born < 0.8) streaming++;
         } else {
           ensureProxy(n);
-          if (n.proxy && n.proxy.n) out.push(n.proxy);
+          if (n.proxy && n.proxy.n) { n.proxy.d = dist; out.push(n.proxy); }
           key += n.uid * 7;
           JobQueue.add(n, dist);
           streaming++;
         }
         chunks++;
+        if (n.depth > deepest) deepest = n.depth;
+        if (dist < 60) finest = Math.min(finest, Math.max(n.wu, n.wv));
       }
     }
     this.stats.chunks = chunks;
+    this.stats.deepest = deepest;
+    this.stats.finest = finest < 1e9 ? finest : 0;
     this.stats.streaming = streaming;
     if (key !== this.visibleKey) { this.visibleKey = key; this.dirtyBuffers = true; }
   },
 
   /* ---- ③ Blit the render list into the three GPU fields ---------------- */
   upload(list) {
-    // Draw order must not depend on traversal order. Overlapping opaque flecks
-    // tie on depth; whichever is drawn last wins, so an unstable order makes
-    // the winner flip every frame and the surface shimmers as you move.
-    list.sort((a, b) => a.key - b.key);
+    // Draw order is now fixed by each chunk's persistent buffer slot, not by
+    // this list, so ordering here is free to serve the budget instead: nearest
+    // first, so when the splat cap bites it is the horizon that goes without,
+    // not the ground under your feet.
+    list.sort((a, b) => (a.d || 0) - (b.d || 0));
     for (const f of FIELDS) f.begin();
     for (const c of list) {
       if (c.kind === 'splat') splats.push(c);
@@ -3611,11 +3658,13 @@ function applyFog() {
 }
 bindRange('r-far', 'n-far', v => {
   State.drawDistance = v;
+  if (typeof syncBands === 'function') syncBands();   // the band axis ends here
   camera.far = Math.max(v * 3.0, 1200);
   camera.updateProjectionMatrix();
   skyDome.scale.setScalar(Math.max(v * 2.2, 1200) / 1700);
 }, v => String(v | 0));
 bindRange('r-fog', 'n-fog', v => { State.fogDistance = v; applyFog(); }, v => String(v | 0));
+bindRange('r-leaf', 'n-leaf', v => { State.minLeaf = Math.max(0.05, v); }, v => v.toFixed(2));
 bindRange('r-splat', 'n-splat', v => {
   State.maxSplats = Math.max(1000, Math.round(v));
   splats.ensure(State.maxSplats);
@@ -3894,12 +3943,80 @@ function buildProps() {
   autoBlur(host);
 }
 
-/**
- * One field per LOD level, holding the distance at which that level stops
- * subdividing. Level 0's band runs from the camera to its value; level 1's runs
- * from there to its own value, and so on — so the numbers read as the ring
- * boundaries they actually are.
- */
+/* ---------------------------------------------------------------------- *
+ *  LOD BANDS as a distance axis.
+ *
+ *  The strip runs from the camera at the left edge to the current draw
+ *  distance at the right, and each thumb is where that level stops
+ *  subdividing. A band therefore starts where the previous one ended, and you
+ *  can see the ring layout directly instead of reading ten numbers. The number
+ *  grid below stays in sync for exact entry.
+ * ---------------------------------------------------------------------- */
+let bandThumbs = [];
+
+function bandAxisMax() { return Math.max(State.drawDistance, 50); }
+
+function buildBandSlider() {
+  const host = $('bands');
+  [...host.querySelectorAll('.th,.lab')].forEach(e => e.remove());
+  bandThumbs = State.lodBands.map((v, i) => {
+    const th = document.createElement('div'); th.className = 'th';
+    th.title = `Level ${i} subdivides while closer than this`;
+    const lab = document.createElement('div'); lab.className = 'lab'; lab.textContent = 'L' + i;
+    host.append(th, lab);
+    return { th, lab, i };
+  });
+
+  let drag = null;
+  const pct = v => clamp(v / bandAxisMax(), 0, 1) * 100;
+  const fromX = cx => {
+    const r = host.getBoundingClientRect();
+    return clamp((cx - r.left) / r.width, 0, 1) * bandAxisMax();
+  };
+  const nearest = cx => {
+    const r = host.getBoundingClientRect();
+    let best = null, bd = 1e9;
+    for (const t of bandThumbs) {
+      const x = r.left + pct(State.lodBands[t.i]) / 100 * r.width;
+      const d = Math.abs(cx - x);
+      if (d < bd) { bd = d; best = t; }
+    }
+    return best;
+  };
+  host.addEventListener('pointerdown', e => {
+    drag = nearest(e.clientX);
+    if (!drag) return;
+    host.setPointerCapture(e.pointerId);
+    drag.th.classList.add('on');
+    State.lodBands[drag.i] = Math.max(1, fromX(e.clientX));
+    syncBands();
+  });
+  host.addEventListener('pointermove', e => {
+    if (!drag) return;
+    State.lodBands[drag.i] = Math.max(1, fromX(e.clientX));
+    syncBands();
+  });
+  host.addEventListener('pointerup', () => {
+    if (drag) { drag.th.classList.remove('on'); toast(`LOD level ${drag.i} ends at ${Math.round(State.lodBands[drag.i])} m`); }
+    drag = null;
+  });
+}
+
+/** Push the model into both views. */
+function syncBands() {
+  const host = $('bands'), maxD = bandAxisMax();
+  for (const t of bandThumbs) {
+    const p = clamp(State.lodBands[t.i] / maxD, 0, 1) * 100;
+    t.th.style.left = p + '%';
+    t.lab.style.left = p + '%';
+  }
+  const fill = host.querySelector('.fillbar');
+  if (fill) fill.style.width = clamp(Math.max(...State.lodBands) / maxD, 0, 1) * 100 + '%';
+  const fields = $('bandgrid').querySelectorAll('input');
+  fields.forEach((n, i) => { if (document.activeElement !== n) n.value = String(Math.round(State.lodBands[i])); });
+}
+
+/** One number per level for exact entry, mirroring the strip. */
 function buildBandGrid() {
   const host = $('bandgrid');
   host.innerHTML = '';
@@ -3907,19 +4024,204 @@ function buildBandGrid() {
     const l = document.createElement('label');
     l.append(document.createTextNode('L' + i));
     const n = document.createElement('input');
-    n.type = 'number'; n.step = '5'; n.min = '1'; n.value = String(v);
-    n.title = `Level ${i} subdivides while closer than this many metres`;
+    n.type = 'number'; n.step = '5'; n.min = '1'; n.value = String(Math.round(v));
     n.onchange = () => {
       const x = parseFloat(n.value);
-      if (!isFinite(x) || x <= 0) { n.value = String(State.lodBands[i]); return; }
+      if (!isFinite(x) || x <= 0) { n.value = String(Math.round(State.lodBands[i])); return; }
       State.lodBands[i] = x;
+      syncBands();
       toast(`LOD level ${i} ends at ${Math.round(x)} m`);
     };
     l.append(n);
     host.append(l);
   });
   autoBlur(host);
+  buildBandSlider();
+  syncBands();
 }
+
+/** Even rings out to the draw distance. */
+$('b-bandspread').onclick = () => {
+  const N = State.lodBands.length, maxD = bandAxisMax();
+  for (let i = 0; i < N; i++) State.lodBands[i] = maxD * (N - i) / N;
+  syncBands();
+  toast('LOD bands spread evenly to the draw distance');
+};
+/** Rings of equal screen area — each band half the distance of the last. */
+$('b-bandlog').onclick = () => {
+  const N = State.lodBands.length, maxD = bandAxisMax();
+  for (let i = 0; i < N; i++) State.lodBands[i] = Math.max(4, maxD / Math.pow(1.7, i));
+  syncBands();
+  toast('LOD bands distributed by area — each ring roughly halves');
+};
+
+/* ══════════════════════════════════════════════════════ SAVE / LOAD ══
+ *  Two separate files on purpose. Settings are how the engine is tuned;
+ *  the world is what you built. You almost always want to carry one without
+ *  the other — take your tuning to a fresh world, or hand a world to someone
+ *  running their own settings. Both are plain JSON, written and read entirely
+ *  in the page.
+ * ---------------------------------------------------------------------------*/
+const SETTING_KEYS = [
+  'tool', 'subTool', 'selMode', 'polyOptim', 'netLatency', 'lodColor', 'showBounds',
+  'hoverHint', 'animate', 'farField', 'freeMouse', 'walk', 'gravity', 'walkSpeed',
+  'jumpSpeed', 'eyeHeight', 'bodyRadius', 'stepHeight', 'digRadius', 'brushPower',
+  'flySpeed', 'drawDistance', 'fogDistance', 'maxSplats', 'minLeaf', 'lodBands'
+];
+
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(text);
+  a.download = name;
+  document.body.append(a); a.click(); a.remove();
+}
+
+function readJSON(input, done) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try { done(JSON.parse(rd.result)); }
+    catch (err) { toast('That file is not valid JSON'); }
+  };
+  rd.readAsText(f);
+  input.value = '';
+}
+
+function serializeSettings() {
+  const out = { kind: 'pvx-settings', version: 1, state: {} };
+  for (const k of SETTING_KEYS) {
+    const v = State[k];
+    out.state[k] = Array.isArray(v) ? v.slice() : v;
+  }
+  out.splatSoftness = splats.mat.uniforms.uCore.value;
+  out.backCull = splats.mat.uniforms.uBackCull.value;
+  out.flatEps = Baker.flatEps;
+  return JSON.stringify(out, null, 1);
+}
+
+function applySettings(j) {
+  if (!j || j.kind !== 'pvx-settings') { toast('Not a settings file'); return; }
+  for (const k of SETTING_KEYS) {
+    if (!(k in j.state)) continue;
+    State[k] = Array.isArray(j.state[k]) ? j.state[k].slice() : j.state[k];
+  }
+  if (j.splatSoftness != null) splats.mat.uniforms.uCore.value = j.splatSoftness;
+  if (j.backCull != null) splats.mat.uniforms.uBackCull.value = j.backCull;
+  if (j.flatEps != null) Baker.flatEps = j.flatEps;
+  // Push the loaded numbers back into every control that mirrors them.
+  const put = (id, v) => { const e = $(id); if (e) e.value = String(v); };
+  put('r-far', State.drawDistance); put('n-far', State.drawDistance);
+  put('r-fog', State.fogDistance); put('n-fog', State.fogDistance);
+  put('r-splat', State.maxSplats); put('n-splat', State.maxSplats);
+  put('r-leaf', State.minLeaf); put('n-leaf', State.minLeaf);
+  put('r-dig', State.digRadius); put('n-dig', State.digRadius);
+  put('r-spd', State.flySpeed); put('n-spd', State.flySpeed);
+  put('r-grav', State.gravity); put('n-grav', State.gravity);
+  put('r-wspd', State.walkSpeed); put('n-wspd', State.walkSpeed);
+  put('r-jump', State.jumpSpeed); put('n-jump', State.jumpSpeed);
+  put('r-eye', State.eyeHeight); put('n-eye', State.eyeHeight);
+  put('r-body', State.bodyRadius); put('n-body', State.bodyRadius);
+  put('r-step', State.stepHeight); put('n-step', State.stepHeight);
+  camera.far = Math.max(State.drawDistance * 3.0, 1200); camera.updateProjectionMatrix();
+  applyFog();
+  splats.ensure(State.maxSplats);
+  buildBandGrid();
+  setSubTool(State.subTool); setSelMode(State.selMode); setTool(State.tool);
+  $('sculptlabel').textContent = brushLabel();
+  rebakeAll('Settings loaded');
+}
+
+function railData(r) { return r.nodes.map(n => [n.p.x, n.p.y, n.p.z, n.t.x, n.t.y, n.t.z]); }
+
+function serializeWorld() {
+  const objs = [];
+  for (const p of World.heroes) {
+    objs.push({
+      name: p.name, thickness: p.thickness, maxDepth: p.maxDepth,
+      tint: '#' + p.tint.clone().convertLinearToSRGB().getHexString(),
+      tube: !!p.tube, radius: p.radius, twist: p.twist,
+      oneSided: !!p.oneSided, noHoles: !!p.noHoles,
+      edges: { ...p.edges },
+      shared: p.railA === p.railB,
+      A: railData(p.railA), B: p.railA === p.railB ? null : railData(p.railB),
+      edits: p.edits.map(e => [e.u, e.v, e.ru, e.rv, e.r, e.remove ? 1 : 0, e.amp, e.swell, e.force ? 1 : 0])
+    });
+  }
+  const hm = Terrain.heightMap;
+  return JSON.stringify({
+    kind: 'pvx-world', version: 1,
+    camera: camera.position.toArray(),
+    terrain: {
+      reliefScale: Terrain.reliefScale, mapSpanX: Terrain.mapSpanX,
+      mapSpanZ: Terrain.mapSpanZ, mapAmp: Terrain.mapAmp,
+      attractors: Terrain.attractors.map(a => [a.p.x, a.p.y, a.p.z, a.r]),
+      // Quantised to a byte per texel: a height map is a grey ramp, and full
+      // float precision would multiply the file size for no visible gain.
+      map: hm ? { w: hm.w, h: hm.h, px: Array.from(hm.data, v => Math.round(v * 255)) } : null,
+      tileEdits: [...Terrain.tiles].filter(([, p]) => p.edits.length)
+        .map(([k, p]) => [k, p.edits.map(e => [e.u, e.v, e.ru, e.rv, e.r, e.remove ? 1 : 0, e.amp, e.swell])])
+    },
+    objects: objs
+  });
+}
+
+function applyWorld(j) {
+  if (!j || j.kind !== 'pvx-world') { toast('Not a world file'); return; }
+  // Clear what is there now.
+  selectPatch(null);
+  for (const p of World.heroes) { JobQueue.purge(p); const i = World.patches.indexOf(p); if (i >= 0) World.patches.splice(i, 1); }
+  World.heroes.length = 0;
+
+  const mkRail = rows => railFrom(rows.map(r => V(r[0], r[1], r[2]))) &&
+    (() => { const rail = railFrom(rows.map(r => V(r[0], r[1], r[2])));
+             rail.nodes.forEach((n, i) => { n.t.set(rows[i][3], rows[i][4], rows[i][5]); n.t0.copy(n.t); });
+             return rail; })();
+
+  for (const o of j.objects || []) {
+    const A = mkRail(o.A);
+    const p = new Patch({
+      name: o.name, railA: A, railB: o.shared ? A : mkRail(o.B),
+      thickness: o.thickness, maxDepth: o.maxDepth,
+      tint: new THREE.Color(o.tint).convertSRGBToLinear(),
+      tube: o.tube, radius: o.radius, twist: o.twist,
+      oneSided: o.oneSided, noHoles: o.noHoles, edges: o.edges, hero: true
+    });
+    p.edits = (o.edits || []).map(e => ({ u: e[0], v: e[1], ru: e[2], rv: e[3], r: e[4],
+                                          remove: !!e[5], amp: e[6], swell: e[7], force: !!e[8] }));
+    seedRoot(p); World.patches.push(p); World.heroes.push(p);
+  }
+
+  const t = j.terrain || {};
+  Terrain.reliefScale = t.reliefScale ?? 0;
+  Terrain.mapSpanX = t.mapSpanX ?? 600;
+  Terrain.mapSpanZ = t.mapSpanZ ?? 600;
+  Terrain.mapAmp = t.mapAmp ?? 30;
+  Terrain.attractors = (t.attractors || []).map(a => ({
+    p: V(a[0], a[1], a[2]), r: a[3], p0: V(a[0], a[1], a[2]), r0: a[3]
+  }));
+  Terrain.heightMap = t.map
+    ? { w: t.map.w, h: t.map.h, data: Float32Array.from(t.map.px, v => v / 255) }
+    : null;
+  Terrain.edits.clear();
+  for (const [k, arr] of t.tileEdits || []) {
+    Terrain.edits.set(k, { A: [], B: [], edits: arr });
+  }
+  for (const [, p] of Terrain.tiles) { p.edits.length = 0; World.markPatchDirty(p); }
+  Terrain.dirtyAll();
+  if (j.camera) camera.position.fromArray(j.camera);
+
+  fillQuickSelect();
+  buildProps();
+  toast(`World loaded — ${World.heroes.length} object${World.heroes.length === 1 ? '' : 's'}`);
+}
+
+$('b-savecfg').onclick = () => { download('pvx-settings.json', serializeSettings()); toast('Settings saved'); };
+$('b-saveworld').onclick = () => { download('pvx-world.json', serializeWorld()); toast('World saved'); };
+$('b-loadcfg').onclick = () => $('f-cfg').click();
+$('b-loadworld').onclick = () => $('f-world').click();
+$('f-cfg').onchange = () => readJSON($('f-cfg'), applySettings);
+$('f-world').onchange = () => readJSON($('f-world'), applyWorld);
 
 /* ---- Quick-select chips for the three authored hero patches ------------ */
 function fillQuickSelect() {
@@ -4244,6 +4546,7 @@ function frame() {
     const pct = Math.round(s.splats / Math.max(State.maxSplats, 1) * 100);
     $('s-budget').textContent = `${pct}% · LOD x${State.lodAuto.toFixed(2)}`;
     $('s-budget').className = 'v ' + (pct > 97 ? 'hot' : pct > 55 ? 'ok' : '');
+    $('s-fine').textContent = s.finest ? `${s.finest.toFixed(2)} m · L${s.deepest}` : '–';
     $('s-queue').textContent = String(JobQueue.jobs.size);
     $('s-queue').className = 'v ' + (JobQueue.jobs.size > 60 ? 'hot' : '');
     $('s-stream').textContent = String(s.streaming);
@@ -4263,6 +4566,7 @@ window.__ENGINE = {
   maxSplatCap: () => MAX_SPLATS, fogFar: () => splats.mat.uniforms.uFogFar.value,
   backCull: () => splats.mat.uniforms.uBackCull.value,
   colliderOf: collider,
+  serializeWorld, applyWorld, serializeSettings, applySettings,
   selectPatch,
   setLook: (y, p) => { yaw = y; pitch = p; },
   get look() { return { yaw, pitch }; }
