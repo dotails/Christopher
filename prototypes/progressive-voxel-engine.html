@@ -106,14 +106,52 @@
   .sw i{width:11px;height:11px;border-radius:3px;flex:0 0 auto;box-shadow:0 0 8px currentColor}
 
   /* ---- Center crosshair ---- */
-  #cross{position:absolute;left:50%;top:50%;width:20px;height:20px;transform:translate(-50%,-50%);opacity:.55}
-  #cross:before,#cross:after{content:'';position:absolute;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+  #cross{position:absolute;left:50%;top:50%;width:20px;height:20px;transform:translate(-50%,-50%);opacity:.55;transition:.2s}
+  #cross:before,#cross:after{content:'';position:absolute;background:var(--accent);box-shadow:0 0 6px var(--accent);transition:.2s}
   #cross:before{left:9px;top:0;width:1.5px;height:20px}
   #cross:after{top:9px;left:0;height:1.5px;width:20px}
+  #cross.t-fly{opacity:.28}
+  #cross.t-carve:before,#cross.t-carve:after{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+  #cross.t-carve{opacity:.85}
+  #cross.t-select:before,#cross.t-select:after{background:var(--good);box-shadow:0 0 8px var(--good)}
+
+  /* ---- Tool bar ---- */
+  #toolbar{
+    position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
+    display:flex;gap:4px;padding:5px;pointer-events:auto;
+  }
+  #toolbar button{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    min-width:82px;padding:9px 14px 7px;border:1px solid transparent;background:transparent;
+    border-radius:9px;cursor:pointer;color:var(--ink-dim);font:600 11.5px var(--sans);transition:.14s;
+  }
+  #toolbar button .ic{font-size:15px;line-height:1.1}
+  #toolbar button .kb{font:600 9px/1 var(--mono);opacity:.5;letter-spacing:.09em}
+  #toolbar button:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+  #toolbar button.on{color:#eaf7ff;background:linear-gradient(180deg,rgba(87,210,255,.30),rgba(87,210,255,.12));
+    border-color:rgba(87,210,255,.42);box-shadow:0 0 18px rgba(87,210,255,.22)}
+  #toolbar button.on[data-tool="carve"]{color:#fff0dd;background:linear-gradient(180deg,rgba(255,176,87,.30),rgba(255,176,87,.12));
+    border-color:rgba(255,176,87,.45);box-shadow:0 0 18px rgba(255,176,87,.22)}
+  #toolbar button.on[data-tool="select"]{color:#e6fff4;background:linear-gradient(180deg,rgba(94,242,168,.28),rgba(94,242,168,.11));
+    border-color:rgba(94,242,168,.42);box-shadow:0 0 18px rgba(94,242,168,.2)}
+
+  /* ---- Selected-object readout ---- */
+  .selbox{border:1px solid var(--panel-line);border-radius:9px;padding:9px 11px;background:rgba(94,242,168,.05)}
+  .selbox.empty{background:rgba(255,255,255,.03)}
+  .selname{font:600 12.5px var(--sans);color:var(--good);margin-bottom:3px}
+  .selbox.empty .selname{color:var(--ink-dim);font-weight:500}
+  .selmeta{font:400 10.5px/1.5 var(--sans);color:var(--ink-dim)}
+  .selmeta b{color:var(--ink);font-weight:600}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+  .chips button{
+    flex:1 1 auto;border:1px solid var(--panel-line);background:rgba(255,255,255,.04);color:var(--ink-dim);
+    font:600 10.5px var(--sans);padding:6px 9px;border-radius:20px;cursor:pointer;transition:.14s;white-space:nowrap;
+  }
+  .chips button:hover{background:rgba(94,242,168,.16);border-color:rgba(94,242,168,.4);color:var(--ink)}
 
   /* ---- Toast / status line ---- */
   #toast{
-    position:absolute;left:50%;bottom:26px;transform:translateX(-50%);
+    position:absolute;left:50%;bottom:104px;transform:translateX(-50%);
     font:500 12px var(--sans);color:var(--ink);background:var(--panel);border:1px solid var(--panel-line);
     padding:8px 16px;border-radius:20px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;
     backdrop-filter:blur(12px);
@@ -182,7 +220,7 @@
       <label class="chk"><input type="checkbox" id="t-arrive" checked><span>Arrival cue</span><small>blur→sharp</small></label>
       <label class="chk"><input type="checkbox" id="t-lod"><span>Colour by LOD depth</span><small>debug</small></label>
       <label class="chk"><input type="checkbox" id="t-bounds"><span>Show chunk bounds</span><small>quadtree</small></label>
-      <label class="chk"><input type="checkbox" id="t-dig" checked><span>Left-click digs</span><small>carve</small></label>
+      <label class="chk"><input type="checkbox" id="t-hover" checked><span>Highlight on hover</span><small>select tool</small></label>
 
       <div class="lbl">Tuning</div>
       <div class="slider"><label>LOD reach</label><input type="range" id="r-lod" min="0.4" max="3" step="0.05" value="1.15"><span class="num" id="n-lod">1.15</span></div>
@@ -192,14 +230,22 @@
       <div class="slider"><label>Fly speed</label><input type="range" id="r-spd" min="4" max="80" step="1" value="22"><span class="num" id="n-spd">22</span></div>
 
       <div class="lbl">Authoring layer (math handles)</div>
-      <select id="sel-patch">
-        <option value="-1">Hide control handles</option>
-      </select>
+      <div class="selbox empty" id="selbox">
+        <div class="selname" id="sel-name">Nothing selected</div>
+        <div class="selmeta" id="sel-meta">Pick the <b>Select</b> tool below, then click any structure to expose its control graph. Drag the cyan nodes or amber tangents to re-author it.</div>
+      </div>
+      <div class="chips" id="quicksel"></div>
       <div class="btns" style="margin-top:6px">
+        <button id="b-resetsel">Reset this shape</button>
+        <button id="b-deselect">Deselect</button>
+      </div>
+
+      <div class="lbl">Scripted deformations</div>
+      <div class="btns">
         <button id="b-arch">Bend the arch</button>
         <button id="b-wall">Ripple the wall</button>
         <button id="b-terr">Heave terrain</button>
-        <button id="b-reset">Reset graph</button>
+        <button id="b-reset">Reset all shapes</button>
       </div>
       <div class="btns" style="grid-template-columns:1fr">
         <button id="b-clear">Undo all carving</button>
@@ -215,8 +261,10 @@
       <div class="keyrow"><kbd>E</kbd><kbd>Q</kbd><b>ascend / descend</b></div>
       <div class="keyrow"><kbd>⇧</kbd><b>boost ×4</b></div>
       <div class="keyrow"><kbd>drag</kbd><b>look around (either button)</b></div>
-      <div class="keyrow"><kbd>click</kbd><b>carve a spherical bite out of matter</b></div>
-      <div class="keyrow"><kbd>drag</kbd><b>a glowing handle to re-author the curve</b></div>
+      <div class="keyrow"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><b>Fly / Select / Carve tool</b></div>
+      <div class="keyrow"><kbd>click</kbd><b>Select: reveal an object's handles</b></div>
+      <div class="keyrow"><kbd>click</kbd><b>Carve: bite a sphere out of matter</b></div>
+      <div class="keyrow"><kbd>drag</kbd><b>a handle to re-author the curve</b></div>
       <div class="keyrow"><kbd>R</kbd><b>respawn at origin</b></div>
     </div>
   </section>
@@ -230,6 +278,12 @@
       <div class="sw"><i style="background:#ffb057;color:#ffb057"></i>Dirty region re-baking</div>
     </div>
   </section>
+
+  <div id="toolbar" class="panel">
+    <button data-tool="fly"><span class="ic">✥</span>Fly<span class="kb">1</span></button>
+    <button data-tool="select" class="on"><span class="ic">◈</span>Select<span class="kb">2</span></button>
+    <button data-tool="carve"><span class="ic">◐</span>Carve<span class="kb">3</span></button>
+  </div>
 
   <div id="toast"></div>
 </div>
@@ -1195,7 +1249,8 @@ const State = {
   netLatency: false,
   lodColor: false,
   showBounds: false,
-  digOnClick: true,
+  tool: 'select',          // fly | select | carve — set from the toolbar
+  hoverHint: true,
   lodScale: 1.15,
   digRadius: 2.4,
   flySpeed: 22,
@@ -1363,6 +1418,24 @@ function rng0(cx, cz) {
 
 /* ═══════════════════════════════════════════════════════════════ §12 WORLD ══ */
 
+/* An edit to a streamed shape is just a handful of moved control points and a
+ * few carve spheres — a couple of hundred bytes. That is small enough to keep
+ * forever, so flying away from a shape you re-authored and coming back finds it
+ * exactly as you left it, even though the patch object itself was destroyed. */
+function snapshotPatch(p) {
+  const rail = r => r.nodes.map(n => [n.p.x, n.p.y, n.p.z, n.t.x, n.t.y, n.t.z]);
+  return { A: rail(p.railA), B: rail(p.railB), carves: p.carves.map(c => [c.x, c.y, c.z, c.r]) };
+}
+function restorePatch(p, snap) {
+  const rail = (r, rows) => r.nodes.forEach((n, i) => {
+    const v = rows[i]; if (!v) return;
+    n.p.set(v[0], v[1], v[2]); n.t.set(v[3], v[4], v[5]);
+  });
+  rail(p.railA, snap.A); rail(p.railB, snap.B);
+  p.carves = snap.carves.map(([x, y, z, r]) => ({ x, y, z, r, r2: r * r }));
+  p.edited = true;
+}
+
 /** A patch must own a root voxel proxy the instant it exists — that is what
  *  makes a newly streamed structure pop into view blocky rather than absent. */
 function seedRoot(p) {
@@ -1374,6 +1447,7 @@ const World = {
   patches: [],
   heroes: [],
   cells: new Map(),           // "cx,cz" → Patch
+  edits: new Map(),           // "cx,cz" → hand edits that outlive the patch
   frame: 0,
   dirtyBuffers: true,
   visibleKey: 0,
@@ -1400,6 +1474,7 @@ const World = {
         if (this.cells.has(key)) continue;
         const p = generateCellPatch(cx, cz);
         p.cellKey = key;
+        if (this.edits.has(key)) restorePatch(p, this.edits.get(key));
         seedRoot(p);
         this.cells.set(key, p);
         this.patches.push(p);
@@ -1408,7 +1483,12 @@ const World = {
     // Release everything past the hysteresis radius.
     for (const [key, p] of this.cells) {
       const [cx, cz] = key.split(',').map(Number);
+      if (p === selected) continue;                       // never evict what you are editing
       if (Math.hypot(cx * CELL - camera.position.x, cz * CELL - camera.position.z) > RELEASE_R) {
+        // The graph IS the asset, so any hand edit to a streamed shape is kept
+        // (a couple of hundred bytes) and replayed when the cell regenerates.
+        if (p.edited) this.edits.set(key, snapshotPatch(p));
+        onPatchReleased(p);
         JobQueue.purge(p);
         this.cells.delete(key);
         const i = this.patches.indexOf(p);
@@ -1602,6 +1682,62 @@ const TAN_VIS = 0.3;                                   // tangent handle display
 
 const handles = [];
 
+/* ---------------------------------------------------------------------- *
+ *  SELECTION. Every patch in the world — the three authored hero shapes and
+ *  every procedurally streamed one alike — is defined by nothing but two
+ *  rails of {p, t} control nodes. So selection is uniform: pick any patch,
+ *  get its control graph, drag it. There is no privileged "editable" class
+ *  of object, because there is no other kind of object.
+ * ---------------------------------------------------------------------- */
+let selected = null, hovered = null;
+
+const selBoxGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
+const selBox = new THREE.LineSegments(selBoxGeo,
+  new THREE.LineBasicMaterial({ color: 0x5ef2a8, transparent: true, opacity: 0.75, depthTest: false }));
+selBox.frustumCulled = false; selBox.visible = false; selBox.renderOrder = 997;
+const hovBox = new THREE.LineSegments(selBoxGeo,
+  new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.3, depthTest: false }));
+hovBox.frustumCulled = false; hovBox.visible = false; hovBox.renderOrder = 996;
+scene.add(selBox, hovBox);
+
+function fitBox(obj, box) {
+  box.getCenter(obj.position);
+  box.getSize(_tmp1);
+  obj.scale.set(Math.max(_tmp1.x, .05), Math.max(_tmp1.y, .05), Math.max(_tmp1.z, .05));
+}
+
+function selectPatch(p) {
+  selected = p || null;
+  buildHandles(selected);
+  selBox.visible = !!selected;
+  updateSelUI();
+  if (selected) toast(`“${selected.name}” selected — ${handles.length} handles live. Drag one to re-author it.`);
+}
+
+/** Called by the streamer when a patch leaves the resident set. */
+function onPatchReleased(p) {
+  if (selected === p) selectPatch(null);
+  if (hovered === p) { hovered = null; hovBox.visible = false; }
+}
+
+function updateSelUI() {
+  const box = $('selbox'), nm = $('sel-name'), me = $('sel-meta');
+  if (!selected) {
+    box.classList.add('empty');
+    nm.textContent = 'Nothing selected';
+    me.innerHTML = 'Pick the <b>Select</b> tool below, then click any structure to expose its control graph. Drag the cyan nodes or amber tangents to re-author it.';
+    return;
+  }
+  box.classList.remove('empty');
+  nm.textContent = selected.name;
+  const nodes = selected.railA.nodes.length + selected.railB.nodes.length;
+  me.innerHTML =
+    `<b>${nodes}</b> control nodes · <b>${nodes}</b> tangent handles<br>` +
+    `defined by <b>${selected.byteSize()} bytes</b> of maths · thickness <b>${selected.thickness.toFixed(2)}</b><br>` +
+    `${selected.hero ? 'authored' : 'procedurally generated'}${selected.edited ? ' · <b>edited</b>' : ''}` +
+    `${selected.carves.length ? ` · <b>${selected.carves.length}</b> carves` : ''}`;
+}
+
 function buildHandles(patch) {
   for (const o of handleGroup.children) if (o.isLine) o.geometry.dispose();
   handleGroup.clear();
@@ -1658,6 +1794,10 @@ addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   keys.add(e.code);
   if (e.code === 'KeyR') { camera.position.set(-34, 20, 56); yaw = -0.42; pitch = -0.30; toast('Respawned at origin'); }
+  if (e.code === 'Digit1') setTool('fly');
+  if (e.code === 'Digit2') setTool('select');
+  if (e.code === 'Digit3') setTool('carve');
+  if (e.code === 'Escape') selectPatch(null);
 });
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
@@ -1707,8 +1847,21 @@ cv.addEventListener('pointerdown', e => {
   }
 });
 
+let hoverAt = 0;
 cv.addEventListener('pointermove', e => {
-  if (!dragging) return;
+  if (!dragging) {
+    // Cheap throttled pick so the Select tool tells you what you are about to
+    // grab before you commit to it.
+    if (State.tool === 'select' && State.hoverHint && Clock.t - hoverAt > 0.09) {
+      hoverAt = Clock.t;
+      setNDC(e);
+      const h = castMatter(220);
+      const hit = h.solid || h.any;
+      hovered = hit ? hit.object.userData.patch : null;
+      hovBox.visible = !!hovered && hovered !== selected;
+    }
+    return;
+  }
   const dx = e.clientX - lastX, dy = e.clientY - lastY;
   lastX = e.clientX; lastY = e.clientY;
   dragDist += Math.abs(dx) + Math.abs(dy);
@@ -1721,6 +1874,7 @@ cv.addEventListener('pointermove', e => {
     const { patch, node, kind } = grabbed.userData;
     if (kind === 'p') node.p.copy(grabHit);
     else node.t.copy(grabHit).sub(node.p).divideScalar(TAN_VIS);
+    patch.edited = true;
     World.markPatchDirty(patch);
     syncHandles();
     return;
@@ -1734,11 +1888,19 @@ cv.addEventListener('pointerup', e => {
   if (grabbed) {
     const { patch } = grabbed.userData;
     flashRegion(patch.root.box.clone());
+    updateSelUI();
     toast(`Re-authored “${patch.name}” — re-baking asynchronously, no reload`);
     grabbed = null;
     return;
   }
-  if (dragDist < 7 && State.digOnClick) { setNDC(e); dig(); }
+  if (dragDist >= 7) return;                        // that was a look-drag
+  setNDC(e);
+  if (State.tool === 'carve') dig();
+  else if (State.tool === 'select') {
+    const h = castMatter();
+    selectPatch(h.solid ? h.solid.object.userData.patch
+              : h.any ? h.any.object.userData.patch : null);
+  }
 });
 
 function setNDC(e) {
@@ -1747,31 +1909,43 @@ function setNDC(e) {
   ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
 }
 
+/**
+ * Cast the current cursor ray at the world's matter.
+ * `solid` is the first hit that is still real material (carved-out points are
+ * skipped); `any` is the first hit of any kind, which is good enough to name
+ * the object you clicked on even if you clicked through one of its own holes.
+ */
+function castMatter(maxDist = 320) {
+  ray.setFromCamera(ndc, camera);
+  const targets = World.patches
+    .filter(p => p.root.box.distanceToPoint(camera.position) < maxDist)
+    .map(collider);
+  const hits = ray.intersectObjects(targets, false);
+  let solid = null;
+  for (const h of hits) if (h.object.userData.patch.isSolid(h.point)) { solid = h; break; }
+  return { solid, any: hits[0] || null };
+}
+
 /* ---- The destructive operation ---------------------------------------- */
 function dig() {
-  ray.setFromCamera(ndc, camera);
-  // Only nearby patches are worth colliding against.
-  const targets = World.patches.filter(p => p.root.box.distanceToPoint(camera.position) < 220).map(collider);
-  const hits = ray.intersectObjects(targets, false);
-  for (const h of hits) {
-    const patch = h.object.userData.patch;
-    if (!patch.isSolid(h.point)) continue;          // already carved away here
-    const r = State.digRadius;
-    patch.carves.push({ x: h.point.x, y: h.point.y, z: h.point.z, r, r2: r * r });
-    if (patch.carves.length > 600) patch.carves.shift();
-    const box = new THREE.Box3(
-      V(h.point.x - r, h.point.y - r, h.point.z - r),
-      V(h.point.x + r, h.point.y + r, h.point.z + r)
-    );
-    // ONLY the intersected sub-tree is invalidated. Everything else keeps its
-    // baked matter — no scene reload, no traversal stall.
-    World.markDirty(patch, box);
-    patch.colliderVersion = -1;
-    flashRegion(box);
-    toast(`Carved ${(4 / 3 * Math.PI * r ** 3).toFixed(1)} m³ from “${patch.name}” — local re-bake queued`);
-    return;
-  }
-  toast('No matter under the cursor');
+  const h = castMatter(220).solid;
+  if (!h) { toast('No matter under the cursor'); return; }
+  const patch = h.object.userData.patch;
+  const r = State.digRadius;
+  patch.carves.push({ x: h.point.x, y: h.point.y, z: h.point.z, r, r2: r * r });
+  if (patch.carves.length > 600) patch.carves.shift();
+  patch.edited = true;
+  const box = new THREE.Box3(
+    V(h.point.x - r, h.point.y - r, h.point.z - r),
+    V(h.point.x + r, h.point.y + r, h.point.z + r)
+  );
+  // ONLY the intersected sub-tree is invalidated. Everything else keeps its
+  // baked matter — no scene reload, no traversal stall.
+  World.markDirty(patch, box);
+  patch.colliderVersion = -1;
+  flashRegion(box);
+  if (patch === selected) updateSelUI();
+  toast(`Carved ${(4 / 3 * Math.PI * r ** 3).toFixed(1)} m³ from “${patch.name}” — local re-bake queued`);
 }
 
 /* ═══════════════════════════════════════════════════════════ §17 HUD WIRING ══ */
@@ -1809,7 +1983,29 @@ $('t-arrive').onchange = e => {
 };
 $('t-lod').onchange = e => { State.lodColor = e.target.checked; rebakeAll('Colouring by quadtree depth'); };
 $('t-bounds').onchange = e => { State.showBounds = e.target.checked; };
-$('t-dig').onchange = e => { State.digOnClick = e.target.checked; };
+$('t-hover').onchange = e => {
+  State.hoverHint = e.target.checked;
+  if (!e.target.checked) { hovered = null; hovBox.visible = false; }
+};
+
+/* ---- Tool bar ---------------------------------------------------------- */
+const TOOL_HINT = {
+  fly:    'Fly tool — drag to look, clicks do nothing',
+  select: 'Select tool — click any structure to expose the handles that define it',
+  carve:  'Carve tool — click to bite a sphere out of matter'
+};
+function setTool(t) {
+  State.tool = t;
+  for (const b of $('toolbar').children) b.classList.toggle('on', b.dataset.tool === t);
+  $('cross').className = 't-' + t;
+  cv.style.cursor = t === 'carve' ? 'crosshair' : 'default';
+  if (t !== 'select') { hovered = null; hovBox.visible = false; }
+  toast(TOOL_HINT[t]);
+}
+$('toolbar').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) setTool(b.dataset.tool);
+});
 
 const bindRange = (id, num, fn, fmtv) => {
   const r = $(id), n = $(num);
@@ -1826,20 +2022,36 @@ bindRange('r-soft', 'n-soft', v => {
 bindRange('r-dig', 'n-dig', v => State.digRadius = v, v => v.toFixed(1));
 bindRange('r-spd', 'n-spd', v => State.flySpeed = v, v => String(v | 0));
 
-/* ---- Handle selector --------------------------------------------------- */
-const sel = $('sel-patch');
-function fillSelector() {
-  sel.innerHTML = '<option value="-1">Hide control handles</option>';
-  World.heroes.forEach((p, i) => {
-    const o = document.createElement('option');
-    o.value = String(i); o.textContent = `Show handles · ${p.name}`;
-    sel.appendChild(o);
-  });
+/* ---- Quick-select chips for the three authored hero patches ------------ */
+function fillQuickSelect() {
+  const box = $('quicksel');
+  box.innerHTML = '';
+  for (const p of World.heroes) {
+    const b = document.createElement('button');
+    b.textContent = p.name;
+    b.onclick = () => { selectPatch(p); frameOn(p); };
+    box.appendChild(b);
+  }
 }
-sel.onchange = () => {
-  const i = parseInt(sel.value, 10);
-  buildHandles(i < 0 ? null : World.heroes[i]);
-  if (i >= 0) toast(`Drag the cyan nodes or amber tangents of “${World.heroes[i].name}”`);
+
+/** Fly the camera to a comfortable vantage on a patch you selected remotely. */
+function frameOn(p) {
+  const r = Math.max(p.root.radius, 6);
+  camera.position.copy(p.root.center).add(V(-r * 0.9, r * 0.75, r * 1.25));
+  const d = _tmp1.copy(p.root.center).sub(camera.position);
+  yaw = Math.atan2(-d.x, -d.z);
+  pitch = clamp(Math.atan2(d.y, Math.hypot(d.x, d.z)), -1.5, 1.5);
+}
+
+$('b-deselect').onclick = () => selectPatch(null);
+$('b-resetsel').onclick = () => {
+  if (!selected) { toast('Nothing selected'); return; }
+  for (const rail of [selected.railA, selected.railB])
+    for (const n of rail.nodes) { n.p.copy(n.p0); n.t.copy(n.t0); }
+  selected.edited = false;
+  World.markPatchDirty(selected);
+  syncHandles(); updateSelUI();
+  toast(`“${selected.name}” restored to its generated shape`);
 };
 
 /* ---- One-click deformations: animated so re-baking is visible live ---- */
@@ -1859,6 +2071,7 @@ function deform(patch, mutate, label) {
   tween(0.75, k => {
     [patch.railA, patch.railB].forEach((rail, ri) =>
       rail.nodes.forEach((n, ni) => mutate(n, snapshot[ri][ni], k, ni, ri, rail.nodes.length)));
+    patch.edited = true;
     World.markPatchDirty(patch);
     syncHandles();
   });
@@ -1886,6 +2099,7 @@ $('b-terr').onclick = () => {
 $('b-reset').onclick = () => {
   for (const p of World.heroes) {
     for (const rail of [p.railA, p.railB]) for (const n of rail.nodes) { n.p.copy(n.p0); n.t.copy(n.t0); }
+    p.edited = false;
     World.markPatchDirty(p);
   }
   syncHandles();
@@ -1945,7 +2159,9 @@ function drawBounds() {
 
 /* ══════════════════════════════════════════════════════════ §18 MAIN LOOP ══ */
 World.init();
-fillSelector();
+fillQuickSelect();
+updateSelUI();
+setTool(State.tool);
 
 const renderList = [];
 let last = performance.now() / 1000;
@@ -1961,6 +2177,8 @@ function frame() {
   updateCamera(dt);
   runTweens(dt);
   updateDirtyCues(dt);
+  if (selected) fitBox(selBox, selected.root.box);
+  if (hovBox.visible && hovered) fitBox(hovBox, hovered.root.box);
 
   // ① streaming: resident patch set follows the camera (4 Hz is plenty)
   streamTimer += dt;
