@@ -55,7 +55,7 @@
   .body{padding:11px 14px 13px}
 
   /* ---- Stats panel ---- */
-  #stats{top:14px;left:14px;width:266px}
+  #stats{top:60px;left:14px;width:266px}
   .row{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:11.5px;padding:2.5px 0}
   .row .k{color:var(--ink-dim)}
   .row .v{color:var(--ink);font-variant-numeric:tabular-nums}
@@ -66,7 +66,7 @@
   .sep{height:1px;background:var(--panel-line);margin:9px -14px}
 
   /* ---- Controls panel ---- */
-  #ctrl{top:14px;right:14px;width:280px;max-height:calc(100vh - 28px);overflow-y:auto}
+  #ctrl{top:60px;right:14px;width:280px;max-height:calc(100vh - 74px);overflow-y:auto}
   #ctrl::-webkit-scrollbar{width:6px}
   #ctrl::-webkit-scrollbar-thumb{background:rgba(120,170,255,.22);border-radius:3px}
   .lbl{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-dim);margin:11px 0 6px;font-weight:600}
@@ -116,7 +116,7 @@
   select option{background:#0f141d}
 
   /* ---- Legend ---- */
-  #props{top:14px;right:306px;width:236px;max-height:calc(100vh - 28px);overflow-y:auto}
+  #props{top:60px;right:306px;width:236px;max-height:calc(100vh - 74px);overflow-y:auto}
   #props::-webkit-scrollbar{width:6px}
   #props::-webkit-scrollbar-thumb{background:rgba(120,170,255,.22);border-radius:3px}
   .prow{display:grid;grid-template-columns:1fr auto;align-items:center;gap:3px 8px;padding:4px 0}
@@ -161,6 +161,41 @@
     border:1px solid var(--panel-line);border-radius:5px;padding:3px 5px;font:400 10px var(--mono);outline:0;-moz-appearance:textfield}
   .bandgrid input::-webkit-outer-spin-button,.bandgrid input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .bandgrid input:focus{border-color:rgba(87,210,255,.55);background:rgba(87,210,255,.09)}
+
+  /* ---- Engine technique tabs: the whole renderer swaps under these ---- */
+  #etabs{
+    position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    display:flex;gap:4px;padding:4px;pointer-events:auto;z-index:12;
+  }
+  #etabs button{
+    display:flex;align-items:center;gap:7px;border:1px solid transparent;background:transparent;
+    color:var(--ink-dim);font:600 11.5px var(--sans);padding:8px 15px;border-radius:8px;cursor:pointer;transition:.14s;
+  }
+  #etabs button .ic{font-size:13px;line-height:1}
+  #etabs button small{font:600 8.5px var(--mono);letter-spacing:.11em;opacity:.55;text-transform:uppercase}
+  #etabs button:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+  #etabs button.on{color:#eaf7ff;background:linear-gradient(180deg,rgba(87,210,255,.30),rgba(87,210,255,.12));
+    border-color:rgba(87,210,255,.42);box-shadow:0 0 18px rgba(87,210,255,.22)}
+  #etabs button.on[data-engine="sdf"]{color:#fff0dd;background:linear-gradient(180deg,rgba(255,176,87,.30),rgba(255,176,87,.12));
+    border-color:rgba(255,176,87,.45);box-shadow:0 0 18px rgba(255,176,87,.22)}
+  .ehide{display:none !important}
+
+  /* ---- SDF Sharp panels: same slots as the fleck engine's ---- */
+  #sdfctrl{top:60px;right:14px;width:280px;max-height:calc(100vh - 74px);overflow-y:auto}
+  #sdfctrl::-webkit-scrollbar{width:6px}
+  #sdfctrl::-webkit-scrollbar-thumb{background:rgba(255,176,87,.24);border-radius:3px}
+  #sdfstats{top:60px;left:14px;width:266px}
+  #sdflegend{bottom:14px;left:14px;width:266px}
+  .note{font:400 10.5px/1.55 var(--sans);color:var(--ink-dim);margin:1px 0 7px}
+  .swatch{display:flex;flex-wrap:wrap;gap:5px;margin:3px 0 2px}
+  .swatch button{width:22px;height:22px;border-radius:6px;border:1px solid rgba(255,255,255,.16);cursor:pointer;padding:0;transition:.12s}
+  .swatch button.on{box-shadow:0 0 0 2px var(--warn);border-color:transparent;transform:scale(1.08)}
+  .editrow{display:flex;align-items:center;gap:7px;font:500 11px var(--sans);color:var(--ink-dim);
+    padding:5px 7px;border:1px solid var(--panel-line);border-radius:7px;margin-bottom:4px;cursor:pointer}
+  .editrow:hover{background:rgba(255,176,87,.1)}
+  .editrow.on{background:rgba(255,176,87,.16);border-color:rgba(255,176,87,.45);color:var(--ink)}
+  .editrow i{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+  .editrow em{margin-left:auto;font:600 9px var(--mono);font-style:normal;opacity:.7}
 
   #legend{bottom:14px;left:14px;width:266px}
   .keyrow{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0;color:var(--ink-dim)}
@@ -266,6 +301,12 @@
 
 <div id="hud" class="hide">
   <div id="cross"></div>
+
+  <!-- ============ ENGINE TECHNIQUE TABS ============ -->
+  <div id="etabs" class="panel">
+    <button data-engine="flecks" class="on"><span class="ic">◈</span>Progressive Flecks<small>splats</small></button>
+    <button data-engine="sdf"><span class="ic">◆</span>SDF Sharp<small>brick cache</small></button>
+  </div>
 
   <!-- ============ LIVE PERFORMANCE COUNTERS ============ -->
   <section id="stats" class="panel">
@@ -412,6 +453,138 @@
     </div>
   </section>
 
+
+  <!-- ============ SDF SHARP: TELEMETRY ============ -->
+  <section id="sdfstats" class="panel ehide">
+    <h2><span class="dot" style="background:var(--warn);box-shadow:0 0 10px var(--warn)"></span> SDF Telemetry</h2>
+    <div class="body">
+      <div class="row"><span class="k">FPS</span><span class="v" id="d-fps">–</span></div>
+      <div class="bar"><i id="d-fpsbar"></i></div>
+      <div class="row"><span class="k">frame time</span><span class="v" id="d-ms">–</span></div>
+      <div class="sep"></div>
+      <div class="row"><span class="k">bricks resident</span><span class="v" id="d-bricks">0</span></div>
+      <div class="row"><span class="k">atlas occupancy</span><span class="v" id="d-atlas">0%</span></div>
+      <div class="bar"><i id="d-atlasbar"></i></div>
+      <div class="row"><span class="k">cached samples</span><span class="v" id="d-samples">0</span></div>
+      <div class="row"><span class="k">dense equivalent</span><span class="v" id="d-dense">–</span></div>
+      <div class="row"><span class="k">memory saved</span><span class="v" id="d-saved">–</span></div>
+      <div class="sep"></div>
+      <div class="row"><span class="k">sdf edits</span><span class="v" id="d-edits">0</span></div>
+      <div class="row"><span class="k">graph footprint</span><span class="v" id="d-bytes">0 B</span></div>
+      <div class="row"><span class="k">bricks baked / s</span><span class="v" id="d-baked">0</span></div>
+      <div class="row"><span class="k">bake backlog</span><span class="v" id="d-pending">0</span></div>
+      <div class="row"><span class="k">classify time</span><span class="v" id="d-class">–</span></div>
+      <div class="row"><span class="k">clip levels</span><span class="v" id="d-levels">–</span></div>
+      <div class="row"><span class="k">finest voxel</span><span class="v" id="d-cell">–</span></div>
+      <div class="row"><span class="k">coverage</span><span class="v" id="d-cover">–</span></div>
+    </div>
+  </section>
+
+  <!-- ============ SDF SHARP: CONTROLS ============ -->
+  <section id="sdfctrl" class="panel ehide">
+    <h2><span class="dot" style="background:var(--warn);box-shadow:0 0 10px var(--warn)"></span> SDF Sharp Engine</h2>
+    <div class="body">
+      <div class="note">The world is an ordered list of signed-distance edits. Nothing is meshed and nothing is
+        splatted — distances are cached into a sparse brick atlas on the GPU and the surface is sphere-traced
+        straight out of that cache, so every edit stays live and reversible.</div>
+
+      <div class="lbl">Brush</div>
+      <div class="seg" id="d-op">
+        <button data-op="1" class="on">Subtract</button>
+        <button data-op="0">Add</button>
+        <button data-op="2">Intersect</button>
+      </div>
+      <div class="lbl">Primitive</div>
+      <div class="seg" id="d-prim">
+        <button data-prim="0" class="on">Sphere</button>
+        <button data-prim="1">Box</button>
+        <button data-prim="2">Capsule</button>
+        <button data-prim="3">Torus</button>
+      </div>
+      <div class="slider"><label>Brush size (m)</label><input class="num" type="number" id="n-dsize" value="3"><input type="range" id="r-dsize" min="0.3" max="40" step="0.1" value="3"></div>
+      <div class="slider"><label>Blend / smoothing</label><input class="num" type="number" id="n-dblend" value="0.8"><input type="range" id="r-dblend" min="0" max="8" step="0.05" value="0.8"></div>
+      <div class="slider"><label>Box rounding</label><input class="num" type="number" id="n-dround" value="0"><input type="range" id="r-dround" min="0" max="4" step="0.05" value="0"></div>
+      <div class="lbl">Material</div>
+      <div class="swatch" id="d-swatch"></div>
+
+      <div class="lbl">Edit list <span style="text-transform:none;letter-spacing:0">(newest first — click to select)</span></div>
+      <div id="d-list"><div class="note" style="margin:0">No edits yet. Pick <b>Sculpt</b> and drag on the terrain.</div></div>
+      <div class="btns">
+        <button id="b-dundo">Undo last edit</button>
+        <button id="b-dclear">Clear all edits</button>
+      </div>
+      <div class="btns" style="margin-top:6px">
+        <button id="b-ddel">Delete selected</button>
+        <button id="b-ddup">Duplicate</button>
+      </div>
+
+      <div class="lbl">Selected edit</div>
+      <div id="d-sel" class="selbox empty">
+        <div class="selname" id="d-selname">Nothing selected</div>
+        <div class="selmeta" id="d-selmeta">Pick the <b>Select</b> tool and click any edit. Dragging it moves the
+          shape through the world non-destructively — a hole you can walk a tunnel with and then take away again.</div>
+      </div>
+
+      <div class="lbl">Renderer</div>
+      <div class="slider"><label>Finest voxel (m)</label><input class="num" type="number" id="n-dcell" value="0.22"><input type="range" id="r-dcell" min="0.05" max="1.2" step="0.01" value="0.22"></div>
+      <div class="slider"><label>Clipmap levels</label><input class="num" type="number" id="n-dlvl" value="6"><input type="range" id="r-dlvl" min="1" max="8" step="1" value="6"></div>
+      <div class="slider"><label>March steps</label><input class="num" type="number" id="n-dstep" value="110"><input type="range" id="r-dstep" min="16" max="320" step="2" value="110"></div>
+      <div class="slider"><label>Surface ε (cells)</label><input class="num" type="number" id="n-deps" value="0.3"><input type="range" id="r-deps" min="0.05" max="1.5" step="0.01" value="0.3"></div>
+      <div class="slider"><label>Bake budget / frame</label><input class="num" type="number" id="n-dbake" value="192"><input type="range" id="r-dbake" min="8" max="1024" step="8" value="192"></div>
+      <div class="slider"><label>Render scale</label><input class="num" type="number" id="n-dres" value="1"><input type="range" id="r-dres" min="0.35" max="1" step="0.05" value="1"></div>
+      <label class="chk"><input type="checkbox" id="d-shadow" checked><span>Sun shadows</span><small>traced</small></label>
+      <label class="chk"><input type="checkbox" id="d-ao" checked><span>Field ambient occlusion</span><small>5 taps</small></label>
+      <label class="chk"><input type="checkbox" id="d-proxy" checked><span>Blocky proxy while baking</span><small>coarse→sharp</small></label>
+      <div class="lbl">Debug view</div>
+      <select id="d-debug">
+        <option value="0">Shaded</option>
+        <option value="1">March step cost</option>
+        <option value="2">Clipmap level</option>
+        <option value="3">Brick allocation</option>
+        <option value="4">Surface normal</option>
+        <option value="5">Cached distance</option>
+        <option value="6">Brick state</option>
+      </select>
+
+      <div class="lbl">Terrain field</div>
+      <div class="slider"><label>Hill amplitude</label><input class="num" type="number" id="n-tamp" value="16"><input type="range" id="r-tamp" min="0" max="120" step="0.5" value="16"></div>
+      <div class="slider"><label>Hill scale (m)</label><input class="num" type="number" id="n-tscl" value="90"><input type="range" id="r-tscl" min="10" max="600" step="1" value="90"></div>
+      <div class="slider"><label>Octaves</label><input class="num" type="number" id="n-toct" value="4"><input type="range" id="r-toct" min="1" max="6" step="1" value="4"></div>
+      <div class="slider"><label>Ground level</label><input class="num" type="number" id="n-tbase" value="-9"><input type="range" id="r-tbase" min="-120" max="60" step="1" value="-9"></div>
+      <div class="slider"><label>Cave density</label><input class="num" type="number" id="n-tcave" value="0"><input type="range" id="r-tcave" min="0" max="1" step="0.01" value="0"></div>
+      <div class="slider"><label>Cave scale (m)</label><input class="num" type="number" id="n-tcscl" value="34"><input type="range" id="r-tcscl" min="6" max="200" step="1" value="34"></div>
+
+      <div class="lbl">Demos</div>
+      <div class="chips" id="d-demos"></div>
+
+      <div class="lbl">Save / load</div>
+      <div class="btns">
+        <button id="b-dsave">Save SDF world</button>
+        <button id="b-dload">Load SDF world</button>
+      </div>
+      <input type="file" id="f-sdf" accept=".json,application/json" style="display:none">
+    </div>
+  </section>
+
+  <section id="sdflegend" class="panel ehide">
+    <h2><span class="dot" style="background:var(--warn);box-shadow:0 0 10px var(--warn)"></span> SDF Legend</h2>
+    <div class="body">
+      <div class="keyrow"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><b>fly / walk</b></div>
+      <div class="keyrow"><kbd>drag</kbd><b>sculpt: stamp an SDF edit</b></div>
+      <div class="keyrow"><kbd>⇧drag</kbd><b>sculpt with the op inverted</b></div>
+      <div class="keyrow"><kbd>scroll</kbd><b>brush size</b></div>
+      <div class="keyrow"><kbd>⇧scroll</kbd><b>blend radius</b></div>
+      <div class="keyrow"><kbd>2</kbd><b>Select — click an edit, drag to move it</b></div>
+      <div class="keyrow"><kbd>3</kbd><b>Sculpt · <kbd>4</kbd> Create</b></div>
+      <div class="keyrow"><kbd>del</kbd><b>remove the selected edit</b></div>
+      <div class="keyrow"><kbd>tab</kbd><b>capture / free the mouse</b></div>
+      <div class="keyrow"><kbd>⇧tab</kbd><b>walk the distance field</b></div>
+      <div class="sep"></div>
+      <div class="sw"><i style="background:#ffb057;color:#ffb057"></i>Brick holding cached distances</div>
+      <div class="sw"><i style="background:#57d2ff;color:#57d2ff"></i>Empty brick — skipped whole</div>
+      <div class="sw"><i style="background:#9d7bff;color:#9d7bff"></i>Coarse proxy, bake still queued</div>
+    </div>
+  </section>
 
   <div id="marquee"></div>
 
@@ -1807,7 +1980,14 @@ const JobQueue = {
 };
 
 /* ══════════════════════════════════════════════════════════ §8 ENGINE STATE ══ */
+/* The renderer technique in force. 'flecks' is the progressive point-cloud
+ * engine everything below was written for; 'sdf' swaps the entire pipeline for
+ * the brick-cached signed-distance-field renderer in §17. They share the
+ * camera, the toolbar and the input model, and nothing else. */
+let SDF = null;                    // assigned in §17, lazily initialised
+
 const State = {
+  engine: 'flecks',        // flecks | sdf
   mode: 'auto',            // auto | points | voxels
   polyOptim: true,
   netLatency: false,
@@ -2996,7 +3176,8 @@ addEventListener('keydown', e => {
   if (e.code === 'Digit2') setTool('select');
   if (e.code === 'Digit3') setTool('carve');
   if (e.code === 'Digit4') setTool('create');
-  if (e.code === 'Escape') selectPatch(null);
+  if (e.code === 'Escape') { if (State.engine === 'sdf') SDF.selectEdit(null); else selectPatch(null); }
+  if ((e.code === 'Delete' || e.code === 'Backspace') && State.engine === 'sdf') SDF.removeSelected();
   if (e.code === 'KeyH') {
     const bare = document.getElementById('hud').classList.toggle('bare');
     if (!bare) toast('HUD restored');
@@ -3046,6 +3227,8 @@ function solidColliders(pos, reach) {
 
 /** Highest walkable surface under a point: smooth terrain, plus object tops. */
 function groundHeightAt(x, z, fromY) {
+  // In SDF mode the floor IS the distance field — trace down through it.
+  if (State.engine === 'sdf') return SDF.groundY(x, z, fromY);
   let g = Terrain.solidAt(x, z) ? Terrain.surfaceY(x, z) : -1e7;
   const objs = solidColliders(_pp.set(x, fromY, z), 40);
   if (objs.length) {
@@ -3061,6 +3244,7 @@ function groundHeightAt(x, z, fromY) {
 
 /** Move horizontally, sliding along anything solid rather than stopping dead. */
 function moveWithCollision(pos, delta) {
+  if (State.engine === 'sdf') { SDF.slide(pos, delta); return; }
   for (let pass = 0; pass < 2; pass++) {
     const len = Math.hypot(delta.x, delta.z);
     if (len < 1e-5) break;
@@ -3184,6 +3368,10 @@ const cv = renderer.domElement;
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('wheel', e => {
   const d = e.deltaY > 0 ? 1 : -1;
+  if (State.engine === 'sdf') {
+    if (State.tool === 'fly' || State.tool === 'select') return;
+    e.preventDefault(); SDF.wheel(-d, shiftHeld(e)); return;
+  }
   if (State.tool === 'create') { e.preventDefault(); setSubTool(State.subTool + d); }
   else if (State.tool === 'select') { e.preventDefault(); setSelMode(State.selMode + d); }
   else if (State.tool === 'carve') {
@@ -3287,6 +3475,11 @@ cv.addEventListener('pointerdown', e => {
   // which is both surprising to use and unreliable to detect.
   strokeRemove = shiftHeld(e);
 
+  if (State.engine === 'sdf') {
+    if (e.button === 0) { setNDC(e); SDF.pointerDown(e); }
+    return;
+  }
+
   if (e.button === 0) {
     const grabbedHandle = tryGrabHandle(e);
     if (!grabbedHandle && State.tool === 'select' && shiftHeld(e)) marqueeStart(e);
@@ -3340,6 +3533,21 @@ cv.addEventListener('pointermove', e => {
   }
 
   if (dragging) dragDist += Math.abs(dx) + Math.abs(dy);
+
+  // SDF Sharp: the cursor drives the field probe, and dragging a selected
+  // edit slides the shape through the world instead of turning the camera.
+  if (State.engine === 'sdf') {
+    if (SDF.dragging) {
+      if (locked) {
+        const r = cv.getBoundingClientRect();
+        vCursor.x = clamp(vCursor.x + dx * 2 / r.width, -1, 1);
+        vCursor.y = clamp(vCursor.y - dy * 2 / r.height, -1, 1);
+      }
+      setNDC(e); SDF.dragMove(); return;
+    }
+    setNDC(e);
+  }
+
   if (marquee) { marqueeMove(e, dx, dy); return; }
 
   // Look: always when captured — including mid-stroke, which is exactly how you
@@ -3353,7 +3561,7 @@ cv.addEventListener('pointermove', e => {
   if (dragging && dragBtn === 0 && State.tool !== 'select') { setNDC(e); applyTool(strokeRemove, true); return; }
 
   // Idle hover preview (free cursor only — when captured the crosshair is fixed).
-  if (!dragging && !locked && State.tool !== 'fly' && State.hoverHint && Clock.t - hoverAt > 0.09) {
+  if (!dragging && !locked && State.engine !== 'sdf' && State.tool !== 'fly' && State.hoverHint && Clock.t - hoverAt > 0.09) {
     hoverAt = Clock.t;
     setNDC(e);
     const h = castMatter(220);
@@ -3419,6 +3627,7 @@ function marqueeEnd() {
 cv.addEventListener('pointerup', e => {
   const wasDragging = dragging;
   dragging = false;
+  if (State.engine === 'sdf' && SDF.pointerUp()) { vCursor.set(0, 0); return; }
   if (marquee && marqueeEnd()) return;
   if (grabbed) {
     const { patch } = grabbed.userData;
@@ -3437,6 +3646,8 @@ cv.addEventListener('pointerup', e => {
  *  so painting a trench costs a sane number of edits instead of one per pixel.
  * ---------------------------------------------------------------------------*/
 function applyTool(shift, isStroke) {
+  // SDF Sharp owns the tools entirely when it is the live technique.
+  if (State.engine === 'sdf') { SDF.applyTool(shift, isStroke); return; }
   if (State.tool === 'fly') return;
   if (State.tool === 'select') { if (!isStroke) pickSelection(shift); return; }
   if (State.tool === 'create') { if (!isStroke) applyCreate(); return; }
@@ -4229,6 +4440,8 @@ function serializeSettings() {
     const v = State[k];
     out.state[k] = Array.isArray(v) ? v.slice() : v;
   }
+  out.engine = State.engine;
+  if (SDF) out.sdf = { ...SDF.S };
   out.splatSoftness = splats.mat.uniforms.uCore.value;
   out.backCull = splats.mat.uniforms.uBackCull.value;
   out.flatEps = Baker.flatEps;
@@ -4241,6 +4454,7 @@ function applySettings(j) {
     if (!(k in j.state)) continue;
     State[k] = Array.isArray(j.state[k]) ? j.state[k].slice() : j.state[k];
   }
+  if (j.sdf && SDF) { Object.assign(SDF.S, j.sdf); SDF.syncPanelValues(); SDF.invalidateAll(); }
   if (j.splatSoftness != null) splats.mat.uniforms.uCore.value = j.splatSoftness;
   if (j.backCull != null) splats.mat.uniforms.uBackCull.value = j.backCull;
   if (j.flatEps != null) Baker.flatEps = j.flatEps;
@@ -4265,6 +4479,7 @@ function applySettings(j) {
   buildBandGrid();
   setSubTool(State.subTool); setSelMode(State.selMode); setTool(State.tool);
   $('sculptlabel').textContent = brushLabel();
+  if (j.engine) setEngine(j.engine);
   rebakeAll('Settings loaded');
 }
 
@@ -4598,6 +4813,1805 @@ $('sculptlabel').textContent = brushLabel();
 setTool(State.tool);
 updateCaptureUI();
 
+/* ══════════════════════════════════════════════════ §17 SDF SHARP ENGINE ══
+ *
+ *  A second, completely separate renderer that shares nothing with the fleck
+ *  engine above except the camera, the toolbar and the input model.
+ *
+ *  THE IDEA. The world is not geometry. It is an ORDERED LIST OF SDF EDITS —
+ *  a primitive, a transform, and a boolean op (union / subtract / intersect)
+ *  with an optional smoothing radius. Evaluating that list gives the signed
+ *  distance to the nearest surface at any point in space, so booleans are
+ *  exact, blends are free, and every edit stays live: moving one is not a
+ *  re-mesh, it is a change of a few floats.
+ *
+ *  WHY IT IS FAST. Naively ray-marching that list re-evaluates an expensive
+ *  function many times per pixel and dies as soon as the scene is interesting.
+ *  So the distances are CACHED on a grid and the march reads the cache:
+ *
+ *    · a distance BRICK is 8³ cached samples spanning 7 cells of the grid,
+ *      one byte of distance and one byte of material per sample;
+ *    · bricks are allocated SPARSELY — only where the surface actually
+ *      crosses — out of a 3D texture atlas, so empty air and deep interior
+ *      cost nothing at all;
+ *    · a dense BRICK POINTER GRID per clipmap level says, for every cell,
+ *      whether it is empty air, solid interior, or which brick to read;
+ *    · CLIPMAP LEVELS nest around the camera, each twice the cell size of the
+ *      one inside it, so a brick stays roughly constant in screen space and
+ *      the far field costs a fraction of the near field;
+ *    · the march skips whole empty bricks in one step and sphere-traces the
+ *      cached field inside occupied ones, so a pixel costs a handful of
+ *      texture fetches rather than hundreds of function evaluations.
+ *
+ *  Baking happens ON THE GPU: dirty bricks are drawn as instanced quads into
+ *  layers of the atlas, each fragment evaluating the edit list once for its
+ *  own sample. Only bricks an edit actually touches are invalidated, which is
+ *  what makes carving interactive — the rest of the world is reused verbatim.
+ * ---------------------------------------------------------------------------*/
+{
+const B = 8;                    // cached samples per brick axis
+const BC = B - 1;               // cells a brick spans (bricks share a boundary plane)
+/* Bricks per axis in a clipmap level. This one number sets how sharp the
+ * world stays with distance: a cell at a level's outer edge subtends roughly
+ * 1/(4·G) radians whatever the cell size is, so G — not the finest voxel — is
+ * what decides whether a far hillside reads as smooth or as steps. */
+const G = 24;
+const MAX_LEVELS = 8;
+const NX = 16, NY = 16, NZ = 64;               // brick slots in the atlas
+const SLOTS = NX * NY * NZ;                    // 8192 bricks
+const AW = NX * B, AH = NY * B, AD = NZ * B;   // 128 × 128 × 256 texels, RG8
+const MAX_EDITS = 1024;
+const LIST_W = 256, LIST_H = 256;              // per-brick edit index lists
+const PER_BRICK = 48;                          // edits considered per brick
+const AIR = 0, FULL = 1, SOLID = 2, PENDING = 3;
+
+/* Material 0 is the terrain, shaded from its own slope. 1…15 are pickable. */
+const PAL_HEX = ['#8fa870', '#d97b5a', '#5aa9d9', '#c9b458', '#8f6fd9', '#5ed2a0',
+  '#d95a97', '#aeb6bf', '#8a6a45', '#e6ebf0', '#4f8f62', '#d9cfa0',
+  '#6a5fd9', '#d95a5a', '#3f8f8f', '#cf8ad9'];
+const PALETTE = PAL_HEX.map(h => new THREE.Color(h).convertSRGBToLinear());
+
+/* Everything the panel edits. Saved and restored with the world. */
+const S = {
+  cell0: 0.22, levels: 6, steps: 110, surfEps: 0.30, bakeBudget: 192, res: 1,
+  shadow: true, ao: true, proxy: true, debug: 0,
+  op: 1, prim: 0, size: 3, blend: 0.8, round: 0, mat: 1,
+  terAmp: 16, terScale: 90, terOct: 4, terBase: -9, caveAmt: 0, caveScale: 34
+};
+
+/* ---------------------------------------------------------------------- *
+ *  NOISE. The bake shader and the JavaScript mirror MUST agree exactly, or
+ *  walking and picking would happen against a different world than the one
+ *  on screen. So the hash is integer arithmetic — bit ops and 32-bit
+ *  multiplies wrap identically in GLSL ES 3.00 and in Math.imul — instead of
+ *  the usual fract(sin(...)), which drifts between CPU and GPU.
+ * ---------------------------------------------------------------------- */
+function uh(x) {
+  x = (x ^ (x >>> 16)) >>> 0;
+  x = Math.imul(x, 0x7feb352d) >>> 0;
+  x = (x ^ (x >>> 15)) >>> 0;
+  x = Math.imul(x, 0x846ca68b) >>> 0;
+  return ((x ^ (x >>> 16)) >>> 0);
+}
+function vhash3(i, j, k) {
+  const a = uh(Math.imul(i, 0x9e3779b1) >>> 0);
+  const b = uh(Math.imul(j, 0x85ebca6b) >>> 0);
+  const c = uh(Math.imul(k, 0xc2b2ae35) >>> 0);
+  return (uh((a ^ b ^ c) >>> 0) >>> 8) / 16777216;
+}
+function vnoise(x, y, z) {
+  const fx = Math.floor(x), fy = Math.floor(y), fz = Math.floor(z);
+  const ix = fx | 0, iy = fy | 0, iz = fz | 0;
+  let tx = x - fx, ty = y - fy, tz = z - fz;
+  const wx = tx * tx * (3 - 2 * tx), wy = ty * ty * (3 - 2 * ty), wz = tz * tz * (3 - 2 * tz);
+  const c000 = vhash3(ix, iy, iz), c100 = vhash3(ix + 1, iy, iz);
+  const c010 = vhash3(ix, iy + 1, iz), c110 = vhash3(ix + 1, iy + 1, iz);
+  const c001 = vhash3(ix, iy, iz + 1), c101 = vhash3(ix + 1, iy, iz + 1);
+  const c011 = vhash3(ix, iy + 1, iz + 1), c111 = vhash3(ix + 1, iy + 1, iz + 1);
+  const x00 = c000 + (c100 - c000) * wx, x10 = c010 + (c110 - c010) * wx;
+  const x01 = c001 + (c101 - c001) * wx, x11 = c011 + (c111 - c011) * wx;
+  const y0 = x00 + (x10 - x00) * wy, y1 = x01 + (x11 - x01) * wy;
+  return y0 + (y1 - y0) * wz;
+}
+function fbm(x, y, z, oct) {
+  let a = 0.5, s = 0;
+  for (let i = 0; i < 6; i++) {
+    if (i >= oct) break;
+    s += a * (vnoise(x, y, z) * 2 - 1);
+    x *= 2.03; y *= 2.03; z *= 2.03; a *= 0.5;
+  }
+  return s;
+}
+
+/* Lipschitz safety factor: a height field is not a distance field, so the
+ * vertical gap is scaled down by the steepest slope the noise can produce.
+ * Without this the march oversteps thin ridges and punches holes in them. */
+let terK = 1;
+function syncTerK() {
+  const slope = S.terAmp * (1 / Math.max(S.terScale, 1)) * 6.0;
+  terK = 1 / Math.sqrt(1 + slope * slope);
+}
+syncTerK();
+
+function terrainH(x, z) {
+  if (S.terAmp === 0) return 0;
+  return S.terAmp * fbm(x / S.terScale, 17.3, z / S.terScale, S.terOct);
+}
+function sdTerrain(x, y, z) {
+  let d = (y - S.terBase - terrainH(x, z)) * terK;
+  if (S.caveAmt > 0) {
+    const f = 1 / Math.max(S.caveScale, 1);
+    const c = Math.abs(fbm(x * f, y * f, z * f, 3)) - S.caveAmt * 0.45;
+    d = Math.max(d, -c * S.caveScale * 0.4);
+  }
+  return d;
+}
+
+/* ---------------------------------------------------------------------- *
+ *  EDITS. Position, orientation, size, op and blend — about 60 bytes each,
+ *  and that list IS the world. Nothing else is persisted.
+ * ---------------------------------------------------------------------- */
+const PRIM_NAME = ['Sphere', 'Box', 'Capsule', 'Torus', 'Cylinder'];
+const OP_NAME = ['Add', 'Subtract', 'Intersect'];
+let EDIT_UID = 0;
+const edits = [];
+
+class Edit {
+  constructor(o) {
+    this.id = ++EDIT_UID;
+    this.type = o.type | 0;
+    this.op = o.op | 0;
+    this.blend = o.blend || 0;
+    this.round = o.round || 0;
+    this.mat = o.mat == null ? 1 : o.mat;
+    this.pos = o.pos.clone();
+    this.quat = o.quat ? o.quat.clone() : new THREE.Quaternion();
+    this.size = o.size.clone();
+    this.stamp = 0;
+  }
+  /** Conservative world-space half extent, blend and rounding included. */
+  reach() {
+    const s = this.size;
+    let r;
+    if (this.type === 0) r = s.x;
+    else if (this.type === 1) r = Math.hypot(s.x, s.y, s.z) + this.round;
+    else if (this.type === 2) r = s.x + s.y;
+    else if (this.type === 3) r = s.x + s.y;
+    else r = Math.hypot(s.x, s.y);
+    return r + this.blend + 0.001;
+  }
+  label() { return `${OP_NAME[this.op]} ${PRIM_NAME[this.type]}`; }
+}
+
+function sdPrim(lx, ly, lz, e) {
+  const s = e.size;
+  switch (e.type) {
+    case 0: return Math.hypot(lx, ly, lz) - s.x;
+    case 1: {
+      const qx = Math.abs(lx) - s.x + e.round, qy = Math.abs(ly) - s.y + e.round, qz = Math.abs(lz) - s.z + e.round;
+      const ox = Math.max(qx, 0), oy = Math.max(qy, 0), oz = Math.max(qz, 0);
+      return Math.hypot(ox, oy, oz) + Math.min(Math.max(qx, qy, qz), 0) - e.round;
+    }
+    case 2: {
+      const cy = ly - clamp(ly, -s.y, s.y);
+      return Math.hypot(lx, cy, lz) - s.x;
+    }
+    case 3: {
+      const a = Math.hypot(lx, lz) - s.x;
+      return Math.hypot(a, ly) - s.y;
+    }
+    default: {
+      const dx = Math.hypot(lx, lz) - s.x, dy = Math.abs(ly) - s.y;
+      return Math.min(Math.max(dx, dy), 0) + Math.hypot(Math.max(dx, 0), Math.max(dy, 0));
+    }
+  }
+}
+function smin(a, b, k) {
+  if (k <= 0) return Math.min(a, b);
+  const h = clamp(0.5 + 0.5 * (b - a) / k, 0, 1);
+  return b + (a - b) * h - k * h * (1 - h);
+}
+function smax(a, b, k) {
+  if (k <= 0) return Math.max(a, b);
+  const h = clamp(0.5 - 0.5 * (b - a) / k, 0, 1);
+  return b + (a - b) * h + k * h * (1 - h);
+}
+
+const _q = new THREE.Quaternion(), _lp = V();
+function editDist(x, y, z, e) {
+  _lp.set(x - e.pos.x, y - e.pos.y, z - e.pos.z);
+  _q.copy(e.quat).conjugate();
+  _lp.applyQuaternion(_q);
+  return sdPrim(_lp.x, _lp.y, _lp.z, e);
+}
+
+/* ---- Coarse spatial index over the edits ------------------------------- *
+ *  The GPU is handed a per-brick edit list so a bake fragment never loops
+ *  over the whole world; this grid is what builds those lists cheaply, and
+ *  it is the same structure the CPU queries for picking and walking.        */
+const EG = 16;                                   // index cell size, metres
+const egrid = new Map();
+const egBig = [];                                // edits too large to bin
+let egStamp = 0;
+
+const egKey = (i, j, k) => `${i},${j},${k}`;
+function egCells(e, cb) {
+  const r = e.reach();
+  const i0 = Math.floor((e.pos.x - r) / EG), i1 = Math.floor((e.pos.x + r) / EG);
+  const j0 = Math.floor((e.pos.y - r) / EG), j1 = Math.floor((e.pos.y + r) / EG);
+  const k0 = Math.floor((e.pos.z - r) / EG), k1 = Math.floor((e.pos.z + r) / EG);
+  if ((i1 - i0 + 1) * (j1 - j0 + 1) * (k1 - k0 + 1) > 512) return false;
+  for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) cb(egKey(i, j, k));
+  return true;
+}
+function egAdd(e) {
+  const binned = egCells(e, key => {
+    let a = egrid.get(key); if (!a) egrid.set(key, a = []);
+    a.push(e);
+  });
+  if (!binned) egBig.push(e);
+}
+function egDel(e) {
+  const binned = egCells(e, key => {
+    const a = egrid.get(key); if (!a) return;
+    const i = a.indexOf(e); if (i >= 0) a.splice(i, 1);
+    if (!a.length) egrid.delete(key);
+  });
+  if (!binned) { const i = egBig.indexOf(e); if (i >= 0) egBig.splice(i, 1); }
+}
+/** Every edit that can reach the given world box, in list order. */
+function egQuery(x0, y0, z0, x1, y1, z1, out) {
+  out.length = 0;
+  const st = ++egStamp;
+  for (const e of egBig) { e.stamp = st; out.push(e); }
+  const i0 = Math.floor(x0 / EG), i1 = Math.floor(x1 / EG);
+  const j0 = Math.floor(y0 / EG), j1 = Math.floor(y1 / EG);
+  const k0 = Math.floor(z0 / EG), k1 = Math.floor(z1 / EG);
+  for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) {
+    const a = egrid.get(egKey(i, j, k));
+    if (!a) continue;
+    for (const e of a) {
+      if (e.stamp === st) continue;
+      const r = e.reach();
+      if (e.pos.x + r < x0 || e.pos.x - r > x1 || e.pos.y + r < y0 || e.pos.y - r > y1 ||
+          e.pos.z + r < z0 || e.pos.z - r > z1) continue;
+      e.stamp = st; out.push(e);
+    }
+  }
+  out.sort((a, b) => a.id - b.id);          // op order is the list order
+  return out;
+}
+
+const _near = [];
+/** The scene distance function, exactly as the bake shader evaluates it. */
+function sdScene(x, y, z, list) {
+  let d = sdTerrain(x, y, z);
+  const arr = list || egQuery(x, y, z, x, y, z, _near);
+  for (let i = 0; i < arr.length; i++) {
+    const e = arr[i];
+    const de = editDist(x, y, z, e);
+    if (e.op === 0) d = smin(d, de, e.blend);
+    else if (e.op === 1) d = smax(d, -de, e.blend);
+    else d = smax(d, de, e.blend);
+  }
+  return d;
+}
+const _gr = V();
+function sdGrad(x, y, z, h) {
+  h = h || 0.05;
+  const l = egQuery(x - h, y - h, z - h, x + h, y + h, z + h, _near).slice();
+  const dx = sdScene(x + h, y, z, l) - sdScene(x - h, y, z, l);
+  const dy = sdScene(x, y + h, z, l) - sdScene(x, y - h, z, l);
+  const dz = sdScene(x, y, z + h, l) - sdScene(x, y, z - h, l);
+  return _gr.set(dx, dy, dz).normalize();
+}
+
+/* ---------------------------------------------------------------------- *
+ *  GPU RESOURCES
+ * ---------------------------------------------------------------------- */
+let atlas = null, ptrTex = null, editTex = null, listTex = null;
+let ptrData = null, editData = null, listData = null;
+let bakeGeo = null, bakeMat = null, bakeScene = null, bakeCam = null;
+let marchMat = null, marchScene = null, marchCam = null, marchMesh = null;
+let lowRT = null, blitMat = null, blitScene = null;
+let overlay = null, selWire = null, brushWire = null;
+let ready = false, failed = '';
+
+/* ---- Brick bookkeeping ------------------------------------------------- */
+const bricks = new Map();            // "L,x,y,z" -> record
+const freeSlots = [];
+let slotTop = 0;
+const bakeQueue = [];
+let frameNo = 0, bakedThisSecond = 0, bakedRate = 0, bakeClock = 0;
+let classifyMs = 0, classifyStat = 0;
+const levelBase = [];                // [L] = {x,y,z} brick index of the grid corner
+const levelOrigin = [];              // [L] = Vector3 world corner
+const levelExtent = [];              // [L] = full world extent
+const levelCells = [];               // [L] = G³ array of the records currently in the grid
+
+const brickKey = (L, x, y, z) => `${L},${x},${y},${z}`;
+const cellSizeOf = L => S.cell0 * Math.pow(2, L);
+const brickSizeOf = L => cellSizeOf(L) * BC;
+
+function allocSlot() {
+  if (freeSlots.length) return freeSlots.pop();
+  if (slotTop < SLOTS) return slotTop++;
+  return evictOne();
+}
+/** Reclaim the brick that has gone unseen the longest. */
+function evictOne() {
+  let worst = null, worstSeen = Infinity;
+  for (const b of bricks.values()) {
+    // Never take a brick that is in a live pointer grid — that is a hole.
+    if (b.slot < 0 || b.resident) continue;
+    if (b.seen < worstSeen) { worstSeen = b.seen; worst = b; }
+  }
+  if (!worst) return -1;
+  const s = worst.slot;
+  bricks.delete(worst.key);
+  return s;
+}
+
+/* ---------------------------------------------------------------------- *
+ *  CLIPMAP MAINTENANCE
+ *
+ *  Each level is a dense G³ grid of brick pointers snapped to its own brick
+ *  lattice and centred on the camera. When the camera moves far enough for a
+ *  level to shift, only the cells that newly entered it need classifying —
+ *  everything else is found in the brick cache by its ABSOLUTE lattice
+ *  coordinate and reused without a re-bake.
+ * ---------------------------------------------------------------------- */
+function classify(L, ax, ay, az) {
+  const bw = brickSizeOf(L);
+  const cx = (ax + 0.5) * bw, cy = (ay + 0.5) * bw, cz = (az + 0.5) * bw;
+  // Half the brick diagonal is the exact bound for a 1-Lipschitz field; the
+  // small slack covers the smoothed booleans, which are not quite Lipschitz.
+  const r = bw * 0.8661 * 1.12;
+  const d = sdScene(cx, cy, cz);
+  if (d > r) return AIR;
+  if (d < -r) return SOLID;
+  return PENDING;
+}
+
+function refreshLevel(L) {
+  const bw = brickSizeOf(L);
+  const b0x = Math.floor(camera.position.x / bw) - (G >> 1);
+  const b0y = Math.floor(camera.position.y / bw) - (G >> 1);
+  const b0z = Math.floor(camera.position.z / bw) - (G >> 1);
+  const base = levelBase[L];
+  // Residency is a flag on the record, not a per-frame stamp sweep: an
+  // unmoved level is genuinely free, which matters because most levels do
+  // not move on most frames.
+  if (!base.force && base.x === b0x && base.y === b0y && base.z === b0z) return false;
+  base.x = b0x; base.y = b0y; base.z = b0z; base.force = false;
+  levelOrigin[L].set(b0x * bw, b0y * bw, b0z * bw);
+  levelExtent[L] = G * bw;
+
+  const t0 = performance.now();
+  const cells = levelCells[L];
+  for (let i = 0; i < cells.length; i++) if (cells[i]) { cells[i].resident = false; cells[i].seen = frameNo; }
+  let o = L * G * G * G * 4;
+  for (let z = 0; z < G; z++) for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
+    const ax = b0x + x, ay = b0y + y, az = b0z + z;
+    const key = brickKey(L, ax, ay, az);
+    let b = bricks.get(key);
+    if (!b) {
+      const st = classify(L, ax, ay, az);
+      b = { key, level: L, ax, ay, az, state: st, slot: -1, seen: frameNo, ptr: -1, resident: false };
+      if (st === PENDING) {
+        b.slot = allocSlot();
+        if (b.slot < 0) b.state = SOLID;        // atlas exhausted: draw it blocky
+        else bakeQueue.push(b);
+      }
+      bricks.set(key, b);
+    }
+    b.seen = frameNo; b.resident = true;
+    // The pointer grid is indexed x-fastest; a brick lives in exactly one cell.
+    const idx = (z * G + y) * G + x;
+    cells[idx] = b;
+    const p = o + idx * 4;
+    b.ptr = p;
+    const slot = Math.max(b.slot, 0);
+    ptrData[p] = slot & 255;
+    ptrData[p + 1] = (slot >> 8) & 255;
+    ptrData[p + 2] = b.state;
+    ptrData[p + 3] = 255;
+  }
+  classifyMs += performance.now() - t0;
+  ptrTex.needsUpdate = true;
+  return true;
+}
+
+/* Re-classify exactly the bricks a world box touches.
+ *
+ * Forcing whole levels to rebuild instead would be far simpler, and far too
+ * slow: every stamp of the brush would re-evaluate the field at 16³ cells on
+ * each of six levels. Only the cells the edit can actually reach change, so
+ * only those are re-classified, re-allocated and re-queued — which is the
+ * whole reason carving stays interactive however much has been carved. */
+function invalidate(x0, y0, z0, x1, y1, z1) {
+  const t0 = performance.now();
+  const lv = clamp(S.levels | 0, 1, MAX_LEVELS);
+  for (let L = 0; L < MAX_LEVELS; L++) {
+    const bw = brickSizeOf(L);
+    const base = levelBase[L], cells = levelCells[L];
+    const live = L < lv && base.x < 1e8;
+    const i0 = Math.floor(x0 / bw) - 1, i1 = Math.floor(x1 / bw) + 1;
+    const j0 = Math.floor(y0 / bw) - 1, j1 = Math.floor(y1 / bw) + 1;
+    const k0 = Math.floor(z0 / bw) - 1, k1 = Math.floor(z1 / bw) + 1;
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) {
+      const key = brickKey(L, i, j, k);
+      const b = bricks.get(key);
+      if (b) {
+        if (b.slot >= 0) freeSlots.push(b.slot);
+        b.resident = false;
+        bricks.delete(key);
+      }
+      if (!live) continue;
+      const x = i - base.x, y = j - base.y, z = k - base.z;
+      if (x < 0 || x >= G || y < 0 || y >= G || z < 0 || z >= G) continue;
+      const st = classify(L, i, j, k);
+      const nb = { key, level: L, ax: i, ay: j, az: k, state: st, slot: -1, seen: frameNo, ptr: -1, resident: true };
+      if (st === PENDING) {
+        nb.slot = allocSlot();
+        if (nb.slot < 0) nb.state = SOLID; else bakeQueue.push(nb);
+      }
+      bricks.set(key, nb);
+      const idx = (z * G + y) * G + x;
+      cells[idx] = nb;
+      const o = L * G * G * G * 4 + idx * 4;
+      nb.ptr = o;
+      const slot = Math.max(nb.slot, 0);
+      ptrData[o] = slot & 255;
+      ptrData[o + 1] = (slot >> 8) & 255;
+      ptrData[o + 2] = nb.state;
+      ptrData[o + 3] = 255;
+    }
+  }
+  ptrTex.needsUpdate = true;
+  classifyMs += performance.now() - t0;
+  // A queued record whose key now maps to a DIFFERENT record is stale: baking
+  // it would write the old field into a slot that has since been handed out.
+  for (let i = bakeQueue.length - 1; i >= 0; i--) {
+    const q = bakeQueue[i];
+    if (bricks.get(q.key) !== q) bakeQueue.splice(i, 1);
+  }
+}
+function invalidateAll() {
+  for (const b of bricks.values()) { if (b.slot >= 0) freeSlots.push(b.slot); b.resident = false; }
+  bricks.clear();
+  for (let L = 0; L < MAX_LEVELS; L++) if (levelCells[L]) levelCells[L].fill(null);
+  bakeQueue.length = 0;
+  for (let L = 0; L < MAX_LEVELS; L++) levelBase[L].force = true;
+}
+function invalidateEdit(e) {
+  const r = e.reach() + 0.5;
+  /* Only the bricks the edit can REACH are re-baked. Strictly this is an
+   * approximation: adding a shape also shortens the distance recorded in
+   * bricks well outside its reach, whose cached values are now conservative
+   * overestimates. Those values are clamped to a brick's own size, so the
+   * march understeps rather than tunnels, and the payoff — carving costs
+   * work proportional to the brush, not to the world — is what makes this
+   * interactive at all. */
+  invalidate(e.pos.x - r, e.pos.y - r, e.pos.z - r, e.pos.x + r, e.pos.y + r, e.pos.z + r);
+}
+
+/* ---------------------------------------------------------------------- *
+ *  BAKING. Dirty bricks are drawn as instanced quads into atlas layers.
+ *  A brick spans 8 consecutive layers, so instances are bucketed by their
+ *  atlas z-block and each bucket is drawn 8 times — once per layer — with
+ *  nothing but a layer uniform changing between the draws.
+ * ---------------------------------------------------------------------- */
+const _slotAttr = new Float32Array(1024);
+const _origAttr = new Float32Array(1024 * 3);
+const _cellAttr = new Float32Array(1024);
+const _listAttr = new Float32Array(1024 * 2);
+const _buckets = new Map();
+
+function uploadEdits() {
+  const n = Math.min(edits.length, MAX_EDITS);
+  for (let i = 0; i < n; i++) {
+    const e = edits[i], o = i * 16;
+    editData[o] = e.pos.x; editData[o + 1] = e.pos.y; editData[o + 2] = e.pos.z; editData[o + 3] = e.type;
+    editData[o + 4] = e.size.x; editData[o + 5] = e.size.y; editData[o + 6] = e.size.z; editData[o + 7] = e.op;
+    editData[o + 8] = e.quat.x; editData[o + 9] = e.quat.y; editData[o + 10] = e.quat.z; editData[o + 11] = e.quat.w;
+    editData[o + 12] = e.blend; editData[o + 13] = e.round; editData[o + 14] = e.mat; editData[o + 15] = 0;
+  }
+  editTex.needsUpdate = true;
+}
+
+function bakePass() {
+  if (!bakeQueue.length) return;
+  /* Priority is SCREEN SIZE, not distance and not level.
+   *
+   * Sorting by level put the whole coarse far field behind every fine brick,
+   * so the horizon stayed a wall of blocky proxies for as long as the near
+   * field took to resolve. Distance alone has the mirror problem: it refines
+   * one small patch under your feet to perfection while the rest of the world
+   * is still missing. Distance divided by brick size is the honest measure of
+   * how much of the screen a brick is responsible for, so coverage lands fast
+   * and detail fills in behind it. */
+  const cam = camera.position;
+  const pri = (b) => {
+    const bw = brickSizeOf(b.level);
+    const dx = (b.ax + 0.5) * bw - cam.x, dy = (b.ay + 0.5) * bw - cam.y, dz = (b.az + 0.5) * bw - cam.z;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz) / bw;
+  };
+  bakeQueue.sort((a, b) => pri(a) - pri(b));
+
+  const take = Math.min(S.bakeBudget, bakeQueue.length, 1024);
+  const batch = [];
+  for (let i = 0; i < take; i++) {
+    const b = bakeQueue.shift();
+    if (bricks.get(b.key) !== b || b.slot < 0) continue;
+    batch.push(b);
+  }
+  if (!batch.length) return;
+
+  // Per-brick edit lists — this is the culling that keeps a bake fragment
+  // from ever looping over the whole world.
+  let listN = 0;
+  const hits = [];
+  for (const b of batch) {
+    const bw = brickSizeOf(b.level), pad = cellSizeOf(b.level);
+    const x0 = b.ax * bw - pad, y0 = b.ay * bw - pad, z0 = b.az * bw - pad;
+    egQuery(x0, y0, z0, x0 + bw + pad * 2, y0 + bw + pad * 2, z0 + bw + pad * 2, hits);
+    const off = listN;
+    let n = 0;
+    for (let i = 0; i < hits.length && n < PER_BRICK && listN < LIST_W * LIST_H; i++) {
+      const idx = edits.indexOf(hits[i]);
+      if (idx < 0 || idx >= MAX_EDITS) continue;
+      listData[listN++] = idx; n++;
+    }
+    b._off = off; b._n = n;
+  }
+  listTex.needsUpdate = true;
+
+  _buckets.clear();
+  for (const b of batch) {
+    const bz = (b.slot / (NX * NY)) | 0;
+    let a = _buckets.get(bz); if (!a) _buckets.set(bz, a = []);
+    a.push(b);
+  }
+
+  const prevTarget = renderer.getRenderTarget();
+  const prevAuto = renderer.autoClear;
+  renderer.autoClear = false;
+  bakeMat.uniforms.uCount.value = Math.min(edits.length, MAX_EDITS);
+  syncTerrainUniforms(bakeMat.uniforms);
+
+  for (const [bz, list] of _buckets) {
+    for (let i = 0; i < list.length; i++) {
+      const b = list[i];
+      _slotAttr[i] = b.slot;
+      const bw = brickSizeOf(b.level);
+      _origAttr[i * 3] = b.ax * bw; _origAttr[i * 3 + 1] = b.ay * bw; _origAttr[i * 3 + 2] = b.az * bw;
+      _cellAttr[i] = cellSizeOf(b.level);
+      _listAttr[i * 2] = b._off; _listAttr[i * 2 + 1] = b._n;
+    }
+    bakeGeo.instanceCount = list.length;
+    for (const a of ['aSlot', 'aOrigin', 'aCell', 'aList']) bakeGeo.getAttribute(a).needsUpdate = true;
+    for (let lz = 0; lz < B; lz++) {
+      bakeMat.uniforms.uLayer.value = bz * B + lz;
+      renderer.setRenderTarget(atlas, bz * B + lz);
+      renderer.render(bakeScene, bakeCam);
+    }
+  }
+  renderer.setRenderTarget(prevTarget);
+  renderer.autoClear = prevAuto;
+
+  // Promote the freshly baked bricks from "blocky proxy" to "real surface".
+  for (const b of batch) {
+    b.state = FULL;
+    if (b.ptr >= 0 && ptrData[b.ptr] === (b.slot & 255) && ptrData[b.ptr + 1] === ((b.slot >> 8) & 255)) {
+      ptrData[b.ptr + 2] = FULL;
+    }
+  }
+  ptrTex.needsUpdate = true;
+  bakedThisSecond += batch.length;
+}
+
+function syncTerrainUniforms(u) {
+  u.uTerAmp.value = S.terAmp;
+  u.uTerFreq.value = 1 / Math.max(S.terScale, 1);
+  u.uTerOct.value = S.terOct;
+  u.uTerBase.value = S.terBase;
+  u.uTerK.value = terK;
+  u.uCaveAmt.value = S.caveAmt;
+  u.uCaveScale.value = S.caveScale;
+}
+
+/* ---------------------------------------------------------------------- *
+ *  SHADERS
+ * ---------------------------------------------------------------------- */
+const GLSL_NOISE = `
+uint uh(uint x){ x ^= x >> 16u; x *= 0x7feb352du; x ^= x >> 15u; x *= 0x846ca68bu; x ^= x >> 16u; return x; }
+float vhash3(ivec3 i){
+  uint a = uh(uint(i.x) * 0x9e3779b1u);
+  uint b = uh(uint(i.y) * 0x85ebca6bu);
+  uint c = uh(uint(i.z) * 0xc2b2ae35u);
+  return float(uh(a ^ b ^ c) >> 8u) * (1.0 / 16777216.0);
+}
+float vnoise(vec3 p){
+  vec3 f = floor(p); ivec3 i = ivec3(f); vec3 t = p - f;
+  vec3 w = t * t * (3.0 - 2.0 * t);
+  float c000 = vhash3(i), c100 = vhash3(i + ivec3(1,0,0));
+  float c010 = vhash3(i + ivec3(0,1,0)), c110 = vhash3(i + ivec3(1,1,0));
+  float c001 = vhash3(i + ivec3(0,0,1)), c101 = vhash3(i + ivec3(1,0,1));
+  float c011 = vhash3(i + ivec3(0,1,1)), c111 = vhash3(i + ivec3(1,1,1));
+  float x00 = mix(c000, c100, w.x), x10 = mix(c010, c110, w.x);
+  float x01 = mix(c001, c101, w.x), x11 = mix(c011, c111, w.x);
+  return mix(mix(x00, x10, w.y), mix(x01, x11, w.y), w.z);
+}
+float fbm(vec3 p, int oct){
+  float a = 0.5, s = 0.0;
+  for (int i = 0; i < 6; i++){
+    if (i >= oct) break;
+    s += a * (vnoise(p) * 2.0 - 1.0);
+    p *= 2.03; a *= 0.5;
+  }
+  return s;
+}
+uniform float uTerAmp, uTerFreq, uTerBase, uTerK, uCaveAmt, uCaveScale;
+uniform int uTerOct;
+float sdTerrain(vec3 p){
+  float h = uTerAmp == 0.0 ? 0.0 : uTerAmp * fbm(vec3(p.x * uTerFreq, 17.3, p.z * uTerFreq), uTerOct);
+  float d = (p.y - uTerBase - h) * uTerK;
+  if (uCaveAmt > 0.0){
+    float f = 1.0 / max(uCaveScale, 1.0);
+    float c = abs(fbm(p * f, 3)) - uCaveAmt * 0.45;
+    d = max(d, -c * uCaveScale * 0.4);
+  }
+  return d;
+}`;
+
+const GLSL_PRIM = `
+float smin(float a, float b, float k){
+  if (k <= 0.0) return min(a, b);
+  float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
+}
+float smax(float a, float b, float k){
+  if (k <= 0.0) return max(a, b);
+  float h = clamp(0.5 - 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) + k * h * (1.0 - h);
+}
+vec3 qrot(vec4 q, vec3 v){
+  return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
+}
+float sdPrim(vec3 p, int type, vec3 s, float rnd){
+  if (type == 0) return length(p) - s.x;
+  if (type == 1){
+    vec3 q = abs(p) - s + rnd;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - rnd;
+  }
+  if (type == 2){
+    vec3 q = p; q.y -= clamp(q.y, -s.y, s.y);
+    return length(q) - s.x;
+  }
+  if (type == 3){
+    vec2 q = vec2(length(p.xz) - s.x, p.y);
+    return length(q) - s.y;
+  }
+  vec2 d = vec2(length(p.xz) - s.x, abs(p.y) - s.y);
+  return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}`;
+
+const BAKE_VERT = `
+precision highp float;
+in vec3 position;
+in float aSlot;
+in vec3 aOrigin;
+in float aCell;
+in vec2 aList;
+flat out float vSlot;
+flat out vec3 vOrigin;
+flat out float vCell;
+flat out vec2 vList;
+void main(){
+  int slot = int(aSlot + 0.5);
+  int bx = slot % ${NX};
+  int by = (slot / ${NX}) % ${NY};
+  vec2 px = (vec2(float(bx), float(by)) + (position.xy * 0.5 + 0.5)) * ${B}.0;
+  gl_Position = vec4(px / vec2(${AW}.0, ${AH}.0) * 2.0 - 1.0, 0.0, 1.0);
+  vSlot = aSlot; vOrigin = aOrigin; vCell = aCell; vList = aList;
+}`;
+
+const BAKE_FRAG = `
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+flat in float vSlot;
+flat in vec3 vOrigin;
+flat in float vCell;
+flat in vec2 vList;
+uniform int uLayer;
+uniform int uCount;
+uniform sampler2D uEdits;
+uniform sampler2D uList;
+out vec4 fragColor;
+${GLSL_NOISE}
+${GLSL_PRIM}
+
+float sdScene(vec3 p, out float mat){
+  float d = sdTerrain(p);
+  mat = 0.0;
+  int off = int(vList.x + 0.5), n = int(vList.y + 0.5);
+  for (int k = 0; k < ${PER_BRICK}; k++){
+    if (k >= n) break;
+    int li = off + k;
+    int idx = int(texelFetch(uList, ivec2(li % ${LIST_W}, li / ${LIST_W}), 0).r + 0.5);
+    if (idx < 0 || idx >= uCount) continue;
+    vec4 e0 = texelFetch(uEdits, ivec2(0, idx), 0);
+    vec4 e1 = texelFetch(uEdits, ivec2(1, idx), 0);
+    vec4 e2 = texelFetch(uEdits, ivec2(2, idx), 0);
+    vec4 e3 = texelFetch(uEdits, ivec2(3, idx), 0);
+    vec3 lp = qrot(vec4(-e2.xyz, e2.w), p - e0.xyz);
+    float de = sdPrim(lp, int(e0.w + 0.5), e1.xyz, e3.y);
+    int op = int(e1.w + 0.5);
+    if (op == 0){ if (de < d) mat = e3.z; d = smin(d, de, e3.x); }
+    else if (op == 1) d = smax(d, -de, e3.x);
+    else d = smax(d, de, e3.x);
+  }
+  return d;
+}
+
+void main(){
+  int slot = int(vSlot + 0.5);
+  ivec2 pix = ivec2(gl_FragCoord.xy);
+  int bx = slot % ${NX};
+  int by = (slot / ${NX}) % ${NY};
+  int bz = slot / ${NX * NY};
+  ivec3 l = ivec3(pix.x - bx * ${B}, pix.y - by * ${B}, uLayer - bz * ${B});
+  vec3 wp = vOrigin + vec3(l) * vCell;
+  float mat;
+  float d = sdScene(wp, mat);
+  float range = vCell * ${BC}.0;
+  fragColor = vec4(clamp(d / range, -1.0, 1.0) * 0.5 + 0.5, mat / 255.0, 0.0, 1.0);
+}`;
+
+const MARCH_VERT = `
+precision highp float;
+in vec3 position;
+out vec2 vNdc;
+void main(){ vNdc = position.xy; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+
+const MARCH_FRAG = `
+precision highp float;
+precision highp int;
+precision highp sampler3D;
+in vec2 vNdc;
+out vec4 fragColor;
+
+uniform sampler3D uAtlas;
+uniform sampler3D uPtr;
+uniform vec3 uOrig[${MAX_LEVELS}];
+uniform float uExt[${MAX_LEVELS}];
+uniform int uLevels;
+uniform float uCell0;
+uniform vec3 uCamPos;
+uniform mat3 uCamRot;
+uniform float uTanHalf, uAspect;
+uniform int uSteps;
+uniform float uSurfEps, uMaxDist, uFogDist;
+uniform vec3 uSun, uSkyTop, uSkyBot;
+uniform float uShadow, uAO, uProxy;
+uniform int uDebug;
+uniform vec3 uPal[16];
+
+const float BCF = ${BC}.0;
+const vec3 ATLAS = vec3(${AW}.0, ${AH}.0, ${AD}.0);
+
+vec3 slotBase(int slot){
+  int bx = slot % ${NX};
+  int by = (slot / ${NX}) % ${NY};
+  int bz = slot / ${NX * NY};
+  return vec3(float(bx), float(by), float(bz)) * ${B}.0;
+}
+vec3 safeDir(vec3 d){
+  return vec3(abs(d.x) < 1e-6 ? 1e-6 : d.x, abs(d.y) < 1e-6 ? 1e-6 : d.y, abs(d.z) < 1e-6 ? 1e-6 : d.z);
+}
+int levelAt(vec3 p){
+  for (int l = 0; l < ${MAX_LEVELS}; l++){
+    if (l >= uLevels) break;
+    vec3 r = p - uOrig[l];
+    float e = uExt[l];
+    if (r.x >= 0.0 && r.y >= 0.0 && r.z >= 0.0 && r.x < e && r.y < e && r.z < e) return l;
+  }
+  return -1;
+}
+
+/* One cached-field lookup: pick the level, read the pointer, read the brick.
+ * Air and interior bricks answer with a conservative bound instead of a
+ * sample, which is exactly why they cost nothing to store. */
+float fieldAt(vec3 p){
+  int l = levelAt(p);
+  if (l < 0) return 1e5;
+  float cell = uCell0 * exp2(float(l));
+  float bw = cell * BCF;
+  vec3 rel = p - uOrig[l];
+  ivec3 bi = ivec3(floor(rel / bw));
+  vec4 ptr = texelFetch(uPtr, ivec3(bi.x, bi.y, l * ${G} + bi.z), 0);
+  int st = int(ptr.b * 255.0 + 0.5);
+  if (st == 0) return bw;
+  if (st == 2) return -bw;
+  if (st == 3) return bw * 0.5;
+  int slot = int(ptr.r * 255.0 + 0.5) + int(ptr.g * 255.0 + 0.5) * 256;
+  vec3 bmin = uOrig[l] + vec3(bi) * bw;
+  vec3 lc = clamp((p - bmin) / cell, 0.0, BCF);
+  return (texture(uAtlas, (slotBase(slot) + 0.5 + lc) / ATLAS).r * 2.0 - 1.0) * bw;
+}
+int matAt(vec3 p){
+  int l = levelAt(p);
+  if (l < 0) return 0;
+  float cell = uCell0 * exp2(float(l));
+  float bw = cell * BCF;
+  vec3 rel = p - uOrig[l];
+  ivec3 bi = ivec3(floor(rel / bw));
+  vec4 ptr = texelFetch(uPtr, ivec3(bi.x, bi.y, l * ${G} + bi.z), 0);
+  if (int(ptr.b * 255.0 + 0.5) != 1) return 0;
+  int slot = int(ptr.r * 255.0 + 0.5) + int(ptr.g * 255.0 + 0.5) * 256;
+  vec3 bmin = uOrig[l] + vec3(bi) * bw;
+  vec3 lc = clamp(floor((p - bmin) / cell + 0.5), 0.0, BCF);
+  ivec3 t = ivec3(slotBase(slot) + lc);
+  return int(texelFetch(uAtlas, t, 0).g * 255.0 + 0.5);
+}
+vec3 normalAt(vec3 p, float h){
+  vec2 k = vec2(1.0, -1.0);
+  return normalize(k.xyy * fieldAt(p + k.xyy * h) + k.yyx * fieldAt(p + k.yyx * h) +
+                   k.yxy * fieldAt(p + k.yxy * h) + k.xxx * fieldAt(p + k.xxx * h));
+}
+float aoAt(vec3 p, vec3 n, float cell){
+  float occ = 0.0, sca = 1.0;
+  for (int i = 1; i <= 5; i++){
+    float h = float(i) * cell * 1.7;
+    occ += (h - fieldAt(p + n * h)) * sca;
+    sca *= 0.62;
+  }
+  return clamp(1.0 - 1.4 * occ, 0.0, 1.0);
+}
+float shadowAt(vec3 p, vec3 ld, float cell){
+  float t = cell * 3.0, res = 1.0;
+  for (int i = 0; i < 40; i++){
+    float d = fieldAt(p + ld * t);
+    if (d < cell * 0.25) return 0.0;
+    res = min(res, 12.0 * d / t);
+    t += clamp(d, cell * 0.7, 6.0);
+    if (t > 90.0) break;
+  }
+  return clamp(res, 0.0, 1.0);
+}
+vec3 skyCol(vec3 d){
+  vec3 c = mix(uSkyBot, uSkyTop, pow(clamp(d.y * 0.5 + 0.5, 0.0, 1.0), 1.25));
+  c += vec3(0.55, 0.45, 0.30) * pow(max(dot(d, uSun), 0.0), 26.0);
+  return c;
+}
+vec3 lin2srgb(vec3 c){
+  c = max(c, 0.0);
+  return mix(c * 12.92, 1.055 * pow(c, vec3(0.4166667)) - 0.055, step(0.0031308, c));
+}
+vec3 heat(float t){
+  t = clamp(t, 0.0, 1.0);
+  return clamp(vec3(t * 3.0, t * 3.0 - 1.0, t * 3.0 - 2.0), 0.0, 1.0);
+}
+
+void main(){
+  vec3 rd = normalize(uCamRot * vec3(vNdc.x * uTanHalf * uAspect, vNdc.y * uTanHalf, -1.0));
+  vec3 sd = safeDir(rd);
+  vec3 ro = uCamPos;
+
+  float t = 0.05;
+  int steps = 0;
+  bool hit = false, blocky = false;
+  int hitState = 1;
+  int hitLevel = 0;
+  int hitSlot = 0;
+  vec3 blockN = vec3(0.0, 1.0, 0.0);
+
+  for (int i = 0; i < 512; i++){
+    if (i >= uSteps || t > uMaxDist) break;
+    steps = i;
+    vec3 p = ro + rd * t;
+    int l = levelAt(p);
+    if (l < 0) break;
+    float cell = uCell0 * exp2(float(l));
+    float bw = cell * BCF;
+    vec3 rel = p - uOrig[l];
+    ivec3 bi = ivec3(floor(rel / bw));
+    vec4 ptr = texelFetch(uPtr, ivec3(bi.x, bi.y, l * ${G} + bi.z), 0);
+    int st = int(ptr.b * 255.0 + 0.5);
+    vec3 bmin = uOrig[l] + vec3(bi) * bw;
+
+    if (st == 0 || (st == 3 && uProxy < 0.5)){
+      /* Empty. Leaping one brick at a time makes a sky ray pay for every
+       * brick of every level it crosses, which is most of its budget. A
+       * COARSER level's brick is empty only if the whole of it is empty —
+       * its classification radius is larger — so climbing outward while the
+       * answer is still "air" finds the biggest empty box containing this
+       * point, and one step clears it. */
+      vec3 emin = bmin; float ebw = bw;
+      for (int k = 1; k < ${MAX_LEVELS}; k++){
+        int l2 = l + k;
+        if (l2 >= uLevels) break;
+        vec3 r2 = p - uOrig[l2];
+        float e2 = uExt[l2];
+        if (!(r2.x >= 0.0 && r2.y >= 0.0 && r2.z >= 0.0 && r2.x < e2 && r2.y < e2 && r2.z < e2)) break;
+        float bw2 = uCell0 * exp2(float(l2)) * BCF;
+        ivec3 b2 = ivec3(floor(r2 / bw2));
+        if (int(texelFetch(uPtr, ivec3(b2.x, b2.y, l2 * ${G} + b2.z), 0).b * 255.0 + 0.5) != 0) break;
+        emin = uOrig[l2] + vec3(b2) * bw2; ebw = bw2;
+      }
+      vec3 tm = max((emin - p) / sd, (emin + ebw - p) / sd);
+      t += max(min(min(tm.x, tm.y), tm.z), 0.0) + cell * 0.05;
+      continue;
+    }
+    if (st == 2 || st == 3){
+      // Interior, or a coarse stand-in while the bake is still queued.
+      hit = true; blocky = true; hitLevel = l; hitState = st;
+      vec3 q = (p - bmin) / bw - 0.5;
+      vec3 a = abs(q);
+      blockN = a.x > a.y && a.x > a.z ? vec3(-sign(rd.x), 0.0, 0.0)
+             : a.y > a.z ? vec3(0.0, -sign(rd.y), 0.0) : vec3(0.0, 0.0, -sign(rd.z));
+      break;
+    }
+    int slot = int(ptr.r * 255.0 + 0.5) + int(ptr.g * 255.0 + 0.5) * 256;
+    vec3 lc = clamp((p - bmin) / cell, 0.0, BCF);
+    float d = (texture(uAtlas, (slotBase(slot) + 0.5 + lc) / ATLAS).r * 2.0 - 1.0) * bw;
+    if (d < uSurfEps * cell){ hit = true; hitLevel = l; hitSlot = slot; hitState = 1; break; }
+    t += max(d, cell * 0.3);
+  }
+
+  vec3 col;
+  if (uDebug == 1){
+    col = heat(float(steps) / float(uSteps));
+    fragColor = vec4(lin2srgb(col), 1.0); return;
+  }
+  if (!hit){
+    col = skyCol(rd);
+    fragColor = vec4(lin2srgb(col), 1.0); return;
+  }
+
+  vec3 p = ro + rd * t;
+  float cell = uCell0 * exp2(float(hitLevel));
+  vec3 n = blocky ? blockN : normalAt(p, cell * 0.6);
+
+  if (uDebug == 2){
+    vec3 lc = vec3(hitLevel == 0 ? 1.0 : 0.0, float(hitLevel) / 7.0, hitLevel >= 4 ? 1.0 : 0.3);
+    fragColor = vec4(lin2srgb(lc * (0.4 + 0.6 * max(dot(n, uSun), 0.0))), 1.0); return;
+  }
+  if (uDebug == 3){
+    float h = fract(float(hitSlot) * 0.61803399);
+    vec3 bc = 0.5 + 0.5 * cos(6.2831 * (h + vec3(0.0, 0.33, 0.67)));
+    fragColor = vec4(lin2srgb(bc * (0.4 + 0.6 * max(dot(n, uSun), 0.0))), 1.0); return;
+  }
+  if (uDebug == 4){ fragColor = vec4(n * 0.5 + 0.5, 1.0); return; }
+  if (uDebug == 6){
+    vec3 sc = hitState == 1 ? vec3(0.15, 0.8, 0.3) : hitState == 2 ? vec3(0.9, 0.15, 0.15) : vec3(0.8, 0.2, 0.9);
+    fragColor = vec4(lin2srgb(sc * (0.35 + 0.65 * max(dot(n, uSun), 0.0))), 1.0); return;
+  }
+  if (uDebug == 5){
+    float d = fieldAt(p + n * cell * 2.0) / (cell * 8.0);
+    fragColor = vec4(lin2srgb(vec3(clamp(0.5 + d * 0.5, 0.0, 1.0))), 1.0); return;
+  }
+
+  int m = blocky ? 0 : matAt(p);
+  vec3 base;
+  if (m == 0){
+    float up = clamp(n.y, 0.0, 1.0);
+    vec3 rock = vec3(0.20, 0.19, 0.18);
+    vec3 dirt = vec3(0.21, 0.15, 0.10);
+    vec3 grass = vec3(0.14, 0.22, 0.08);
+    base = mix(rock, mix(dirt, grass, smoothstep(0.74, 0.94, up)), smoothstep(0.42, 0.80, up));
+  } else base = uPal[m & 15];
+  if (blocky) base *= 0.72;
+
+  float sh = uShadow > 0.5 && !blocky ? shadowAt(p + n * cell * 1.5, uSun, cell) : 1.0;
+  float ao = uAO > 0.5 && !blocky ? aoAt(p, n, cell) : 1.0;
+  float sun = max(dot(n, uSun), 0.0);
+  vec3 sky = mix(uSkyBot, uSkyTop, clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
+  col = base * (sun * sh * vec3(1.35, 1.26, 1.08) + sky * (0.24 + 0.46 * ao) + 0.03);
+  col += base * max(-n.y, 0.0) * 0.05;
+
+  float fog = 1.0 - exp(-t / max(uFogDist, 1.0));
+  col = mix(col, skyCol(rd), clamp(fog, 0.0, 1.0));
+  fragColor = vec4(lin2srgb(col), 1.0);
+}`;
+
+const BLIT_VERT = `
+precision highp float;
+in vec3 position;
+out vec2 vUv;
+void main(){ vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+const BLIT_FRAG = `
+precision highp float;
+in vec2 vUv;
+uniform sampler2D uTex;
+out vec4 fragColor;
+void main(){ fragColor = texture(uTex, vUv); }`;
+
+/* ---------------------------------------------------------------------- *
+ *  BUILD
+ * ---------------------------------------------------------------------- */
+function fullscreenGeo() {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+    -1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
+  return g;
+}
+
+function init() {
+  if (ready || failed) return !failed;
+  if (!renderer.capabilities.isWebGL2) {
+    failed = 'SDF Sharp needs WebGL2 (3D textures); this context is WebGL1.';
+    return false;
+  }
+  try {
+    atlas = new THREE.WebGL3DRenderTarget(AW, AH, AD);
+    atlas.texture.format = THREE.RGFormat;
+    atlas.texture.type = THREE.UnsignedByteType;
+    atlas.texture.minFilter = THREE.LinearFilter;
+    atlas.texture.magFilter = THREE.LinearFilter;
+    atlas.texture.wrapS = atlas.texture.wrapT = atlas.texture.wrapR = THREE.ClampToEdgeWrapping;
+    atlas.texture.generateMipmaps = false;
+    atlas.depthBuffer = false;
+    atlas.stencilBuffer = false;
+
+    ptrData = new Uint8Array(G * G * G * MAX_LEVELS * 4);
+    ptrTex = new THREE.Data3DTexture(ptrData, G, G, G * MAX_LEVELS);
+    ptrTex.format = THREE.RGBAFormat;
+    ptrTex.type = THREE.UnsignedByteType;
+    ptrTex.minFilter = ptrTex.magFilter = THREE.NearestFilter;
+    ptrTex.wrapS = ptrTex.wrapT = ptrTex.wrapR = THREE.ClampToEdgeWrapping;
+    ptrTex.needsUpdate = true;
+
+    editData = new Float32Array(MAX_EDITS * 16);
+    editTex = new THREE.DataTexture(editData, 4, MAX_EDITS, THREE.RGBAFormat, THREE.FloatType);
+    editTex.minFilter = editTex.magFilter = THREE.NearestFilter;
+    editTex.needsUpdate = true;
+
+    listData = new Float32Array(LIST_W * LIST_H);
+    listTex = new THREE.DataTexture(listData, LIST_W, LIST_H, THREE.RedFormat, THREE.FloatType);
+    listTex.minFilter = listTex.magFilter = THREE.NearestFilter;
+    listTex.needsUpdate = true;
+
+    /* --- bake pass --- */
+    bakeGeo = new THREE.InstancedBufferGeometry();
+    bakeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+      -1, -1, 0, 1, -1, 0, 1, 1, 0, -1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
+    bakeGeo.setAttribute('aSlot', new THREE.InstancedBufferAttribute(_slotAttr, 1));
+    bakeGeo.setAttribute('aOrigin', new THREE.InstancedBufferAttribute(_origAttr, 3));
+    bakeGeo.setAttribute('aCell', new THREE.InstancedBufferAttribute(_cellAttr, 1));
+    bakeGeo.setAttribute('aList', new THREE.InstancedBufferAttribute(_listAttr, 2));
+    bakeGeo.instanceCount = 0;
+    bakeGeo.boundingSphere = new THREE.Sphere(V(), 1e9);
+
+    bakeMat = new THREE.RawShaderMaterial({
+      glslVersion: THREE.GLSL3,
+      vertexShader: BAKE_VERT, fragmentShader: BAKE_FRAG,
+      depthTest: false, depthWrite: false,
+      uniforms: {
+        uLayer: { value: 0 }, uCount: { value: 0 },
+        uEdits: { value: editTex }, uList: { value: listTex },
+        uTerAmp: { value: 0 }, uTerFreq: { value: 0 }, uTerOct: { value: 4 },
+        uTerBase: { value: 0 }, uTerK: { value: 1 },
+        uCaveAmt: { value: 0 }, uCaveScale: { value: 34 }
+      }
+    });
+    const bakeMesh = new THREE.Mesh(bakeGeo, bakeMat);
+    bakeMesh.frustumCulled = false;
+    bakeScene = new THREE.Scene(); bakeScene.add(bakeMesh);
+    bakeCam = new THREE.Camera();
+
+    /* --- march pass --- */
+    marchMat = new THREE.RawShaderMaterial({
+      glslVersion: THREE.GLSL3,
+      vertexShader: MARCH_VERT, fragmentShader: MARCH_FRAG,
+      depthTest: false, depthWrite: false,
+      uniforms: {
+        uAtlas: { value: atlas.texture }, uPtr: { value: ptrTex },
+        uOrig: { value: Array.from({ length: MAX_LEVELS }, () => V()) },
+        uExt: { value: new Array(MAX_LEVELS).fill(1) },
+        uLevels: { value: S.levels }, uCell0: { value: S.cell0 },
+        uCamPos: { value: V() }, uCamRot: { value: new THREE.Matrix3() },
+        uTanHalf: { value: 0.5 }, uAspect: { value: 1 },
+        uSteps: { value: S.steps }, uSurfEps: { value: S.surfEps },
+        uMaxDist: { value: 900 }, uFogDist: { value: 500 },
+        uSun: { value: V(0.42, 0.86, 0.28).normalize() },
+        uSkyTop: { value: SKY_ZENITH.clone().convertSRGBToLinear() },
+        uSkyBot: { value: SKY_HORIZON.clone().convertSRGBToLinear() },
+        uShadow: { value: 1 }, uAO: { value: 1 }, uProxy: { value: 1 },
+        uDebug: { value: 0 },
+        uPal: { value: PALETTE.map(c => new THREE.Vector3(c.r, c.g, c.b)) }
+      }
+    });
+    for (let i = 0; i < MAX_LEVELS; i++) {
+      levelBase[i] = { x: 1e9, y: 1e9, z: 1e9, force: true };
+      levelOrigin[i] = V(); levelExtent[i] = 0; levelCells[i] = new Array(G * G * G).fill(null);
+    }
+    marchMesh = new THREE.Mesh(fullscreenGeo(), marchMat);
+    marchMesh.frustumCulled = false;
+    marchScene = new THREE.Scene(); marchScene.add(marchMesh);
+    marchCam = new THREE.Camera();
+
+    blitMat = new THREE.RawShaderMaterial({
+      glslVersion: THREE.GLSL3, vertexShader: BLIT_VERT, fragmentShader: BLIT_FRAG,
+      depthTest: false, depthWrite: false, uniforms: { uTex: { value: null } }
+    });
+    const blitMesh = new THREE.Mesh(fullscreenGeo(), blitMat);
+    blitMesh.frustumCulled = false;
+    blitScene = new THREE.Scene(); blitScene.add(blitMesh);
+
+    /* --- overlay: selection wire and brush preview, drawn on top --- */
+    overlay = new THREE.Scene();
+    const wireMat = new THREE.LineBasicMaterial({ color: 0xffb057, transparent: true, opacity: 0.9, depthTest: false });
+    selWire = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), wireMat);
+    selWire.visible = false; selWire.frustumCulled = false;
+    overlay.add(selWire);
+    brushWire = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 1)),
+      new THREE.LineBasicMaterial({ color: 0x57d2ff, transparent: true, opacity: 0.45, depthTest: false }));
+    brushWire.visible = false; brushWire.frustumCulled = false;
+    overlay.add(brushWire);
+
+    ready = true;
+    return true;
+  } catch (err) {
+    failed = 'SDF Sharp could not start: ' + (err && err.message ? err.message : err);
+    console.error(err);
+    return false;
+  }
+}
+
+function sizeRT() {
+  const w = Math.max(2, Math.round(innerWidth * renderer.getPixelRatio() * S.res));
+  const h = Math.max(2, Math.round(innerHeight * renderer.getPixelRatio() * S.res));
+  if (lowRT && lowRT.width === w && lowRT.height === h) return;
+  if (lowRT) lowRT.dispose();
+  lowRT = new THREE.WebGLRenderTarget(w, h, {
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+    depthBuffer: false, stencilBuffer: false
+  });
+  blitMat.uniforms.uTex.value = lowRT.texture;
+}
+
+/* ---------------------------------------------------------------------- *
+ *  FRAME
+ * ---------------------------------------------------------------------- */
+function update(dt) {
+  if (!ready) return;
+  frameNo++;
+  classifyStat = classifyMs; classifyMs = 0;
+  const lv = clamp(S.levels | 0, 1, MAX_LEVELS);
+  // At most two full level rebuilds per frame. The first switch into this
+  // engine has every level to classify at once; doing them all in one frame
+  // is a visible stall, and the levels that are not ready yet simply read as
+  // sky for a frame or two while the near field is already correct.
+  let rebuilds = 0;
+  for (let L = 0; L < lv && rebuilds < 2; L++) if (refreshLevel(L)) rebuilds++;
+  uploadEdits();
+  bakePass();
+
+  bakeClock += dt;
+  if (bakeClock >= 1) { bakedRate = bakedThisSecond / bakeClock; bakedThisSecond = 0; bakeClock = 0; }
+
+  // Periodically forget bricks nobody has looked at for a long while.
+  if ((frameNo & 127) === 0) {
+    for (const b of bricks.values()) {
+      if (b.resident || b.seen > frameNo - 600) continue;
+      if (b.slot >= 0) freeSlots.push(b.slot);
+      bricks.delete(b.key);
+    }
+  }
+
+  const u = marchMat.uniforms;
+  for (let L = 0; L < MAX_LEVELS; L++) {
+    u.uOrig.value[L].copy(levelOrigin[L] || V());
+    u.uExt.value[L] = L < lv ? levelExtent[L] : 0;
+  }
+  u.uLevels.value = lv;
+  u.uCell0.value = S.cell0;
+  u.uCamPos.value.copy(camera.position);
+  u.uCamRot.value.setFromMatrix4(camera.matrixWorld);
+  u.uTanHalf.value = Math.tan(camera.fov * Math.PI / 360);
+  u.uAspect.value = camera.aspect;
+  u.uSteps.value = S.steps | 0;
+  u.uSurfEps.value = S.surfEps;
+  u.uMaxDist.value = Math.min(State.drawDistance, levelExtent[lv - 1] * 0.86);
+  u.uFogDist.value = State.fogDistance * 0.55;
+  u.uShadow.value = S.shadow ? 1 : 0;
+  u.uAO.value = S.ao ? 1 : 0;
+  u.uProxy.value = S.proxy ? 1 : 0;
+  u.uDebug.value = S.debug | 0;
+
+  updateBrushPreview();
+}
+
+function render() {
+  if (!ready) return;
+  sizeRT();
+  renderer.setRenderTarget(lowRT);
+  renderer.render(marchScene, marchCam);
+  renderer.setRenderTarget(null);
+  renderer.render(blitScene, marchCam);
+  const auto = renderer.autoClear;
+  renderer.autoClear = false;
+  renderer.render(overlay, camera);
+  renderer.autoClear = auto;
+}
+
+/* ---------------------------------------------------------------------- *
+ *  PICKING, TOOLS AND PHYSICS — all against the analytic field, never
+ *  against the cache, so what you click is what the maths says is there.
+ * ---------------------------------------------------------------------- */
+const _ro = V(), _rdir = V(), _hitP = V(), _hitN = V();
+function raycast(origin, dir, maxDist) {
+  let t = 0.05;
+  const md = maxDist || 400;
+  for (let i = 0; i < 220; i++) {
+    _hitP.copy(origin).addScaledVector(dir, t);
+    const d = sdScene(_hitP.x, _hitP.y, _hitP.z);
+    const eps = Math.max(0.004, t * 0.0015);
+    if (d < eps) {
+      _hitN.copy(sdGrad(_hitP.x, _hitP.y, _hitP.z, Math.max(0.02, t * 0.002)));
+      return { point: _hitP.clone(), normal: _hitN.clone(), dist: t };
+    }
+    t += Math.max(d, eps);
+    if (t > md) break;
+  }
+  return null;
+}
+function cursorRay() {
+  ray.setFromCamera(ndc, camera);
+  _ro.copy(ray.ray.origin); _rdir.copy(ray.ray.direction);
+  return raycast(_ro, _rdir, Math.min(State.drawDistance, 600));
+}
+
+let selectedEdit = null;
+let dragEdit = null;
+const dragPlane = new THREE.Plane(), dragHit = V(), dragOff = V();
+let lastStamp = V(1e9, 1e9, 1e9), stampAt = -1e9;
+
+function addEdit(o, quiet) {
+  if (edits.length >= MAX_EDITS) { toast(`Edit list is full (${MAX_EDITS})`); return null; }
+  const e = new Edit(o);
+  edits.push(e);
+  egAdd(e);
+  invalidateEdit(e);
+  if (!quiet) { buildEditList(); }
+  return e;
+}
+function removeEdit(e) {
+  const i = edits.indexOf(e);
+  if (i < 0) return;
+  edits.splice(i, 1);
+  egDel(e);
+  invalidateEdit(e);
+  if (selectedEdit === e) selectEdit(null);
+  buildEditList();
+}
+function selectEdit(e) {
+  selectedEdit = e;
+  if (selWire) selWire.visible = !!e;
+  if (e) {
+    const r = e.reach() * 2;
+    selWire.scale.set(r, r, r);
+    selWire.position.copy(e.pos);
+    selWire.quaternion.copy(e.quat);
+  }
+  buildEditList();
+  syncSelPanel();
+}
+
+/** Orientation whose +Y points along the surface normal. */
+function alignTo(n) {
+  const q = new THREE.Quaternion();
+  q.setFromUnitVectors(V(0, 1, 0), _tmp1.copy(n).normalize());
+  return q;
+}
+
+function stamp(h, invert) {
+  const op = invert ? (S.op === 1 ? 0 : 1) : S.op;
+  const size = S.prim === 0 ? V(S.size, S.size, S.size)
+    : S.prim === 1 ? V(S.size, S.size * 0.75, S.size)
+      : S.prim === 2 ? V(S.size * 0.55, S.size, S.size * 0.55)
+        : S.prim === 3 ? V(S.size, S.size * 0.34, S.size)
+          : V(S.size * 0.7, S.size, S.size * 0.7);
+  return addEdit({
+    type: S.prim, op, blend: S.blend, round: S.round, mat: S.mat,
+    pos: h.point, size, quat: alignTo(h.normal)
+  });
+}
+
+function applyTool(shift, isStroke) {
+  if (!ready) return;
+  if (State.tool === 'fly') return;
+
+  if (State.tool === 'select') {
+    if (isStroke) return;
+    const h = cursorRay();
+    if (!h) { selectEdit(null); toast('Nothing there'); return; }
+    // Topmost edit whose primitive actually contains the point wins.
+    let pick = null;
+    for (let i = edits.length - 1; i >= 0; i--) {
+      const e = edits[i];
+      if (editDist(h.point.x, h.point.y, h.point.z, e) < e.blend + 0.35) { pick = e; break; }
+    }
+    selectEdit(pick);
+    toast(pick ? `Selected ${pick.label()} — drag to move it, del to remove`
+      : 'That is bare terrain — nothing to select');
+    return;
+  }
+
+  const h = cursorRay();
+  if (!h) { if (!isStroke) toast('Nothing under the cursor'); return; }
+
+  if (State.tool === 'create') {
+    if (isStroke) return;
+    h.point.addScaledVector(h.normal, S.size * 0.65);
+    const e = addEdit({
+      type: S.prim, op: 0, blend: S.blend, round: S.round, mat: S.mat,
+      pos: h.point, size: V(S.size, S.size, S.size), quat: alignTo(h.normal)
+    });
+    if (e) { selectEdit(e); toast(`Placed ${PRIM_NAME[S.prim].toLowerCase()} — ${edits.length} edits`); }
+    return;
+  }
+
+  // Sculpt: rate- and distance-limited so a drag lays a trail, not a smear.
+  if (isStroke) {
+    if (Clock.t - stampAt < 0.03) return;
+    if (h.point.distanceToSquared(lastStamp) < (S.size * 0.55) ** 2) return;
+  }
+  stampAt = Clock.t; lastStamp.copy(h.point);
+  const e = stamp(h, shift);
+  if (e && !isStroke) toast(`${e.label()} — ${edits.length} edits, ${bytes(edits.length * 60)}`);
+}
+
+function updateBrushPreview() {
+  if (!brushWire) return;
+  const show = State.tool === 'carve' || State.tool === 'create';
+  if (!show) { brushWire.visible = false; return; }
+  const h = cursorRay();
+  if (!h) { brushWire.visible = false; return; }
+  brushWire.visible = true;
+  brushWire.position.copy(h.point);
+  if (State.tool === 'create') brushWire.position.addScaledVector(h.normal, S.size * 0.65);
+  brushWire.scale.setScalar(S.size);
+  brushWire.material.color.setHex(S.op === 1 && State.tool === 'carve' ? 0xffb057 : 0x57d2ff);
+}
+
+/* ---- Non-destructive dragging: an edit is just a transform ------------- */
+function pointerDown(e) {
+  if (!ready || State.tool !== 'select' || !selectedEdit) return false;
+  const h = cursorRay();
+  if (!h) return false;
+  if (editDist(h.point.x, h.point.y, h.point.z, selectedEdit) > selectedEdit.blend + 0.35) return false;
+  dragEdit = selectedEdit;
+  dragPlane.setFromNormalAndCoplanarPoint(_tmp2.copy(fwd).negate(), dragEdit.pos);
+  ray.setFromCamera(ndc, camera);
+  ray.ray.intersectPlane(dragPlane, dragHit);
+  dragOff.copy(dragEdit.pos).sub(dragHit);
+  return true;
+}
+function dragMove() {
+  if (!dragEdit) return false;
+  ray.setFromCamera(ndc, camera);
+  if (!ray.ray.intersectPlane(dragPlane, dragHit)) return true;
+  // Both the vacated space and the newly occupied space have to re-bake.
+  invalidateEdit(dragEdit);
+  egDel(dragEdit);
+  dragEdit.pos.copy(dragHit).add(dragOff);
+  egAdd(dragEdit);
+  invalidateEdit(dragEdit);
+  selWire.position.copy(dragEdit.pos);
+  return true;
+}
+function pointerUp() {
+  if (!dragEdit) return false;
+  dragEdit = null;
+  syncSelPanel();
+  return true;
+}
+
+/* ---- Walking the field ------------------------------------------------- */
+function groundY(x, z, fromY) {
+  let y = fromY + 3;
+  let t = 0;
+  for (let i = 0; i < 96; i++) {
+    const d = sdScene(x, y - t, z);
+    if (d < 0.02) return y - t;
+    t += Math.max(d, 0.02);
+    if (t > 260) break;
+  }
+  return -1e7;
+}
+function slide(pos, delta) {
+  let nx = pos.x + delta.x, nz = pos.z + delta.z;
+  const y = pos.y - State.eyeHeight * 0.55;
+  const r = State.bodyRadius;
+  for (let pass = 0; pass < 3; pass++) {
+    const d = sdScene(nx, y, nz);
+    if (d >= r) break;
+    const g = sdGrad(nx, y, nz, Math.max(0.05, r * 0.25));
+    const push = r - d;
+    nx += g.x * push; nz += g.z * push;
+  }
+  pos.x = nx; pos.z = nz;
+}
+
+/* ---------------------------------------------------------------------- *
+ *  DEMOS — a few compositions that show what the list model buys you.
+ * ---------------------------------------------------------------------- */
+const DEMOS = {
+  'Blended blobs': () => {
+    const o = camera.position.clone().addScaledVector(fwd, 34);
+    o.y = S.terBase + terrainH(o.x, o.z) + 2;
+    for (let i = 0; i < 7; i++) {
+      const a = i * 1.13;
+      addEdit({
+        type: 0, op: 0, blend: 3.2, mat: 2 + (i % 4),
+        pos: o.clone().add(V(Math.cos(a) * 8, i * 1.6, Math.sin(a) * 8)),
+        size: V(4.5 - i * 0.25, 0, 0)
+      }, true);
+    }
+    buildEditList(); toast('Seven spheres, smoothly blended — one boolean each');
+  },
+  'Tunnel ahead': () => {
+    const o = camera.position.clone();
+    for (let i = 1; i <= 14; i++) {
+      const p = o.clone().addScaledVector(fwd, 6 + i * 4.5);
+      addEdit({ type: 2, op: 1, blend: 1.2, pos: p, size: V(3.2, 2.4, 0), quat: alignTo(fwd) }, true);
+    }
+    buildEditList(); toast('A capsule chain subtracted — walk it, then delete it');
+  },
+  'Crater': () => {
+    const o = camera.position.clone().addScaledVector(fwd, 45);
+    o.y = S.terBase + terrainH(o.x, o.z);
+    addEdit({ type: 0, op: 1, blend: 4, pos: o.clone().add(V(0, 6, 0)), size: V(16, 0, 0) }, true);
+    addEdit({ type: 0, op: 0, blend: 6, mat: 8, pos: o.clone().add(V(0, -9, 0)), size: V(13, 0, 0) }, true);
+    buildEditList(); toast('Subtract then add — the rim is a smooth union of both');
+  },
+  'Ore pocket': () => {
+    const o = camera.position.clone().addScaledVector(fwd, 30);
+    o.y = S.terBase + terrainH(o.x, o.z) - 10;
+    for (let i = 0; i < 12; i++) {
+      addEdit({
+        type: 0, op: 0, blend: 1.6, mat: 4,
+        pos: o.clone().add(V((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 14)),
+        size: V(1.6 + Math.random() * 1.8, 0, 0)
+      }, true);
+    }
+    buildEditList(); toast('Buried material — dig down to expose it');
+  },
+  'Clear world': () => { clearEdits(); }
+};
+function clearEdits() {
+  for (const e of edits) egDel(e);
+  edits.length = 0;
+  selectEdit(null);
+  invalidateAll();
+  buildEditList();
+  toast('All edits removed — bare terrain field');
+}
+
+/* ---------------------------------------------------------------------- *
+ *  PANEL WIRING
+ * ---------------------------------------------------------------------- */
+/** The shared toolbar shows the SDF brush while this engine is live. */
+function labels() {
+  const sc = $('sculptlabel'), cr = $('createlabel'), se = $('selectlabel');
+  if (sc) sc.textContent = `S${S.size.toFixed(1)} B${S.blend.toFixed(1)}`;
+  if (cr) cr.textContent = PRIM_NAME[S.prim];
+  if (se) se.textContent = 'Edit';
+}
+
+function buildEditList() {
+  const host = $('d-list');
+  if (!host) return;
+  if (!edits.length) {
+    host.innerHTML = '<div class="note" style="margin:0">No edits yet. Pick <b>Sculpt</b> and drag on the terrain.</div>';
+    return;
+  }
+  host.innerHTML = '';
+  const start = Math.max(0, edits.length - 14);
+  for (let i = edits.length - 1; i >= start; i--) {
+    const e = edits[i];
+    const row = document.createElement('div');
+    row.className = 'editrow' + (e === selectedEdit ? ' on' : '');
+    row.innerHTML = `<i style="background:${PAL_HEX[e.mat & 15]}"></i>${e.label()}<em>${e.reach().toFixed(1)}m</em>`;
+    row.onclick = () => selectEdit(e);
+    host.append(row);
+  }
+  if (start > 0) {
+    const more = document.createElement('div');
+    more.className = 'note'; more.style.margin = '4px 0 0';
+    more.textContent = `+ ${start} older edit${start > 1 ? 's' : ''}`;
+    host.append(more);
+  }
+}
+
+function syncSelPanel() {
+  const box = $('d-sel'), nm = $('d-selname'), mt = $('d-selmeta');
+  if (!box) return;
+  if (!selectedEdit) {
+    box.classList.add('empty');
+    nm.textContent = 'Nothing selected';
+    mt.innerHTML = 'Pick the <b>Select</b> tool and click any edit. Dragging it moves the shape through the ' +
+      'world non-destructively — a hole you can walk a tunnel with and then take away again.';
+    return;
+  }
+  const e = selectedEdit;
+  box.classList.remove('empty');
+  nm.textContent = e.label();
+  mt.innerHTML = `blend <b>${e.blend.toFixed(2)}</b> · reach <b>${e.reach().toFixed(1)} m</b> · ` +
+    `at <b>${e.pos.x.toFixed(1)}, ${e.pos.y.toFixed(1)}, ${e.pos.z.toFixed(1)}</b><br>` +
+    `edit <b>#${edits.indexOf(e) + 1}</b> of ${edits.length} · material <b>${e.mat}</b>`;
+}
+
+function wire() {
+  const seg = (id, fn) => {
+    const host = $(id); if (!host) return;
+    host.addEventListener('click', ev => {
+      const b = ev.target.closest('button'); if (!b) return;
+      for (const o of host.querySelectorAll('button')) o.classList.toggle('on', o === b);
+      fn(b);
+    });
+  };
+  seg('d-op', b => { S.op = +b.dataset.op; labels(); });
+  seg('d-prim', b => { S.prim = +b.dataset.prim; labels(); });
+
+  const sw = $('d-swatch');
+  if (sw) {
+    for (let i = 1; i < 16; i++) {
+      const b = document.createElement('button');
+      b.style.background = PAL_HEX[i];
+      b.className = i === S.mat ? 'on' : '';
+      b.title = 'Material ' + i;
+      b.onclick = () => {
+        S.mat = i;
+        for (const o of sw.children) o.classList.toggle('on', o === b);
+        if (selectedEdit) { selectedEdit.mat = i; invalidateEdit(selectedEdit); buildEditList(); }
+      };
+      sw.append(b);
+    }
+  }
+
+  bindRange('r-dsize', 'n-dsize', v => { S.size = v; labels(); }, v => v.toFixed(1));
+  bindRange('r-dblend', 'n-dblend', v => {
+    S.blend = v; labels();
+    if (selectedEdit) { invalidateEdit(selectedEdit); selectedEdit.blend = v; invalidateEdit(selectedEdit); syncSelPanel(); }
+  }, v => v.toFixed(2));
+  bindRange('r-dround', 'n-dround', v => { S.round = v; }, v => v.toFixed(2));
+  bindRange('r-dcell', 'n-dcell', v => { S.cell0 = v; invalidateAll(); }, v => v.toFixed(2));
+  bindRange('r-dlvl', 'n-dlvl', v => { S.levels = v | 0; invalidateAll(); }, v => String(v | 0));
+  bindRange('r-dstep', 'n-dstep', v => { S.steps = v | 0; }, v => String(v | 0));
+  bindRange('r-deps', 'n-deps', v => { S.surfEps = v; }, v => v.toFixed(2));
+  bindRange('r-dbake', 'n-dbake', v => { S.bakeBudget = v | 0; }, v => String(v | 0));
+  bindRange('r-dres', 'n-dres', v => { S.res = v; }, v => v.toFixed(2));
+  const terr = () => { syncTerK(); invalidateAll(); };
+  bindRange('r-tamp', 'n-tamp', v => { S.terAmp = v; terr(); }, v => v.toFixed(1));
+  bindRange('r-tscl', 'n-tscl', v => { S.terScale = v; terr(); }, v => String(v | 0));
+  bindRange('r-toct', 'n-toct', v => { S.terOct = v | 0; terr(); }, v => String(v | 0));
+  bindRange('r-tbase', 'n-tbase', v => { S.terBase = v; terr(); }, v => String(v | 0));
+  bindRange('r-tcave', 'n-tcave', v => { S.caveAmt = v; terr(); }, v => v.toFixed(2));
+  bindRange('r-tcscl', 'n-tcscl', v => { S.caveScale = v; terr(); }, v => String(v | 0));
+
+  const chk = (id, fn) => { const e = $(id); if (e) e.addEventListener('change', () => fn(e.checked)); };
+  chk('d-shadow', v => S.shadow = v);
+  chk('d-ao', v => S.ao = v);
+  chk('d-proxy', v => S.proxy = v);
+  const dbg = $('d-debug');
+  if (dbg) dbg.addEventListener('change', () => S.debug = +dbg.value);
+
+  const btn = (id, fn) => { const e = $(id); if (e) e.onclick = fn; };
+  btn('b-dundo', () => {
+    if (!edits.length) { toast('Nothing to undo'); return; }
+    removeEdit(edits[edits.length - 1]);
+    toast(`Undone — ${edits.length} edits left`);
+  });
+  btn('b-dclear', clearEdits);
+  btn('b-ddel', () => {
+    if (!selectedEdit) { toast('Nothing selected'); return; }
+    removeEdit(selectedEdit); toast('Edit removed');
+  });
+  btn('b-ddup', () => {
+    if (!selectedEdit) { toast('Nothing selected'); return; }
+    const e = selectedEdit;
+    const c = addEdit({
+      type: e.type, op: e.op, blend: e.blend, round: e.round, mat: e.mat,
+      pos: e.pos.clone().add(V(e.reach() * 1.2, 0, 0)), size: e.size, quat: e.quat
+    });
+    if (c) { selectEdit(c); toast('Duplicated'); }
+  });
+  btn('b-dsave', () => download('sdf-world.json', serialize()));
+  btn('b-dload', () => $('f-sdf').click());
+  const f = $('f-sdf');
+  if (f) f.addEventListener('change', () => readJSON(f, j => deserialize(j)));
+
+  const host = $('d-demos');
+  if (host) for (const name of Object.keys(DEMOS)) {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.onclick = () => DEMOS[name]();
+    host.append(b);
+  }
+  autoBlur($('sdfctrl'));
+  buildEditList();
+  syncSelPanel();
+  labels();
+}
+
+/* ---------------------------------------------------------------------- *
+ *  PERSISTENCE. The whole world is the settings plus the edit list, which
+ *  is why it stays tiny however much you carve.
+ * ---------------------------------------------------------------------- */
+function serialize() {
+  return JSON.stringify({
+    kind: 'sdf-world', version: 1,
+    settings: { ...S },
+    edits: edits.map(e => ({
+      t: e.type, o: e.op, b: +e.blend.toFixed(4), r: +e.round.toFixed(4), m: e.mat,
+      p: [+e.pos.x.toFixed(3), +e.pos.y.toFixed(3), +e.pos.z.toFixed(3)],
+      s: [+e.size.x.toFixed(3), +e.size.y.toFixed(3), +e.size.z.toFixed(3)],
+      q: [+e.quat.x.toFixed(4), +e.quat.y.toFixed(4), +e.quat.z.toFixed(4), +e.quat.w.toFixed(4)]
+    }))
+  }, null, 1);
+}
+function deserialize(j) {
+  if (!j || j.kind !== 'sdf-world') { toast('Not an SDF world file'); return; }
+  for (const e of edits) egDel(e);
+  edits.length = 0;
+  Object.assign(S, j.settings || {});
+  syncTerK();
+  for (const d of j.edits || []) {
+    const e = new Edit({
+      type: d.t, op: d.o, blend: d.b, round: d.r, mat: d.m,
+      pos: V(d.p[0], d.p[1], d.p[2]), size: V(d.s[0], d.s[1], d.s[2]),
+      quat: new THREE.Quaternion(d.q[0], d.q[1], d.q[2], d.q[3])
+    });
+    edits.push(e); egAdd(e);
+  }
+  selectEdit(null);
+  invalidateAll();
+  syncPanelValues();
+  buildEditList();
+  toast(`Loaded ${edits.length} SDF edits · ${bytes(edits.length * 60)}`);
+}
+function syncPanelValues() {
+  const put = (r, n, v) => { const a = $(r), b = $(n); if (a) a.value = String(v); if (b) b.value = String(v); };
+  put('r-dsize', 'n-dsize', S.size); put('r-dblend', 'n-dblend', S.blend);
+  put('r-dround', 'n-dround', S.round); put('r-dcell', 'n-dcell', S.cell0);
+  put('r-dlvl', 'n-dlvl', S.levels); put('r-dstep', 'n-dstep', S.steps);
+  put('r-deps', 'n-deps', S.surfEps); put('r-dbake', 'n-dbake', S.bakeBudget);
+  put('r-dres', 'n-dres', S.res);
+  put('r-tamp', 'n-tamp', S.terAmp); put('r-tscl', 'n-tscl', S.terScale);
+  put('r-toct', 'n-toct', S.terOct); put('r-tbase', 'n-tbase', S.terBase);
+  put('r-tcave', 'n-tcave', S.caveAmt); put('r-tcscl', 'n-tcscl', S.caveScale);
+  const d = $('d-debug'); if (d) d.value = String(S.debug);
+  for (const [id, v] of [['d-shadow', S.shadow], ['d-ao', S.ao], ['d-proxy', S.proxy]]) {
+    const e = $(id); if (e) e.checked = v;
+  }
+}
+
+/* ---------------------------------------------------------------------- *
+ *  TELEMETRY
+ * ---------------------------------------------------------------------- */
+function stats() {
+  let live = 0, pending = 0;
+  for (const b of bricks.values()) if (b.slot >= 0) { live++; if (b.state === PENDING) pending++; }
+  const lv = clamp(S.levels | 0, 1, MAX_LEVELS);
+  const cached = live * B * B * B;
+  // What a dense grid at the finest cell size would need to cover the same
+  // volume — the number the sparse brick map exists to avoid.
+  const span = levelExtent[lv - 1] || 1;
+  const dense = Math.pow(span / S.cell0, 3);
+  return {
+    live, pending, cached, dense, span,
+    queue: bakeQueue.length, rate: bakedRate, classify: classifyStat,
+    levels: lv, cell: S.cell0, edits: edits.length,
+    bytes: edits.length * 60,
+    atlasPct: live / SLOTS
+  };
+}
+
+/* ---------------------------------------------------------------------- *
+ *  PUBLIC FACE
+ * ---------------------------------------------------------------------- */
+SDF = {
+  S, edits, init, update, render, applyTool, raycast, cursorRay, sdScene, sdGrad,
+  groundY, slide, pointerDown, dragMove, pointerUp, stats, wire, serialize, deserialize,
+  invalidateAll, clearEdits, syncPanelValues, buildEditList, labels,
+  get ready() { return ready; },
+  get failed() { return failed; },
+  get dragging() { return !!dragEdit; },
+  get selected() { return selectedEdit; },
+  selectEdit,
+  removeSelected() { if (selectedEdit) { removeEdit(selectedEdit); toast('Edit removed'); } },
+  wheel(d, shift) {
+    if (shift) {
+      S.blend = clamp(S.blend + d * 0.15, 0, 8);
+      const a = $('r-dblend'), b = $('n-dblend');
+      if (a) a.value = String(S.blend); if (b) b.value = S.blend.toFixed(2);
+      labels();
+      toast(`Blend ${S.blend.toFixed(2)} m`);
+    } else {
+      S.size = clamp(S.size * (d > 0 ? 1.12 : 1 / 1.12), 0.3, 40);
+      const a = $('r-dsize'), b = $('n-dsize');
+      if (a) a.value = String(S.size); if (b) b.value = S.size.toFixed(1);
+      labels();
+      toast(`Brush ${S.size.toFixed(1)} m`);
+    }
+  },
+  terrainY(x, z) { return S.terBase + terrainH(x, z); }
+};
+}
+
+/* ═════════════════════════════════════════════ ENGINE TECHNIQUE SWITCH ══
+ *  Two renderers, one camera. The tab strip swaps which pipeline owns the
+ *  frame; the toolbar, the pointer model and walk physics route to whichever
+ *  is live. Nothing of the other engine is evaluated while it is off.
+ * ---------------------------------------------------------------------------*/
+const FLECK_UI = ['stats', 'ctrl', 'props', 'legend'];
+const SDF_UI = ['sdfstats', 'sdfctrl', 'sdflegend'];
+let sdfWired = false;
+
+function setEngine(name) {
+  if (name === State.engine) return;
+  if (name === 'sdf') {
+    if (!SDF.init()) { toast(SDF.failed || 'SDF Sharp unavailable here'); return; }
+    if (!sdfWired) { SDF.wire(); sdfWired = true; }
+    selectPatch(null);                       // fleck handles must not linger
+  }
+  State.engine = name;
+  for (const id of FLECK_UI) $(id).classList.toggle('ehide', name !== 'flecks');
+  for (const id of SDF_UI) $(id).classList.toggle('ehide', name !== 'sdf');
+  for (const b of $('etabs').querySelectorAll('button')) b.classList.toggle('on', b.dataset.engine === name);
+  if (name === 'sdf') SDF.labels();
+  else { setSubTool(State.subTool); setSelMode(State.selMode); $('sculptlabel').textContent = brushLabel(); }
+  if (name === 'sdf') {
+    // Stand on the SDF terrain rather than wherever the other world left you.
+    const y = SDF.terrainY(camera.position.x, camera.position.z);
+    if (camera.position.y < y + 2) camera.position.y = y + State.eyeHeight + 1.5;
+  }
+  toast(name === 'sdf'
+    ? 'SDF Sharp — the world is an edit list, sphere-traced from a sparse brick cache'
+    : 'Progressive flecks — lofted math baked into splats and polygons');
+}
+$('etabs').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) setEngine(b.dataset.engine);
+});
+
+let dfpsAcc = 0, dfpsN = 0, dhudT = 0;
+function sdfHud(dt) {
+  dfpsAcc += dt; dfpsN++; dhudT += dt;
+  if (dhudT < 0.25) return;
+  const fps = dfpsN / dfpsAcc;
+  const s = SDF.stats();
+  $('d-fps').textContent = fps.toFixed(0);
+  $('d-fps').className = 'v ' + (fps > 50 ? 'ok' : fps < 28 ? 'hot' : '');
+  $('d-fpsbar').style.width = clamp(fps / 120 * 100, 0, 100) + '%';
+  $('d-ms').textContent = (dfpsAcc / dfpsN * 1000).toFixed(2) + ' ms';
+  $('d-bricks').textContent = fmt(s.live);
+  $('d-atlas').textContent = (s.atlasPct * 100).toFixed(1) + '%';
+  $('d-atlas').className = 'v ' + (s.atlasPct > 0.95 ? 'hot' : s.atlasPct > 0.5 ? 'ok' : '');
+  $('d-atlasbar').style.width = clamp(s.atlasPct * 100, 0, 100) + '%';
+  $('d-samples').textContent = fmt(s.cached);
+  $('d-dense').textContent = fmt(s.dense);
+  const ratio = s.cached > 0 ? s.dense / s.cached : 0;
+  $('d-saved').textContent = ratio > 1 ? `${fmt(ratio)}×` : '–';
+  $('d-saved').className = 'v ok';
+  $('d-edits').textContent = String(s.edits);
+  $('d-bytes').textContent = bytes(s.bytes);
+  $('d-baked').textContent = fmt(Math.round(s.rate));
+  $('d-pending').textContent = String(s.queue);
+  $('d-pending').className = 'v ' + (s.queue > 400 ? 'hot' : '');
+  $('d-class').textContent = s.classify.toFixed(2) + ' ms';
+  $('d-levels').textContent = String(s.levels);
+  $('d-cell').textContent = s.cell.toFixed(2) + ' m';
+  $('d-cover').textContent = (s.span | 0) + ' m';
+  dfpsAcc = 0; dfpsN = 0; dhudT = 0;
+}
+
 const renderList = [];
 let last = performance.now() / 1000;
 let fpsAcc = 0, fpsN = 0, hudTimer = 0, streamTimer = 0, sweepTimer = 0;
@@ -4610,6 +6624,10 @@ function frame() {
   Clock.t = now; Clock.dt = dt;
 
   updateCamera(dt);
+
+  // ══ SDF SHARP owns the whole frame when it is the live technique ══
+  if (State.engine === 'sdf') { SDF.update(dt); SDF.render(); sdfHud(dt); return; }
+
   runTweens(dt);
   if (State.animate) {
     for (const p of World.patches) {
@@ -4703,6 +6721,7 @@ function frame() {
  * poking at the graph or the classifier from devtools. */
 window.__ENGINE = {
   World, Baker, State, JobQueue, camera, THREE, Terrain,
+  SDF: () => SDF, setEngine,
   setSubTool, selectionSize: () => selection.size,
   setSelMode, selectionSet: () => selection,
   maxSplatCap: () => MAX_SPLATS, fogFar: () => splats.mat.uniforms.uFogFar.value,
