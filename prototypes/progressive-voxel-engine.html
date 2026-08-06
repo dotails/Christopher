@@ -99,14 +99,6 @@
   .slider .num::-webkit-outer-spin-button,.slider .num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .slider .num:focus{border-color:rgba(87,210,255,.55);background:rgba(87,210,255,.09)}
 
-  /* ---- Multi-thumb LOD band control ---- */
-  .bands{position:relative;height:34px;margin:2px 0 8px;cursor:pointer}
-  .bands .track{position:absolute;left:0;right:0;top:15px;height:4px;border-radius:2px;
-    background:linear-gradient(90deg,rgba(87,210,255,.35),rgba(157,123,255,.35))}
-  .bands .th{position:absolute;top:8px;width:9px;height:18px;margin-left:-4.5px;border-radius:3px;
-    background:linear-gradient(180deg,#eaf7ff,#8fd6f5);box-shadow:0 0 7px rgba(87,210,255,.75);cursor:ew-resize}
-  .bands .th.on{background:linear-gradient(180deg,#fff,#ffd79a);box-shadow:0 0 10px rgba(255,176,87,.9)}
-  .bands .lab{position:absolute;top:0;font:600 8px var(--mono);color:var(--ink-dim);transform:translateX(-50%)}
   .btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px}
   .body > button.wide{width:100%;margin-top:6px;border:1px solid var(--panel-line);background:rgba(255,255,255,.04);
     color:var(--ink);font:600 11px var(--sans);padding:8px 6px;border-radius:7px;cursor:pointer}
@@ -151,6 +143,14 @@
     margin:10px 0 3px;padding-top:8px;border-top:1px solid var(--panel-line)}
   .phead:first-child{margin-top:0;padding-top:0;border-top:0}
   .pmixed{color:var(--warn)}
+
+  /* ---- LOD band end distances ---- */
+  .bandgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 6px;margin:2px 0 4px}
+  .bandgrid label{display:flex;align-items:center;gap:5px;font:600 9.5px var(--mono);color:var(--ink-dim)}
+  .bandgrid input{flex:1;min-width:0;width:100%;background:rgba(255,255,255,.05);color:var(--ink);text-align:right;
+    border:1px solid var(--panel-line);border-radius:5px;padding:3px 5px;font:400 10px var(--mono);outline:0;-moz-appearance:textfield}
+  .bandgrid input::-webkit-outer-spin-button,.bandgrid input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .bandgrid input:focus{border-color:rgba(87,210,255,.55);background:rgba(87,210,255,.09)}
 
   #legend{bottom:14px;left:14px;width:266px}
   .keyrow{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0;color:var(--ink-dim)}
@@ -271,6 +271,7 @@
       <div class="row"><span class="k">total triangles</span><span class="v" id="s-tris">0</span></div>
       <div class="sep"></div>
       <div class="row"><span class="k">visible chunks</span><span class="v" id="s-chunks">0</span></div>
+      <div class="row"><span class="k">splat budget</span><span class="v" id="s-budget">–</span></div>
       <div class="row"><span class="k">bake queue</span><span class="v" id="s-queue">0</span></div>
       <div class="row"><span class="k">streaming now</span><span class="v" id="s-stream">0</span></div>
       <div class="row"><span class="k">patches resident</span><span class="v" id="s-patches">0</span></div>
@@ -300,12 +301,14 @@
       <label class="chk"><input type="checkbox" id="t-hover" checked><span>Highlight on hover</span><small>select tool</small></label>
       <label class="chk"><input type="checkbox" id="t-anim" checked><span>Animated shapes</span><small>live re-bake</small></label>
       <label class="chk"><input type="checkbox" id="t-far"><span>Procedural far field</span><small>scattered</small></label>
+      <label class="chk"><input type="checkbox" id="t-cull" checked><span>Cull back-facing flecks</span><small>splats</small></label>
 
       <div class="lbl">Tuning</div>
-      <div class="slider"><label>Draw distance</label><input class="num" type="number" id="n-far" value="900"><input type="range" id="r-far" min="200" max="4000" step="20" value="900"></div>
-      <div class="slider"><label>LOD reach</label><input class="num" type="number" id="n-lod" value="1.15"><input type="range" id="r-lod" min="0.4" max="3" step="0.05" value="1.15"></div>
-      <div class="lbl" style="margin-top:9px">LOD band per level <span style="text-transform:none;letter-spacing:0">(0 = coarsest)</span></div>
-      <div class="bands" id="bands"><div class="track"></div></div>
+      <div class="slider"><label>Draw distance</label><input class="num" type="number" id="n-far" value="900"><input type="range" id="r-far" min="200" max="12000" step="50" value="900"></div>
+      <div class="slider"><label>Fog distance</label><input class="num" type="number" id="n-fog" value="900"><input type="range" id="r-fog" min="100" max="8000" step="50" value="900"></div>
+      <div class="slider"><label>Max splats</label><input class="num" type="number" id="n-splat" value="260000"><input type="range" id="r-splat" min="20000" max="1500000" step="10000" value="260000"></div>
+      <div class="lbl" style="margin-top:9px">LOD band end distance <span style="text-transform:none;letter-spacing:0">(m, per level)</span></div>
+      <div class="bandgrid" id="bandgrid"></div>
       <div class="slider"><label>Flatness ε</label><input class="num" type="number" id="n-flat" value=".0035"><input type="range" id="r-flat" min="0.0002" max="0.02" step="0.0002" value="0.0035"></div>
       <div class="slider"><label>Splat softness</label><input class="num" type="number" id="n-soft" value=".36"><input type="range" id="r-soft" min="0" max="1" step="0.01" value="0.36"></div>
       <div class="slider"><label>Brush radius</label><input class="num" type="number" id="n-dig" value="2.4"><input type="range" id="r-dig" min="0.8" max="6" step="0.1" value="2.4"></div>
@@ -1212,7 +1215,9 @@ const Baker = {
  *  only when the visible set actually changes; the per-chunk "streaming"
  *  animation then runs entirely on the GPU from a single birth timestamp.
  * ---------------------------------------------------------------------------*/
-const MAX_SPLATS = 260000, MAX_VOXELS = 70000, MAX_MESHVERTS = 260000;
+let MAX_SPLATS = 260000;
+const MAX_VOXELS = 70000, MAX_MESHVERTS = 260000;
+const SPLAT_ATTRS = { iPos: 3, iNrm: 3, iTan: 3, iScl: 2, iCol: 3, iBorn: 1 };
 
 /* Shared fragment lighting. All three fields use the same key/fill/sky rig so a
  * chunk looks identical no matter which representation happens to be drawing it
@@ -1257,7 +1262,10 @@ function commonUniforms() {
     uFogColor:  { value: SKY_HORIZON.clone().convertSRGBToLinear() },
     uFogNear:   { value: 160 },
     uFogFar:    { value: 900 },
-    uCore:      { value: 0.30 }   // Gaussian level dividing opaque core from alpha fringe (see r-soft)
+    uCore:      { value: 0.30 },  // Gaussian level dividing opaque core from alpha fringe (see r-soft)
+    // Cull threshold on dot(normal, toCamera). Slightly negative so flecks at a
+    // silhouette survive instead of popping as they rotate past edge-on.
+    uBackCull:  { value: -0.12 }
   };
 }
 
@@ -1305,6 +1313,7 @@ class SplatField {
         attribute vec3 iPos, iNrm, iTan, iCol;
         attribute vec2 iScl;
         attribute float iBorn;
+        uniform float uBackCull;
         ${STREAM_CHUNK}
         varying vec2 vQ; varying vec3 vC, vN; varying float vS, vD, vM;
         void main(){
@@ -1321,6 +1330,14 @@ class SplatField {
           // stage), never by moving or rescaling geometry — growing and then
           // shrinking reads as parts snapping into place, and it overshoots the
           // true silhouette while it does so.
+          // A fleck whose normal points away from the eye is on the far side of
+          // the solid and can never be seen through it, so it is thrown out
+          // before rasterisation rather than shaded and depth-tested.
+          if (dot(n, normalize(cameraPosition - iPos)) < uBackCull) {
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0);   // outside the clip volume
+            vQ = vec2(0.0); vC = iCol; vN = n; vS = s; vD = 0.0; vM = 0.0;
+            return;
+          }
           vec3 world = iPos + t * position.x * iScl.x + b * position.y * iScl.y;
           vQ = position.xy * 2.0; vC = iCol; vN = n; vS = s;
           vM = fract(sin(iPos.x * 12.9898 + iPos.y * 4.1414 + iPos.z * 78.233) * 43758.5453);
@@ -1378,9 +1395,22 @@ class SplatField {
     scene.add(this.mesh, this.skirt);
     this.count = 0;
   }
+  /** Grow the instance buffers when the budget is raised past their capacity. */
+  ensure(cap) {
+    if (cap <= MAX_SPLATS) return;
+    MAX_SPLATS = cap;
+    for (const k in SPLAT_ATTRS) {
+      const size = SPLAT_ATTRS[k];
+      const at = new THREE.InstancedBufferAttribute(new Float32Array(cap * size), size);
+      at.setUsage(THREE.DynamicDrawUsage);
+      this.a[k] = at;
+      this.geo.setAttribute(k, at);
+    }
+    World.dirtyBuffers = true;
+  }
   begin() { this.count = 0; }
   push(c) {
-    const n = Math.min(c.n, MAX_SPLATS - this.count);
+    const n = Math.min(c.n, Math.min(State.maxSplats, MAX_SPLATS) - this.count);
     if (n <= 0) return 0;
     const o = this.count;
     this.a.iPos.array.set(c.pos.subarray(0, n * 3), o * 3);
@@ -1605,9 +1635,19 @@ const State = {
   drawDistance: 900,       // fog far plane; also scales what is kept resident
   // Reach multiplier per quadtree depth. Spread by default so each thumb sits
   // on its own boundary and moving one visibly changes where that level kicks in.
-  lodK: [7.0, 5.6, 4.5, 3.6, 2.9, 2.4, 2.0, 1.7, 1.45, 1.25],
+  // Splat budget. The cut refines toward this every frame and backs off when it
+  // overshoots, so the world resolves in passes rather than stopping at a fixed
+  // distance rule. lodAuto is that feedback term.
+  maxSplats: 260000,
+  lodAuto: 1,
+  fogDistance: 900,       // independent of draw distance: push haze back on its own
   hoverHint: true,
-  lodScale: 1.15,
+  /* LOD BANDS, as plain world distances. lodBands[d] is where level d ENDS:
+   * closer than that and a level-d chunk keeps subdividing, past it that level
+   * is as fine as it gets. Each band therefore starts where the previous one
+   * ended. The budget feedback below scales the whole table, it does not
+   * reinterpret it. */
+  lodBands: [1400, 820, 500, 310, 195, 125, 80, 52, 34, 22],
   digRadius: 2.4,
   // Signed brush power: positive adds matter, negative removes it, so the wheel
   // sweeps continuously from carving through nothing to building up.
@@ -1788,7 +1828,9 @@ function spawnPrefab(name) {
  *  ever generated between them and the surface reads as one endless sheet.
  * ---------------------------------------------------------------------------*/
 const TILE = 64, TERRAIN_Y = -9, TERRAIN_THICK = 40;
-const terrainR = () => clamp(State.drawDistance * 0.40, 200, 1300);
+// No upper clamp: a typed draw distance has to actually extend the world,
+// not quietly stop paging at a hard-coded ceiling.
+const terrainR = () => Math.max(State.drawDistance * 0.40, 120);
 const terrainRelease = () => terrainR() * 1.3;
 
 const Terrain = {
@@ -1940,7 +1982,7 @@ const Terrain = {
  *  is stored on disk; the world is unbounded in every direction.
  * ---------------------------------------------------------------------------*/
 const CELL = 110;
-const streamR = () => clamp(State.drawDistance * 0.42, 220, 1400);
+const streamR = () => Math.max(State.drawDistance * 0.42, 140);
 const releaseR = () => streamR() * 1.3;
 
 function generateCellPatch(cx, cz) {
@@ -2097,7 +2139,7 @@ const World = {
     let animBudget = 400;      // inline bakes/frame for shapes that move every frame
     let key = 0, chunks = 0, streaming = 0;
     const cam = camera.position;
-    const KS = State.lodK, KN = KS.length;
+    const BANDS = State.lodBands, NB = BANDS.length, BSCALE = State.lodAuto;
 
     // The proxy bake is also what computes a node's world AABB, so it doubles as
     // "make this node's bounds current". Budgeted: when the whole world goes
@@ -2132,10 +2174,7 @@ const World = {
         const sculpted = p.edits.length > 0 && p.editsIn(n.u0, n.u1, n.v0, n.v1).length > 0;
         const floor = sculpted ? MIN_LEAF * 0.45 : MIN_LEAF;
         const refinable = n.depth < p.maxDepth && Math.max(n.wu, n.wv) > floor;
-        // Each depth has its own reach multiplier, so the bands can be tuned
-        // independently instead of sharing one global aggressiveness.
-        const K = KS[Math.min(n.depth, KN - 1)] * State.lodScale;
-        if (refinable && dist < n.radius * K) {
+        if (refinable && dist < BANDS[Math.min(n.depth, NB - 1)] * BSCALE) {
           // Only subdivide if we can afford bounds for every child right now,
           // so a split never opens a one-frame hole in the surface.
           if (!n.children && proxyBudget >= 4) for (const c of n.split()) ensureProxy(c);
@@ -3455,17 +3494,24 @@ const bindRange = (id, num, fn, fmtv) => {
   n.addEventListener('change', commit);
   n.addEventListener('keydown', e => { if (e.key === 'Enter') { commit(); n.blur(); } });
 };
+function applyFog() {
+  const f = State.fogDistance;
+  for (const fld of FIELDS) {
+    fld.mat.uniforms.uFogFar.value = f;
+    fld.mat.uniforms.uFogNear.value = f * 0.18;
+  }
+}
 bindRange('r-far', 'n-far', v => {
   State.drawDistance = v;
-  camera.far = Math.max(v * 2.6, 1200);
+  camera.far = Math.max(v * 3.0, 1200);
   camera.updateProjectionMatrix();
-  for (const f of FIELDS) {
-    f.mat.uniforms.uFogFar.value = v;
-    f.mat.uniforms.uFogNear.value = v * 0.18;
-  }
-  skyDome.scale.setScalar(Math.max(v * 2.0, 1000) / 1700);
+  skyDome.scale.setScalar(Math.max(v * 2.2, 1200) / 1700);
 }, v => String(v | 0));
-bindRange('r-lod', 'n-lod', v => State.lodScale = v, v => v.toFixed(2));
+bindRange('r-fog', 'n-fog', v => { State.fogDistance = v; applyFog(); }, v => String(v | 0));
+bindRange('r-splat', 'n-splat', v => {
+  State.maxSplats = Math.max(1000, Math.round(v));
+  splats.ensure(State.maxSplats);
+}, v => v >= 1000 ? Math.round(v / 1000) + 'k' : String(v | 0));
 bindRange('r-flat', 'n-flat', v => { Baker.flatEps = v; rebakeAll(null); }, v => v.toFixed(4).slice(1));
 // Softness 0 → the whole quad is opaque core (hard flecks).
 // Softness 1 → the core all but vanishes and the surface is carried almost
@@ -3481,70 +3527,6 @@ bindRange('r-jump', 'n-jump', v => State.jumpSpeed = v, v => v.toFixed(1));
 bindRange('r-eye', 'n-eye', v => State.eyeHeight = v, v => v.toFixed(2));
 bindRange('r-body', 'n-body', v => State.bodyRadius = v, v => v.toFixed(2));
 bindRange('r-step', 'n-step', v => State.stepHeight = v, v => v.toFixed(2));
-
-/* ---------------------------------------------------------------------- *
- *  LOD BAND STRIP — one draggable thumb per quadtree depth.
- *
- *  Each level's reach multiplier is independent, so you can make the coarse
- *  levels split early and the fine ones hold back (or the reverse) instead of
- *  scaling the whole ladder with a single number.
- * ---------------------------------------------------------------------- */
-const BAND_MIN = 0.25, BAND_MAX = 9;
-function buildBands() {
-  const host = $('bands');
-  const thumbs = [];
-  const toPct = v => (v - BAND_MIN) / (BAND_MAX - BAND_MIN) * 100;
-  const fromPct = p => clamp(BAND_MIN + p / 100 * (BAND_MAX - BAND_MIN), BAND_MIN, BAND_MAX);
-
-  State.lodK.forEach((v, i) => {
-    const th = document.createElement('div');
-    th.className = 'th';
-    th.title = `LOD level ${i} reach`;
-    const lab = document.createElement('div');
-    lab.className = 'lab';
-    lab.textContent = String(i);
-    host.append(th, lab);
-    thumbs.push({ th, lab, i });
-  });
-
-  const layout = () => {
-    for (const t of thumbs) {
-      const pct = toPct(State.lodK[t.i]);
-      t.th.style.left = pct + '%';
-      t.lab.style.left = pct + '%';
-    }
-  };
-
-  let drag = null;
-  const pick = (clientX) => {
-    const r = host.getBoundingClientRect();
-    let best = null, bd = 1e9;
-    for (const t of thumbs) {
-      const x = r.left + toPct(State.lodK[t.i]) / 100 * r.width;
-      const d = Math.abs(clientX - x);
-      if (d < bd) { bd = d; best = t; }
-    }
-    return best;
-  };
-  const apply = (clientX) => {
-    const r = host.getBoundingClientRect();
-    State.lodK[drag.i] = fromPct((clientX - r.left) / r.width * 100);
-    layout();
-  };
-  host.addEventListener('pointerdown', e => {
-    drag = pick(e.clientX);
-    if (!drag) return;
-    host.setPointerCapture(e.pointerId);
-    drag.th.classList.add('on');
-    apply(e.clientX);
-  });
-  host.addEventListener('pointermove', e => { if (drag) apply(e.clientX); });
-  host.addEventListener('pointerup', () => {
-    if (drag) { drag.th.classList.remove('on'); toast(`LOD level ${drag.i} reach = ${State.lodK[drag.i].toFixed(2)}`); }
-    drag = null;
-  });
-  layout();
-}
 
 /* ══════════════════════════════════════════════════ PROPERTIES PANEL ══
  *  Edits whatever is selected — one object or twenty. A field shows a value
@@ -3588,8 +3570,11 @@ function buildProps() {
     head('Endless terrain');
     const n = document.createElement('input'); n.type = 'number'; n.step = '0.5'; n.value = String(TERRAIN_Y);
     row('datum height', n);
-    const sc = document.createElement('input'); sc.type = 'range'; sc.min = '0'; sc.max = '3'; sc.step = '0.05'; sc.value = '1';
-    row('relief scale', document.createTextNode(''));
+    // NOT the same as the height map's Y. This scales the BUILT-IN procedural
+    // relief, which exists with or without an uploaded image; Y scales the image.
+    const sc = document.createElement('input'); sc.type = 'range'; sc.min = '0'; sc.max = '3'; sc.step = '0.05';
+    sc.value = String(Terrain.reliefScale);
+    row('procedural noise', document.createTextNode(''));
     host.append(sc);
     sc.oninput = () => { Terrain.reliefScale = parseFloat(sc.value); Terrain.dirtyAll(); };
     head('Height map');
@@ -3801,6 +3786,33 @@ function buildProps() {
   autoBlur(host);
 }
 
+/**
+ * One field per LOD level, holding the distance at which that level stops
+ * subdividing. Level 0's band runs from the camera to its value; level 1's runs
+ * from there to its own value, and so on — so the numbers read as the ring
+ * boundaries they actually are.
+ */
+function buildBandGrid() {
+  const host = $('bandgrid');
+  host.innerHTML = '';
+  State.lodBands.forEach((v, i) => {
+    const l = document.createElement('label');
+    l.append(document.createTextNode('L' + i));
+    const n = document.createElement('input');
+    n.type = 'number'; n.step = '5'; n.min = '1'; n.value = String(v);
+    n.title = `Level ${i} subdivides while closer than this many metres`;
+    n.onchange = () => {
+      const x = parseFloat(n.value);
+      if (!isFinite(x) || x <= 0) { n.value = String(State.lodBands[i]); return; }
+      State.lodBands[i] = x;
+      toast(`LOD level ${i} ends at ${Math.round(x)} m`);
+    };
+    l.append(n);
+    host.append(l);
+  });
+  autoBlur(host);
+}
+
 /* ---- Quick-select chips for the three authored hero patches ------------ */
 function fillQuickSelect() {
   const box = $('quicksel');
@@ -3875,6 +3887,10 @@ function fillPrefabs() {
   }
 }
 
+$('t-cull').onchange = e => {
+  splats.mat.uniforms.uBackCull.value = e.target.checked ? -0.12 : -2.0;
+  toast(e.target.checked ? 'Back-facing flecks culled' : 'Drawing both sides of every fleck');
+};
 $('t-far').onchange = e => {
   State.farField = e.target.checked;
   World.streamCells();
@@ -4021,7 +4037,7 @@ respawn();
 Terrain.stream();          // re-page around the corrected spawn
 fillQuickSelect();
 fillPrefabs();
-buildBands();
+buildBandGrid();
 updateSelUI();
 buildProps();
 setSubTool(State.subTool);
@@ -4072,7 +4088,25 @@ function frame() {
 
   // ④ only re-blit the GPU buffers when the visible set actually changed;
   //    the streaming animation itself runs from the per-chunk birth stamp.
+  splats.ensure(State.maxSplats);
   if (World.dirtyBuffers) { World.upload(renderList); World.dirtyBuffers = false; }
+
+  /* PROGRESSIVE REFINEMENT TOWARD THE BUDGET.
+   *
+   * Instead of stopping at a fixed distance rule, the cut keeps getting finer
+   * every frame while it is under the splat budget, and backs off when it
+   * overshoots. That is what produces the repeated passes: a coarse skin lands
+   * first, each pass replaces those flecks with several smaller ones, and it
+   * keeps working outward until the whole draw distance is either fully
+   * resolved or the budget says stop. Nudged gently so it settles rather than
+   * oscillating, and held back while the bake queue is still draining. */
+  {
+    const want = State.maxSplats, have = World.stats.splats;
+    // Capped at 1: your band distances are the quality ceiling, and the budget
+    // may only pull the cut back from them, never push past what you asked for.
+    if (have > want) State.lodAuto = Math.max(0.1, State.lodAuto * 0.93);
+    else if (have < want * 0.88) State.lodAuto = Math.min(1, State.lodAuto * 1.04);
+  }
 
   sweepTimer += dt;
   if (sweepTimer > 2) { sweepTimer = 0; World.sweep(); }
@@ -4099,6 +4133,9 @@ function frame() {
     $('s-polytris').textContent = fmt(s.meshTris);
     $('s-tris').textContent = fmt(tris);
     $('s-chunks').textContent = fmt(s.chunks);
+    const pct = Math.round(s.splats / Math.max(State.maxSplats, 1) * 100);
+    $('s-budget').textContent = `${pct}% · LOD x${State.lodAuto.toFixed(2)}`;
+    $('s-budget').className = 'v ' + (pct > 97 ? 'hot' : pct > 55 ? 'ok' : '');
     $('s-queue').textContent = String(JobQueue.jobs.size);
     $('s-queue').className = 'v ' + (JobQueue.jobs.size > 60 ? 'hot' : '');
     $('s-stream').textContent = String(s.streaming);
@@ -4115,6 +4152,8 @@ window.__ENGINE = {
   World, Baker, State, JobQueue, camera, THREE, Terrain,
   setSubTool, selectionSize: () => selection.size,
   setSelMode, selectionSet: () => selection,
+  maxSplatCap: () => MAX_SPLATS, fogFar: () => splats.mat.uniforms.uFogFar.value,
+  backCull: () => splats.mat.uniforms.uBackCull.value,
   selectPatch,
   setLook: (y, p) => { yaw = y; pitch = p; },
   get look() { return { yaw, pitch }; }
