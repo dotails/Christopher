@@ -35,10 +35,22 @@
     box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
   }
   .panel h2{
-    margin:0;padding:10px 14px 9px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+    margin:0;padding:10px 30px 9px 14px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
     color:var(--ink-dim);font-weight:600;border-bottom:1px solid var(--panel-line);
     display:flex;align-items:center;gap:8px;
+    position:relative;cursor:pointer;user-select:none;transition:color .15s;
   }
+  .panel h2:hover{color:var(--ink)}
+  /* Chevron: points down when open, up when collapsed. */
+  .panel h2::after{
+    content:'';position:absolute;right:13px;top:50%;width:6px;height:6px;
+    border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+    transform:translateY(-70%) rotate(45deg);transition:transform .18s;opacity:.8;
+  }
+  .panel.collapsed h2::after{transform:translateY(-25%) rotate(-135deg)}
+  .panel.collapsed h2{border-bottom:0}
+  .panel.collapsed .body{display:none}
+  .panel.collapsed{max-height:none;overflow:visible}
   .panel h2 .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
   .body{padding:11px 14px 13px}
 
@@ -195,6 +207,9 @@
   #boot.err .spin{display:none}
   #boot.err .t{color:var(--warn)}
   .hide{opacity:0;pointer-events:none}
+  /* H clears everything but the crosshair for an unobstructed view. */
+  #hud.bare > *:not(#cross){opacity:0;pointer-events:none}
+  #hud > *{transition:opacity .2s}
 </style>
 </head>
 <body>
@@ -300,6 +315,9 @@
       <div class="keyrow"><kbd>⇧</kbd><b>+ drag = box-select (Select tool)</b></div>
       <div class="keyrow"><kbd>drag</kbd><b>a handle to re-author the curve</b></div>
       <div class="keyrow"><kbd>R</kbd><b>respawn at origin</b></div>
+      <div class="keyrow"><kbd>H</kbd><b>hide the whole HUD</b></div>
+      <div class="keyrow"><kbd>J</kbd><b>collapse / expand all panels</b></div>
+      <div class="keyrow"><kbd>click</kbd><b>a panel title to fold it</b></div>
       <div class="sep"></div>
       <div class="sw"><i style="background:#57d2ff;color:#57d2ff"></i>Optimized polygon (flat section)</div>
       <div class="sw"><i style="background:#c58bff;color:#c58bff"></i>Anisotropic Gaussian splat (curved)</div>
@@ -2371,6 +2389,16 @@ addEventListener('keydown', e => {
   if (e.code === 'Digit3') setTool('carve');
   if (e.code === 'Digit4') setTool('create');
   if (e.code === 'Escape') selectPatch(null);
+  if (e.code === 'KeyH') {
+    const bare = document.getElementById('hud').classList.toggle('bare');
+    if (!bare) toast('HUD restored');
+  }
+  if (e.code === 'KeyJ') {
+    // Fold or unfold every panel at once.
+    const any = [...document.querySelectorAll('.panel > h2')].some(h => !h.parentElement.classList.contains('collapsed'));
+    for (const h of document.querySelectorAll('.panel > h2')) h.parentElement.classList.toggle('collapsed', any);
+    toast(any ? 'Panels collapsed' : 'Panels expanded');
+  }
   if (e.code === 'Tab' && !e.repeat) {
     e.preventDefault();                   // never let it walk the HUD focus ring
     setCapture(State.freeMouse);          // toggle
@@ -3115,6 +3143,12 @@ $('b-clear').onclick = () => {
   }
   toast(n ? `${n} sculpt volumes removed — matter re-materialising` : 'Nothing sculpted yet');
 };
+
+/* Every titled panel folds down to its header bar, so the world can be given
+ * as much of the screen as you want without losing where the panels are. */
+for (const h of document.querySelectorAll('.panel > h2')) {
+  h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+}
 
 /* A HUD control must never keep keyboard focus: the pilot has to nudge a slider
  * and immediately fly again, and a focused <button> would otherwise swallow
