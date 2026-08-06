@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Dynamic Progressive Point-Cloud &amp; Hybrid Voxel Engine</title>
+<style>
+  /* ------------------------------------------------------------------ *
+   * Shell + HUD chrome. Everything is a fixed overlay above the canvas. *
+   * ------------------------------------------------------------------ */
+  :root{
+    --bg:#07090d;
+    --panel:rgba(14,18,26,.82);
+    --panel-line:rgba(120,170,255,.16);
+    --ink:#dce6f5;
+    --ink-dim:#7f8ea6;
+    --accent:#57d2ff;
+    --accent-2:#9d7bff;
+    --warn:#ffb057;
+    --good:#5ef2a8;
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  canvas{display:block;position:fixed;inset:0}
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:10}
+  .panel{
+    position:absolute;pointer-events:auto;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:12px;
+    backdrop-filter:blur(14px) saturate(140%);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);
+    box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .panel h2{
+    margin:0;padding:10px 14px 9px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-dim);font-weight:600;border-bottom:1px solid var(--panel-line);
+    display:flex;align-items:center;gap:8px;
+  }
+  .panel h2 .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+  .body{padding:11px 14px 13px}
+
+  /* ---- Stats panel ---- */
+  #stats{top:14px;left:14px;width:266px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:11.5px;padding:2.5px 0}
+  .row .k{color:var(--ink-dim)}
+  .row .v{color:var(--ink);font-variant-numeric:tabular-nums}
+  .row .v.hot{color:var(--warn)}
+  .row .v.ok{color:var(--good)}
+  .bar{height:3px;border-radius:2px;background:rgba(255,255,255,.07);margin:7px 0 3px;overflow:hidden}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0%;transition:width .18s}
+  .sep{height:1px;background:var(--panel-line);margin:9px -14px}
+
+  /* ---- Controls panel ---- */
+  #ctrl{top:14px;right:14px;width:280px;max-height:calc(100vh - 28px);overflow-y:auto}
+  #ctrl::-webkit-scrollbar{width:6px}
+  #ctrl::-webkit-scrollbar-thumb{background:rgba(120,170,255,.22);border-radius:3px}
+  .lbl{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-dim);margin:11px 0 6px;font-weight:600}
+  .lbl:first-child{margin-top:0}
+  .seg{display:flex;gap:4px;background:rgba(255,255,255,.045);padding:3px;border-radius:8px}
+  .seg button{
+    flex:1;border:0;background:transparent;color:var(--ink-dim);font:600 11px/1 var(--sans);
+    padding:7px 4px;border-radius:6px;cursor:pointer;transition:.14s;letter-spacing:.02em;
+  }
+  .seg button:hover{color:var(--ink)}
+  .seg button.on{background:linear-gradient(180deg,rgba(87,210,255,.28),rgba(87,210,255,.14));color:#eaf7ff;box-shadow:0 0 0 1px rgba(87,210,255,.35)}
+  .chk{display:flex;align-items:center;gap:9px;font-size:12px;padding:5px 0;cursor:pointer;user-select:none;color:var(--ink)}
+  .chk input{appearance:none;width:30px;height:17px;border-radius:9px;background:rgba(255,255,255,.1);position:relative;cursor:pointer;transition:.18s;flex:0 0 auto;border:1px solid rgba(255,255,255,.08)}
+  .chk input:checked{background:linear-gradient(90deg,var(--accent),var(--accent-2));border-color:transparent}
+  .chk input::after{content:'';position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;transition:.18s}
+  .chk input:checked::after{transform:translateX(13px)}
+  .chk small{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-dim)}
+  .slider{display:flex;align-items:center;gap:9px;padding:4px 0}
+  .slider label{font-size:11.5px;color:var(--ink-dim);flex:0 0 88px;line-height:1.25}
+  .slider input[type=range]{flex:1 1 0;min-width:0;appearance:none;height:3px;border-radius:2px;background:rgba(255,255,255,.12);outline:0;cursor:pointer}
+  .slider input[type=range]::-webkit-slider-thumb{appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(87,210,255,.7);cursor:pointer}
+  .slider input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:var(--accent)}
+  .slider .num{font-family:var(--mono);font-size:10.5px;color:var(--ink);flex:0 0 44px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px}
+  .btns button{
+    border:1px solid var(--panel-line);background:rgba(255,255,255,.04);color:var(--ink);
+    font:600 11px/1 var(--sans);padding:9px 6px;border-radius:7px;cursor:pointer;transition:.14s;
+  }
+  .btns button:hover{background:rgba(87,210,255,.16);border-color:rgba(87,210,255,.4)}
+  .btns button:active{transform:translateY(1px)}
+  select{
+    width:100%;background:rgba(255,255,255,.05);color:var(--ink);border:1px solid var(--panel-line);
+    border-radius:7px;padding:7px 8px;font:500 11.5px var(--sans);outline:0;cursor:pointer;
+  }
+  select option{background:#0f141d}
+
+  /* ---- Legend ---- */
+  #legend{bottom:14px;left:14px;width:266px}
+  .keyrow{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0;color:var(--ink-dim)}
+  kbd{
+    font:600 10px/1 var(--mono);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+    border-bottom-width:2px;border-radius:4px;padding:4px 6px;color:var(--ink);min-width:20px;text-align:center;display:inline-block;
+  }
+  .keyrow b{color:var(--ink);font-weight:500}
+
+  /* ---- Legend for the render-state colour code ---- */
+  #swatches{position:absolute;bottom:14px;left:294px;width:206px}
+  .sw{display:flex;align-items:center;gap:9px;font-size:11px;padding:3px 0;color:var(--ink-dim)}
+  .sw i{width:11px;height:11px;border-radius:3px;flex:0 0 auto;box-shadow:0 0 8px currentColor}
+
+  /* ---- Center crosshair ---- */
+  #cross{position:absolute;left:50%;top:50%;width:20px;height:20px;transform:translate(-50%,-50%);opacity:.55}
+  #cross:before,#cross:after{content:'';position:absolute;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+  #cross:before{left:9px;top:0;width:1.5px;height:20px}
+  #cross:after{top:9px;left:0;height:1.5px;width:20px}
+
+  /* ---- Toast / status line ---- */
+  #toast{
+    position:absolute;left:50%;bottom:26px;transform:translateX(-50%);
+    font:500 12px var(--sans);color:var(--ink);background:var(--panel);border:1px solid var(--panel-line);
+    padding:8px 16px;border-radius:20px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;
+    backdrop-filter:blur(12px);
+  }
+  #toast.show{opacity:1}
+
+  /* ---- Boot / error screen ---- */
+  #boot{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:100;transition:opacity .5s}
+  #boot .inner{text-align:center;font-family:var(--mono);font-size:12px;color:var(--ink-dim);max-width:520px;padding:24px;line-height:1.7}
+  #boot .t{font-family:var(--sans);font-size:17px;font-weight:600;color:var(--ink);margin-bottom:10px;letter-spacing:.01em}
+  #boot .spin{width:26px;height:26px;margin:20px auto 0;border:2px solid rgba(87,210,255,.18);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #boot.err .spin{display:none}
+  #boot.err .t{color:var(--warn)}
+  .hide{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+
+<div id="boot"><div class="inner">
+  <div class="t">Progressive Voxel Engine</div>
+  <div id="bootmsg">Fetching Three.js from CDN and baking the mathematical graph…</div>
+  <div class="spin"></div>
+</div></div>
+
+<div id="hud" class="hide">
+  <div id="cross"></div>
+
+  <!-- ============ LIVE PERFORMANCE COUNTERS ============ -->
+  <section id="stats" class="panel">
+    <h2><span class="dot"></span> Runtime Telemetry</h2>
+    <div class="body">
+      <div class="row"><span class="k">FPS</span><span class="v" id="s-fps">–</span></div>
+      <div class="bar"><i id="s-fpsbar"></i></div>
+      <div class="row"><span class="k">frame time</span><span class="v" id="s-ms">–</span></div>
+      <div class="sep"></div>
+      <div class="row"><span class="k">gaussian splats</span><span class="v" id="s-splats">0</span></div>
+      <div class="row"><span class="k">voxel blocks</span><span class="v" id="s-voxels">0</span></div>
+      <div class="row"><span class="k">polygon tris</span><span class="v" id="s-polytris">0</span></div>
+      <div class="row"><span class="k">total triangles</span><span class="v" id="s-tris">0</span></div>
+      <div class="sep"></div>
+      <div class="row"><span class="k">visible chunks</span><span class="v" id="s-chunks">0</span></div>
+      <div class="row"><span class="k">bake queue</span><span class="v" id="s-queue">0</span></div>
+      <div class="row"><span class="k">streaming now</span><span class="v" id="s-stream">0</span></div>
+      <div class="row"><span class="k">patches resident</span><span class="v" id="s-patches">0</span></div>
+      <div class="row"><span class="k">graph footprint</span><span class="v" id="s-bytes">0 B</span></div>
+      <div class="row"><span class="k">draw calls</span><span class="v" id="s-calls">0</span></div>
+    </div>
+  </section>
+
+  <!-- ============ ENGINE CONTROLS ============ -->
+  <section id="ctrl" class="panel">
+    <h2><span class="dot"></span> Engine Controls</h2>
+    <div class="body">
+
+      <div class="lbl">Matter representation</div>
+      <div class="seg" id="mode">
+        <button data-mode="auto" class="on">Hybrid</button>
+        <button data-mode="points">Pure Points</button>
+        <button data-mode="voxels">Voxels</button>
+      </div>
+
+      <div class="lbl">Pipeline toggles</div>
+      <label class="chk"><input type="checkbox" id="t-poly" checked><span>Optimized polygons</span><small>flat→mesh</small></label>
+      <label class="chk"><input type="checkbox" id="t-net"><span>Simulate network latency</span><small>120–700 ms</small></label>
+      <label class="chk"><input type="checkbox" id="t-lod"><span>Colour by LOD depth</span><small>debug</small></label>
+      <label class="chk"><input type="checkbox" id="t-bounds"><span>Show chunk bounds</span><small>quadtree</small></label>
+      <label class="chk"><input type="checkbox" id="t-dig" checked><span>Left-click digs</span><small>carve</small></label>
+
+      <div class="lbl">Tuning</div>
+      <div class="slider"><label>LOD reach</label><input type="range" id="r-lod" min="0.4" max="3" step="0.05" value="1.15"><span class="num" id="n-lod">1.15</span></div>
+      <div class="slider"><label>Flatness ε</label><input type="range" id="r-flat" min="0.0002" max="0.02" step="0.0002" value="0.0035"><span class="num" id="n-flat">.0035</span></div>
+      <div class="slider"><label>Splat softness</label><input type="range" id="r-soft" min="0" max="1" step="0.01" value="0.36"><span class="num" id="n-soft">.36</span></div>
+      <div class="slider"><label>Dig radius</label><input type="range" id="r-dig" min="0.8" max="6" step="0.1" value="2.4"><span class="num" id="n-dig">2.4</span></div>
+      <div class="slider"><label>Fly speed</label><input type="range" id="r-spd" min="4" max="80" step="1" value="22"><span class="num" id="n-spd">22</span></div>
+
+      <div class="lbl">Authoring layer (math handles)</div>
+      <select id="sel-patch">
+        <option value="-1">Hide control handles</option>
+      </select>
+      <div class="btns" style="margin-top:6px">
+        <button id="b-arch">Bend the arch</button>
+        <button id="b-wall">Ripple the wall</button>
+        <button id="b-terr">Heave terrain</button>
+        <button id="b-reset">Reset graph</button>
+      </div>
+      <div class="btns" style="grid-template-columns:1fr">
+        <button id="b-clear">Undo all carving</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LEGEND ============ -->
+  <section id="legend" class="panel">
+    <h2><span class="dot"></span> Pilot Legend</h2>
+    <div class="body">
+      <div class="keyrow"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><b>fly horizontally</b></div>
+      <div class="keyrow"><kbd>E</kbd><kbd>Q</kbd><b>ascend / descend</b></div>
+      <div class="keyrow"><kbd>⇧</kbd><b>boost ×4</b></div>
+      <div class="keyrow"><kbd>drag</kbd><b>look around (either button)</b></div>
+      <div class="keyrow"><kbd>click</kbd><b>carve a spherical bite out of matter</b></div>
+      <div class="keyrow"><kbd>drag</kbd><b>a glowing handle to re-author the curve</b></div>
+      <div class="keyrow"><kbd>R</kbd><b>respawn at origin</b></div>
+    </div>
+  </section>
+
+  <section id="swatches" class="panel">
+    <h2><span class="dot"></span> Render State</h2>
+    <div class="body">
+      <div class="sw"><i style="background:#57d2ff;color:#57d2ff"></i>Optimized polygon (flat)</div>
+      <div class="sw"><i style="background:#c58bff;color:#c58bff"></i>Anisotropic Gaussian splat</div>
+      <div class="sw"><i style="background:#6d7a90;color:#6d7a90"></i>Voxel proxy (far / loading)</div>
+      <div class="sw"><i style="background:#ffb057;color:#ffb057"></i>Dirty region re-baking</div>
+    </div>
+  </section>
+
+  <div id="toast"></div>
+</div>
+
+<script type="module">
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  DYNAMIC PROGRESSIVE POINT-CLOUD & HYBRID VOXEL ENGINE
+ *  ---------------------------------------------------------------------------
+ *  A prototype of a renderer whose *source of truth* is a tiny mathematical
+ *  graph (control nodes + tangent handles + lofted patches), and whose *matter*
+ *  is synthesised on demand at a fidelity chosen purely by Euclidean distance.
+ *
+ *  Four architectural pillars, each mapped to a section of this file:
+ *
+ *    ① INFINITE EUCLIDEAN SEARCH  ...  §6 QuadNode traversal + §9 WorldStreamer
+ *    ② AUTHORING VIA MATH         ...  §2 Rail / §3 Patch (the whole world is
+ *                                      ~11 kB of control points)
+ *    ③ RUNTIME VIA MATTER         ...  §5 Baker — one of three representations
+ *                                      is emitted per leaf: voxel ▸ splat ▸ mesh
+ *    ④ DESTRUCTIVE & EDITABLE     ...  §8 carve()/re-author + §7 time-sliced
+ *                                      JobQueue (never blocks the main loop)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ---------------------------------------------------------------- §0 BOOT -- */
+const bootEl = document.getElementById('boot');
+const bootMsg = document.getElementById('bootmsg');
+
+let THREE;
+try {
+  THREE = await import('https://unpkg.com/three@0.160.1/build/three.module.js');
+} catch (e1) {
+  try {
+    THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js');
+  } catch (e2) {
+    bootEl.classList.add('err');
+    document.querySelector('#boot .t').textContent = 'Could not reach a CDN';
+    bootMsg.innerHTML = 'This prototype pulls Three.js r160 from unpkg (with a jsDelivr fallback).<br>Both requests failed — check your network connection and reload.';
+    throw e2;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════ §1 SCRATCH POOL ══
+ * Every hot-path routine below runs tens of thousands of times per bake, so
+ * all vector maths is done against pre-allocated temporaries. Zero GC churn.
+ * ---------------------------------------------------------------------------*/
+const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+const _rA = V(), _rB = V(), _rC = V(), _rD = V();            // rail evaluation
+const _bnA = V(), _bnB = V(), _bnC = V(), _bnD = V(), _bnU = V(), _bnV = V();
+const _erA = V(), _erB = V(), _erN = V();                    // evalRaw
+const _sA = V(), _sB = V(), _sC = V(), _sD = V(), _sU = V(), _sV = V();
+const _tmp1 = V(), _tmp2 = V(), _tmp3 = V();
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/** Deterministic PRNG — the infinite far-field must regenerate identically. */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const hash2 = (x, z) => (Math.imul(x, 374761393) ^ Math.imul(z, 668265263) ^ 0x9e3779b9) | 0;
+
+/* ═══════════════════════════════════════════════════════════════ §2 RAIL ════
+ *  A rail is a cubic-Hermite spline through a list of {p, t} control nodes.
+ *  `p` is the node position, `t` its tangent handle — exactly the two things a
+ *  human authors. This is the ENTIRE storage format for a shape: no meshes, no
+ *  point clouds, no voxel grids are ever persisted.
+ * ---------------------------------------------------------------------------*/
+class Rail {
+  constructor(nodes) { this.nodes = nodes; }
+
+  /** Evaluate at normalized arc parameter u∈[0,1] into `out`. */
+  eval(u, out) {
+    const n = this.nodes.length - 1;
+    const s = clamp(u, 0, 1) * n;
+    const i = Math.min(s | 0, n - 1);
+    const f = s - i;
+    const a = this.nodes[i], b = this.nodes[i + 1];
+    const f2 = f * f, f3 = f2 * f;
+    // Hermite basis
+    const h00 = 2 * f3 - 3 * f2 + 1, h10 = f3 - 2 * f2 + f;
+    const h01 = -2 * f3 + 3 * f2, h11 = f3 - f2;
+    out.set(
+      a.p.x * h00 + a.t.x * h10 + b.p.x * h01 + b.t.x * h11,
+      a.p.y * h00 + a.t.y * h10 + b.p.y * h01 + b.t.y * h11,
+      a.p.z * h00 + a.t.z * h10 + b.p.z * h01 + b.t.z * h11
+    );
+    return out;
+  }
+}
+
+/** Build a rail from bare points, deriving Catmull-Rom tangent handles. */
+function railFrom(points, tension = 1) {
+  const nodes = points.map((p, i) => {
+    const prev = points[Math.max(i - 1, 0)];
+    const next = points[Math.min(i + 1, points.length - 1)];
+    return {
+      p: p.clone(),
+      t: next.clone().sub(prev).multiplyScalar(0.5 * tension),
+      p0: p.clone(),                                   // pristine copy, for Reset
+      t0: next.clone().sub(prev).multiplyScalar(0.5 * tension)
+    };
+  });
+  return new Rail(nodes);
+}
+
+/* ══════════════════════════════════════════════════════════════ §3 PATCH ════
+ *  A Patch is a *lofted solid*: the ruled surface swept between two rails,
+ *  optionally displaced by a warp field along its own normal, then thickened
+ *  into a slab. It is never hollow — `thickness` is an inherent property that
+ *  every representation (mesh / splat / voxel) honours.
+ * ---------------------------------------------------------------------------*/
+let PATCH_UID = 0;
+
+class Patch {
+  constructor(o) {
+    this.uid = ++PATCH_UID;
+    this.name = o.name || `patch-${this.uid}`;
+    this.railA = o.railA;
+    this.railB = o.railB;
+    this.thickness = o.thickness ?? 1.0;
+    this.warp = o.warp || null;          // (u,v,basePos) → displacement along n
+    this.tint = o.tint.clone();
+    this.maxDepth = o.maxDepth ?? 5;
+    this.hero = !!o.hero;                // hero patches expose editable handles
+
+    this.carves = [];                    // destructive CSG: spheres subtracted
+    this.version = 1;                    // bumped whenever the math graph moves
+
+    this.root = new QuadNode(this, 0, 0, 1, 0, 1);
+    this.collider = null;                // lazily-built raycast proxy
+    this.colliderVersion = -1;
+  }
+
+  /** Bytes of authored truth — the number the whole architecture is about. */
+  byteSize() {
+    return (this.railA.nodes.length + this.railB.nodes.length) * 6 * 4 + 32;
+  }
+
+  /* -- base surface: the pure loft, before warping ----------------------- */
+  baseAt(u, v, out) {
+    this.railA.eval(u, _rA); this.railB.eval(u, _rB);
+    return out.lerpVectors(_rA, _rB, v);
+  }
+
+  /** Normal of the *un-warped* loft, used as the displacement axis. */
+  baseNormal(u, v, out) {
+    const h = 0.0015;
+    this.railA.eval(clamp(u + h, 0, 1), _bnA); this.railB.eval(clamp(u + h, 0, 1), _bnB);
+    _bnU.lerpVectors(_bnA, _bnB, v);
+    this.railA.eval(clamp(u - h, 0, 1), _bnC); this.railB.eval(clamp(u - h, 0, 1), _bnD);
+    _bnV.lerpVectors(_bnC, _bnD, v);
+    _bnU.sub(_bnV);                                   // ∂P/∂u
+    _bnV.subVectors(_bnB, _bnA);                      // ∂P/∂v (rails are linear in v)
+    out.crossVectors(_bnU, _bnV);
+    if (out.lengthSq() < 1e-12) out.set(0, 1, 0); else out.normalize();
+    return out;
+  }
+
+  /** Final displaced surface position (no thickness applied yet). */
+  evalRaw(u, v, out) {
+    this.railA.eval(u, _erA); this.railB.eval(u, _erB);
+    out.lerpVectors(_erA, _erB, v);
+    if (this.warp) {
+      this.baseNormal(u, v, _erN);
+      out.addScaledVector(_erN, this.warp(u, v, out));
+    }
+    return out;
+  }
+
+  /**
+   * Full differential sample: position, unit normal and the u-tangent.
+   * Normals come from central differences of the *warped* surface, so splats
+   * orient correctly even across a deformed handle edit.
+   */
+  sample(u, v, outP, outN, outT) {
+    const h = 0.0012;
+    this.evalRaw(u, v, outP);
+    this.evalRaw(clamp(u + h, 0, 1), v, _sA);
+    this.evalRaw(clamp(u - h, 0, 1), v, _sB);
+    this.evalRaw(u, clamp(v + h, 0, 1), _sC);
+    this.evalRaw(u, clamp(v - h, 0, 1), _sD);
+    _sU.subVectors(_sA, _sB);
+    _sV.subVectors(_sC, _sD);
+    outN.crossVectors(_sU, _sV);
+    if (outN.lengthSq() < 1e-14) outN.set(0, 1, 0); else outN.normalize();
+    if (outT) { outT.copy(_sU); if (outT.lengthSq() < 1e-14) outT.set(1, 0, 0); else outT.normalize(); }
+    return outP;
+  }
+
+  /** Destructive query: is world point `p` still matter? */
+  isSolid(p, list) {
+    const cs = list || this.carves;
+    for (let i = 0; i < cs.length; i++) {
+      const c = cs[i];
+      const dx = p.x - c.x, dy = p.y - c.y, dz = p.z - c.z;
+      if (dx * dx + dy * dy + dz * dz < c.r2) return false;
+    }
+    return true;
+  }
+
+  /** Carves overlapping a chunk box — pre-filtered so isSolid stays O(1)-ish. */
+  carvesIn(box) {
+    if (!this.carves.length) return EMPTY;
+    const out = [];
+    for (const c of this.carves) {
+      if (box.min.x - c.r < c.x && c.x < box.max.x + c.r &&
+          box.min.y - c.r < c.y && c.y < box.max.y + c.r &&
+          box.min.z - c.r < c.z && c.z < box.max.z + c.r) out.push(c);
+    }
+    return out;
+  }
+}
+const EMPTY = [];
+
+/* ═══════════════════════════════════════════════════ §4 SPARSE SPATIAL INDEX ══
+ *  Each patch owns a quadtree over its (u,v) domain. A node is the unit of
+ *  streaming, baking, dirtying and drawing — the engine's "chunk".
+ * ---------------------------------------------------------------------------*/
+let NODE_UID = 0;
+
+class QuadNode {
+  constructor(patch, depth, u0, u1, v0, v1) {
+    this.uid = ++NODE_UID;
+    this.patch = patch;
+    this.depth = depth;
+    this.u0 = u0; this.u1 = u1; this.v0 = v0; this.v1 = v1;
+    this.children = null;
+
+    this.box = new THREE.Box3();
+    this.center = V();
+    this.radius = 1;
+    this.wu = 1; this.wv = 1;      // world extent along u / along v (from the proxy bake)
+
+    this.proxy = null;   // coarse voxel representation — always available fast
+    this.proxyPV = -1;
+    this.rep = null;     // refined representation (mesh | splats | voxels)
+    this.repPV = -1; this.repBV = -1;
+    this.queued = false;
+    this.lastSeen = 0;
+  }
+  /**
+   * ADAPTIVE subdivision. A naive quadtree over (u,v) turns a 92×9 bridge deck
+   * into 10:1 slivers — terrible splat aspect ratios, and no leaf ever small
+   * enough in u to be planar. So we split only the axis that is actually longer
+   * in WORLD space, and quad-split just when the node is roughly square.
+   */
+  split() {
+    const um = (this.u0 + this.u1) * 0.5, vm = (this.v0 + this.v1) * 0.5, d = this.depth + 1;
+    const P = this.patch;
+    if (this.wu > this.wv * 1.7) {
+      this.children = [
+        new QuadNode(P, d, this.u0, um, this.v0, this.v1),
+        new QuadNode(P, d, um, this.u1, this.v0, this.v1)
+      ];
+    } else if (this.wv > this.wu * 1.7) {
+      this.children = [
+        new QuadNode(P, d, this.u0, this.u1, this.v0, vm),
+        new QuadNode(P, d, this.u0, this.u1, vm, this.v1)
+      ];
+    } else {
+      this.children = [
+        new QuadNode(P, d, this.u0, um, this.v0, vm),
+        new QuadNode(P, d, um, this.u1, this.v0, vm),
+        new QuadNode(P, d, this.u0, um, vm, this.v1),
+        new QuadNode(P, d, um, this.u1, vm, this.v1)
+      ];
+    }
+    // Seed each child with the parent's bounds so LOD and carve-culling have a
+    // valid (if pessimistic) box from the very first frame they exist.
+    for (const c of this.children) {
+      c.box.copy(this.box); c.center.copy(this.center);
+      c.radius = this.radius * 0.6;
+      c.wu = this.wu * (c.u1 - c.u0) / (this.u1 - this.u0);
+      c.wv = this.wv * (c.v1 - c.v0) / (this.v1 - this.v0);
+    }
+    return this.children;
+  }
+  /** Release baked matter but keep the (tiny) topology — used by the LRU sweep. */
+  evict() { this.rep = null; this.repPV = -1; this.children = null; }
+}
+
+/* ══════════════════════════════════════════════════════════════ §5 BAKER ════
+ *  Turns a QuadNode's slice of math into one of three kinds of matter.
+ *
+ *    VOXEL  — axis-aligned blocks filling the slab's local AABB. Instant,
+ *             coarse, used for distant patches and as the "still loading" proxy.
+ *    MESH   — if the slice is planar within ε and uncarved, we emit a clean
+ *             two-triangle slab (plus rim quads on real patch borders). Perfect
+ *             silhouettes, near-zero cost.
+ *    SPLAT  — otherwise, overlapping flat anisotropic gaussian flecks laid on
+ *             the surface, stretched along the direction of least curvature so
+ *             neighbours bridge into a continuous skin.
+ * ---------------------------------------------------------------------------*/
+const R_LEAF = 5;                    // (R+1)² samples per baked leaf
+const MIN_LEAF = 1.5;                // finest chunk edge, in world units
+const R_PROXY = 3;                   // proxy voxel cells per axis
+const GRID_MAX = (R_LEAF + 2) * (R_LEAF + 2);
+const gP = new Float32Array(GRID_MAX * 3);
+const gN = new Float32Array(GRID_MAX * 3);
+const gT = new Float32Array(GRID_MAX * 3);
+const gS = new Uint8Array(GRID_MAX);
+
+const COL_VOXEL = new THREE.Color(0x6d7a90);
+const LOD_COLORS = [0xff4d6d, 0xff9f43, 0xffd93d, 0x6bf178, 0x4dd2ff, 0x9d7bff, 0xff7bd5].map(h => new THREE.Color(h));
+
+const Baker = {
+  flatEps: 0.0035,
+
+  /* ---- shared helper: sample the (R+1)² grid for a node ------------------ */
+  _grid(node, R) {
+    const p = node.patch;
+    // An un-bounded node cannot be carve-culled safely — fall back to the full list.
+    const cs = node.box.isEmpty() ? p.carves : p.carvesIn(node.box);
+    const du = (node.u1 - node.u0) / R, dv = (node.v1 - node.v0) / R;
+    let k = 0;
+    for (let j = 0; j <= R; j++) {
+      const v = node.v0 + dv * j;
+      for (let i = 0; i <= R; i++, k++) {
+        const u = node.u0 + du * i;
+        p.sample(u, v, _tmp1, _tmp2, _tmp3);
+        gP[k * 3] = _tmp1.x; gP[k * 3 + 1] = _tmp1.y; gP[k * 3 + 2] = _tmp1.z;
+        gN[k * 3] = _tmp2.x; gN[k * 3 + 1] = _tmp2.y; gN[k * 3 + 2] = _tmp2.z;
+        gT[k * 3] = _tmp3.x; gT[k * 3 + 1] = _tmp3.y; gT[k * 3 + 2] = _tmp3.z;
+        gS[k] = p.isSolid(_tmp1, cs) ? 1 : 0;
+      }
+    }
+    return cs;
+  },
+
+  /* ---- colour of this chunk, honouring the LOD-debug view ---------------- */
+  _tint(patch, node, kind) {
+    if (State.lodColor) return LOD_COLORS[node.depth % LOD_COLORS.length];
+    if (kind === 'voxel') return COL_VOXEL;
+    return patch.tint;
+  },
+
+  /* ═════ VOXEL: coarse blocks that fill the slab's AABB, per cell ═════════ */
+  bakeVoxels(node, R) {
+    const p = node.patch;
+    this._grid(node, R);
+    const pos = [], scl = [], col = [];
+    const half = p.thickness * 0.5;
+    const tint = this._tint(p, node, 'voxel');
+    const bmin = V(1e9, 1e9, 1e9), bmax = V(-1e9, -1e9, -1e9);
+    const lo = V(), hi = V(), c = V(), n = V();
+
+    for (let j = 0; j < R; j++) {
+      for (let i = 0; i < R; i++) {
+        lo.set(1e9, 1e9, 1e9); hi.set(-1e9, -1e9, -1e9);
+        let solid = 0;
+        // union of the cell's four corners, inflated by the slab thickness
+        for (let dj = 0; dj <= 1; dj++) for (let di = 0; di <= 1; di++) {
+          const k = (j + dj) * (R + 1) + (i + di);
+          if (gS[k]) solid++;
+          c.set(gP[k * 3], gP[k * 3 + 1], gP[k * 3 + 2]);
+          n.set(gN[k * 3], gN[k * 3 + 1], gN[k * 3 + 2]).multiplyScalar(half);
+          _tmp1.copy(c).add(n); lo.min(_tmp1); hi.max(_tmp1);
+          _tmp1.copy(c).sub(n); lo.min(_tmp1); hi.max(_tmp1);
+        }
+        bmin.min(lo); bmax.max(hi);
+        if (!solid) continue;                                   // fully carved away
+        const sx = Math.max(hi.x - lo.x, 0.08), sy = Math.max(hi.y - lo.y, 0.08), sz = Math.max(hi.z - lo.z, 0.08);
+        pos.push((lo.x + hi.x) * 0.5, (lo.y + hi.y) * 0.5, (lo.z + hi.z) * 0.5);
+        scl.push(sx * 0.97, sy * 0.97, sz * 0.97);
+        const shade = 0.72 + 0.28 * (solid / 4);
+        col.push(tint.r * shade, tint.g * shade, tint.b * shade);
+      }
+    }
+    // The AABB is a by-product of baking — the LOD test needs it, so cache it.
+    node.box.min.copy(bmin); node.box.max.copy(bmax);
+    node.box.getCenter(node.center);
+    node.radius = Math.max(node.box.min.distanceTo(node.box.max) * 0.5, 0.15);
+
+    // World extents along each parameter axis, straight off the sampled grid.
+    // These drive adaptive subdivision and the minimum-leaf-size cutoff.
+    const S = R + 1, c00 = 0, c10 = R, c01 = R * S, c11 = S * S - 1;
+    const d3 = (a, b) => Math.hypot(gP[a * 3] - gP[b * 3], gP[a * 3 + 1] - gP[b * 3 + 1], gP[a * 3 + 2] - gP[b * 3 + 2]);
+    node.wu = Math.max(0.5 * (d3(c10, c00) + d3(c11, c01)), 1e-3);
+    node.wv = Math.max(0.5 * (d3(c01, c00) + d3(c11, c10)), 1e-3);
+
+    return { kind: 'voxel', n: pos.length / 3, born: Clock.t,
+             pos: new Float32Array(pos), scl: new Float32Array(scl), col: new Float32Array(col) };
+  },
+
+  /* ═════ Planarity classifier: is this slice flat enough to be a polygon? ═ */
+  _isPlanar(R) {
+    const c0 = 0, c1 = R, c2 = R * (R + 1), c3 = (R + 1) * (R + 1) - 1;
+    // consensus normal from the four corners
+    let nx = 0, ny = 0, nz = 0;
+    for (const k of [c0, c1, c2, c3]) { nx += gN[k * 3]; ny += gN[k * 3 + 1]; nz += gN[k * 3 + 2]; }
+    const nl = Math.hypot(nx, ny, nz) || 1; nx /= nl; ny /= nl; nz /= nl;
+    // every corner normal must agree tightly — this is what catches gentle arcs
+    let minDot = 1;
+    for (const k of [c0, c1, c2, c3]) {
+      const d = gN[k * 3] * nx + gN[k * 3 + 1] * ny + gN[k * 3 + 2] * nz;
+      if (d < minDot) minDot = d;
+    }
+    if (minDot < 0.99985) return null;
+    // …and no interior sample may leave the plane by more than ε·diagonal
+    const ox = gP[c0 * 3], oy = gP[c0 * 3 + 1], oz = gP[c0 * 3 + 2];
+    const diag = Math.hypot(gP[c3 * 3] - ox, gP[c3 * 3 + 1] - oy, gP[c3 * 3 + 2] - oz) || 1;
+    const tol = Baker.flatEps * diag;
+    const N = (R + 1) * (R + 1);
+    for (let k = 0; k < N; k++) {
+      const d = (gP[k * 3] - ox) * nx + (gP[k * 3 + 1] - oy) * ny + (gP[k * 3 + 2] - oz) * nz;
+      if (Math.abs(d) > tol) return null;
+    }
+    return [nx, ny, nz];
+  },
+
+  /* ═════ MESH: a clean solid slab — two tris top, two bottom, rims on borders */
+  bakeMesh(node, planeN) {
+    const p = node.patch, R = R_LEAF, half = p.thickness * 0.5;
+    const tint = this._tint(p, node, 'mesh');
+    const pos = [], nrm = [], col = [];
+    const idx = [0, R, R * (R + 1), (R + 1) * (R + 1) - 1];   // 00 10 01 11
+    const P = idx.map(k => V(gP[k * 3], gP[k * 3 + 1], gP[k * 3 + 2]));
+    const n = V(planeN[0], planeN[1], planeN[2]);
+    const top = P.map(q => q.clone().addScaledVector(n, half));
+    const bot = P.map(q => q.clone().addScaledVector(n, -half));
+
+    const tri = (a, b, c, nn, shade) => {
+      pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+      for (let i = 0; i < 3; i++) nrm.push(nn.x, nn.y, nn.z);
+      for (let i = 0; i < 3; i++) col.push(tint.r * shade, tint.g * shade, tint.b * shade);
+    };
+    // top face (00,10,11 / 00,11,01)
+    tri(top[0], top[1], top[3], n, 1.0);
+    tri(top[0], top[3], top[2], n, 1.0);
+    const nb = n.clone().negate();
+    tri(bot[0], bot[3], bot[1], nb, 0.55);
+    tri(bot[0], bot[2], bot[3], nb, 0.55);
+
+    // Rim quads only where the leaf touches the true patch border, so the solid
+    // reads as a slab with real thickness instead of a zero-width sheet.
+    const EPS = 1e-6;
+    const quad = (ta, tb, ba, bb, sn) => {
+      tri(ta, tb, bb, sn, 0.78); tri(ta, bb, ba, sn, 0.78);
+    };
+    const side = (i0, i1) => {
+      const e = _tmp1.subVectors(P[i1], P[i0]).normalize();
+      const sn = _tmp2.crossVectors(e, n).normalize().clone();
+      quad(top[i0], top[i1], bot[i0], bot[i1], sn);
+    };
+    if (node.v0 <= EPS) side(0, 1);
+    if (node.v1 >= 1 - EPS) side(3, 2);
+    if (node.u0 <= EPS) side(2, 0);
+    if (node.u1 >= 1 - EPS) side(1, 3);
+
+    return { kind: 'mesh', n: pos.length / 3, born: Clock.t,
+             pos: new Float32Array(pos), nrm: new Float32Array(nrm), col: new Float32Array(col) };
+  },
+
+  /* ═════ SPLAT: anisotropic gaussian flecks hugging a curved / carved slice ═ */
+  bakeSplats(node, carves) {
+    const p = node.patch, R = R_LEAF, half = p.thickness * 0.5;
+    const tint = this._tint(p, node, 'splat');
+    const pos = [], nrm = [], tan = [], scl = [], col = [];
+    const stride = R + 1;
+    const a = V(), b = V(), c = V(), nv = V(), tv = V(), rimN = V(), vDir = V();
+
+    const emit = (P, N, T, sx, sy, shade) => {
+      pos.push(P.x, P.y, P.z); nrm.push(N.x, N.y, N.z); tan.push(T.x, T.y, T.z);
+      scl.push(sx, sy); col.push(tint.r * shade, tint.g * shade, tint.b * shade);
+    };
+
+    for (let j = 0; j <= R; j++) {
+      for (let i = 0; i <= R; i++) {
+        const k = j * stride + i;
+        if (!gS[k]) continue;
+        c.set(gP[k * 3], gP[k * 3 + 1], gP[k * 3 + 2]);
+        nv.set(gN[k * 3], gN[k * 3 + 1], gN[k * 3 + 2]);
+        tv.set(gT[k * 3], gT[k * 3 + 1], gT[k * 3 + 2]);
+
+        // --- local differential geometry from the sampled grid ------------
+        const ip = Math.min(i + 1, R), im = Math.max(i - 1, 0);
+        const jp = Math.min(j + 1, R), jm = Math.max(j - 1, 0);
+        const ka = j * stride + ip, kb = j * stride + im;
+        const kc = jp * stride + i, kd = jm * stride + i;
+        a.set(gP[ka * 3], gP[ka * 3 + 1], gP[ka * 3 + 2]);
+        b.set(gP[kb * 3], gP[kb * 3 + 1], gP[kb * 3 + 2]);
+        const du = a.distanceTo(b) / Math.max(ip - im, 1);
+        // second difference ⇒ curvature magnitude along u
+        const kU = _tmp1.copy(a).add(b).addScaledVector(c, -2).length();
+        a.set(gP[kc * 3], gP[kc * 3 + 1], gP[kc * 3 + 2]);
+        b.set(gP[kd * 3], gP[kd * 3 + 1], gP[kd * 3 + 2]);
+        const dv = a.distanceTo(b) / Math.max(jp - jm, 1);
+        const kV = _tmp1.copy(a).add(b).addScaledVector(c, -2).length();
+        vDir.subVectors(a, b);                          // in-surface direction of +v
+        if (vDir.lengthSq() > 1e-12) vDir.normalize(); else vDir.crossVectors(nv, tv).normalize();
+
+        // Least-curvature direction gets the long axis: a fleck lying on a
+        // cylinder stretches along the ruling, not across it.
+        //
+        // COVERAGE INVARIANT — why K is what it is:
+        //   the fragment kernel is exp(-2.3·r²) and discards below 0.30, so a
+        //   fleck of world width `s` actually paints a disc of diameter 0.72·s.
+        //   Flecks sit on a grid of spacing `du`, whose worst-case uncovered
+        //   point is the cell centre at du·√2/2 — so full coverage needs
+        //   0.72·s ≥ √2·du, i.e. s ≥ 1.96·du. Undershoot this and the surface
+        //   breaks into visible stripes. Anisotropy may therefore only ever
+        //   *lengthen* an axis, never shorten one past this floor.
+        const K = 2.0;
+        const aniso = clamp(Math.sqrt((kV + 1e-4) / (kU + 1e-4)), 0.62, 1.75);
+        const sx = Math.max(du * K * aniso, du * K, 0.02);
+        const sy = Math.max(dv * K / aniso, dv * K, 0.02);
+
+        emit(_tmp2.copy(c).addScaledVector(nv, half), nv, tv, sx, sy, 1.0);
+        _tmp3.copy(nv).negate();
+        emit(_tmp2.copy(c).addScaledVector(nv, -half), _tmp3, tv, sx, sy, 0.52);
+
+        // --- rim flecks: seal the exposed thickness at holes and borders ---
+        const nb1 = j * stride + Math.min(i + 1, R), nb2 = j * stride + Math.max(i - 1, 0);
+        const nb3 = Math.min(j + 1, R) * stride + i, nb4 = Math.max(j - 1, 0) * stride + i;
+        const open = !gS[nb1] || !gS[nb2] || !gS[nb3] || !gS[nb4];
+        const border = (i === 0 && node.u0 <= 1e-6) || (i === R && node.u1 >= 1 - 1e-6) ||
+                       (j === 0 && node.v0 <= 1e-6) || (j === R && node.v1 >= 1 - 1e-6);
+        if (open || border) {
+          rimN.set(0, 0, 0);
+          if (open) {
+            // face the nearest carve sphere's centre, projected into the surface
+            let best = null, bd = 1e9;
+            for (const cc of carves) {
+              const d = (c.x - cc.x) ** 2 + (c.y - cc.y) ** 2 + (c.z - cc.z) ** 2;
+              if (d < bd) { bd = d; best = cc; }
+            }
+            if (best) {
+              rimN.set(best.x - c.x, best.y - c.y, best.z - c.z);
+              rimN.addScaledVector(nv, -rimN.dot(nv));
+            }
+          }
+          if (rimN.lengthSq() < 1e-8) {
+            // Patch border: the wall faces OUT along whichever parameter axis
+            // actually ran off the edge — u-borders use the u-tangent, v-borders
+            // the v-direction. (Corners get the sum, which is what you want.)
+            if (i === 0 && node.u0 <= 1e-6) rimN.addScaledVector(tv, -1);
+            if (i === R && node.u1 >= 1 - 1e-6) rimN.addScaledVector(tv, 1);
+            if (j === 0 && node.v0 <= 1e-6) rimN.addScaledVector(vDir, -1);
+            if (j === R && node.v1 >= 1 - 1e-6) rimN.addScaledVector(vDir, 1);
+          }
+          if (rimN.lengthSq() < 1e-8) continue;
+          rimN.normalize();
+          // The rim fleck's local x runs through the slab (its "t" is the surface
+          // normal) and its local y runs along the edge — so those two axes take
+          // the thickness and the sample spacing respectively, each with the same
+          // coverage headroom as the face flecks or the edge beads up into blobs.
+          emit(c, rimN, nv, p.thickness * 1.5, Math.max(du, dv) * K, 0.82);
+        }
+      }
+    }
+    return { kind: 'splat', n: pos.length / 3, born: Clock.t,
+             pos: new Float32Array(pos), nrm: new Float32Array(nrm), tan: new Float32Array(tan),
+             scl: new Float32Array(scl), col: new Float32Array(col) };
+  },
+
+  /* ═════ Entry point: classify, then bake the matching representation ════ */
+  bakeLeaf(node) {
+    if (State.mode === 'voxels') return this.bakeVoxels(node, R_LEAF);
+    const carves = this._grid(node, R_LEAF);
+    // A fully-carved slice has nothing to draw at all.
+    let any = 0; const N = (R_LEAF + 1) * (R_LEAF + 1);
+    for (let k = 0; k < N; k++) any += gS[k];
+    if (!any) return { kind: 'empty', n: 0, born: Clock.t };
+    if (State.mode === 'auto' && State.polyOptim && any === N && carves.length === 0) {
+      const pn = this._isPlanar(R_LEAF);
+      if (pn) return this.bakeMesh(node, pn);
+    }
+    return this.bakeSplats(node, carves);
+  }
+};
+
+/* ═════════════════════════════════════════════════ §6 GPU MATTER BUFFERS ════
+ *  Three persistent, pre-allocated GPU fields. Chunks are blitted into them
+ *  only when the visible set actually changes; the per-chunk "streaming"
+ *  animation then runs entirely on the GPU from a single birth timestamp.
+ * ---------------------------------------------------------------------------*/
+const MAX_SPLATS = 260000, MAX_VOXELS = 70000, MAX_MESHVERTS = 260000;
+
+/* Shared fragment lighting. All three fields use the same key/fill/sky rig so a
+ * chunk looks identical no matter which representation happens to be drawing it
+ * — that is what makes the LOD transitions read as "sharpening" rather than
+ * "swapping". `micro` is a cheap per-element value break so a large flat field
+ * of splats does not turn into one dead slab of colour. */
+const LIGHT_CHUNK = `
+  uniform vec3 uLightDir, uFillDir, uFillCol, uSkyCol;
+  vec3 shade(vec3 base, vec3 n, float micro){
+    base *= 0.90 + 0.20 * micro;
+    float key  = max(dot(n, uLightDir), 0.0);
+    float fill = max(dot(n, uFillDir), 0.0);
+    float sky  = 0.5 + 0.5 * n.y;
+    vec3 c = base * (0.14 + 0.80 * key);
+    c += base * uFillCol * (fill * 0.30);
+    c += uSkyCol * sky * 0.18;
+    return c;
+  }`;
+
+const FOG_CHUNK = `
+  uniform vec3 uFogColor; uniform float uFogNear, uFogFar;
+  vec3 applyFog(vec3 c, float depth){
+    return mix(c, uFogColor, smoothstep(uFogNear, uFogFar, depth));
+  }`;
+
+const STREAM_CHUNK = `
+  uniform float uTime, uStreamDur;
+  float streamT(float born){
+    float s = clamp((uTime - born) / uStreamDur, 0.0, 1.0);
+    return s*s*(3.0 - 2.0*s);
+  }`;
+
+function commonUniforms() {
+  return {
+    uTime:      { value: 0 },
+    uStreamDur: { value: 1.4 },
+    uLightDir:  { value: new THREE.Vector3(0.42, 0.86, 0.28).normalize() },
+    uFillDir:   { value: new THREE.Vector3(-0.55, 0.22, -0.70).normalize() },
+    uFillCol:   { value: new THREE.Color(0x4a6fa8).convertSRGBToLinear() },
+    uSkyCol:    { value: new THREE.Color(0x1a2c46).convertSRGBToLinear() },
+    uStreamCol: { value: new THREE.Color(0x1d5c96).convertSRGBToLinear() },
+    uFogColor:  { value: new THREE.Color(0x07090d).convertSRGBToLinear() },
+    uFogNear:   { value: 90 },
+    uFogFar:    { value: 340 },
+    uCore:      { value: 0.30 }   // Gaussian level dividing opaque core from alpha fringe (see r-soft)
+  };
+}
+
+/* ---- ANISOTROPIC GAUSSIAN SPLAT FIELD --------------------------------- */
+class SplatField {
+  constructor(scene) {
+    const base = new THREE.PlaneGeometry(1, 1);
+    const g = new THREE.InstancedBufferGeometry();
+    g.index = base.index;
+    g.setAttribute('position', base.attributes.position);
+    g.setAttribute('uv', base.attributes.uv);
+    this.a = {
+      iPos:  new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 3), 3),
+      iNrm:  new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 3), 3),
+      iTan:  new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 3), 3),
+      iScl:  new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 2), 2),
+      iCol:  new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 3), 3),
+      iBorn: new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS), 1)
+    };
+    for (const k in this.a) { this.a[k].setUsage(THREE.DynamicDrawUsage); g.setAttribute(k, this.a[k]); }
+    g.instanceCount = 0;
+    g.boundingSphere = new THREE.Sphere(V(), 1e7);
+
+    /* ------------------------------------------------------------------ *
+     *  A Gaussian splat's kernel must drive ALPHA, not just brightness.
+     *  But a naively alpha-blended cloud needs a per-frame back-to-front
+     *  sort and writes no depth, which wrecks the hybrid pipeline (the
+     *  polygon and voxel fields have to occlude and be occluded correctly).
+     *
+     *  So each splat is drawn twice from the SAME instance buffer:
+     *
+     *    CORE  — the region where the kernel is above `uCore`. Opaque,
+     *            depth-writing. Sized by the coverage invariant so the skin
+     *            stays watertight and the depth buffer stays correct.
+     *    SKIRT — the region below `uCore`, drawn afterwards with the kernel
+     *            as true alpha, depth-tested but NOT depth-writing, so the
+     *            flecks fade out into each other and into the background.
+     *
+     *  The fringe is narrow and locally same-coloured, so skipping the sort
+     *  costs essentially nothing visually. "Splat softness" in the HUD moves
+     *  `uCore`: at the soft end the opaque core all but vanishes and you get
+     *  an almost purely alpha-accumulated Gaussian cloud.
+     * ------------------------------------------------------------------ */
+    const vert = `
+        attribute vec3 iPos, iNrm, iTan, iCol;
+        attribute vec2 iScl;
+        attribute float iBorn;
+        ${STREAM_CHUNK}
+        varying vec2 vQ; varying vec3 vC, vN; varying float vS, vD, vM;
+        void main(){
+          float s = streamT(iBorn);
+          vec3 n = normalize(iNrm);
+          // Gram-Schmidt the authored tangent against the normal: the fleck's
+          // long axis must lie exactly in the surface's tangent plane.
+          vec3 t = iTan - n * dot(iTan, n);
+          float tl = length(t);
+          t = tl > 1e-4 ? t / tl : normalize(cross(n, vec3(0.0, 1.0, 0.017)));
+          vec3 b = cross(n, t);
+          // Progressive refinement cue: flecks arrive oversized + jittered,
+          // then settle onto their exact analytic position.
+          float grow = mix(2.6, 1.0, s);
+          float h = sin(iPos.x * 7.3 + iPos.z * 5.1 + iPos.y * 3.7);
+          vec3 wob = n * (1.0 - s) * h * 0.5;
+          vec3 world = iPos + wob + t * position.x * iScl.x * grow + b * position.y * iScl.y * grow;
+          vQ = position.xy * 2.0; vC = iCol; vN = n; vS = s;
+          vM = fract(sin(iPos.x * 12.9898 + iPos.y * 4.1414 + iPos.z * 78.233) * 43758.5453);
+          vec4 mv = modelViewMatrix * vec4(world, 1.0);
+          vD = -mv.z;
+          gl_Position = projectionMatrix * mv;
+        }`;
+
+    const frag = (skirt) => `
+        uniform vec3 uStreamCol;
+        uniform float uCore;
+        ${LIGHT_CHUNK}
+        ${FOG_CHUNK}
+        varying vec2 vQ; varying vec3 vC, vN; varying float vS, vD, vM;
+        void main(){
+          float g = exp(-2.3 * dot(vQ, vQ));           // the anisotropic Gaussian kernel
+          ${skirt
+            ? `if (g >= uCore || g < 0.012) discard;    // fringe only
+               float a = smoothstep(0.0, 1.0, g / max(uCore, 0.001));`
+            : `if (g < uCore) discard;                  // opaque, depth-writing core
+               float a = 1.0;`}
+          vec3 n = gl_FrontFacing ? normalize(vN) : -normalize(vN);
+          vec3 col = shade(vC, n, vM);
+          col = mix(uStreamCol, col, vS);              // "still streaming" tint
+          gl_FragColor = vec4(applyFog(col, vD), a);
+          #include <colorspace_fragment>
+        }`;
+
+    const uni = commonUniforms();
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: uni, side: THREE.DoubleSide,
+      vertexShader: vert, fragmentShader: frag(false)
+    });
+    this.matSkirt = new THREE.ShaderMaterial({
+      uniforms: uni,                                   // shared: one uCore, one uTime
+      side: THREE.DoubleSide,
+      vertexShader: vert, fragmentShader: frag(true),
+      transparent: true, depthWrite: false, depthTest: true,
+      blending: THREE.NormalBlending
+    });
+
+    this.mesh = new THREE.Mesh(g, this.mat);
+    this.mesh.frustumCulled = false;
+    this.skirt = new THREE.Mesh(g, this.matSkirt);
+    this.skirt.frustumCulled = false;
+    this.skirt.renderOrder = 10;                       // after all opaque matter
+    this.geo = g;
+    scene.add(this.mesh, this.skirt);
+    this.count = 0;
+  }
+  begin() { this.count = 0; }
+  push(c) {
+    const n = Math.min(c.n, MAX_SPLATS - this.count);
+    if (n <= 0) return 0;
+    const o = this.count;
+    this.a.iPos.array.set(c.pos.subarray(0, n * 3), o * 3);
+    this.a.iNrm.array.set(c.nrm.subarray(0, n * 3), o * 3);
+    this.a.iTan.array.set(c.tan.subarray(0, n * 3), o * 3);
+    this.a.iScl.array.set(c.scl.subarray(0, n * 2), o * 2);
+    this.a.iCol.array.set(c.col.subarray(0, n * 3), o * 3);
+    this.a.iBorn.array.fill(c.born, o, o + n);
+    this.count += n;
+    return n;
+  }
+  end() { for (const k in this.a) this.a[k].needsUpdate = true; this.geo.instanceCount = this.count; }
+}
+
+/* ---- VOXEL BLOCK FIELD ------------------------------------------------- */
+class VoxelField {
+  constructor(scene) {
+    const base = new THREE.BoxGeometry(1, 1, 1);
+    const g = new THREE.InstancedBufferGeometry();
+    g.index = base.index;
+    g.setAttribute('position', base.attributes.position);
+    g.setAttribute('normal', base.attributes.normal);
+    this.a = {
+      iPos:  new THREE.InstancedBufferAttribute(new Float32Array(MAX_VOXELS * 3), 3),
+      iScl:  new THREE.InstancedBufferAttribute(new Float32Array(MAX_VOXELS * 3), 3),
+      iCol:  new THREE.InstancedBufferAttribute(new Float32Array(MAX_VOXELS * 3), 3),
+      iBorn: new THREE.InstancedBufferAttribute(new Float32Array(MAX_VOXELS), 1)
+    };
+    for (const k in this.a) { this.a[k].setUsage(THREE.DynamicDrawUsage); g.setAttribute(k, this.a[k]); }
+    g.instanceCount = 0;
+    g.boundingSphere = new THREE.Sphere(V(), 1e7);
+
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: commonUniforms(),
+      vertexShader: `
+        attribute vec3 iPos, iScl, iCol;
+        attribute float iBorn;
+        ${STREAM_CHUNK}
+        varying vec3 vC, vN, vL; varying float vS, vD, vM;
+        void main(){
+          float s = streamT(iBorn);
+          vec3 sc = iScl * mix(1.22, 1.0, s);
+          vec3 world = iPos + position * sc;
+          vN = normal; vC = iCol; vS = s; vL = position + 0.5;
+          vM = fract(sin(iPos.x * 12.9898 + iPos.y * 4.1414 + iPos.z * 78.233) * 43758.5453);
+          vec4 mv = modelViewMatrix * vec4(world, 1.0);
+          vD = -mv.z;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        uniform vec3 uStreamCol;
+        ${LIGHT_CHUNK}
+        ${FOG_CHUNK}
+        varying vec3 vC, vN, vL; varying float vS, vD, vM;
+        void main(){
+          vec3 col = shade(vC, normalize(vN), vM);
+          // faint block edging so the voxel stage reads as deliberately blocky
+          vec3 e = min(vL, 1.0 - vL);
+          float edge = smoothstep(0.0, 0.045, min(min(e.x, e.y), e.z));
+          col = mix(col * 1.8 + vec3(0.015, 0.04, 0.075), col, edge);
+          col = mix(uStreamCol, col, 0.40 + 0.60 * vS);
+          gl_FragColor = vec4(applyFog(col, vD), 1.0);
+          #include <colorspace_fragment>
+        }`
+    });
+    this.mesh = new THREE.Mesh(g, this.mat);
+    this.mesh.frustumCulled = false;
+    this.geo = g;
+    scene.add(this.mesh);
+    this.count = 0;
+  }
+  begin() { this.count = 0; }
+  push(c) {
+    const n = Math.min(c.n, MAX_VOXELS - this.count);
+    if (n <= 0) return 0;
+    const o = this.count;
+    this.a.iPos.array.set(c.pos.subarray(0, n * 3), o * 3);
+    this.a.iScl.array.set(c.scl.subarray(0, n * 3), o * 3);
+    this.a.iCol.array.set(c.col.subarray(0, n * 3), o * 3);
+    this.a.iBorn.array.fill(c.born, o, o + n);
+    this.count += n;
+    return n;
+  }
+  end() { for (const k in this.a) this.a[k].needsUpdate = true; this.geo.instanceCount = this.count; }
+}
+
+/* ---- OPTIMIZED POLYGON FIELD ------------------------------------------- */
+class MeshField {
+  constructor(scene) {
+    const g = new THREE.BufferGeometry();
+    this.a = {
+      position: new THREE.BufferAttribute(new Float32Array(MAX_MESHVERTS * 3), 3),
+      aNrm:     new THREE.BufferAttribute(new Float32Array(MAX_MESHVERTS * 3), 3),
+      aCol:     new THREE.BufferAttribute(new Float32Array(MAX_MESHVERTS * 3), 3),
+      aBorn:    new THREE.BufferAttribute(new Float32Array(MAX_MESHVERTS), 1)
+    };
+    for (const k in this.a) { this.a[k].setUsage(THREE.DynamicDrawUsage); g.setAttribute(k, this.a[k]); }
+    g.boundingSphere = new THREE.Sphere(V(), 1e7);
+    g.setDrawRange(0, 0);
+
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: commonUniforms(),
+      side: THREE.DoubleSide,
+      vertexShader: `
+        attribute vec3 aNrm, aCol;
+        attribute float aBorn;
+        ${STREAM_CHUNK}
+        varying vec3 vC, vN; varying float vS, vD;
+        void main(){
+          float s = streamT(aBorn);
+          // Polygons also "arrive": they inflate off the surface then snap flat.
+          float h = sin(position.x * 4.1 + position.z * 3.3 + position.y * 2.2);
+          vec3 p = position + aNrm * (1.0 - s) * h * 0.55;
+          vC = aCol; vN = aNrm; vS = s;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          vD = -mv.z;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        uniform vec3 uStreamCol;
+        ${LIGHT_CHUNK}
+        ${FOG_CHUNK}
+        varying vec3 vC, vN; varying float vS, vD;
+        void main(){
+          vec3 n = gl_FrontFacing ? normalize(vN) : -normalize(vN);
+          vec3 col = shade(vC, n, 0.5);
+          col = mix(uStreamCol, col, vS);
+          gl_FragColor = vec4(applyFog(col, vD), 1.0);
+          #include <colorspace_fragment>
+        }`
+    });
+    this.mesh = new THREE.Mesh(g, this.mat);
+    this.mesh.frustumCulled = false;
+    this.geo = g;
+    scene.add(this.mesh);
+    this.count = 0;
+  }
+  begin() { this.count = 0; }
+  push(c) {
+    const n = Math.min(c.n, MAX_MESHVERTS - this.count);
+    if (n <= 0) return 0;
+    const o = this.count;
+    this.a.position.array.set(c.pos.subarray(0, n * 3), o * 3);
+    this.a.aNrm.array.set(c.nrm.subarray(0, n * 3), o * 3);
+    this.a.aCol.array.set(c.col.subarray(0, n * 3), o * 3);
+    this.a.aBorn.array.fill(c.born, o, o + n);
+    this.count += n;
+    return n;
+  }
+  end() { for (const k in this.a) this.a[k].needsUpdate = true; this.geo.setDrawRange(0, this.count); }
+}
+
+/* ═══════════════════════════════════════════════════════ §7 ASYNC JOB QUEUE ══
+ *  Baking is time-sliced against a per-frame millisecond budget. No matter how
+ *  much of the world goes dirty at once, the main loop never stalls: the user
+ *  keeps flying while matter re-materialises around them.
+ * ---------------------------------------------------------------------------*/
+const JobQueue = {
+  jobs: new Map(),                 // node.uid → {node, dist, releaseAt}
+  budgetMs: 5.0,
+  add(node, dist) {
+    if (node.queued) {             // already pending — just refresh its priority
+      const j = this.jobs.get(node.uid);
+      if (j) j.dist = dist;
+      return;
+    }
+    if (this.jobs.size > 900) return;   // backlog cap; it will re-enqueue next frame
+    node.queued = true;
+    this.jobs.set(node.uid, {
+      node, dist,
+      // "Network latency" pushes a per-chunk arrival delay in front of the bake.
+      releaseAt: Clock.t + (State.netLatency ? 0.12 + Math.random() * 0.58 : 0)
+    });
+  },
+  run() {
+    if (!this.jobs.size) return 0;
+    // Closest-first: refine what the pilot is looking at before the horizon.
+    const list = [...this.jobs.values()].sort((a, b) => a.dist - b.dist);
+    const t0 = performance.now();
+    const budget = State.netLatency ? this.budgetMs * 0.55 : this.budgetMs;
+    let done = 0;
+    for (const j of list) {
+      if (performance.now() - t0 > budget) break;
+      if (j.releaseAt > Clock.t) continue;
+      const nd = j.node;
+      this.jobs.delete(nd.uid);
+      nd.queued = false;
+      if (nd.lastSeen < World.frame - 30) continue;    // pilot flew away; drop it
+      nd.rep = Baker.bakeLeaf(nd);
+      nd.repPV = nd.patch.version;
+      nd.repBV = State.bakeVersion;
+      done++;
+      World.dirtyBuffers = true;
+    }
+    return done;
+  },
+  purge(patch) {
+    for (const [uid, j] of this.jobs) if (j.node.patch === patch) { j.node.queued = false; this.jobs.delete(uid); }
+  }
+};
+
+/* ══════════════════════════════════════════════════════════ §8 ENGINE STATE ══ */
+const State = {
+  mode: 'auto',            // auto | points | voxels
+  polyOptim: true,
+  netLatency: false,
+  lodColor: false,
+  showBounds: false,
+  digOnClick: true,
+  lodScale: 1.15,
+  digRadius: 2.4,
+  flySpeed: 22,
+  bakeVersion: 1           // bumped when a toggle invalidates every baked chunk
+};
+
+const Clock = { t: 0, dt: 0 };
+
+/* ═══════════════════════════════════════════════════════════ §9 SCENE SETUP ══ */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x07090d);
+scene.fog = null;                                   // fog is done in-shader
+
+const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.12, 2400);
+camera.position.set(-34, 20, 56);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+// Ground reference grid + horizon glow
+const grid = new THREE.GridHelper(1200, 240, 0x1d3550, 0x111b28);
+grid.position.y = -12;
+grid.material.transparent = true; grid.material.opacity = 0.5;
+scene.add(grid);
+const grid2 = new THREE.GridHelper(1200, 24, 0x2a4d75, 0x1a2c42);
+grid2.position.y = -11.98;
+grid2.material.transparent = true; grid2.material.opacity = 0.55;
+scene.add(grid2);
+
+const splats = new SplatField(scene);
+const voxels = new VoxelField(scene);
+const meshes = new MeshField(scene);
+const FIELDS = [splats, voxels, meshes];
+
+/* ══════════════════════════════════════════════════ §10 AUTHORED HERO WORLD ══
+ *  Three hand-authored lofted solids, each ~600 bytes of control points.
+ * ---------------------------------------------------------------------------*/
+const TINT = {
+  bridge:  new THREE.Color(0x8fb8e8).convertSRGBToLinear(),
+  wall:    new THREE.Color(0xc58bff).convertSRGBToLinear(),
+  terrain: new THREE.Color(0x5fd8b4).convertSRGBToLinear(),
+  far:     new THREE.Color(0x7e93b8).convertSRGBToLinear()
+};
+
+function buildHeroPatches() {
+  const out = [];
+
+  /* ---- ① Arched bridge: a straight-in-v, arcing-in-u ruled solid.
+   *
+   *  The three collinear, equal-height nodes at each end give those Hermite
+   *  segments zero vertical tangent AND equal endpoints, so they are EXACTLY
+   *  planar — the approach ramps therefore bake to clean two-triangle slabs
+   *  while the crown, which is genuinely curved, falls through to splats.
+   *  One object, both branches of the classifier, visible side by side.     */
+  const bx = [-46, -34, -22, 0, 22, 34, 46];
+  const by = [3.2, 3.2, 3.2, 11.6, 3.2, 3.2, 3.2];
+  out.push(new Patch({
+    name: 'Arched Bridge',
+    // railA at +z so ∂u × ∂v points up (see the terrain note below).
+    railA: railFrom(bx.map((x, i) => V(x, by[i], 4.5))),
+    railB: railFrom(bx.map((x, i) => V(x, by[i], -4.5))),
+    thickness: 1.15, tint: TINT.bridge, maxDepth: 9, hero: true
+  }));
+
+  /* ---- ② Winding thin wall: rails share an S-plan but sit at different
+   *        heights, so the loft is a vertical ribbon. A travelling ripple in
+   *        the warp field keeps almost every slice non-planar.             */
+  const plan = [V(-34, -3, 34), V(-14, -3, 15), V(4, -3, 25), V(22, -3, 6), V(38, -3, 20)];
+  const tops = [7.5, 9.5, 6.5, 10.5, 7.0];
+  out.push(new Patch({
+    name: 'Winding Wall',
+    railA: railFrom(plan.map(p => p.clone())),
+    railB: railFrom(plan.map((p, i) => V(p.x * 1.04, tops[i], p.z * 1.04))),
+    thickness: 0.5, tint: TINT.wall, maxDepth: 9, hero: true,
+    warp: (u, v) => 0.85 * Math.sin(u * 15.5) * v * v + 0.3 * Math.sin(v * 7.0 + u * 9.0)
+  }));
+
+  /* ---- ③ Organic terrain sheet: a flat base loft carrying a summed-sine
+   *        height field, with a smoothstep-masked plaza that is EXACTLY flat.
+   *        One patch therefore exercises both branches of the classifier.  */
+  out.push(new Patch({
+    name: 'Terrain Sheet',
+    // railA at +z, railB at −z: this winding makes ∂u × ∂v point skyward, so
+    // every derived normal (and therefore every splat) faces the right way.
+    railA: railFrom([V(-70, -8, 70), V(0, -8, 70), V(70, -8, 70)]),
+    railB: railFrom([V(-70, -8, -70), V(0, -8, -70), V(70, -8, -70)]),
+    thickness: 1.9, tint: TINT.terrain, maxDepth: 9, hero: true,
+    warp: (u, v, p) => {
+      const x = p.x, z = p.z;
+      const h = 3.1 * Math.sin(x * 0.055) * Math.cos(z * 0.048)
+              + 1.6 * Math.sin(x * 0.128 + z * 0.091)
+              + 0.8 * Math.sin(z * 0.205)
+              + 0.45 * Math.sin(x * 0.31 + 1.7);
+      // Perfectly level plaza — the polygon optimiser's showcase. Sized well
+      // above one leaf so whole chunks land inside it and bake to meshes.
+      const plaza = smoothstep(21, 36, Math.hypot(x - 22, z + 18));
+      // A straight, level causeway strip as a second flat region.
+      const road = smoothstep(7, 15, Math.abs(z + 50));
+      const m = Math.min(plaza, road);
+      return h * m + (1 - plaza) * 1.2 + (1 - road) * 0.5;
+    }
+  }));
+
+  return out;
+}
+
+/* ═══════════════════════════════════════ §11 INFINITE FAR-FIELD STREAMING ══
+ *  Beyond the authored world, patches are *generated* per spatial hash cell
+ *  within a radius of the camera and released when the pilot leaves. Nothing
+ *  is stored on disk; the world is unbounded in every direction.
+ * ---------------------------------------------------------------------------*/
+const CELL = 110, STREAM_R = 300, RELEASE_R = 380;
+
+function generateCellPatch(cx, cz) {
+  const rng = mulberry32(hash2(cx, cz));
+  const ox = cx * CELL + (rng() - 0.5) * CELL * 0.5;
+  const oz = cz * CELL + (rng() - 0.5) * CELL * 0.5;
+  const kind = (rng() * 3) | 0;
+  const rot = rng() * Math.PI * 2, cr = Math.cos(rot), sr = Math.sin(rot);
+  const put = (x, y, z) => V(ox + x * cr - z * sr, y, oz + x * sr + z * cr);
+
+  if (kind === 0) {                                 // distant arch ribbon
+    const L = 26 + rng() * 26, H = 8 + rng() * 22, W = 3 + rng() * 7;
+    const xs = [-L, -L * 0.5, 0, L * 0.5, L];
+    const ys = [0, H * 0.7, H, H * 0.7, 0];
+    return new Patch({
+      name: `arch ${cx},${cz}`,
+      railA: railFrom(xs.map((x, i) => put(x, ys[i] - 6, W))),
+      railB: railFrom(xs.map((x, i) => put(x, ys[i] - 6, -W))),
+      thickness: 0.9 + rng(), tint: TINT.far, maxDepth: 7
+    });
+  }
+  if (kind === 1) {                                 // distant winding wall
+    const pts = [], n = 4;
+    for (let i = 0; i <= n; i++) pts.push(put((i / n - 0.5) * (50 + rng() * 40), 0, (rng() - 0.5) * 42));
+    const hs = pts.map(() => 6 + rng() * 16);
+    return new Patch({
+      name: `wall ${cx},${cz}`,
+      railA: railFrom(pts.map(p => V(p.x, -8, p.z))),
+      railB: railFrom(pts.map((p, i) => V(p.x, hs[i] - 8, p.z))),
+      thickness: 0.45 + rng() * 0.4, tint: TINT.far, maxDepth: 7,
+      warp: (u, v) => 0.6 * Math.sin(u * (7 + rng0(cx, cz) * 10)) * v
+    });
+  }
+  const S = 26 + rng() * 24, amp = 2 + rng() * 6, f = 0.05 + rng() * 0.09;
+  const lift = -9 + rng() * 8;
+  return new Patch({                                // distant mesa sheet
+    name: `mesa ${cx},${cz}`,
+    railA: railFrom([put(-S, lift, S), put(0, lift, S), put(S, lift, S)]),
+    railB: railFrom([put(-S, lift, -S), put(0, lift, -S), put(S, lift, -S)]),
+    thickness: 1.4 + rng(), tint: TINT.far, maxDepth: 7,
+    warp: (u, v, p) => amp * Math.sin(p.x * f) * Math.cos(p.z * f * 1.2) * smoothstep(0, 0.18, Math.min(Math.min(u, 1 - u), Math.min(v, 1 - v)))
+  });
+}
+// stable per-cell scalar (the closure above must not consume the streaming rng)
+const rng0Cache = new Map();
+function rng0(cx, cz) {
+  const k = cx * 73856093 ^ cz * 19349663;
+  if (!rng0Cache.has(k)) rng0Cache.set(k, mulberry32(hash2(cx, cz) ^ 0x5f3a)());
+  return rng0Cache.get(k);
+}
+
+/* ═══════════════════════════════════════════════════════════════ §12 WORLD ══ */
+
+/** A patch must own a root voxel proxy the instant it exists — that is what
+ *  makes a newly streamed structure pop into view blocky rather than absent. */
+function seedRoot(p) {
+  p.root.proxy = Baker.bakeVoxels(p.root, R_PROXY);
+  p.root.proxyPV = p.version;
+}
+
+const World = {
+  patches: [],
+  heroes: [],
+  cells: new Map(),           // "cx,cz" → Patch
+  frame: 0,
+  dirtyBuffers: true,
+  visibleKey: 0,
+  stats: { splats: 0, voxels: 0, meshTris: 0, chunks: 0, streaming: 0 },
+
+  init() {
+    this.heroes = buildHeroPatches();
+    this.patches = this.heroes.slice();
+    for (const p of this.patches) seedRoot(p);
+    this.streamCells(true);
+  },
+
+  /* ---- ① Infinite Euclidean search: resident set follows the camera ---- */
+  streamCells(force) {
+    const cx0 = Math.round(camera.position.x / CELL), cz0 = Math.round(camera.position.z / CELL);
+    const span = Math.ceil(STREAM_R / CELL);
+    for (let dz = -span; dz <= span; dz++) {
+      for (let dx = -span; dx <= span; dx++) {
+        const cx = cx0 + dx, cz = cz0 + dz;
+        if (Math.abs(cx) <= 1 && Math.abs(cz) <= 1) continue;          // hero real estate
+        const wx = cx * CELL - camera.position.x, wz = cz * CELL - camera.position.z;
+        if (Math.hypot(wx, wz) > STREAM_R) continue;
+        const key = cx + ',' + cz;
+        if (this.cells.has(key)) continue;
+        const p = generateCellPatch(cx, cz);
+        p.cellKey = key;
+        seedRoot(p);
+        this.cells.set(key, p);
+        this.patches.push(p);
+      }
+    }
+    // Release everything past the hysteresis radius.
+    for (const [key, p] of this.cells) {
+      const [cx, cz] = key.split(',').map(Number);
+      if (Math.hypot(cx * CELL - camera.position.x, cz * CELL - camera.position.z) > RELEASE_R) {
+        JobQueue.purge(p);
+        this.cells.delete(key);
+        const i = this.patches.indexOf(p);
+        if (i >= 0) this.patches.splice(i, 1);
+        this.dirtyBuffers = true;
+      }
+    }
+  },
+
+  /* ---- ② Distance-driven traversal → the frame's render list ----------- */
+  collect(out) {
+    this.frame++;
+    let proxyBudget = 60;
+    let key = 0, chunks = 0, streaming = 0;
+    const cam = camera.position;
+    const K = 2.35 * State.lodScale;
+
+    // The proxy bake is also what computes a node's world AABB, so it doubles as
+    // "make this node's bounds current". Budgeted: when the whole world goes
+    // dirty at once we reuse stale bounds for a frame or two instead of hitching.
+    const ensureProxy = (n) => {
+      if (n.proxy && n.proxyPV === n.patch.version) return true;
+      if (proxyBudget <= 0) return !!n.proxy;                 // reuse stale rather than pop
+      proxyBudget--;
+      n.proxy = Baker.bakeVoxels(n, R_PROXY);
+      n.proxyPV = n.patch.version;
+      this.dirtyBuffers = true;
+      return true;
+    };
+
+    for (const p of this.patches) {
+      const stack = [p.root];
+      while (stack.length) {
+        const n = stack.pop();
+        n.lastSeen = this.frame;
+        if (!ensureProxy(n)) continue;                        // no bounds yet — next frame
+        const dist = n.box.distanceToPoint(cam);
+        // Refine while the chunk is both near enough AND still coarser than the
+        // engine's finest element. Size, not tree depth, is the real cutoff.
+        const refinable = n.depth < p.maxDepth && Math.max(n.wu, n.wv) > MIN_LEAF;
+        if (refinable && dist < n.radius * K) {
+          // Only subdivide if we can afford bounds for every child right now,
+          // so a split never opens a one-frame hole in the surface.
+          if (!n.children && proxyBudget >= 4) for (const c of n.split()) ensureProxy(c);
+          if (n.children) { for (const c of n.children) stack.push(c); continue; }
+        }
+        // --- leaf: draw the refined bake if it is current, else the proxy ---
+        const fresh = n.rep && n.repPV === p.version && n.repBV === State.bakeVersion;
+        if (fresh) {
+          if (n.rep.n) out.push(n.rep);
+          key += n.uid * 3;
+          if (Clock.t - n.rep.born < 1.4) streaming++;
+        } else {
+          ensureProxy(n);
+          if (n.proxy && n.proxy.n) out.push(n.proxy);
+          key += n.uid * 7;
+          JobQueue.add(n, dist);
+          streaming++;
+        }
+        chunks++;
+      }
+    }
+    this.stats.chunks = chunks;
+    this.stats.streaming = streaming;
+    if (key !== this.visibleKey) { this.visibleKey = key; this.dirtyBuffers = true; }
+  },
+
+  /* ---- ③ Blit the render list into the three GPU fields ---------------- */
+  upload(list) {
+    for (const f of FIELDS) f.begin();
+    for (const c of list) {
+      if (c.kind === 'splat') splats.push(c);
+      else if (c.kind === 'voxel') voxels.push(c);
+      else if (c.kind === 'mesh') meshes.push(c);
+    }
+    for (const f of FIELDS) f.end();
+    this.stats.splats = splats.count;
+    this.stats.voxels = voxels.count;
+    this.stats.meshTris = meshes.count / 3;
+  },
+
+  /* ---- ④ Destructive edit: flag only the intersected bounding boxes ---- */
+  markDirty(patch, box) {
+    const stack = [patch.root];
+    while (stack.length) {
+      const n = stack.pop();
+      if (!n.box.intersectsBox(box)) continue;
+      n.rep = null; n.repPV = -1;
+      n.proxyPV = -1;                                  // force proxy re-bake too
+      if (n.children) stack.push(...n.children);
+    }
+    this.dirtyBuffers = true;
+  },
+
+  /** Whole-patch invalidation, used when the math graph itself moves. */
+  markPatchDirty(patch) {
+    patch.version++;
+    patch.colliderVersion = -1;
+    this.dirtyBuffers = true;
+  },
+
+  /** LRU sweep: matter far from the pilot is released back to pure math. */
+  sweep() {
+    const cutoff = this.frame - 260;
+    for (const p of this.patches) {
+      const stack = [p.root];
+      while (stack.length) {
+        const n = stack.pop();
+        if (!n.children) continue;
+        let stale = true;
+        for (const c of n.children) if (c.lastSeen > cutoff) { stale = false; break; }
+        if (stale) { for (const c of n.children) c.evict(); n.children = null; }
+        else stack.push(...n.children);
+      }
+    }
+  },
+
+  byteSize() { return this.patches.reduce((s, p) => s + p.byteSize(), 0); }
+};
+
+/* ══════════════════════════════════════════════════ §13 RAYCAST COLLIDERS ══
+ *  A cheap mid-surface mesh per patch, kept OUT of the scene graph so it is
+ *  never rendered but is still hit by the Raycaster.
+ * ---------------------------------------------------------------------------*/
+const COLLIDER_RES = 22;
+function collider(patch) {
+  if (patch.collider && patch.colliderVersion === patch.version) return patch.collider;
+  const R = COLLIDER_RES, pos = [], idx = [];
+  const P = V(), N = V();
+  for (let j = 0; j <= R; j++) for (let i = 0; i <= R; i++) {
+    patch.sample(i / R, j / R, P, N, null);
+    pos.push(P.x, P.y, P.z);
+  }
+  for (let j = 0; j < R; j++) for (let i = 0; i < R; i++) {
+    const a = j * (R + 1) + i, b = a + 1, c = a + R + 1, d = c + 1;
+    idx.push(a, c, b, b, c, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeBoundingSphere();
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  m.userData.patch = patch;
+  m.updateMatrixWorld(true);
+  patch.collider = m;
+  patch.colliderVersion = patch.version;
+  return m;
+}
+
+/* ══════════════════════════════════════════════════ §14 DIRTY-REGION CUES ══ */
+const dirtyBoxes = [];
+const dirtyPool = [];
+const boxEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
+function flashRegion(box) {
+  let h = dirtyPool.pop();
+  if (!h) {
+    h = new THREE.LineSegments(boxEdges, new THREE.LineBasicMaterial({ color: 0xffb057, transparent: true }));
+    h.frustumCulled = false;
+    scene.add(h);
+  }
+  box.getCenter(h.position);
+  box.getSize(_tmp1); h.scale.set(Math.max(_tmp1.x, .05), Math.max(_tmp1.y, .05), Math.max(_tmp1.z, .05));
+  h.visible = true; h.material.opacity = 1;
+  dirtyBoxes.push({ h, t: 0.9 });
+}
+function updateDirtyCues(dt) {
+  for (let i = dirtyBoxes.length - 1; i >= 0; i--) {
+    const d = dirtyBoxes[i];
+    d.t -= dt;
+    d.h.material.opacity = Math.max(d.t / 0.9, 0);
+    if (d.t <= 0) { d.h.visible = false; dirtyPool.push(d.h); dirtyBoxes.splice(i, 1); }
+  }
+}
+
+/* ═════════════════════════════════════════ §15 AUTHORING-LAYER HANDLE RIG ══
+ *  Direct manipulation of the source of truth. Dragging a sphere edits a
+ *  control node or its tangent, bumps the patch version, and the whole patch
+ *  falls back to blocky proxies and re-sharpens — live, without a stall.
+ * ---------------------------------------------------------------------------*/
+const handleGroup = new THREE.Group();
+scene.add(handleGroup);
+const handleGeoP = new THREE.OctahedronGeometry(0.85, 1);
+const handleGeoT = new THREE.OctahedronGeometry(0.5, 0);
+// Handles draw through matter (depthTest off) so they stay grabbable even when
+// the solid they author is between them and the camera.
+const handleOpts = { depthTest: false, transparent: true, opacity: 0.95 };
+const matNode = new THREE.MeshBasicMaterial({ color: 0x57d2ff, ...handleOpts });
+const matTan = new THREE.MeshBasicMaterial({ color: 0xffb057, ...handleOpts });
+const matLink = new THREE.LineBasicMaterial({ color: 0x6fa8cf, depthTest: false, transparent: true, opacity: 0.75 });
+const TAN_VIS = 0.3;                                   // tangent handle display scale
+
+const handles = [];
+
+function buildHandles(patch) {
+  for (const o of handleGroup.children) if (o.isLine) o.geometry.dispose();
+  handleGroup.clear();
+  handles.length = 0;
+  if (!patch) return;
+  for (const rail of [patch.railA, patch.railB]) {
+    for (const node of rail.nodes) {
+      const hp = new THREE.Mesh(handleGeoP, matNode);
+      hp.renderOrder = 999;
+      hp.userData = { patch, node, kind: 'p' };
+      handleGroup.add(hp); handles.push(hp);
+
+      const ht = new THREE.Mesh(handleGeoT, matTan);
+      ht.renderOrder = 999;
+      ht.userData = { patch, node, kind: 't' };
+      handleGroup.add(ht); handles.push(ht);
+
+      const lg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+      const ln = new THREE.Line(lg, matLink);
+      ln.frustumCulled = false;
+      ln.renderOrder = 998;
+      ln.userData = { node };
+      handleGroup.add(ln);
+    }
+  }
+  syncHandles();
+}
+
+/** Handles are a *view* of the graph — they follow programmatic edits too. */
+function syncHandles() {
+  for (const o of handleGroup.children) {
+    const d = o.userData;
+    if (!d || !d.node) continue;
+    if (o.isLine) {
+      const arr = o.geometry.attributes.position.array;
+      const p = d.node.p;
+      arr[0] = p.x; arr[1] = p.y; arr[2] = p.z;
+      arr[3] = p.x + d.node.t.x * TAN_VIS;
+      arr[4] = p.y + d.node.t.y * TAN_VIS;
+      arr[5] = p.z + d.node.t.z * TAN_VIS;
+      o.geometry.attributes.position.needsUpdate = true;
+    } else if (d.kind === 'p') o.position.copy(d.node.p);
+    else o.position.copy(d.node.p).addScaledVector(d.node.t, TAN_VIS);
+  }
+}
+
+/* ═══════════════════════════════════════════════ §16 CAMERA + INPUT LAYER ══ */
+const keys = new Set();
+let yaw = -0.42, pitch = -0.30;
+const fwd = V(), right = V(), up = V(0, 1, 0);
+
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  keys.add(e.code);
+  if (e.code === 'KeyR') { camera.position.set(-34, 20, 56); yaw = -0.42; pitch = -0.30; toast('Respawned at origin'); }
+});
+addEventListener('keyup', e => keys.delete(e.code));
+addEventListener('blur', () => keys.clear());
+
+const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
+function updateCamera(dt) {
+  _euler.set(pitch, yaw, 0);
+  camera.quaternion.setFromEuler(_euler);
+  fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+  right.set(1, 0, 0).applyQuaternion(camera.quaternion);
+  let v = State.flySpeed * (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 4 : 1) * dt;
+  if (keys.has('KeyW')) camera.position.addScaledVector(fwd, v);
+  if (keys.has('KeyS')) camera.position.addScaledVector(fwd, -v);
+  if (keys.has('KeyD')) camera.position.addScaledVector(right, v);
+  if (keys.has('KeyA')) camera.position.addScaledVector(right, -v);
+  if (keys.has('KeyE') || keys.has('Space')) camera.position.addScaledVector(up, v);
+  if (keys.has('KeyQ')) camera.position.addScaledVector(up, -v);
+}
+
+/* ---- Pointer: drag = look, click = carve, handle-drag = re-author ------- */
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let dragging = false, dragDist = 0, lastX = 0, lastY = 0;
+let grabbed = null;
+const grabPlane = new THREE.Plane();
+const grabHit = V(), grabOff = V();
+
+const cv = renderer.domElement;
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  dragging = true; dragDist = 0; lastX = e.clientX; lastY = e.clientY;
+  grabbed = null;
+
+  if (handles.length) {
+    setNDC(e);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(handles, false)[0];
+    if (hit) {
+      grabbed = hit.object;
+      // Drag in the screen-parallel plane through the handle.
+      grabPlane.setFromNormalAndCoplanarPoint(fwd.clone().negate(), hit.object.position);
+      ray.ray.intersectPlane(grabPlane, grabHit);
+      grabOff.copy(hit.object.position).sub(grabHit);
+    }
+  }
+});
+
+cv.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  dragDist += Math.abs(dx) + Math.abs(dy);
+
+  if (grabbed) {
+    setNDC(e);
+    ray.setFromCamera(ndc, camera);
+    if (!ray.ray.intersectPlane(grabPlane, grabHit)) return;
+    grabHit.add(grabOff);
+    const { patch, node, kind } = grabbed.userData;
+    if (kind === 'p') node.p.copy(grabHit);
+    else node.t.copy(grabHit).sub(node.p).divideScalar(TAN_VIS);
+    World.markPatchDirty(patch);
+    syncHandles();
+    return;
+  }
+  yaw -= dx * 0.0032;
+  pitch = clamp(pitch - dy * 0.0032, -1.5, 1.5);
+});
+
+cv.addEventListener('pointerup', e => {
+  dragging = false;
+  if (grabbed) {
+    const { patch } = grabbed.userData;
+    flashRegion(patch.root.box.clone());
+    toast(`Re-authored “${patch.name}” — re-baking asynchronously, no reload`);
+    grabbed = null;
+    return;
+  }
+  if (dragDist < 7 && State.digOnClick) { setNDC(e); dig(); }
+});
+
+function setNDC(e) {
+  const r = cv.getBoundingClientRect();
+  ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+  ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+}
+
+/* ---- The destructive operation ---------------------------------------- */
+function dig() {
+  ray.setFromCamera(ndc, camera);
+  // Only nearby patches are worth colliding against.
+  const targets = World.patches.filter(p => p.root.box.distanceToPoint(camera.position) < 220).map(collider);
+  const hits = ray.intersectObjects(targets, false);
+  for (const h of hits) {
+    const patch = h.object.userData.patch;
+    if (!patch.isSolid(h.point)) continue;          // already carved away here
+    const r = State.digRadius;
+    patch.carves.push({ x: h.point.x, y: h.point.y, z: h.point.z, r, r2: r * r });
+    if (patch.carves.length > 600) patch.carves.shift();
+    const box = new THREE.Box3(
+      V(h.point.x - r, h.point.y - r, h.point.z - r),
+      V(h.point.x + r, h.point.y + r, h.point.z + r)
+    );
+    // ONLY the intersected sub-tree is invalidated. Everything else keeps its
+    // baked matter — no scene reload, no traversal stall.
+    World.markDirty(patch, box);
+    patch.colliderVersion = -1;
+    flashRegion(box);
+    toast(`Carved ${(4 / 3 * Math.PI * r ** 3).toFixed(1)} m³ from “${patch.name}” — local re-bake queued`);
+    return;
+  }
+  toast('No matter under the cursor');
+}
+
+/* ═══════════════════════════════════════════════════════════ §17 HUD WIRING ══ */
+const $ = id => document.getElementById(id);
+const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n | 0);
+const bytes = n => n >= 1024 ? (n / 1024).toFixed(1) + ' kB' : n + ' B';
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/** Any change to classification rules invalidates every baked chunk. */
+function rebakeAll(msg) {
+  State.bakeVersion++;
+  World.dirtyBuffers = true;
+  if (msg) toast(msg);
+}
+
+$('mode').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  [...$('mode').children].forEach(c => c.classList.toggle('on', c === b));
+  State.mode = b.dataset.mode;
+  rebakeAll(`Representation → ${b.textContent}`);
+});
+$('t-poly').onchange = e => { State.polyOptim = e.target.checked; rebakeAll(e.target.checked ? 'Flat slices bake to polygons' : 'Polygon optimiser off — all matter is splats'); };
+$('t-net').onchange = e => { State.netLatency = e.target.checked; toast(e.target.checked ? 'Simulating 120–700 ms chunk latency' : 'Latency simulation off'); };
+$('t-lod').onchange = e => { State.lodColor = e.target.checked; rebakeAll('Colouring by quadtree depth'); };
+$('t-bounds').onchange = e => { State.showBounds = e.target.checked; };
+$('t-dig').onchange = e => { State.digOnClick = e.target.checked; };
+
+const bindRange = (id, num, fn, fmtv) => {
+  const r = $(id), n = $(num);
+  r.oninput = () => { const v = parseFloat(r.value); n.textContent = fmtv ? fmtv(v) : v; fn(v); };
+};
+bindRange('r-lod', 'n-lod', v => State.lodScale = v, v => v.toFixed(2));
+bindRange('r-flat', 'n-flat', v => { Baker.flatEps = v; rebakeAll(null); }, v => v.toFixed(4).slice(1));
+// Softness 0 → the whole quad is opaque core (hard flecks).
+// Softness 1 → the core all but vanishes and the surface is carried almost
+//              entirely by accumulated alpha, i.e. a true Gaussian cloud.
+bindRange('r-soft', 'n-soft', v => {
+  splats.mat.uniforms.uCore.value = lerp(0.02, 0.80, v);
+}, v => v >= 1 ? '1.00' : v.toFixed(2).slice(1));
+bindRange('r-dig', 'n-dig', v => State.digRadius = v, v => v.toFixed(1));
+bindRange('r-spd', 'n-spd', v => State.flySpeed = v, v => String(v | 0));
+
+/* ---- Handle selector --------------------------------------------------- */
+const sel = $('sel-patch');
+function fillSelector() {
+  sel.innerHTML = '<option value="-1">Hide control handles</option>';
+  World.heroes.forEach((p, i) => {
+    const o = document.createElement('option');
+    o.value = String(i); o.textContent = `Show handles · ${p.name}`;
+    sel.appendChild(o);
+  });
+}
+sel.onchange = () => {
+  const i = parseInt(sel.value, 10);
+  buildHandles(i < 0 ? null : World.heroes[i]);
+  if (i >= 0) toast(`Drag the cyan nodes or amber tangents of “${World.heroes[i].name}”`);
+};
+
+/* ---- One-click deformations: animated so re-baking is visible live ---- */
+const tweens = [];
+function tween(dur, fn, done) { tweens.push({ t: 0, dur, fn, done }); }
+function runTweens(dt) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const w = tweens[i];
+    w.t += dt;
+    const k = clamp(w.t / w.dur, 0, 1);
+    w.fn(k * k * (3 - 2 * k));
+    if (k >= 1) { tweens.splice(i, 1); w.done && w.done(); }
+  }
+}
+function deform(patch, mutate, label) {
+  const snapshot = [patch.railA, patch.railB].map(r => r.nodes.map(n => ({ p: n.p.clone(), t: n.t.clone() })));
+  tween(0.75, k => {
+    [patch.railA, patch.railB].forEach((rail, ri) =>
+      rail.nodes.forEach((n, ni) => mutate(n, snapshot[ri][ni], k, ni, ri, rail.nodes.length)));
+    World.markPatchDirty(patch);
+    syncHandles();
+  });
+  const b = patch.root.box.clone(); b.expandByScalar(4); flashRegion(b);
+  toast(label);
+}
+$('b-arch').onclick = () => {
+  const p = World.heroes[0], dir = Math.random() < 0.5 ? 1 : -1;
+  deform(p, (n, s, k, ni, ri, len) => {
+    const w = Math.sin((ni / (len - 1)) * Math.PI);
+    n.p.y = s.p.y + dir * 7.5 * w * k;
+  }, 'Bridge arch re-authored — patch re-baking around you');
+};
+$('b-wall').onclick = () => {
+  const p = World.heroes[1];
+  deform(p, (n, s, k, ni) => {
+    n.p.z = s.p.z + Math.sin(ni * 2.1 + 0.7) * 11 * k;
+    n.p.x = s.p.x + Math.cos(ni * 1.7) * 5 * k;
+  }, 'Wall curve re-authored — only its quadtree went dirty');
+};
+$('b-terr').onclick = () => {
+  const p = World.heroes[2];
+  deform(p, (n, s, k, ni) => { n.p.y = s.p.y + (ni % 2 ? 9 : -5) * k; }, 'Terrain rails heaved — sheet re-baking progressively');
+};
+$('b-reset').onclick = () => {
+  for (const p of World.heroes) {
+    for (const rail of [p.railA, p.railB]) for (const n of rail.nodes) { n.p.copy(n.p0); n.t.copy(n.t0); }
+    World.markPatchDirty(p);
+  }
+  syncHandles();
+  toast('Mathematical graph restored to authored state');
+};
+$('b-clear').onclick = () => {
+  let n = 0;
+  for (const p of World.patches) {
+    if (!p.carves.length) continue;
+    n += p.carves.length; p.carves.length = 0;
+    World.markPatchDirty(p);
+  }
+  toast(n ? `${n} carve volumes removed — matter re-materialising` : 'Nothing carved yet');
+};
+
+/* A HUD control must never keep keyboard focus: the pilot has to nudge a slider
+ * and immediately fly again, and a focused <button> would otherwise swallow
+ * Space (bound to "ascend") and re-trigger itself. */
+for (const el of document.querySelectorAll('#ctrl input, #ctrl select, #ctrl button')) {
+  const drop = () => setTimeout(() => el.blur(), 0);
+  el.addEventListener('pointerup', drop);
+  el.addEventListener('change', drop);
+}
+
+/* ---- Quadtree bounds visualiser --------------------------------------- */
+const boundsMat = new THREE.LineBasicMaterial({ color: 0x2f6f9e, transparent: true, opacity: 0.35 });
+const boundsGeo = new THREE.BufferGeometry();
+const BOUNDS_MAX = 4000;
+boundsGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(BOUNDS_MAX * 3), 3));
+const boundsObj = new THREE.LineSegments(boundsGeo, boundsMat);
+boundsObj.frustumCulled = false; boundsObj.visible = false;
+scene.add(boundsObj);
+const BOX_EDGE = [[0,1],[1,3],[3,2],[2,0],[4,5],[5,7],[7,6],[6,4],[0,4],[1,5],[2,6],[3,7]];
+function drawBounds() {
+  boundsObj.visible = State.showBounds;
+  if (!State.showBounds) return;
+  const arr = boundsGeo.attributes.position.array;
+  let w = 0;
+  const corner = (b, i, o) => o.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z);
+  const a = V(), c = V();
+  for (const p of World.patches) {
+    const stack = [p.root];
+    while (stack.length && w < BOUNDS_MAX * 3 - 72) {
+      const n = stack.pop();
+      if (n.lastSeen !== World.frame) continue;
+      if (n.children) { stack.push(...n.children); continue; }
+      for (const [i0, i1] of BOX_EDGE) {
+        corner(n.box, i0, a); corner(n.box, i1, c);
+        arr[w++] = a.x; arr[w++] = a.y; arr[w++] = a.z;
+        arr[w++] = c.x; arr[w++] = c.y; arr[w++] = c.z;
+      }
+    }
+  }
+  boundsGeo.attributes.position.needsUpdate = true;
+  boundsGeo.setDrawRange(0, w / 3);
+}
+
+/* ══════════════════════════════════════════════════════════ §18 MAIN LOOP ══ */
+World.init();
+fillSelector();
+
+const renderList = [];
+let last = performance.now() / 1000;
+let fpsAcc = 0, fpsN = 0, hudTimer = 0, streamTimer = 0, sweepTimer = 0;
+
+function frame() {
+  requestAnimationFrame(frame);
+  const now = performance.now() / 1000;
+  const dt = Math.min(now - last, 0.1);
+  last = now;
+  Clock.t = now; Clock.dt = dt;
+
+  updateCamera(dt);
+  runTweens(dt);
+  updateDirtyCues(dt);
+
+  // ① streaming: resident patch set follows the camera (4 Hz is plenty)
+  streamTimer += dt;
+  if (streamTimer > 0.25) { streamTimer = 0; World.streamCells(); }
+
+  // ② Euclidean LOD traversal → render list
+  renderList.length = 0;
+  World.collect(renderList);
+
+  // ③ time-sliced asynchronous baking — never blocks navigation
+  JobQueue.run();
+
+  // ④ only re-blit the GPU buffers when the visible set actually changed;
+  //    the streaming animation itself runs from the per-chunk birth stamp.
+  if (World.dirtyBuffers) { World.upload(renderList); World.dirtyBuffers = false; }
+
+  sweepTimer += dt;
+  if (sweepTimer > 2) { sweepTimer = 0; World.sweep(); }
+
+  for (const f of FIELDS) f.mat.uniforms.uTime.value = now;
+  drawBounds();
+  grid.position.x = grid2.position.x = Math.round(camera.position.x / 5) * 5;
+  grid.position.z = grid2.position.z = Math.round(camera.position.z / 5) * 5;
+
+  renderer.render(scene, camera);
+
+  // ---- HUD ----
+  fpsAcc += dt; fpsN++;
+  hudTimer += dt;
+  if (hudTimer > 0.22) {
+    const fps = fpsN / fpsAcc;
+    const s = World.stats;
+    const tris = s.meshTris + s.splats * 2 + s.voxels * 12;
+    $('s-fps').textContent = fps.toFixed(0);
+    $('s-fps').className = 'v ' + (fps > 50 ? 'ok' : fps < 28 ? 'hot' : '');
+    $('s-fpsbar').style.width = clamp(fps / 120 * 100, 0, 100) + '%';
+    $('s-ms').textContent = (fpsAcc / fpsN * 1000).toFixed(2) + ' ms';
+    $('s-splats').textContent = fmt(s.splats);
+    $('s-voxels').textContent = fmt(s.voxels);
+    $('s-polytris').textContent = fmt(s.meshTris);
+    $('s-tris').textContent = fmt(tris);
+    $('s-chunks').textContent = fmt(s.chunks);
+    $('s-queue').textContent = String(JobQueue.jobs.size);
+    $('s-queue').className = 'v ' + (JobQueue.jobs.size > 60 ? 'hot' : '');
+    $('s-stream').textContent = String(s.streaming);
+    $('s-patches').textContent = String(World.patches.length);
+    $('s-bytes').textContent = bytes(World.byteSize());
+    $('s-calls').textContent = String(renderer.info.render.calls);
+    fpsAcc = 0; fpsN = 0; hudTimer = 0;
+  }
+}
+
+/* Console handle: `__ENGINE.World`, `.Baker`, `.State`, `.camera` — handy for
+ * poking at the graph or the classifier from devtools. */
+window.__ENGINE = {
+  World, Baker, State, JobQueue, camera, THREE,
+  setLook: (y, p) => { yaw = y; pitch = p; },
+  get look() { return { yaw, pitch }; }
+};
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+frame();
+bootEl.style.opacity = '0';
+setTimeout(() => bootEl.remove(), 520);
+document.getElementById('hud').classList.remove('hide');
+toast('Fly with WASD · drag to look · click to carve · pick a patch to expose its math handles');
+</script>
+</body>
+</html>
