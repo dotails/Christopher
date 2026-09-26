@@ -15,7 +15,7 @@ const store = {
   set(k, v) { try { localStorage.setItem("ttsr." + k, v); } catch { /* storage unavailable */ } },
 };
 
-const MAX_CHUNK = 220;   // characters per synthesis request; small chunks start playing sooner
+const MAX_CHUNK = 180;   // characters per synthesis request; small chunks start playing sooner
 const PREFETCH = 2;      // chunks generated ahead of the one playing
 
 const audio = new Audio();
@@ -173,12 +173,8 @@ function getAudio(i) {
   const ctrl = new AbortController();
   const sp = speed();
   const entry = { key, ctrl, url: null };
-  entry.promise = fetch("api/tts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: chunks[i].text, voice: voiceEl.value, speed: sp, client: clientId, epoch }),
-    signal: ctrl.signal,
-  })
+  const query = new URLSearchParams({ text: chunks[i].text, voice: voiceEl.value, speed: sp, client: clientId, epoch });
+  entry.promise = fetch("api/tts?" + query, { signal: ctrl.signal })
     .then((r) => {
       if (!r.ok) throw new Error("server error " + r.status);
       return r.blob();
@@ -227,15 +223,19 @@ async function playFrom(i) {
   audio.pause();
   keepAwake(true);
 
+  const slow = setTimeout(() => { if (my === token) setStatus("Generating speech…"); }, 2500);
   let clip;
   try {
     clip = await getAudio(pos);
   } catch (err) {
+    clearTimeout(slow);
     if (my !== token) return;
-    stop(`Couldn't generate speech (${err.message}). Is the server still running?`);
+    stop(`Couldn't generate speech (${err.message}).${window.AndroidApp ? "" : " Is the server still running?"}`);
     return;
   }
+  clearTimeout(slow);
   if (my !== token) return;
+  highlight();
   loaded = clip;
   audio.src = clip.url;
   audio.defaultPlaybackRate = audio.playbackRate = speed() / clip.speed;
@@ -321,6 +321,7 @@ function unlockAudio() {
 }
 
 async function keepAwake(on) {
+  if (window.AndroidApp) { window.AndroidApp.keepScreenOn(on); return; }
   try {
     if (on && !wakeLock && navigator.wakeLock) {
       wakeLock = await navigator.wakeLock.request("screen");
@@ -412,6 +413,14 @@ if ("mediaSession" in navigator) {
   try { ms.metadata = new MediaMetadata({ title: "TTS Reader", artist: "Kokoro" }); } catch { /* unsupported */ }
 }
 
+// Called by the Android app when text is shared to it from another app.
+window.receiveSharedText = (text) => {
+  showEditor();
+  textEl.value = text;
+  cursorPicked = false;
+  store.set("text", text);
+};
+
 // ---------- startup ----------
 
 textEl.value = store.get("text", "");
@@ -429,4 +438,4 @@ fetch("api/voices")
     const saved = store.get("voice", "");
     if (voices.some((v) => v.id === saved)) voiceEl.value = saved;
   })
-  .catch(() => setStatus("Can't reach the TTS server. Is app.py running?"));
+  .catch(() => setStatus(window.AndroidApp ? "Couldn't load the voices." : "Can't reach the TTS server. Is app.py running?"));

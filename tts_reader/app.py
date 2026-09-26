@@ -114,9 +114,9 @@ def create_app(kokoro):
     def list_voices():
         return jsonify([{"id": v, "name": voice_label(v)} for v in voices])
 
-    @app.post("/api/tts")
+    @app.route("/api/tts", methods=["GET", "POST"])
     def tts():
-        data = request.get_json(silent=True) or {}
+        data = request.get_json(silent=True) or request.args
         text = str(data.get("text", "")).strip()[:MAX_CHARS]
         voice = data.get("voice") if data.get("voice") in voices else voices[0]
         try:

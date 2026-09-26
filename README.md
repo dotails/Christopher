@@ -1,6 +1,6 @@
 # SscSwitcher
 
-> **Also in this repo:** [`tts_reader/`](tts_reader/): a phone-friendly text-to-speech reader in Python.
+> **Also in this repo:** [`tts_reader/`](tts_reader/): a text-to-speech reader with an Android app and a Python server version.
 
 A small native **Windows 10 / 11** app that takes over the `*.ssc` file
 extension. When you open a `.ssc` file it swaps that file into a configured

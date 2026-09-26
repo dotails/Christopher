@@ -1,12 +1,12 @@
 # TTS Reader
 
 Paste text on your phone and have it read aloud in a natural-sounding voice.
+There are two ways to run it: an **Android app** that works entirely on the
+phone, or a **Python server** on your computer that any phone browser can use.
 
 It uses **[Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)**, a free
-open-source voice model (Apache-2.0) that runs locally on your computer. You
-don't need an API key or an account, and after the one-time model download it
-works without internet. A small Python server on your computer generates the
-speech, and your phone opens the app in its browser over Wi-Fi.
+open-source voice model (Apache-2.0) that runs locally on your own device. You
+don't need an API key or an account, and it works without internet.
 
 > **Why not Claude's voices?** Anthropic's API has no text-to-speech endpoint.
 > The voices in the Claude app aren't available to developers, so no API key
@@ -26,7 +26,31 @@ speech, and your phone opens the app in its browser over Wi-Fi.
   headphone play/pause/skip controls, and can be added to your home screen so
   it opens like an app.
 
-## Setup
+## Android app (no computer needed)
+
+`android/` builds a standalone APK that runs the same voices **on the phone
+itself**, offline. It uses [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
+to run Kokoro and shows the same screen as the web version.
+
+**Install:** on your phone, open this repository's
+[Releases page](https://github.com/dotails/christopher/releases/tag/tts-reader-android)
+and tap **TTS-Reader.apk**, then open the downloaded file. If Android asks,
+allow your browser to install unknown apps. GitHub Actions rebuilds the APK
+whenever `tts_reader/` changes.
+
+- It needs a 64-bit phone running Android 8.0 or newer. The download is about
+  160 MB, and it uses about 170 MB more once unpacked.
+- The first launch takes a little longer while it unpacks the voices.
+  Switching between accent groups (for example a US voice to a UK voice)
+  reloads the engine, which takes a few seconds.
+- You can share text from another app to it with **Share → TTS Reader**.
+- The screen stays on while it's reading.
+
+To build it yourself, install Android Studio (or the Android SDK and JDK 17)
+and run `./gradlew assembleRelease` in `android/`. The build downloads the
+speech engine and the model on its first run.
+
+## Setup (computer + phone browser version)
 
 You need **Python 3.9 or newer** on a Windows, Mac or Linux computer
 ([python.org](https://www.python.org/downloads/); on Windows, tick

@@ -1,0 +1,69 @@
+name: Build TTS Reader APK
+
+# Builds the Android app on GitHub's servers and publishes it as the
+# "TTS Reader for Android" release, so the APK can be downloaded straight
+# to a phone from the repository's Releases page.
+
+on:
+  push:
+    branches:
+      - "claude/**"
+      - main
+    paths:
+      - "tts_reader/**"
+      - ".github/workflows/tts-reader-android.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache model and engine downloads
+        uses: actions/cache@v4
+        with:
+          path: tts_reader/android/downloads
+          key: tts-downloads-${{ hashFiles('tts_reader/android/app/build.gradle.kts') }}
+
+      - name: Build APK
+        working-directory: tts_reader/android
+        run: ./gradlew assembleRelease --no-daemon --console=plain
+
+      - name: Rename APK
+        run: cp tts_reader/android/app/build/outputs/apk/release/app-release.apk TTS-Reader.apk
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TTS-Reader-apk
+          path: TTS-Reader.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tts-reader-android
+          name: TTS Reader for Android
+          prerelease: true
+          files: TTS-Reader.apk
+          body: |
+            Read-aloud app with natural offline voices (Kokoro). Built from ${{ github.sha }}.
+
+            **Install:** open this page on your Android phone, tap **TTS-Reader.apk**, then open the
+            downloaded file. If asked, allow your browser to "install unknown apps".
+            Requires a 64-bit Android 8.0+ phone. The first launch takes a little longer while it
+            unpacks the voices.
