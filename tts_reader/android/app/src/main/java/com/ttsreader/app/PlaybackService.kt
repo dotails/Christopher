@@ -27,6 +27,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.widget.Toast
 import org.json.JSONObject
@@ -73,6 +74,11 @@ class PlaybackService : Service() {
     private var generating = false
     private var exportedGen = -1                // generation last saved to Downloads
     private var savedName: String? = null       // file name of that recording
+    private var autoSave = true                 // save to Downloads as soon as everything is generated
+    private var saveRequested = false           // "Save recording now"
+    private var readyChars = 0L                 // text and audio generated so far, for time estimates
+    private var readySeconds = 0.0
+    private var sleepAt = 0L                    // SystemClock.elapsedRealtime() to pause at; 0 = off
 
     // Where each chunk starts in the audio written to the current AudioTrack: [frame, chunk].
     private val segments = ArrayList<LongArray>()
@@ -251,6 +257,27 @@ class PlaybackService : Service() {
         seek(target)
     }
 
+    /** Pauses reading after [minutes]; 0 turns the timer off. */
+    fun setSleepTimer(minutes: Int) {
+        synchronized(lock) { sleepAt = if (minutes > 0) SystemClock.elapsedRealtime() + minutes * 60_000L else 0L }
+    }
+
+    fun setAutoSave(on: Boolean) {
+        synchronized(lock) {
+            autoSave = on
+            lock.notifyAll()
+        }
+    }
+
+    /** Saves the recording to Downloads (again) once everything is generated. */
+    fun saveNow() {
+        synchronized(lock) {
+            saveRequested = true
+            exportedGen = -1
+            lock.notifyAll()
+        }
+    }
+
     /** Pauses and removes the notification (the notification's close button). */
     fun stopReading() {
         pause()
@@ -280,6 +307,8 @@ class PlaybackService : Service() {
             .put("voice", voiceId ?: "")
             .put("error", error ?: "")
             .put("saved", savedName ?: "")
+            .put("cps", if (readySeconds > 0) readyChars / readySeconds else 0.0)
+            .put("sleep", if (sleepAt > 0) (sleepAt - SystemClock.elapsedRealtime()).coerceAtLeast(0) else 0)
             .toString()
     }
 
@@ -288,6 +317,8 @@ class PlaybackService : Service() {
     private fun invalidateAudio() {
         gen++
         savedName = null
+        readyChars = 0
+        readySeconds = 0.0
         ready = BooleanArray(chunks.size)
         rates = IntArray(chunks.size)
         val current = gen
@@ -320,7 +351,7 @@ class PlaybackService : Service() {
             var export: Recording? = null
             synchronized(lock) {
                 var next = nextToGenerate()
-                while (next < 0 && (chunks.isEmpty() || exportedGen == gen)) {
+                while (next < 0 && (chunks.isEmpty() || exportedGen == gen || !(autoSave || saveRequested))) {
                     generating = false
                     updateWakeLock()
                     lock.wait()
@@ -331,6 +362,7 @@ class PlaybackService : Service() {
                 if (next < 0) {
                     // Everything is generated: save the whole recording once.
                     exportedGen = gen
+                    saveRequested = false
                     export = Recording(gen, chunks.size, rates.firstOrNull { it > 0 } ?: 24000, voiceId, chunks.first())
                 } else {
                     job = Triple(gen, next, chunks[next])
@@ -369,6 +401,8 @@ class PlaybackService : Service() {
                 if (jobGen == gen && index < ready.size) {
                     ready[index] = true
                     rates[index] = rate
+                    readyChars += text.length
+                    readySeconds += samples.size.toDouble() / rate
                     if (failure != null) error = "Couldn't read a sentence: $failure"
                     lock.notifyAll()
                 } else {
@@ -618,6 +652,10 @@ class PlaybackService : Service() {
     private fun statusLoop() {
         while (true) {
             Thread.sleep(500)
+            val sleepNow = synchronized(lock) {
+                (sleepAt > 0 && SystemClock.elapsedRealtime() >= sleepAt).also { if (it) sleepAt = 0 }
+            }
+            if (sleepNow) pause()
             val (pos, isPlaying) = synchronized(lock) { currentChunk() to playing }
             if (pos != notifiedPos || isPlaying != notifiedPlaying) publishState()
         }

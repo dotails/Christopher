@@ -9,6 +9,7 @@
   --hl-para: #f3e4d9;
   --hl-chunk: #e9c2a6;
   --pending: #b3b0aa;
+  --reader-size: 18px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -67,6 +68,8 @@ select {
 .speed output { width: 3.3em; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
 
 main { flex: 1; min-height: 0; display: flex; }
+#editor { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.toolbar { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); overflow-x: auto; }
 textarea, #reader {
   flex: 1;
   width: 100%;
@@ -75,7 +78,7 @@ textarea, #reader {
   border: 0;
   background: var(--surface);
   color: var(--text);
-  font: 18px/1.6 Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font: var(--reader-size)/1.6 Georgia, "Iowan Old Style", "Times New Roman", serif;
   overflow-y: auto;
 }
 textarea { resize: none; outline: none; }
@@ -96,6 +99,9 @@ footer {
   padding: 6px 12px calc(env(safe-area-inset-bottom) + 10px);
   border-top: 1px solid var(--border);
 }
+#progress { position: relative; height: 16px; margin: 0 4px; cursor: pointer; touch-action: none; }
+#progress::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 4px; border-radius: 2px; background: var(--border); }
+#progressFill { position: absolute; left: 0; top: 6px; height: 4px; width: 0; border-radius: 2px; background: var(--accent); }
 #status { min-height: 20px; text-align: center; font-size: 13px; color: var(--muted); }
 .controls { display: flex; justify-content: center; align-items: center; gap: 28px; }
 
@@ -134,3 +140,53 @@ header button.icon svg { width: 20px; height: 20px; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 [hidden] { display: none !important; }
+
+button.pill {
+  flex: none;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+button.pill:active { transform: scale(0.97); }
+button.pill:disabled { opacity: 0.45; }
+button.pill.wide { width: 100%; margin-top: 10px; }
+
+/* Menu sheet */
+#sheet { position: fixed; inset: 0; z-index: 10; }
+#sheet .backdrop { position: absolute; inset: 0; background: rgb(0 0 0 / 0.45); }
+#sheet .panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding: 4px 16px calc(env(safe-area-inset-bottom) + 20px);
+  border-radius: 18px 18px 0 0;
+  background: var(--surface);
+  box-shadow: 0 -8px 30px rgb(0 0 0 / 0.25);
+}
+#sheet .grab { width: 40px; height: 5px; margin: 8px auto 4px; border-radius: 3px; background: var(--border); }
+#sheet h2 { margin: 18px 0 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+#recent { list-style: none; margin: 0; padding: 0; }
+#recent li { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+#recent li:last-child { border-bottom: 0; }
+#recent .open { flex: 1; min-width: 0; padding: 10px 0; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+#recent .title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#recent .meta { display: block; font-size: 12px; color: var(--muted); }
+#recent .remove { flex: none; width: 36px; height: 36px; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+#recent .empty { padding: 6px 0; color: var(--muted); font-size: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button { height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: 18px; background: var(--bg); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+.chips button.on { border-color: var(--accent); background: var(--accent); color: var(--accent-text); }
+.row { display: flex; align-items: center; gap: 12px; }
+#sizeOut { min-width: 3.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.toggle { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.4; cursor: pointer; }
+.toggle input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); }
+.about { margin: 22px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted); }

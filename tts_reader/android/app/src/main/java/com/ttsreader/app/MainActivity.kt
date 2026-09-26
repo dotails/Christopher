@@ -3,6 +3,7 @@ package com.ttsreader.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
@@ -10,6 +11,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.net.Uri
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -31,7 +33,7 @@ class MainActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var speech: Speech
     private var pageLoaded = false
-    private var pendingSharedText: String? = null
+    private val pendingJs = ArrayList<String>() // calls into the page made before it finished loading
     @Volatile private var player: PlaybackService? = null
     private var askedForNotifications = false
 
@@ -75,12 +77,12 @@ class MainActivity : Activity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 pageLoaded = true
-                pendingSharedText?.let { deliverSharedText(it) }
-                pendingSharedText = null
+                pendingJs.forEach { webView.evaluateJavascript(it, null) }
+                pendingJs.clear()
             }
         }
         setContentView(webView)
-        handleShareIntent(intent)
+        handleIncoming(intent)
         webView.loadUrl("https://$ASSET_HOST/index.html")
     }
 
@@ -122,18 +124,56 @@ class MainActivity : Activity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handleShareIntent(intent)
+        handleIncoming(intent)
     }
 
-    /** Text shared from another app ("Share → TTS Reader") replaces the text box contents. */
-    private fun handleShareIntent(intent: Intent?) {
-        if (intent?.action != Intent.ACTION_SEND) return
-        val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
-        if (pageLoaded) deliverSharedText(text) else pendingSharedText = text
+    /** Text or a document shared to / opened with TTS Reader replaces the text box contents. */
+    private fun handleIncoming(intent: Intent?) {
+        when (intent?.action) {
+            Intent.ACTION_SEND -> {
+                @Suppress("DEPRECATION")
+                val stream = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+                when {
+                    stream != null -> importDocument(stream)
+                    text != null -> showText(text, intent.getStringExtra(Intent.EXTRA_SUBJECT).orEmpty())
+                }
+            }
+            Intent.ACTION_VIEW -> intent.data?.let { importDocument(it) }
+        }
     }
 
-    private fun deliverSharedText(text: String) {
-        webView.evaluateJavascript("window.receiveSharedText(${JSONObject.quote(text)})", null)
+    private fun importDocument(uri: Uri) {
+        runJs("window.appMessage && window.appMessage('Opening document…')")
+        thread(name = "import") {
+            try {
+                val doc = TextExtractor.extract(this, uri)
+                runOnUiThread { showText(doc.text, doc.title) }
+            } catch (e: Throwable) {
+                val msg = "Couldn't open that file: " + (e.message ?: e.javaClass.simpleName)
+                runOnUiThread { runJs("window.appMessage && window.appMessage(${JSONObject.quote(msg)})") }
+            }
+        }
+    }
+
+    private fun showText(text: String, title: String) {
+        runJs("window.receiveSharedText(${JSONObject.quote(text)}, ${JSONObject.quote(title)})")
+    }
+
+    private fun runJs(code: String) {
+        if (pageLoaded) webView.evaluateJavascript(code, null) else pendingJs.add(code)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_OPEN && resultCode == RESULT_OK) data?.data?.let { importDocument(it) }
+    }
+
+    /** Back closes the page's menu sheet first (the page adds a history entry for it). */
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 
     override fun onDestroy() {
@@ -175,6 +215,33 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun setVoice(voice: String) = control { it.setVoice(voice) }
 
+        @JavascriptInterface
+        fun setSleepTimer(minutes: Int) = control { it.setSleepTimer(minutes) }
+
+        @JavascriptInterface
+        fun setAutoSave(on: Boolean) = control { it.setAutoSave(on) }
+
+        @JavascriptInterface
+        fun saveNow() = control { it.saveNow() }
+
+        @JavascriptInterface
+        fun openFile() {
+            runOnUiThread {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+                    .addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("*/*")
+                    .putExtra(Intent.EXTRA_MIME_TYPES, OPENABLE_TYPES)
+                @Suppress("DEPRECATION")
+                startActivityForResult(intent, REQUEST_OPEN)
+            }
+        }
+
+        @JavascriptInterface
+        fun clipboardText(): String {
+            val clip = getSystemService(ClipboardManager::class.java).primaryClip ?: return ""
+            return (0 until clip.itemCount).joinToString("\n") { clip.getItemAt(it).coerceToText(this@MainActivity).toString() }
+        }
+
         private fun control(action: (PlaybackService) -> Unit) {
             runOnUiThread { player?.let(action) }
         }
@@ -193,5 +260,12 @@ class MainActivity : Activity() {
 
     companion object {
         private const val ASSET_HOST = "appassets.androidplatform.net"
+        private const val REQUEST_OPEN = 7
+        private val OPENABLE_TYPES = arrayOf(
+            "text/*",
+            "application/pdf",
+            "application/epub+zip",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
     }
 }

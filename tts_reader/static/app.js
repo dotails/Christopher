@@ -9,6 +9,10 @@ const speedOut = $("speedOut");
 const playBtn = $("play");
 const editBtn = $("edit");
 const statusEl = $("status");
+const editorEl = $("editor");
+const sheetEl = $("sheet");
+const progressEl = $("progress");
+const progressFill = $("progressFill");
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem("ttsr." + k); return v === null ? d : v; } catch { return d; } },
@@ -22,10 +26,19 @@ let paraStart = [];    // paragraph index -> first chunk index
 let paraOffset = [];   // paragraph index -> character offset in the textarea
 let parsedText = null;
 let textKey = "";      // identifies the parsed text (the Android player uses it)
+let charsBefore = [0]; // chunk index -> characters before it (for progress and time left)
+let docId = "";        // identifies the raw text, for the Recent list
+let docTitle = "";     // file name or shared title; empty means "use the first line"
 let pos = 0;           // current chunk index
 let cursorPicked = false;
 let message = "";      // one-off status message, cleared on the next action
 const shown = { pos: -1, playing: null, loading: null, ready: "" };
+
+const settings = {
+  size: +store.get("size", 100),                 // reader text size, %
+  clean: store.get("clean", "1") === "1",        // tidy text for listening
+  autosave: store.get("autosave", "1") === "1",  // save the recording to Downloads when ready
+};
 
 function speed() { return +(+speedEl.value).toFixed(2); }
 
@@ -55,6 +68,21 @@ function splitChunks(t) {
   return out;
 }
 
+// Makes text from web pages, notes and papers pleasant to listen to.
+function cleanForSpeech(s) {
+  return s
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")                          // Markdown headings
+    .replace(/^\s*(?:[-*+•▪◦]|\d{1,3}[.)])\s+/gm, "")           // list bullets and numbers
+    .replace(/^\s*>\s?/gm, "")                                    // quote markers
+    .replace(/^\s*[-*_=]{3,}\s*$/gm, "")                          // horizontal rules
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")                    // images: keep the alt text
+    .replace(/\[([^\]]+)\]\((?:https?:|www\.|\/|#)[^)]*\)/g, "$1") // links: keep the label
+    .replace(/\bhttps?:\/\/[^\s)>\]]+|\bwww\.[^\s)>\]]+/g, "link") // bare URLs
+    .replace(/\s?\[(?:\d+(?:\s*[-–,]\s*\d+)*)\]/g, "")          // citations like [12], [3, 4], [5–7]
+    .replace(/\*\*|__|~~|`/g, "")                                 // bold, strike, code marks
+    .replace(/(^|[\s(])[*_]([^*_\s][^*_]*?)[*_](?=[\s).,!?;:]|$)/gm, "$1$2"); // *emphasis*
+}
+
 function hashText(parts) {
   let h = 0x811c9dc5;
   for (const part of parts) {
@@ -74,7 +102,7 @@ function parse(text) {
   for (const raw of blocks) {
     const at = text.indexOf(raw, from);
     from = at + raw.length;
-    const t = raw.replace(/\s+/g, " ").trim();
+    const t = (settings.clean ? cleanForSpeech(raw) : raw).replace(/\s+/g, " ").trim();
     if (!t) continue;
     const p = paraStart.length;
     paraStart.push(chunks.length);
@@ -83,6 +111,9 @@ function parse(text) {
   }
   parsedText = text;
   textKey = hashText(chunks.map((c) => c.text));
+  docId = hashText([text]);
+  charsBefore = [0];
+  for (const c of chunks) charsBefore.push(charsBefore[charsBefore.length - 1] + c.text.length + 1);
   pos = 0;
   player.textChanged();
   renderReader();
@@ -115,6 +146,8 @@ function createWebPlayer() {
   let wakeLock = null;
   let savedFor = "";       // text+voice last downloaded as one WAV
   let savedName = "";
+  let saveRequested = false;
+  let sleepEnd = 0;
 
   const isReady = (i) => { const e = cache.get(i); return !!(e && e.url && e.voice === voiceEl.value); };
 
@@ -132,6 +165,7 @@ function createWebPlayer() {
         return r.blob();
       })
       .then((blob) => {
+        entry.bytes = blob.size;
         entry.url = URL.createObjectURL(blob);
         return { i, voice, url: entry.url };
       });
@@ -168,7 +202,10 @@ function createWebPlayer() {
           const i = (pos + k) % chunks.length;
           if (!isReady(i)) { next = i; break; }
         }
-        if (next < 0) { await saveRecording(); break; }
+        if (next < 0) {
+          if (settings.autosave || saveRequested) await saveRecording();
+          break;
+        }
         try {
           await getAudio(next);
         } catch (err) {
@@ -186,8 +223,9 @@ function createWebPlayer() {
   async function saveRecording() {
     const voice = voiceEl.value;
     const id = textKey + "|" + voice;
-    if (savedFor === id || !chunks.length) return;
+    if ((savedFor === id && !saveRequested) || !chunks.length) return;
     savedFor = id;
+    saveRequested = false;
     try {
       const parts = [];
       let rate = 24000;
@@ -354,9 +392,31 @@ function createWebPlayer() {
       if (playing) playFrom(pos);
     },
     startedAt() { return loaded && loaded.i === pos ? audio.currentTime : 0; },
+    setAutoSave() { if (settings.autosave) preload(); },
+    saveNow() {
+      saveRequested = true;
+      preload();
+    },
+    setSleepTimer(minutes) { sleepEnd = minutes > 0 ? Date.now() + minutes * 60000 : 0; },
     state() {
+      if (sleepEnd && Date.now() >= sleepEnd) {
+        sleepEnd = 0;
+        if (playing) stop();
+      }
       const saved = savedFor === textKey + "|" + voiceEl.value ? savedName : "";
-      return { pos, playing, loading, finished, ready: isReady, saved, error: preloadError ? `Couldn't generate speech (${preloadError}).` : "" };
+      let chars = 0, secs = 0;
+      for (const [i, e] of cache) {
+        if (e.url && e.voice === voiceEl.value && chunks[i]) {
+          chars += chunks[i].text.length;
+          secs += Math.max(0, e.bytes - 44) / 48000; // 16-bit mono at 24 kHz
+        }
+      }
+      return {
+        pos, playing, loading, finished, ready: isReady, saved,
+        cps: secs > 0 ? chars / secs : 0,
+        sleep: sleepEnd ? Math.max(0, sleepEnd - Date.now()) : 0,
+        error: preloadError ? `Couldn't generate speech (${preloadError}).` : "",
+      };
     },
   };
 }
@@ -369,6 +429,7 @@ function createNativePlayer(app) {
   let st = {};
   const poll = () => { try { st = JSON.parse(app.state()); } catch { st = {}; } };
   const ensureLoaded = () => {
+    app.setAutoSave(settings.autosave); // the service may not have been connected at startup
     poll();
     if (st.key !== textKey) {
       app.load(textKey, JSON.stringify(chunks.map((c) => c.text)), JSON.stringify(chunks.map((c) => c.p)), voiceEl.value, pos);
@@ -393,10 +454,13 @@ function createNativePlayer(app) {
     },
     setSpeed() { app.setSpeed(speed()); },
     setVoice() { app.setVoice(voiceEl.value); },
+    setAutoSave() { app.setAutoSave(settings.autosave); },
+    saveNow() { app.saveNow(); },
+    setSleepTimer(minutes) { app.setSleepTimer(minutes); },
     startedAt() { return 0; },
     state() {
       poll();
-      if (st.key !== textKey) return { pos, playing: false, loading: false, finished: false, ready: () => false, error: "" };
+      if (st.key !== textKey) return { pos, playing: false, loading: false, finished: false, ready: () => false, error: "", sleep: st.sleep || 0 };
       return {
         pos: st.pos,
         playing: st.playing,
@@ -406,6 +470,8 @@ function createNativePlayer(app) {
         error: st.error,
         saved: st.saved,
         voice: st.voice,
+        cps: st.cps,
+        sleep: st.sleep,
       };
     },
   };
@@ -451,12 +517,19 @@ function highlight(scroll) {
   }
 }
 
+function formatDuration(secs) {
+  if (secs >= 3600) return `${Math.floor(secs / 3600)} h ${Math.round((secs % 3600) / 60)} min`;
+  if (secs >= 60) return `${Math.round(secs / 60)} min`;
+  return "under a minute";
+}
+
 // Syncs the page with the player: position, play button, and which sentences are ready.
 function refresh() {
   const s = player.state();
   if (chunks.length && typeof s.pos === "number" && s.pos !== pos) {
     pos = Math.min(s.pos, chunks.length - 1);
     store.set("pos", pos);
+    rememberPosition();
   }
   if (pos !== shown.pos) {
     highlight(shown.pos !== -1 || s.playing);
@@ -488,6 +561,12 @@ function refresh() {
     }
     shown.ready = readyText;
   }
+  shown.allReady = chunks.length > 0 && readyCount === chunks.length;
+  $("saveNow").disabled = !shown.allReady;
+
+  const total = charsBefore[charsBefore.length - 1] || 1;
+  const done = chunks.length ? charsBefore[pos] : 0;
+  if (!dragging) progressFill.style.width = `${(100 * done) / total}%`;
 
   let status = "";
   if (message) status = message;
@@ -499,9 +578,18 @@ function refresh() {
       if (loading) status += " · generating…";
       else if (readyCount < chunks.length) status += ` · ${Math.floor((100 * readyCount) / chunks.length)}% ready`;
       else status += s.saved ? " · saved to Downloads" : " · all ready";
+      const cps = s.cps > 0 ? s.cps : 15; // characters per second of speech at 1×
+      status += ` · ${formatDuration((total - done) / cps / speed())} left`;
     }
   }
+  if (s.sleep > 0) status += `${status ? " · " : ""}sleep in ${formatDuration(s.sleep / 1000)}`;
   if (statusEl.textContent !== status) statusEl.textContent = status;
+
+  const sleepMin = s.sleep > 0 ? activeSleep : 0;
+  if (sleepMin !== shown.sleep) {
+    for (const b of $("sleep").children) b.classList.toggle("on", +b.dataset.min === sleepMin);
+    shown.sleep = sleepMin;
+  }
 }
 
 function showReader() {
@@ -510,8 +598,9 @@ function showReader() {
   if (cursorPicked) pos = paraStart[paraAtOffset(textEl.selectionStart)] || 0;
   cursorPicked = false;
   pos = Math.min(pos, Math.max(0, chunks.length - 1));
+  if (changed) rememberText();
   textEl.blur();
-  textEl.hidden = true;
+  editorEl.hidden = true;
   readerEl.hidden = false;
   editBtn.hidden = false;
   shown.pos = -1;
@@ -522,10 +611,189 @@ function showReader() {
 function showEditor() {
   player.pause();
   readerEl.hidden = true;
-  textEl.hidden = false;
+  editorEl.hidden = false;
   editBtn.hidden = true;
   refresh();
 }
+
+// Replaces the text (from a file, a share, or the Recent list) and shows it ready to play.
+function setDocument(text, title, startPos) {
+  player.pause();
+  textEl.value = text;
+  docTitle = title || "";
+  store.set("text", text);
+  store.set("title", docTitle);
+  cursorPicked = false;
+  message = "";
+  parse(text);
+  pos = Math.min(startPos || 0, Math.max(0, chunks.length - 1));
+  store.set("pos", pos);
+  rememberText();
+  editorEl.hidden = false; // so showReader() takes over from a consistent state
+  showReader();
+}
+
+// ---------- recent texts ----------
+// Metadata in "recent"; each text in its own "doc.<id>" key, so saving the
+// position while reading doesn't rewrite whole documents.
+
+function titleOf(text) {
+  const line = text.trim().split("\n")[0].replace(/^[#>*\s-]+/, "").trim();
+  return line.length > 70 ? line.slice(0, 67).trimEnd() + "…" : line || "Untitled";
+}
+
+function loadRecent() {
+  try { return JSON.parse(store.get("recent", "[]")) || []; } catch { return []; }
+}
+
+function saveRecent(list) {
+  const keep = new Set(list.map((r) => r.id));
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("ttsr.doc.") && !keep.has(k.slice(9))) localStorage.removeItem(k);
+    }
+  } catch { /* storage unavailable */ }
+  store.set("recent", JSON.stringify(list));
+}
+
+function rememberText() {
+  if (!parsedText || !parsedText.trim()) return;
+  let list = loadRecent().filter((r) => r.id !== docId);
+  list.unshift({ id: docId, title: docTitle || titleOf(parsedText), pos, total: chunks.length, at: Date.now() });
+  list = list.slice(0, 15);
+  // Big books may not fit in storage: drop the oldest entries until this one does.
+  for (;;) {
+    try {
+      localStorage.setItem("ttsr.doc." + docId, parsedText);
+      break;
+    } catch {
+      if (list.length <= 1) { list = list.filter((r) => r.id !== docId); break; }
+      list.pop();
+      saveRecent(list);
+    }
+  }
+  saveRecent(list);
+}
+
+let rememberTimer = 0;
+function rememberPosition() {
+  clearTimeout(rememberTimer);
+  rememberTimer = setTimeout(() => {
+    const list = loadRecent();
+    const entry = list.find((r) => r.id === docId);
+    if (!entry) return;
+    entry.pos = pos;
+    entry.at = Date.now();
+    store.set("recent", JSON.stringify(list));
+  }, 1000);
+}
+
+function renderRecent() {
+  const ul = $("recent");
+  ul.textContent = "";
+  const list = loadRecent();
+  if (!list.length) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "Texts you read will appear here.";
+    ul.appendChild(li);
+    return;
+  }
+  for (const r of list) {
+    const li = document.createElement("li");
+    const open = document.createElement("button");
+    open.className = "open";
+    const title = document.createElement("span");
+    title.className = "title";
+    title.textContent = r.title;
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    const pct = r.total ? Math.round((100 * r.pos) / r.total) : 0;
+    meta.textContent = (r.id === docId ? "Open now · " : "") + `${pct}% read · ${new Date(r.at).toLocaleDateString()}`;
+    open.append(title, meta);
+    open.addEventListener("click", () => {
+      const text = store.get("doc." + r.id, null);
+      closeSheet();
+      if (text === null) { message = "That text is no longer stored."; refresh(); return; }
+      if (r.id !== docId) setDocument(text, r.title, r.pos);
+      else if (readerEl.hidden) showReader();
+    });
+    const remove = document.createElement("button");
+    remove.className = "remove";
+    remove.setAttribute("aria-label", "Remove from Recent");
+    remove.textContent = "×";
+    remove.addEventListener("click", () => {
+      saveRecent(loadRecent().filter((x) => x.id !== r.id));
+      renderRecent();
+    });
+    li.append(open, remove);
+    ul.appendChild(li);
+  }
+}
+
+// ---------- menu sheet ----------
+
+let activeSleep = 0;
+
+function openSheet() {
+  renderRecent();
+  $("sizeOut").textContent = settings.size + "%";
+  $("autosave").checked = settings.autosave;
+  $("clean").checked = settings.clean;
+  sheetEl.hidden = false;
+  history.pushState({ sheet: true }, ""); // the Back button closes the sheet
+}
+
+function closeSheet() {
+  if (sheetEl.hidden) return;
+  sheetEl.hidden = true;
+  if (history.state && history.state.sheet) history.back();
+}
+
+window.addEventListener("popstate", () => { sheetEl.hidden = true; });
+sheetEl.addEventListener("click", (e) => { if (e.target.hasAttribute("data-close")) closeSheet(); });
+$("menu").addEventListener("click", openSheet);
+
+$("sleep").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-min]");
+  if (!b) return;
+  activeSleep = +b.dataset.min;
+  player.setSleepTimer(activeSleep);
+  shown.sleep = -1;
+  refresh();
+});
+
+function applySize() {
+  document.documentElement.style.setProperty("--reader-size", (18 * settings.size) / 100 + "px");
+  $("sizeOut").textContent = settings.size + "%";
+  store.set("size", settings.size);
+}
+$("smaller").addEventListener("click", () => { settings.size = Math.max(70, settings.size - 10); applySize(); });
+$("larger").addEventListener("click", () => { settings.size = Math.min(200, settings.size + 10); applySize(); });
+
+$("autosave").addEventListener("change", (e) => {
+  settings.autosave = e.target.checked;
+  store.set("autosave", settings.autosave ? "1" : "0");
+  player.setAutoSave();
+});
+$("saveNow").addEventListener("click", () => {
+  player.saveNow();
+  message = "Saving the recording…";
+  closeSheet();
+  refresh();
+  setTimeout(() => { if (message === "Saving the recording…") { message = ""; refresh(); } }, 4000);
+});
+$("clean").addEventListener("change", (e) => {
+  settings.clean = e.target.checked;
+  store.set("clean", settings.clean ? "1" : "0");
+  if (parsedText === null) return;
+  const keep = pos;
+  parse(parsedText); // the sentences change, so the audio is generated again
+  pos = Math.min(keep, Math.max(0, chunks.length - 1));
+  refresh();
+  highlight(true);
+});
 
 // ---------- controls ----------
 
@@ -558,7 +826,7 @@ playBtn.addEventListener("click", () => {
     player.pause();
   } else {
     if (readerEl.hidden) showReader();
-    if (!chunks.length) { showEditor(); message = "Type or paste some text first"; refresh(); return; }
+    if (!chunks.length) { showEditor(); message = "Type, paste or open some text first"; refresh(); return; }
     player.play();
   }
   refresh();
@@ -576,11 +844,76 @@ readerEl.addEventListener("click", (e) => {
   refresh();
 });
 
+// Progress bar: drag or tap to move through the text.
+let dragging = false;
+function chunkAtFraction(f) {
+  const target = f * charsBefore[charsBefore.length - 1];
+  let i = 0;
+  while (i + 1 < chunks.length && charsBefore[i + 1] <= target) i++;
+  return i;
+}
+function progressFraction(e) {
+  const r = progressEl.getBoundingClientRect();
+  return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+}
+progressEl.addEventListener("pointerdown", (e) => {
+  if (readerEl.hidden) showReader();
+  if (!chunks.length) return;
+  dragging = true;
+  progressEl.setPointerCapture(e.pointerId);
+  progressFill.style.width = progressFraction(e) * 100 + "%";
+});
+progressEl.addEventListener("pointermove", (e) => {
+  if (dragging) progressFill.style.width = progressFraction(e) * 100 + "%";
+});
+progressEl.addEventListener("pointerup", (e) => {
+  if (!dragging) return;
+  dragging = false;
+  jumpTo(chunkAtFraction(progressFraction(e)));
+  highlight(true);
+});
+progressEl.addEventListener("pointercancel", () => { dragging = false; refresh(); });
+
 textEl.addEventListener("input", () => {
   cursorPicked = false;
+  docTitle = "";
   store.set("text", textEl.value);
+  store.set("title", "");
 });
 textEl.addEventListener("click", () => { cursorPicked = true; });
+
+// Editor toolbar
+$("openFile").addEventListener("click", () => {
+  if (nativeApp && nativeApp.openFile) nativeApp.openFile();
+  else $("filePicker").click();
+});
+$("filePicker").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  let text = await file.text();
+  if (/\.html?$/i.test(file.name) || file.type === "text/html") {
+    const doc = new DOMParser().parseFromString(text, "text/html");
+    doc.querySelectorAll("script,style,noscript").forEach((n) => n.remove());
+    doc.querySelectorAll("p,div,h1,h2,h3,h4,h5,h6,li,blockquote,br,tr").forEach((n) => n.append("\n\n"));
+    text = doc.body.textContent.replace(/\n\s*\n\s*/g, "\n\n").trim();
+  }
+  setDocument(text, file.name.replace(/\.[^.]+$/, ""));
+});
+$("paste").addEventListener("click", async () => {
+  let clip = "";
+  try {
+    clip = nativeApp && nativeApp.clipboardText ? nativeApp.clipboardText() : await navigator.clipboard.readText();
+  } catch { /* not allowed */ }
+  if (!clip) { message = "Nothing to paste. Long-press in the text box to paste instead."; refresh(); return; }
+  textEl.setRangeText(clip, textEl.selectionStart, textEl.selectionEnd, "end");
+  textEl.dispatchEvent(new Event("input"));
+});
+$("clear").addEventListener("click", () => {
+  textEl.value = "";
+  textEl.dispatchEvent(new Event("input"));
+  textEl.focus();
+});
 
 speedEl.addEventListener("input", () => {
   speedOut.textContent = speed().toFixed(2) + "×";
@@ -603,20 +936,19 @@ if ("mediaSession" in navigator && !nativeApp) {
   try { ms.metadata = new MediaMetadata({ title: "TTS Reader", artist: "Kokoro" }); } catch { /* unsupported */ }
 }
 
-// Called by the Android app when text is shared to it from another app.
-window.receiveSharedText = (text) => {
-  showEditor();
-  textEl.value = text;
-  cursorPicked = false;
-  store.set("text", text);
-};
+// Called by the Android app for shared text and opened documents.
+window.receiveSharedText = (text, title) => setDocument(text, title || "");
+window.appMessage = (msg) => { message = msg; refresh(); };
 
 // ---------- startup ----------
 
 textEl.value = store.get("text", "");
+docTitle = store.get("title", "");
 speedEl.value = store.get("speed", "1");
 speedOut.textContent = speed().toFixed(2) + "×";
+applySize();
 player.setSpeed();
+player.setAutoSave();
 if (textEl.value) {
   parse(textEl.value);
   pos = Math.min(+store.get("pos", 0) || 0, Math.max(0, chunks.length - 1));
@@ -636,7 +968,9 @@ fetch("api/voices")
           voiceEl.appendChild(parent);
         }
       }
-      parent.appendChild(new Option(v.name, v.id));
+      // Grouped by accent, so the option only needs the name: "Heart (US female)" -> "Heart ♀".
+      const label = v.group ? v.name.replace(/\s*\([^)]*\b(female|male)\)$/, (_, g) => (g === "female" ? " ♀" : " ♂")) : v.name;
+      parent.appendChild(new Option(label, v.id));
     }
     // If the app is still reading this text in the background, match its voice and view.
     const s = player.state();

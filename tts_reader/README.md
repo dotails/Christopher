@@ -19,6 +19,13 @@ don't need an API key or an account, and it works without internet.
   current paragraph if you're partway in; press it again to go back one more.
 - **Tap any sentence** while reading to jump there. To start from a specific
   spot, tap it in the text box before pressing Play.
+- **Menu (☰):** recently read texts, each reopening where you stopped; a
+  **sleep timer**; text size; the auto-save switch and **Save recording now**;
+  and **clean-up for listening**, which skips web links, Markdown symbols and
+  citation numbers like [12].
+- A **progress bar** you can tap or drag to move through the text, and an
+  estimate of the time left.
+- **Paste** and **Clear** buttons above the text box.
 - A **speed slider** (0.5×–2×) that affects what's playing right away,
   without regenerating anything.
 - **Preloads the whole text** and dims the sentences that aren't generated yet.
@@ -65,7 +72,10 @@ whenever `tts_reader/` changes.
   your **Downloads** folder as a WAV file named after the text's first words
   and the voice, for example `TTS Reader - It was a bright cold - Heart.wav`.
   Changing the voice records the text again and saves a new file.
-- You can share text from another app to it with **Share → TTS Reader**.
+- **Open files:** PDF, EPUB ebooks, Word (.docx), web pages (.html) and
+  text/Markdown, from the **Open file** button, or with **Open with** or
+  **Share** from other apps. Scanned PDFs (pictures of text) have no text to
+  read. You can also share text to it with **Share → TTS Reader**.
 
 To build it yourself, install Android Studio (or the Android SDK and JDK 17)
 and run `./gradlew assembleRelease` in `android/`. The build downloads the

@@ -41,7 +41,7 @@ jobs:
 
       - name: Build APK
         working-directory: tts_reader/android
-        run: ./gradlew assembleRelease --no-daemon --console=plain
+        run: ./gradlew testReleaseUnitTest assembleRelease --no-daemon --console=plain
 
       - name: Rename APK
         run: cp tts_reader/android/app/build/outputs/apk/release/app-release.apk TTS-Reader.apk

@@ -24,14 +24,26 @@
     <button id="edit" class="icon" title="Edit text" aria-label="Edit text" hidden>
       <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg>
     </button>
+    <button id="menu" class="icon" title="Menu" aria-label="Menu">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
   </header>
 
   <main>
-    <textarea id="text" placeholder="Paste or type text here, then press play.&#10;&#10;Blank lines separate paragraphs." spellcheck="false"></textarea>
+    <div id="editor">
+      <div class="toolbar">
+        <button id="openFile" class="pill">Open file</button>
+        <button id="paste" class="pill">Paste</button>
+        <button id="clear" class="pill">Clear</button>
+        <input id="filePicker" type="file" accept=".txt,.md,.markdown,.html,.htm,text/plain,text/markdown,text/html" hidden>
+      </div>
+      <textarea id="text" placeholder="Paste or type text here, or open a file, then press play.&#10;&#10;Blank lines separate paragraphs." spellcheck="false"></textarea>
+    </div>
     <div id="reader" hidden></div>
   </main>
 
   <footer>
+    <div id="progress" role="slider" aria-label="Position in text" tabindex="0"><div id="progressFill"></div></div>
     <div id="status" aria-live="polite"></div>
     <div class="controls">
       <button id="prev" class="icon" aria-label="Previous paragraph">
@@ -47,6 +59,41 @@
       </button>
     </div>
   </footer>
+
+  <div id="sheet" hidden>
+    <div class="backdrop" data-close></div>
+    <section class="panel" role="dialog" aria-label="Menu">
+      <div class="grab" data-close></div>
+
+      <h2>Recent</h2>
+      <ul id="recent"></ul>
+
+      <h2>Sleep timer</h2>
+      <div class="chips" id="sleep">
+        <button data-min="0">Off</button>
+        <button data-min="15">15 min</button>
+        <button data-min="30">30 min</button>
+        <button data-min="45">45 min</button>
+        <button data-min="60">1 hour</button>
+      </div>
+
+      <h2>Text size</h2>
+      <div class="row">
+        <button id="smaller" class="pill">A−</button>
+        <span id="sizeOut">100%</span>
+        <button id="larger" class="pill">A+</button>
+      </div>
+
+      <h2>Recording</h2>
+      <label class="toggle"><input id="autosave" type="checkbox" checked> Save to Downloads automatically when it's all ready</label>
+      <button id="saveNow" class="pill wide">Save recording now</button>
+
+      <h2>Reading</h2>
+      <label class="toggle"><input id="clean" type="checkbox" checked> Skip web links, Markdown symbols and citation numbers like [12]</label>
+
+      <p class="about">Voices: Kokoro-82M (Apache-2.0) · Australian voices: piper-en_AU-librivox-medium by DataCraftsmanAustralia, from LibriVox recordings (CC BY 4.0) · Speech engine: sherpa-onnx.</p>
+    </section>
+  </div>
 
   <script src="app.js"></script>
 </body>

@@ -125,8 +125,8 @@ android {
         applicationId = "com.ttsreader.app"
         minSdk = 29 // Android 10+: saving to Downloads needs no storage permission
         targetSdk = 34
-        versionCode = 4
-        versionName = "4.0"
+        versionCode = 5
+        versionName = "5.0"
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -176,4 +176,6 @@ tasks.named("preBuild") { dependsOn(prepareKokoro, prepareAustralian) }
 dependencies {
     implementation(files(sherpaAar))
     implementation("androidx.webkit:webkit:1.12.1")
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0") // text from PDFs
+    testImplementation("junit:junit:4.13.2")
 }
