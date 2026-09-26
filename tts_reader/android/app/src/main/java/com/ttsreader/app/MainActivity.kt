@@ -3,6 +3,7 @@ package com.ttsreader.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
@@ -13,6 +14,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.net.Uri
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -35,15 +37,34 @@ class MainActivity : Activity() {
     private var pageLoaded = false
     private val pendingJs = ArrayList<String>() // calls into the page made before it finished loading
     @Volatile private var player: PlaybackService? = null
+    private val pendingControls = ArrayList<(PlaybackService) -> Unit>() // sent before the service connected
     private var askedForNotifications = false
+    private val events = ArrayList<String>()
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
-            player = (binder as PlaybackService.LocalBinder).service
+            val service = (binder as PlaybackService.LocalBinder).service
+            player = service
+            note("service connected, running ${pendingControls.size} queued controls")
+            pendingControls.forEach { it(service) }
+            pendingControls.clear()
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
+            note("service disconnected")
             player = null
+            bindPlayer()
+        }
+    }
+
+    private fun bindPlayer() {
+        bindPlayer()
+    }
+
+    private fun note(message: String) {
+        synchronized(events) {
+            events.add(java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date()) + " app: " + message)
+            while (events.size > 20) events.removeAt(0)
         }
     }
 
@@ -73,6 +94,14 @@ class MainActivity : Activity() {
                 val url = request.url
                 if (url.host == ASSET_HOST && url.path?.startsWith("/api/") == true) return handleApi(request)
                 return assetLoader.shouldInterceptRequest(url)
+            }
+
+            // Android may kill the page's renderer while the app is in the background.
+            // Rebuild the screen instead of leaving a dead page (reading continues meanwhile).
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                note("page renderer gone (crash=${detail.didCrash()})")
+                runOnUiThread { recreate() }
+                return true
             }
 
             override fun onPageFinished(view: WebView, url: String) {
@@ -177,7 +206,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
-        unbindService(connection) // the service keeps reading if it was playing
+        runCatching { unbindService(connection) } // the service keeps reading if it was playing
         webView.destroy()
         super.onDestroy()
     }
@@ -242,8 +271,30 @@ class MainActivity : Activity() {
             return (0 until clip.itemCount).joinToString("\n") { clip.getItemAt(it).coerceToText(this@MainActivity).toString() }
         }
 
+        @JavascriptInterface
+        fun debugInfo(): String {
+            val app = synchronized(events) { events.joinToString("\n") }
+            val service = player?.debugInfo() ?: "Service not connected"
+            return "TTS Reader ${BuildConfig.VERSION_NAME} · Android ${Build.VERSION.RELEASE} · ${Build.MANUFACTURER} ${Build.MODEL}\n" +
+                "$service\n$app"
+        }
+
+        @JavascriptInterface
+        fun copyText(text: String) {
+            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("TTS Reader", text))
+        }
+
         private fun control(action: (PlaybackService) -> Unit) {
-            runOnUiThread { player?.let(action) }
+            runOnUiThread {
+                val service = player
+                if (service != null) {
+                    action(service)
+                } else {
+                    note("control queued: service not connected")
+                    pendingControls.add(action)
+                    bindPlayer()
+                }
+            }
         }
     }
 

@@ -36,6 +36,9 @@ import java.io.DataOutputStream
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.concurrent.thread
 
 /**
@@ -79,6 +82,10 @@ class PlaybackService : Service() {
     private var readyChars = 0L                 // text and audio generated so far, for time estimates
     private var readySeconds = 0.0
     private var sleepAt = 0L                    // SystemClock.elapsedRealtime() to pause at; 0 = off
+    private var pausedAt = 0L                   // when playback was paused (elapsedRealtime), 0 = not paused
+    private var headSeen = -1L                  // stall watchdog: last playback head position seen...
+    private var headMovedAt = 0L                // ...and when it last changed
+    private val events = ArrayDeque<String>()   // recent events, for "Copy debug info"
 
     // Where each chunk starts in the audio written to the current AudioTrack: [frame, chunk].
     private val segments = ArrayList<LongArray>()
@@ -157,12 +164,32 @@ class PlaybackService : Service() {
         super.onDestroy()
     }
 
+    private fun log(message: String) {
+        val line = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " " + message
+        synchronized(events) {
+            events.addLast(line)
+            while (events.size > 60) events.removeFirst()
+        }
+    }
+
+    /** State plus recent events, for the menu's "Copy debug info". */
+    fun debugInfo(): String {
+        val state = stateJson()
+        val trackInfo = synchronized(lock) {
+            track?.let { "track: state=${it.state} playState=${it.playState} rate=${it.sampleRate} head=${playedFrames()} written=$writtenFrames" }
+                ?: "track: none"
+        }
+        val log = synchronized(events) { events.joinToString("\n") }
+        return "Service state: $state\n$trackInfo\nforeground=$foreground\nRecent events:\n$log"
+    }
+
     // ---------------------------------------------------------------- controls (any thread)
 
     /** Loads a new text. Does nothing if the same text is already loaded. */
     fun load(newKey: String, texts: List<String>, paragraphs: IntArray, voice: String?, start: Int) {
         synchronized(lock) {
             if (newKey == key && texts.size == chunks.size) return
+            log("load ${texts.size} sentences, voice=$voice, start=$start")
             key = newKey
             chunks = texts
             paraOf = paragraphs
@@ -178,11 +205,27 @@ class PlaybackService : Service() {
 
     fun play() {
         synchronized(lock) {
-            if (chunks.isEmpty()) return
+            if (chunks.isEmpty()) {
+                log("play ignored: no text loaded")
+                return
+            }
             if (finished) {
                 finished = false
                 writePos = 0
             }
+            // After a longer pause, start the sentence again on a fresh audio stream: Android
+            // can invalidate a stream that sat paused (route changes, the app being frozen).
+            val t = track
+            val longPause = pausedAt > 0 && SystemClock.elapsedRealtime() - pausedAt > 5_000
+            if (t != null && (longPause || t.state != AudioTrack.STATE_INITIALIZED)) {
+                writePos = currentChunk()
+                interrupt = true
+                log("play: fresh audio stream from sentence $writePos")
+            } else {
+                log("play at sentence ${currentChunk()}")
+            }
+            pausedAt = 0
+            headMovedAt = SystemClock.elapsedRealtime()
             playing = true
             lock.notifyAll()
         }
@@ -197,6 +240,8 @@ class PlaybackService : Service() {
         synchronized(lock) {
             if (!playing) return
             playing = false
+            pausedAt = SystemClock.elapsedRealtime()
+            log("pause at sentence ${currentChunk()}")
             track?.let { runCatching { it.pause() } }
             updateWakeLock()
             lock.notifyAll()
@@ -208,6 +253,7 @@ class PlaybackService : Service() {
         synchronized(lock) {
             if (chunks.isEmpty()) return
             writePos = index.coerceIn(0, chunks.size - 1)
+            log("seek to sentence $writePos")
             finished = false
             interrupt = true
             lock.notifyAll()
@@ -225,6 +271,7 @@ class PlaybackService : Service() {
     fun setVoice(voice: String?) {
         synchronized(lock) {
             if (voice == voiceId) return
+            log("voice $voice")
             voiceId = voice
             if (chunks.isEmpty()) return
             writePos = currentChunk()
@@ -280,6 +327,7 @@ class PlaybackService : Service() {
 
     /** Pauses and removes the notification (the notification's close button). */
     fun stopReading() {
+        log("close")
         pause()
         abandonFocus()
         session.isActive = false // headset buttons no longer restart reading
@@ -344,8 +392,20 @@ class PlaybackService : Service() {
     }
 
     private fun generatorLoop() {
-        val speech = Speech.get(this)
         while (true) {
+            try {
+                generateNext()
+            } catch (e: Throwable) {
+                log("generator error: $e")
+                synchronized(lock) { error = "Speech generation error: ${e.message ?: e}" }
+                Thread.sleep(500)
+            }
+        }
+    }
+
+    private fun generateNext() {
+        val speech = Speech.get(this)
+        run {
             var job: Triple<Int, Int, String>? = null
             var voice: String? = null
             var export: Recording? = null
@@ -372,7 +432,7 @@ class PlaybackService : Service() {
             val recording = export
             if (recording != null) {
                 saveRecording(recording)
-                continue
+                return
             }
             val (jobGen, index, text) = job!!
             var samples = FloatArray(0)
@@ -494,6 +554,9 @@ class PlaybackService : Service() {
     }
 
     private fun newTrack(rate: Int): AudioTrack {
+        log("new audio stream at $rate Hz")
+        headSeen = -1
+        headMovedAt = SystemClock.elapsedRealtime()
         val minBuffer = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
         return AudioTrack.Builder()
             .setAudioAttributes(ATTRIBUTES)
@@ -512,6 +575,50 @@ class PlaybackService : Service() {
 
     private fun playerLoop() {
         while (true) {
+            try {
+                playNext()
+            } catch (e: Throwable) {
+                log("player error: $e")
+                synchronized(lock) {
+                    error = "Playback error: ${e.message ?: e}"
+                    writePos = currentChunk()
+                    releaseTrack()
+                }
+                Thread.sleep(500)
+            }
+        }
+    }
+
+    /**
+     * True when the audio should be moving but the playback head hasn't advanced for a
+     * while (a stream Android invalidated). Call with [lock] held while playing.
+     */
+    private fun stalled(): Boolean {
+        val t = track ?: return false
+        if (t.playState != AudioTrack.PLAYSTATE_PLAYING || playedFrames() >= writtenFrames) {
+            headMovedAt = SystemClock.elapsedRealtime()
+            return false
+        }
+        val head = playedFrames()
+        val now = SystemClock.elapsedRealtime()
+        if (head != headSeen) {
+            headSeen = head
+            headMovedAt = now
+            return false
+        }
+        return now - headMovedAt > 3_000
+    }
+
+    /** Replaces a stuck audio stream, restarting from the sentence being heard. Call with [lock] held. */
+    private fun restartStream(reason: String) {
+        log("audio stream restarted: $reason")
+        writePos = currentChunk()
+        interrupt = true
+        headMovedAt = SystemClock.elapsedRealtime()
+    }
+
+    private fun playNext() {
+        run {
             // Wait until there is a generated chunk to stream (or handle end of text).
             var jobGen = 0
             var index = 0
@@ -528,6 +635,10 @@ class PlaybackService : Service() {
                         continue
                     }
                     track?.let { if (it.playState != AudioTrack.PLAYSTATE_PLAYING) runCatching { it.play() } }
+                    if (stalled()) {
+                        restartStream("no progress while waiting")
+                        continue
+                    }
                     if (writePos >= chunks.size) {
                         if (playedFrames() >= writtenFrames) {
                             playing = false
@@ -535,6 +646,7 @@ class PlaybackService : Service() {
                             writePos = 0
                             releaseTrack()
                             updateWakeLock()
+                            log("finished")
                             continue
                         }
                         lock.wait(50)
@@ -560,7 +672,7 @@ class PlaybackService : Service() {
                 }
                 segments.add(longArrayOf(writtenFrames, index.toLong()))
                 current
-            } ?: continue
+            } ?: return
 
             var offset = 0
             var cancelled = false
@@ -576,10 +688,12 @@ class PlaybackService : Service() {
                 if (t.playState != AudioTrack.PLAYSTATE_PLAYING) runCatching { t.play() }
                 val n = t.write(data, offset, minOf(4096, data.size - offset), AudioTrack.WRITE_NON_BLOCKING)
                 if (n < 0) {
-                    synchronized(lock) { error = "Audio output error $n"; interrupt = true }
+                    synchronized(lock) { restartStream("write error $n") }
                     break
                 }
                 if (n == 0) {
+                    val stuck = synchronized(lock) { playing && stalled().also { if (it) restartStream("no progress while writing") } }
+                    if (stuck) break
                     Thread.sleep(10)
                 } else {
                     offset += n
@@ -615,6 +729,7 @@ class PlaybackService : Service() {
         val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
             .setAudioAttributes(ATTRIBUTES)
             .setOnAudioFocusChangeListener { change ->
+                log("audio focus change $change")
                 when (change) {
                     AudioManager.AUDIOFOCUS_LOSS -> { resumeOnFocusGain = false; pause() }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
@@ -626,8 +741,10 @@ class PlaybackService : Service() {
                 }
             }
             .build()
+        focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
         focusRequest = request
-        audioManager.requestAudioFocus(request)
+        val result = audioManager.requestAudioFocus(request)
+        if (result != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) log("audio focus not granted ($result)")
     }
 
     private fun abandonFocus() {
@@ -645,6 +762,7 @@ class PlaybackService : Service() {
         } catch (e: Exception) {
             // Android can refuse this while the app is in the background; reading still
             // works while the app is open, and the next Play from the app retries.
+            log("couldn't start foreground: $e")
         }
     }
 

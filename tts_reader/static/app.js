@@ -795,6 +795,20 @@ $("clean").addEventListener("change", (e) => {
   highlight(true);
 });
 
+// Android only: copies the player's state and recent events, to paste into a bug report.
+if (nativeApp && nativeApp.debugInfo) {
+  $("debug").hidden = false;
+  $("debug").addEventListener("click", () => {
+    const page = `Page: text ${chunks.length} sentences, key ${textKey}, pos ${pos}, reader ${readerEl.hidden ? "hidden" : "shown"}, ` +
+      `voice ${voiceEl.value}, speed ${speed()}, autosave ${settings.autosave}, clean ${settings.clean}`;
+    nativeApp.copyText(nativeApp.debugInfo() + "\n" + page);
+    closeSheet();
+    message = "Debug info copied. Paste it into your chat with Claude.";
+    refresh();
+    setTimeout(() => { message = ""; refresh(); }, 5000);
+  });
+}
+
 // ---------- controls ----------
 
 function jumpTo(i) {

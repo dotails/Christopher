@@ -125,8 +125,8 @@ android {
         applicationId = "com.ttsreader.app"
         minSdk = 29 // Android 10+: saving to Downloads needs no storage permission
         targetSdk = 34
-        versionCode = 5
-        versionName = "5.0"
+        versionCode = 6
+        versionName = "6.0"
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -160,6 +160,10 @@ android {
     androidResources {
         // The model files barely compress; storing them as-is makes the first-launch copy faster.
         noCompress += listOf("onnx", "bin")
+    }
+
+    buildFeatures {
+        buildConfig = true // the version name shown in "Copy debug info"
     }
 
     compileOptions {
