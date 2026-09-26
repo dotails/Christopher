@@ -5,57 +5,51 @@ import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
+import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-/** On-device Kokoro speech synthesis via sherpa-onnx. All methods are thread-safe. */
+/**
+ * On-device English speech synthesis via sherpa-onnx.
+ * US and UK voices come from Kokoro; Australian voices come from a Piper model.
+ * All methods are thread-safe.
+ */
 class Speech(private val context: Context) {
 
-    data class Voice(val id: String, val sid: Int, val name: String, val lang: Lang)
+    enum class Accent(val label: String) { US("US"), UK("UK"), AU("Australian") }
 
-    /** One engine is loaded at a time; switching language reloads it (a few seconds). */
-    enum class Lang(val espeak: String, val lexicon: String, val label: String) {
-        US("en-us", "lexicon-us-en.txt", "US"),
-        UK("en", "lexicon-gb-en.txt", "UK"),
-        ES("es", "", "Spanish"),
-        FR("fr", "", "French"),
-        HI("hi", "", "Hindi"),
-        IT("it", "", "Italian"),
-        PT("pt-br", "", "Portuguese"),
-    }
+    data class Voice(val id: String, val sid: Int, val name: String, val accent: Accent)
 
     val voices: List<Voice>
 
     private val lock = Object()
-    private var engine: OfflineTts? = null
-    private var engineLang: Lang? = null
+    private val engines = HashMap<Accent, OfflineTts>() // kept loaded, so switching accents is instant after first use
     private val latestEpoch = HashMap<String, Long>()
     private val cache = object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ByteArray>) = size > 32
     }
 
     init {
-        val byPrefix = mapOf(
-            'a' to Lang.US, 'b' to Lang.UK, 'e' to Lang.ES, 'f' to Lang.FR,
-            'h' to Lang.HI, 'i' to Lang.IT, 'p' to Lang.PT,
-        )
-        // Speaker IDs are the positions in the model's speaker list (see its metadata).
-        val all = SPEAKERS.mapIndexedNotNull { sid, id ->
-            val lang = byPrefix[id[0]] ?: return@mapIndexedNotNull null
-            val gender = if (id[1] == 'f') "female" else "male"
-            val name = id.substringAfter('_').replaceFirstChar { it.uppercase() }
-            Voice(id, sid, "$name (${lang.label} $gender)", lang)
+        val kokoro = KOKORO_SPEAKERS.mapIndexedNotNull { sid, id ->
+            val accent = when (id[0]) { 'a' -> Accent.US; 'b' -> Accent.UK; else -> return@mapIndexedNotNull null }
+            if (id in SKIPPED) return@mapIndexedNotNull null
+            Voice(id, sid, label(id.substringAfter('_'), accent, id[1] == 'f'), accent)
         }
-        voices = all.sortedBy { v -> FAVORITES.indexOf(v.id).let { if (it < 0) FAVORITES.size else it } }
+        val australian = AU_SPEAKERS.map { (name, sid, female) -> Voice("au_$name", sid, label(name, Accent.AU, female), Accent.AU) }
+        val order = { v: Voice -> FAVORITES.indexOf(v.id).let { if (it < 0) FAVORITES.size else it } }
+        voices = (kokoro + australian).sortedWith(compareBy<Voice>({ it.accent.ordinal }, order))
     }
+
+    private fun label(name: String, accent: Accent, female: Boolean) =
+        "${name.replaceFirstChar { it.uppercase() }} (${accent.label} ${if (female) "female" else "male"})"
 
     fun voice(id: String?): Voice = voices.firstOrNull { it.id == id } ?: voices.first()
 
     /** Loads the engine for [voiceId] ahead of time so the first Play is quick. */
     fun warmUp(voiceId: String?) {
-        synchronized(lock) { engineFor(voice(voiceId).lang) }
+        synchronized(lock) { engineFor(voice(voiceId).accent) }
     }
 
     /**
@@ -73,45 +67,53 @@ class Speech(private val context: Context) {
             cache[key]?.let { return it }
             val latest = synchronized(latestEpoch) { latestEpoch[client] ?: epoch }
             if (epoch < latest) return null
-            val audio = engineFor(v.lang).generate(text, v.sid, s)
+            val audio = engineFor(v.accent).generate(text, v.sid, s)
             return toWav(audio.samples, audio.sampleRate).also { cache[key] = it }
         }
     }
 
-    private fun engineFor(lang: Lang): OfflineTts {
-        engine?.let { if (engineLang == lang) return it }
-        engine?.release()
-        engine = null
+    private fun engineFor(accent: Accent): OfflineTts = engines.getOrPut(accent) {
         val dir = modelDir()
-        val config = OfflineTtsConfig(
-            model = OfflineTtsModelConfig(
+        val espeak = "$dir/kokoro/espeak-ng-data"
+        val model = when (accent) {
+            Accent.US, Accent.UK -> OfflineTtsModelConfig(
                 kokoro = OfflineTtsKokoroModelConfig(
-                    model = "$dir/model.int8.onnx",
-                    voices = "$dir/voices.bin",
-                    tokens = "$dir/tokens.txt",
-                    dataDir = "$dir/espeak-ng-data",
-                    lexicon = if (lang.lexicon.isEmpty()) "" else "$dir/${lang.lexicon}",
-                    lang = lang.espeak,
+                    model = "$dir/kokoro/model.onnx",
+                    voices = "$dir/kokoro/voices.bin",
+                    tokens = "$dir/kokoro/tokens.txt",
+                    dataDir = espeak,
+                    lexicon = if (accent == Accent.US) "$dir/kokoro/lexicon-us-en.txt" else "$dir/kokoro/lexicon-gb-en.txt",
+                    lang = if (accent == Accent.US) "en-us" else "en",
                 ),
-                numThreads = Runtime.getRuntime().availableProcessors().coerceIn(2, 4),
+                numThreads = THREADS,
                 debug = false,
                 provider = "cpu",
-            ),
-            maxNumSentences = 1,
-        )
-        return OfflineTts(config = config).also {
-            engine = it
-            engineLang = lang
+            )
+            Accent.AU -> OfflineTtsModelConfig(
+                vits = OfflineTtsVitsModelConfig(
+                    model = "$dir/au/model.onnx",
+                    tokens = "$dir/au/tokens.txt",
+                    dataDir = espeak,
+                    noiseScale = 0.667f,
+                    noiseScaleW = 0.8f,
+                    lengthScale = 1.0f,
+                ),
+                numThreads = THREADS,
+                debug = false,
+                provider = "cpu",
+            )
         }
+        OfflineTts(config = OfflineTtsConfig(model = model, maxNumSentences = 1))
     }
 
-    /** The engine reads plain files, so the bundled model is copied out of the APK once. */
+    /** The engine reads plain files, so the bundled models are copied out of the APK once. */
     private fun modelDir(): File {
-        val dir = File(context.filesDir, "kokoro")
+        val dir = File(context.filesDir, "models")
         val marker = File(dir, ".complete-v$MODEL_VERSION")
         if (marker.exists()) return dir
+        File(context.filesDir, "kokoro").deleteRecursively() // left over from version 1.0
         dir.deleteRecursively()
-        copyAssets("kokoro", dir)
+        copyAssets("models", dir)
         marker.createNewFile()
         return dir
     }
@@ -141,21 +143,31 @@ class Speech(private val context: Context) {
     }
 
     companion object {
-        /** Bump when the bundled model changes, so the copied files are refreshed. */
-        private const val MODEL_VERSION = 1
+        /** Bump when the bundled models change, so the copied files are refreshed. */
+        private const val MODEL_VERSION = 2
+
+        private val THREADS = Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
 
         private val FAVORITES = listOf(
-            "af_heart", "af_bella", "am_michael", "am_fenrir", "bf_emma", "bm_george", "af_nicole", "am_puck",
+            "af_heart", "af_bella", "am_michael", "am_fenrir", "af_nicole", "am_puck",
+            "bf_emma", "bm_george", "bm_fable",
+            "au_banjo", "au_kirra", "au_tully", "au_clancy", "au_matilda",
         )
+        private val SKIPPED = setOf("am_santa")
 
         // Speaker order of kokoro-multi-lang-v1_0 (model metadata "speaker_names").
-        private val SPEAKERS = (
+        private val KOKORO_SPEAKERS = (
             "af_alloy,af_aoede,af_bella,af_heart,af_jessica,af_kore,af_nicole,af_nova,af_river,af_sarah,af_sky," +
                 "am_adam,am_echo,am_eric,am_fenrir,am_liam,am_michael,am_onyx,am_puck,am_santa," +
-                "bf_alice,bf_emma,bf_isabella,bf_lily,bm_daniel,bm_fable,bm_george,bm_lewis," +
-                "ef_dora,em_alex,ff_siwis,hf_alpha,hf_beta,hm_omega,hm_psi,if_sara,im_nicola," +
-                "jf_alpha,jf_gongitsune,jf_nezumi,jf_tebukuro,jm_kumo,pf_dora,pm_alex,pm_santa," +
-                "zf_xiaobei,zf_xiaoni,zf_xiaoxiao,zf_xiaoyi,zm_yunjian,zm_yunxi,zm_yunxia,zm_yunyang,em_santa"
+                "bf_alice,bf_emma,bf_isabella,bf_lily,bm_daniel,bm_fable,bm_george,bm_lewis"
             ).split(",")
+
+        // Speaker IDs of en_AU-librivox-medium (its voice_to_speaker.yaml): name, id, female.
+        private val AU_SPEAKERS = listOf(
+            Triple("clancy", 0, false), Triple("bindi", 1, true), Triple("marlo", 2, true),
+            Triple("kirra", 3, true), Triple("angus", 4, false), Triple("banjo", 5, false),
+            Triple("flynn", 6, false), Triple("matilda", 7, true), Triple("tully", 8, true),
+            Triple("willow", 9, true),
+        )
     }
 }

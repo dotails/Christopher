@@ -60,7 +60,7 @@ jobs:
           prerelease: true
           files: TTS-Reader.apk
           body: |
-            Read-aloud app with natural offline voices (Kokoro). Built from ${{ github.sha }}.
+            Read-aloud app with natural offline English voices: US and UK (Kokoro), plus Australian (Piper). Built from ${{ github.sha }}.
 
             **Install:** open this page on your Android phone, tap **TTS-Reader.apk**, then open the
             downloaded file. If asked, allow your browser to "install unknown apps".

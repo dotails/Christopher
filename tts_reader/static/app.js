@@ -434,7 +434,19 @@ if (textEl.value) {
 fetch("api/voices")
   .then((r) => r.json())
   .then((voices) => {
-    for (const v of voices) voiceEl.add(new Option(v.name, v.id));
+    const groups = {};
+    for (const v of voices) {
+      let parent = voiceEl;
+      if (v.group) {
+        parent = groups[v.group];
+        if (!parent) {
+          parent = groups[v.group] = document.createElement("optgroup");
+          parent.label = v.group;
+          voiceEl.appendChild(parent);
+        }
+      }
+      parent.appendChild(new Option(v.name, v.id));
+    }
     const saved = store.get("voice", "");
     if (voices.some((v) => v.id === saved)) voiceEl.value = saved;
   })

@@ -28,9 +28,17 @@ don't need an API key or an account, and it works without internet.
 
 ## Android app (no computer needed)
 
-`android/` builds a standalone APK that runs the same voices **on the phone
+`android/` builds a standalone APK that runs the voices **on the phone
 itself**, offline. It uses [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
-to run Kokoro and shows the same screen as the web version.
+to run the models and shows the same screen as the web version. It has
+English voices only:
+
+- **US and UK:** 27 voices from the full-precision Kokoro v1.0 model.
+- **Australian:** 10 voices from
+  [piper-en_AU-librivox-medium](https://huggingface.co/DataCraftsmanAustralia/piper-en_AU-librivox-medium)
+  (CC BY 4.0, recorded by LibriVox volunteers). It's a smaller Piper model, so
+  it sounds a little less natural than Kokoro. Banjo, Kirra and Tully were
+  trained on the most audio, so they should sound the best.
 
 **Install:** on your phone, open this repository's
 [Releases page](https://github.com/dotails/christopher/releases/tag/tts-reader-android)
@@ -39,10 +47,9 @@ allow your browser to install unknown apps. GitHub Actions rebuilds the APK
 whenever `tts_reader/` changes.
 
 - It needs a 64-bit phone running Android 8.0 or newer. The download is about
-  160 MB, and it uses about 170 MB more once unpacked.
-- The first launch takes a little longer while it unpacks the voices.
-  Switching between accent groups (for example a US voice to a UK voice)
-  reloads the engine, which takes a few seconds.
+  450 MB, and it uses about 450 MB more once unpacked.
+- The first launch takes a little longer while it unpacks the voices. The
+  first use of each accent then takes a few seconds to load it.
 - You can share text from another app to it with **Share → TTS Reader**.
 - The screen stays on while it's reading.
 

@@ -1,3 +1,4 @@
+import java.io.ByteArrayOutputStream
 import java.net.URI
 
 plugins {
@@ -5,10 +6,11 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// The speech engine (sherpa-onnx) and the Kokoro voice model are too big for git,
+// The speech engine (sherpa-onnx) and the voice models are too big for git,
 // so the build downloads them once into android/downloads/.
 val sherpaVersion = "1.13.8"
-val modelName = "kokoro-int8-multi-lang-v1_0"
+val kokoroName = "kokoro-multi-lang-v1_0" // full-precision Kokoro v1.0: US and UK voices
+val auRevision = "7f35faf19fe1789ece4b14233448f7c04e35a84f" // DataCraftsmanAustralia/piper-en_AU-librivox-medium
 val downloadsDir = rootProject.file("downloads")
 
 fun download(url: String, name: String): File {
@@ -27,36 +29,92 @@ val sherpaAar = download(
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$sherpaVersion/sherpa-onnx-$sherpaVersion.aar",
     "sherpa-onnx-$sherpaVersion.aar",
 )
-val modelArchive = download(
-    "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/$modelName.tar.bz2",
-    "$modelName.tar.bz2",
+val kokoroArchive = download(
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/$kokoroName.tar.bz2",
+    "$kokoroName.tar.bz2",
 )
+val auBase = "https://huggingface.co/DataCraftsmanAustralia/piper-en_AU-librivox-medium/resolve/$auRevision"
+val auModel = download("$auBase/en_AU-librivox-medium.onnx", "en_AU-librivox-medium.onnx")
+val auConfig = download("$auBase/en_AU-librivox-medium.onnx.json", "en_AU-librivox-medium.onnx.json")
+val auAttribution = download("$auBase/ATTRIBUTION.md", "en_AU-librivox-medium-ATTRIBUTION.md")
 
-// Unpack only what the app uses: the model, voices, English lexicons and the
-// eSpeak data for the supported languages (the Chinese extras are left out).
-val espeakDicts = listOf("en", "es", "fr", "it", "pt", "hi").map { "${it}_dict" }
-val kokoroAssets = layout.buildDirectory.dir("generated/kokoroAssets")
-val prepareModel by tasks.registering(Sync::class) {
-    from(tarTree(resources.bzip2(modelArchive))) {
+val modelAssets = layout.buildDirectory.dir("generated/modelAssets")
+
+// Kokoro: only the model, voices, English lexicons and English eSpeak data.
+val prepareKokoro by tasks.registering(Sync::class) {
+    from(tarTree(resources.bzip2(kokoroArchive))) {
         include(
-            "$modelName/model.int8.onnx",
-            "$modelName/voices.bin",
-            "$modelName/tokens.txt",
-            "$modelName/lexicon-us-en.txt",
-            "$modelName/lexicon-gb-en.txt",
-            "$modelName/LICENSE",
-            "$modelName/espeak-ng-data/**",
+            "$kokoroName/model.onnx",
+            "$kokoroName/voices.bin",
+            "$kokoroName/tokens.txt",
+            "$kokoroName/lexicon-us-en.txt",
+            "$kokoroName/lexicon-gb-en.txt",
+            "$kokoroName/LICENSE",
+            "$kokoroName/espeak-ng-data/**",
         )
-        exclude("$modelName/espeak-ng-data/*_dict")
-        eachFile { path = path.replaceFirst("$modelName/", "kokoro/") }
+        exclude("$kokoroName/espeak-ng-data/*_dict")
         includeEmptyDirs = false
     }
-    from(tarTree(resources.bzip2(modelArchive))) {
-        include(espeakDicts.map { "$modelName/espeak-ng-data/$it" })
-        eachFile { path = path.replaceFirst("$modelName/", "kokoro/") }
-        includeEmptyDirs = false
+    from(tarTree(resources.bzip2(kokoroArchive))) {
+        include("$kokoroName/espeak-ng-data/en_dict")
     }
-    into(kokoroAssets)
+    eachFile { path = path.replaceFirst("$kokoroName/", "") }
+    includeEmptyDirs = false
+    into(modelAssets.map { it.dir("models/kokoro") })
+}
+
+// Piper (Australian): sherpa-onnx needs the voice settings stored inside the .onnx
+// file and a tokens.txt, so write both here from the model's .onnx.json.
+val prepareAustralian by tasks.registering {
+    val out = modelAssets.map { it.dir("models/au") }
+    inputs.files(auModel, auConfig, auAttribution)
+    outputs.dir(out)
+    doLast {
+        val dir = out.get().asFile.apply { deleteRecursively(); mkdirs() }
+        @Suppress("UNCHECKED_CAST")
+        val config = groovy.json.JsonSlurper().parse(auConfig) as Map<String, Any>
+        val espeak = config["espeak"] as Map<String, Any>
+        val audio = config["audio"] as Map<String, Any>
+
+        // ModelProto.metadata_props is field 14; appending encoded entries to the
+        // serialized model adds them without having to parse the whole file.
+        fun varint(value: Int): ByteArray {
+            val bytes = ByteArrayOutputStream()
+            var v = value
+            while (true) {
+                val b = v and 0x7F
+                v = v ushr 7
+                if (v == 0) { bytes.write(b); break }
+                bytes.write(b or 0x80)
+            }
+            return bytes.toByteArray()
+        }
+        fun field(number: Int, data: ByteArray) = varint((number shl 3) or 2) + varint(data.size) + data
+        val meta = mapOf(
+            "model_type" to "vits",
+            "comment" to "piper",
+            "language" to "English",
+            "voice" to espeak["voice"].toString(),
+            "has_espeak" to "1",
+            "n_speakers" to config["num_speakers"].toString(),
+            "sample_rate" to audio["sample_rate"].toString(),
+        )
+        File(dir, "model.onnx").outputStream().use { outStream ->
+            auModel.inputStream().use { it.copyTo(outStream) }
+            for ((k, v) in meta) outStream.write(field(14, field(1, k.toByteArray()) + field(2, v.toByteArray())))
+        }
+
+        // sherpa-onnx reads one character per token. The model's merged vowel
+        // clusters ("aɪ", "eɪ", ...) are left out; their letters are read separately.
+        @Suppress("UNCHECKED_CAST")
+        val ids = config["phoneme_id_map"] as Map<String, List<Number>>
+        File(dir, "tokens.txt").writeText(
+            ids.filterKeys { it.codePointCount(0, it.length) == 1 }
+                .entries.joinToString("") { (phoneme, id) -> "$phoneme ${id.first()}\n" },
+            Charsets.UTF_8,
+        )
+        auAttribution.copyTo(File(dir, "ATTRIBUTION.md"))
+    }
 }
 
 android {
@@ -67,8 +125,8 @@ android {
         applicationId = "com.ttsreader.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -93,7 +151,7 @@ android {
         }
     }
 
-    sourceSets["main"].assets.srcDirs(kokoroAssets, "../../static")
+    sourceSets["main"].assets.srcDirs(modelAssets, "../../static")
 
     packaging {
         jniLibs.useLegacyPackaging = true // compress the native libraries (smaller APK download)
@@ -113,7 +171,7 @@ android {
     }
 }
 
-tasks.named("preBuild") { dependsOn(prepareModel) }
+tasks.named("preBuild") { dependsOn(prepareKokoro, prepareAustralian) }
 
 dependencies {
     implementation(files(sherpaAar))

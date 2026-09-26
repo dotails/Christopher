@@ -72,7 +72,9 @@ class MainActivity : Activity() {
             when (url.path) {
                 "/api/voices" -> {
                     val list = JSONArray()
-                    for (v in speech.voices) list.put(JSONObject().put("id", v.id).put("name", v.name))
+                    for (v in speech.voices) {
+                        list.put(JSONObject().put("id", v.id).put("name", v.name).put("group", v.accent.label))
+                    }
                     response(200, "application/json", list.toString().toByteArray())
                 }
                 "/api/tts" -> {
