@@ -19,7 +19,9 @@ don't need an API key or an account, and it works without internet.
   current paragraph if you're partway in; press it again to go back one more.
 - **Tap any sentence** while reading to jump there. To start from a specific
   spot, tap it in the text box before pressing Play.
-- A **speed slider** (0.5×–2×) that affects what's playing right away.
+- A **speed slider** (0.5×–2×) that affects what's playing right away,
+  without regenerating anything.
+- **Preloads the whole text** and dims the sentences that aren't generated yet.
 - **Voice picker** with 40+ voices: US and UK English (male and female), plus
   Spanish, French, Italian, Portuguese and Hindi.
 - Remembers your text, position, voice and speed. Supports lock-screen and
@@ -50,8 +52,15 @@ whenever `tts_reader/` changes.
   450 MB, and it uses about 450 MB more once unpacked.
 - The first launch takes a little longer while it unpacks the voices. The
   first use of each accent then takes a few seconds to load it.
+- It keeps reading with the screen off or the app in the background, with
+  play/pause and paragraph skip on the lock screen, in the notification and on
+  headphone buttons. Close the notification to stop.
+- Once you press Play, it generates the whole text in the background, starting
+  from where you are. Sentences that aren't ready yet are dimmed and brighten
+  as they finish, and the status line shows how much is ready. If playback
+  catches up with generation, pause for a bit and it will play through without
+  stopping.
 - You can share text from another app to it with **Share → TTS Reader**.
-- The screen stays on while it's reading.
 
 To build it yourself, install Android Studio (or the Android SDK and JDK 17)
 and run `./gradlew assembleRelease` in `android/`. The build downloads the
