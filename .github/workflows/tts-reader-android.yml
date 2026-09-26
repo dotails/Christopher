@@ -64,5 +64,5 @@ jobs:
 
             **Install:** open this page on your Android phone, tap **TTS-Reader.apk**, then open the
             downloaded file. If asked, allow your browser to "install unknown apps".
-            Requires a 64-bit Android 8.0+ phone. The first launch takes a little longer while it
+            Requires a 64-bit Android 10+ phone. The first launch takes a little longer while it
             unpacks the voices.

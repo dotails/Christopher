@@ -123,10 +123,10 @@ android {
 
     defaultConfig {
         applicationId = "com.ttsreader.app"
-        minSdk = 26
+        minSdk = 29 // Android 10+: saving to Downloads needs no storage permission
         targetSdk = 34
-        versionCode = 3
-        versionName = "3.0"
+        versionCode = 4
+        versionName = "4.0"
         ndk { abiFilters += "arm64-v8a" }
     }
 

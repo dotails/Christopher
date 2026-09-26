@@ -22,6 +22,7 @@ don't need an API key or an account, and it works without internet.
 - A **speed slider** (0.5×–2×) that affects what's playing right away,
   without regenerating anything.
 - **Preloads the whole text** and dims the sentences that aren't generated yet.
+  Once it's all ready, it downloads the full recording as one WAV file.
 - **Voice picker** with 40+ voices: US and UK English (male and female), plus
   Spanish, French, Italian, Portuguese and Hindi.
 - Remembers your text, position, voice and speed. Supports lock-screen and
@@ -48,7 +49,7 @@ and tap **TTS-Reader.apk**, then open the downloaded file. If Android asks,
 allow your browser to install unknown apps. GitHub Actions rebuilds the APK
 whenever `tts_reader/` changes.
 
-- It needs a 64-bit phone running Android 8.0 or newer. The download is about
+- It needs a 64-bit phone running Android 10 or newer. The download is about
   450 MB, and it uses about 450 MB more once unpacked.
 - The first launch takes a little longer while it unpacks the voices. The
   first use of each accent then takes a few seconds to load it.
@@ -60,6 +61,10 @@ whenever `tts_reader/` changes.
   as they finish, and the status line shows how much is ready. If playback
   catches up with generation, pause for a bit and it will play through without
   stopping.
+- When every sentence is ready, the whole recording is saved automatically to
+  your **Downloads** folder as a WAV file named after the text's first words
+  and the voice, for example `TTS Reader - It was a bright cold - Heart.wav`.
+  Changing the voice records the text again and saves a new file.
 - You can share text from another app to it with **Share → TTS Reader**.
 
 To build it yourself, install Android Studio (or the Android SDK and JDK 17)

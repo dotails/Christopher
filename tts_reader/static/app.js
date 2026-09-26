@@ -113,6 +113,8 @@ function createWebPlayer() {
   let preloading = false;
   let preloadError = "";
   let wakeLock = null;
+  let savedFor = "";       // text+voice last downloaded as one WAV
+  let savedName = "";
 
   const isReady = (i) => { const e = cache.get(i); return !!(e && e.url && e.voice === voiceEl.value); };
 
@@ -166,7 +168,7 @@ function createWebPlayer() {
           const i = (pos + k) % chunks.length;
           if (!isReady(i)) { next = i; break; }
         }
-        if (next < 0) break;
+        if (next < 0) { await saveRecording(); break; }
         try {
           await getAudio(next);
         } catch (err) {
@@ -177,6 +179,45 @@ function createWebPlayer() {
       }
     } finally {
       preloading = false;
+    }
+  }
+
+  // Once every sentence is ready, joins the clips into one WAV and downloads it.
+  async function saveRecording() {
+    const voice = voiceEl.value;
+    const id = textKey + "|" + voice;
+    if (savedFor === id || !chunks.length) return;
+    savedFor = id;
+    try {
+      const parts = [];
+      let rate = 24000;
+      for (let i = 0; i < chunks.length; i++) {
+        const buf = await (await fetch(cache.get(i).url)).arrayBuffer();
+        if (i === 0) rate = new DataView(buf).getUint32(24, true);
+        parts.push(new Uint8Array(buf, 44)); // skip each clip's 44-byte WAV header
+      }
+      const size = parts.reduce((n, p) => n + p.length, 0);
+      const header = new DataView(new ArrayBuffer(44));
+      const str = (o, t) => [...t].forEach((c, k) => header.setUint8(o + k, c.charCodeAt(0)));
+      str(0, "RIFF"); header.setUint32(4, 36 + size, true); str(8, "WAVEfmt ");
+      header.setUint32(16, 16, true); header.setUint16(20, 1, true); header.setUint16(22, 1, true);
+      header.setUint32(24, rate, true); header.setUint32(28, rate * 2, true); header.setUint16(32, 2, true);
+      header.setUint16(34, 16, true); str(36, "data"); header.setUint32(40, size, true);
+      const words = chunks[0].text.replace(/[\\/:*?"<>|\s]+/g, " ").trim().split(" ").slice(0, 6).join(" ").slice(0, 60);
+      const voiceName = voiceEl.selectedOptions[0]?.textContent.split(" (")[0] || voice;
+      savedName = `TTS Reader - ${words} - ${voiceName}.wav`;
+      const url = URL.createObjectURL(new Blob([header.buffer, ...parts], { type: "audio/wav" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = savedName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      savedFor = "";
+      savedName = "";
+      preloadError = "saving the recording failed: " + err.message;
     }
   }
 
@@ -314,7 +355,8 @@ function createWebPlayer() {
     },
     startedAt() { return loaded && loaded.i === pos ? audio.currentTime : 0; },
     state() {
-      return { pos, playing, loading, finished, ready: isReady, error: preloadError ? `Couldn't generate speech (${preloadError}).` : "" };
+      const saved = savedFor === textKey + "|" + voiceEl.value ? savedName : "";
+      return { pos, playing, loading, finished, ready: isReady, saved, error: preloadError ? `Couldn't generate speech (${preloadError}).` : "" };
     },
   };
 }
@@ -362,6 +404,7 @@ function createNativePlayer(app) {
         finished: st.finished,
         ready: (i) => st.ready[i] === "1",
         error: st.error,
+        saved: st.saved,
         voice: st.voice,
       };
     },
@@ -450,12 +493,12 @@ function refresh() {
   if (message) status = message;
   else if (s.error) status = s.error;
   else if (!readerEl.hidden && chunks.length) {
-    if (s.finished && !s.playing) status = "Finished";
+    if (s.finished && !s.playing) status = "Finished" + (s.saved ? " · saved to Downloads" : "");
     else {
       status = `Paragraph ${chunks[pos].p + 1} of ${paraStart.length}`;
       if (loading) status += " · generating…";
       else if (readyCount < chunks.length) status += ` · ${Math.floor((100 * readyCount) / chunks.length)}% ready`;
-      else status += " · all ready";
+      else status += s.saved ? " · saved to Downloads" : " · all ready";
     }
   }
   if (statusEl.textContent !== status) statusEl.textContent = status;

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -22,8 +23,12 @@ import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
+import android.provider.MediaStore
+import android.widget.Toast
 import org.json.JSONObject
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -40,6 +45,7 @@ import kotlin.concurrent.thread
  * sentence's audio in the cache directory. Another thread streams the finished
  * sentences back to back into a single AudioTrack, so there are no gaps between them.
  * Speed is applied at playback, so changing it never throws away generated audio.
+ * Once every sentence is generated, the whole recording is saved to Downloads as a WAV.
  */
 class PlaybackService : Service() {
 
@@ -65,6 +71,8 @@ class PlaybackService : Service() {
     private var speed = 1f
     private var error: String? = null
     private var generating = false
+    private var exportedGen = -1                // generation last saved to Downloads
+    private var savedName: String? = null       // file name of that recording
 
     // Where each chunk starts in the audio written to the current AudioTrack: [frame, chunk].
     private val segments = ArrayList<LongArray>()
@@ -271,6 +279,7 @@ class PlaybackService : Service() {
             .put("ready", readyText.toString())
             .put("voice", voiceId ?: "")
             .put("error", error ?: "")
+            .put("saved", savedName ?: "")
             .toString()
     }
 
@@ -278,6 +287,7 @@ class PlaybackService : Service() {
 
     private fun invalidateAudio() {
         gen++
+        savedName = null
         ready = BooleanArray(chunks.size)
         rates = IntArray(chunks.size)
         val current = gen
@@ -307,9 +317,10 @@ class PlaybackService : Service() {
         while (true) {
             var job: Triple<Int, Int, String>? = null
             var voice: String? = null
+            var export: Recording? = null
             synchronized(lock) {
                 var next = nextToGenerate()
-                while (next < 0) {
+                while (next < 0 && (chunks.isEmpty() || exportedGen == gen)) {
                     generating = false
                     updateWakeLock()
                     lock.wait()
@@ -317,8 +328,19 @@ class PlaybackService : Service() {
                 }
                 generating = true
                 updateWakeLock()
-                job = Triple(gen, next, chunks[next])
-                voice = voiceId
+                if (next < 0) {
+                    // Everything is generated: save the whole recording once.
+                    exportedGen = gen
+                    export = Recording(gen, chunks.size, rates.firstOrNull { it > 0 } ?: 24000, voiceId, chunks.first())
+                } else {
+                    job = Triple(gen, next, chunks[next])
+                    voice = voiceId
+                }
+            }
+            val recording = export
+            if (recording != null) {
+                saveRecording(recording)
+                continue
             }
             val (jobGen, index, text) = job!!
             var samples = FloatArray(0)
@@ -355,6 +377,60 @@ class PlaybackService : Service() {
             }
         }
     }
+
+    private class Recording(val gen: Int, val count: Int, val rate: Int, val voice: String?, val firstText: String)
+
+    /** Writes all generated sentences, in order, to Downloads as one WAV file. */
+    private fun saveRecording(rec: Recording) {
+        val files = (0 until rec.count).map { chunkFile(rec.gen, it) }
+        val dataBytes = files.sumOf { if (it.exists()) it.length() else 0L }
+        val words = rec.firstText.replace(Regex("[\\/:*?\"<>|\\s]+"), " ").trim().split(" ").take(6).joinToString(" ")
+        val voiceName = Speech.get(this).voice(rec.voice).name.substringBefore(" (")
+        val name = "TTS Reader - ${words.take(60).trim()} - $voiceName.wav"
+        val resolver = contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, name)
+            put(MediaStore.Downloads.MIME_TYPE, "audio/x-wav")
+            put(MediaStore.Downloads.IS_PENDING, 1)
+        }
+        val uri = try {
+            resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+        } catch (e: Exception) {
+            null
+        }
+        if (uri == null) {
+            synchronized(lock) { if (rec.gen == gen) error = "Couldn't save the recording to Downloads." }
+            return
+        }
+        try {
+            resolver.openOutputStream(uri)!!.buffered(1 shl 16).use { out ->
+                out.write(wavHeader(dataBytes, rec.rate))
+                for (f in files) if (f.exists()) f.inputStream().use { it.copyTo(out, 1 shl 16) }
+            }
+            values.clear()
+            values.put(MediaStore.Downloads.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+            val finalName = resolver.query(uri, arrayOf(MediaStore.Downloads.DISPLAY_NAME), null, null, null)
+                ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: name
+            synchronized(lock) { if (rec.gen == gen) savedName = finalName }
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(this, "Saved to Downloads: $finalName", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            runCatching { resolver.delete(uri, null, null) }
+            synchronized(lock) {
+                if (rec.gen == gen) error = "Couldn't save the recording: ${e.message ?: e}"
+            }
+        }
+    }
+
+    private fun wavHeader(dataBytes: Long, rate: Int): ByteArray =
+        ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN).apply {
+            put("RIFF".toByteArray()); putInt((36 + dataBytes).toInt()); put("WAVE".toByteArray())
+            put("fmt ".toByteArray()); putInt(16); putShort(1); putShort(1)
+            putInt(rate); putInt(rate * 2); putShort(2); putShort(16)
+            put("data".toByteArray()); putInt(dataBytes.toInt())
+        }.array()
 
     // ---------------------------------------------------------------- playback
 
@@ -530,12 +606,7 @@ class PlaybackService : Service() {
         if (foreground) return
         try {
             startForegroundService(Intent(this, PlaybackService::class.java))
-            val notification = buildNotification()
-            if (Build.VERSION.SDK_INT >= 29) {
-                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-            } else {
-                startForeground(NOTIFICATION_ID, notification)
-            }
+            startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
             foreground = true
         } catch (e: Exception) {
             // Android can refuse this while the app is in the background; reading still
