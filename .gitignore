@@ -13,3 +13,8 @@ obj/
 *.exe
 *.pdb
 *.dll
+
+# TTS Reader: downloaded voice model files and Python caches
+tts_reader/models/
+__pycache__/
+.venv/

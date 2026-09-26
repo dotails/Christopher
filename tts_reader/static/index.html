@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>TTS Reader</title>
+  <meta name="theme-color" content="#16161a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Reader">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <select id="voice" aria-label="Voice"></select>
+    <label class="speed">
+      <input id="speed" type="range" min="0.5" max="2" step="0.05" value="1" aria-label="Speed">
+      <output id="speedOut">1.00×</output>
+    </label>
+    <button id="edit" class="icon" title="Edit text" aria-label="Edit text" hidden>
+      <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <textarea id="text" placeholder="Paste or type text here, then press play.&#10;&#10;Blank lines separate paragraphs." spellcheck="false"></textarea>
+    <div id="reader" hidden></div>
+  </main>
+
+  <footer>
+    <div id="status" aria-live="polite"></div>
+    <div class="controls">
+      <button id="prev" class="icon" aria-label="Previous paragraph">
+        <svg viewBox="0 0 24 24"><path d="M6 5v14M19 5l-10 7 10 7z"/></svg>
+      </button>
+      <button id="play" class="icon big" aria-label="Play">
+        <svg class="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>
+        <svg class="i-pause" viewBox="0 0 24 24"><path d="M7 4v16M17 4v16"/></svg>
+        <span class="spinner"></span>
+      </button>
+      <button id="next" class="icon" aria-label="Next paragraph">
+        <svg viewBox="0 0 24 24"><path d="M18 5v14M5 5l10 7-10 7z"/></svg>
+      </button>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
