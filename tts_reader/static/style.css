@@ -8,6 +8,7 @@
   --accent-text: #ffffff;
   --hl-para: #f3e4d9;
   --hl-chunk: #e9c2a6;
+  --pending: #b3b0aa;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -20,6 +21,7 @@
     --accent-text: #16161a;
     --hl-para: #2d2520;
     --hl-chunk: #5a3a26;
+    --pending: #5d5d66;
   }
 }
 
@@ -86,6 +88,8 @@ textarea::placeholder { color: var(--muted); }
   white-space: pre-wrap;
 }
 #reader p.current { background: var(--hl-para); }
+#reader span { transition: color 0.4s; }
+#reader span.pending { color: var(--pending); } /* not generated yet */
 #reader span.current { background: var(--hl-chunk); border-radius: 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 
 footer {

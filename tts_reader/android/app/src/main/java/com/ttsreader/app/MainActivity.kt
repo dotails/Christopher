@@ -1,10 +1,15 @@
 package com.ttsreader.app
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
+import android.content.ServiceConnection
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
-import android.view.WindowManager
+import android.os.IBinder
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -18,7 +23,8 @@ import kotlin.concurrent.thread
 
 /**
  * Shows the same web UI as the Python server version, from the APK's assets.
- * The page's `api/voices` and `api/tts` requests are answered on the phone by [Speech].
+ * The page's `api/voices` requests are answered by [Speech], and its playback
+ * controls (the `AndroidApp` bridge) drive [PlaybackService], which does the reading.
  */
 class MainActivity : Activity() {
 
@@ -26,11 +32,24 @@ class MainActivity : Activity() {
     private lateinit var speech: Speech
     private var pageLoaded = false
     private var pendingSharedText: String? = null
+    @Volatile private var player: PlaybackService? = null
+    private var askedForNotifications = false
+
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+            player = (binder as PlaybackService.LocalBinder).service
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) {
+            player = null
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        speech = Speech(applicationContext)
+        speech = Speech.get(this)
+        bindService(Intent(this, PlaybackService::class.java), connection, BIND_AUTO_CREATE)
         // Copy the model out of the APK (first launch only) and load it while the page opens.
         thread(name = "tts-warmup") { runCatching { speech.warmUp(null) } }
 
@@ -118,16 +137,56 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        unbindService(connection) // the service keeps reading if it was playing
         webView.destroy()
         super.onDestroy()
     }
 
+    /** Called from the page. Controls run on the main thread, in the order the page sent them. */
     inner class Bridge {
         @JavascriptInterface
-        fun keepScreenOn(on: Boolean) {
-            runOnUiThread {
-                if (on) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        fun hasPlayer() = true
+
+        @JavascriptInterface
+        fun state(): String = player?.stateJson() ?: "{}"
+
+        @JavascriptInterface
+        fun load(key: String, textsJson: String, parasJson: String, voice: String, start: Int) {
+            val texts = JSONArray(textsJson).let { a -> List(a.length()) { a.getString(it) } }
+            val paras = JSONArray(parasJson).let { a -> IntArray(a.length()) { a.getInt(it) } }
+            control { it.load(key, texts, paras, voice, start) }
+        }
+
+        @JavascriptInterface
+        fun play() {
+            askForNotifications()
+            control { it.play() }
+        }
+
+        @JavascriptInterface
+        fun pause() = control { it.pause() }
+
+        @JavascriptInterface
+        fun seek(index: Int) = control { it.seek(index) }
+
+        @JavascriptInterface
+        fun setSpeed(speed: Float) = control { it.setSpeed(speed) }
+
+        @JavascriptInterface
+        fun setVoice(voice: String) = control { it.setVoice(voice) }
+
+        private fun control(action: (PlaybackService) -> Unit) {
+            runOnUiThread { player?.let(action) }
+        }
+    }
+
+    /** Lets the playback notification show on Android 13+ (asked once, on the first Play). */
+    private fun askForNotifications() {
+        if (Build.VERSION.SDK_INT < 33 || askedForNotifications) return
+        askedForNotifications = true
+        runOnUiThread {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
             }
         }
     }

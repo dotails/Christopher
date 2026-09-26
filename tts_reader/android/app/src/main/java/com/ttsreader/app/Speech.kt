@@ -16,7 +16,7 @@ import java.nio.ByteOrder
  * US and UK voices come from Kokoro; Australian voices come from a Piper model.
  * All methods are thread-safe.
  */
-class Speech(private val context: Context) {
+class Speech private constructor(private val context: Context) {
 
     enum class Accent(val label: String) { US("US"), UK("UK"), AU("Australian") }
 
@@ -46,6 +46,15 @@ class Speech(private val context: Context) {
         "${name.replaceFirstChar { it.uppercase() }} (${accent.label} ${if (female) "female" else "male"})"
 
     fun voice(id: String?): Voice = voices.firstOrNull { it.id == id } ?: voices.first()
+
+    /** Generates [text] at normal speed (playback applies the speed). Returns samples and sample rate. */
+    fun generate(text: String, voiceId: String?): Pair<FloatArray, Int> {
+        val v = voice(voiceId)
+        synchronized(lock) {
+            val audio = engineFor(v.accent).generate(text, v.sid, 1f)
+            return audio.samples to audio.sampleRate
+        }
+    }
 
     /** Loads the engine for [voiceId] ahead of time so the first Play is quick. */
     fun warmUp(voiceId: String?) {
@@ -146,7 +155,14 @@ class Speech(private val context: Context) {
         /** Bump when the bundled models change, so the copied files are refreshed. */
         private const val MODEL_VERSION = 2
 
-        private val THREADS = Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
+        // Leave two cores for the UI and audio; flagship phones get up to 6 synthesis threads.
+        private val THREADS = (Runtime.getRuntime().availableProcessors() - 2).coerceIn(2, 6)
+
+        @Volatile private var instance: Speech? = null
+
+        /** One shared instance, so the loaded models are reused by the page and the playback service. */
+        fun get(context: Context): Speech =
+            instance ?: synchronized(this) { instance ?: Speech(context.applicationContext).also { instance = it } }
 
         private val FAVORITES = listOf(
             "af_heart", "af_bella", "am_michael", "am_fenrir", "af_nicole", "am_puck",
