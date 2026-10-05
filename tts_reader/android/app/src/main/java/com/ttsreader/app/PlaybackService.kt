@@ -82,6 +82,7 @@ class PlaybackService : Service() {
     private var readyChars = 0L                 // text and audio generated so far, for time estimates
     private var readySeconds = 0.0
     private var sleepAt = 0L                    // SystemClock.elapsedRealtime() to pause at; 0 = off
+    private var holdAtEnd = false               // camera on: wait at the end for more text instead of finishing
     private var pausedAt = 0L                   // when playback was paused (elapsedRealtime), 0 = not paused
     private var headSeen = -1L                  // stall watchdog: last playback head position seen...
     private var headMovedAt = 0L                // ...and when it last changed
@@ -199,6 +200,39 @@ class PlaybackService : Service() {
             finished = false
             error = null
             interrupt = true
+            lock.notifyAll()
+        }
+    }
+
+    /**
+     * Adds sentences to the end of the loaded text without disturbing playback or the
+     * audio already generated. Returns false if [oldKey] isn't the loaded text.
+     */
+    fun append(oldKey: String, newKey: String, texts: List<String>, paragraphs: IntArray): Boolean {
+        synchronized(lock) {
+            if (key != oldKey || chunks.isEmpty()) return false
+            log("append ${texts.size} sentences")
+            key = newKey
+            chunks = chunks + texts
+            paraOf = paraOf + paragraphs
+            ready = ready.copyOf(chunks.size)
+            rates = rates.copyOf(chunks.size)
+            exportedGen = -1 // the recording gets longer, so save it again when it's all ready
+            savedName = null
+            if (finished) { // reached the end before this arrived: carry on with the new text
+                finished = false
+                writePos = chunks.size - texts.size
+            }
+            lock.notifyAll()
+            return true
+        }
+    }
+
+    /** While the camera is on, reaching the end waits for the next photo's text. */
+    fun setHoldAtEnd(on: Boolean) {
+        synchronized(lock) {
+            holdAtEnd = on
+            log("hold at end $on")
             lock.notifyAll()
         }
     }
@@ -351,6 +385,7 @@ class PlaybackService : Service() {
             .put("playing", playing)
             .put("waiting", waiting)
             .put("finished", finished)
+            .put("hold", holdAtEnd && playing && writePos >= chunks.size && playedFrames() >= writtenFrames)
             .put("ready", readyText.toString())
             .put("voice", voiceId ?: "")
             .put("error", error ?: "")
@@ -411,7 +446,7 @@ class PlaybackService : Service() {
             var export: Recording? = null
             synchronized(lock) {
                 var next = nextToGenerate()
-                while (next < 0 && (chunks.isEmpty() || exportedGen == gen || !(autoSave || saveRequested))) {
+                while (next < 0 && (chunks.isEmpty() || exportedGen == gen || !((autoSave && !holdAtEnd) || saveRequested))) {
                     generating = false
                     updateWakeLock()
                     lock.wait()
@@ -640,6 +675,10 @@ class PlaybackService : Service() {
                         continue
                     }
                     if (writePos >= chunks.size) {
+                        if (holdAtEnd) { // camera on: wait for the next photo's text
+                            lock.wait(200)
+                            continue
+                        }
                         if (playedFrames() >= writtenFrames) {
                             playing = false
                             finished = true

@@ -190,3 +190,6 @@ button.pill.wide { width: 100%; margin-top: 10px; }
 .toggle { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.4; cursor: pointer; }
 .toggle input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); }
 .about { margin: 22px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+
+/* Camera toggle while the camera is on */
+button.icon.on, button.pill.on { border-color: var(--accent); background: var(--accent); color: var(--accent-text); }

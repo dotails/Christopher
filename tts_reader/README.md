@@ -72,13 +72,17 @@ whenever `tts_reader/` changes.
   your **Downloads** folder as a WAV file named after the text's first words
   and the voice, for example `TTS Reader - It was a bright cold - Heart.wav`.
   Changing the voice records the text again and saves a new file.
-- **Read pictures of text:** tap **Photo** (or the camera button while
-  reading) to take a picture of a page, sign or screen, and it starts reading
-  aloud as soon as the text is recognized. **Pictures** reads photos or
-  screenshots from your gallery (pick several to read them in order). You can
-  also share pictures to the app, or long-press the app icon and choose
-  **Read a photo**. Text recognition runs on the phone (Google ML Kit's
-  offline model), for English and other Latin-alphabet text.
+- **Read pictures of text:** tap **Camera** (or the camera button while
+  reading) and a live camera appears in the bottom half of the screen, with
+  the text on top. Each press of the round shutter button adds a page: its
+  text is recognized on the phone and added to the end, in the order you took
+  them. Press play at any point and keep taking pages; while the camera is
+  on, reading waits at the end for the next page and carries on smoothly.
+  Tap the preview to focus. **Pictures** reads photos or screenshots from your
+  gallery (pick several to read them in order). You can also share pictures
+  to the app, or long-press the app icon and choose **Read a photo**. Text
+  recognition (Google ML Kit's offline model) handles English and other
+  Latin-alphabet text.
 - **Open files:** PDF (scanned PDFs are read page by page with text
   recognition), EPUB ebooks, Word (.docx), web pages (.html) and
   text/Markdown, from the **Open file** button, or with **Open with** or

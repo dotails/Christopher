@@ -119,6 +119,41 @@ function parse(text) {
   renderReader();
 }
 
+// Adds text (the next photo's) to the end without disturbing what's playing:
+// existing sentences keep their numbers and their generated audio.
+function appendText(text) {
+  const oldKey = textKey;
+  const oldDoc = docId;
+  const base = parsedText || "";
+  const sep = base ? "\n\n" : "";
+  const offset = base.length + sep.length;
+  const added = [];
+  let from = 0;
+  for (const raw of text.split(/\n[ \t]*\n/)) {
+    const at = text.indexOf(raw, from);
+    from = at + raw.length;
+    const t = (settings.clean ? cleanForSpeech(raw) : raw).replace(/\s+/g, " ").trim();
+    if (!t) continue;
+    const p = paraStart.length;
+    paraStart.push(chunks.length + added.length);
+    paraOffset.push(offset + at);
+    for (const c of splitChunks(t)) added.push({ p, text: c });
+  }
+  if (!added.length) return;
+  const first = chunks.length;
+  chunks.push(...added);
+  for (const c of added) charsBefore.push(charsBefore[charsBefore.length - 1] + c.text.length + 1);
+  parsedText = base + sep + text;
+  textEl.value = parsedText;
+  store.set("text", parsedText);
+  textKey = hashText(chunks.map((c) => c.text));
+  docId = hashText([parsedText]);
+  appendSpans(first);
+  player.textAppended(oldKey, added);
+  saveRecent(loadRecent().filter((r) => r.id !== oldDoc));
+  rememberText();
+}
+
 function paraAtOffset(offset) {
   let p = 0;
   while (p + 1 < paraOffset.length && paraOffset[p + 1] <= offset) p++;
@@ -393,6 +428,7 @@ function createWebPlayer() {
     },
     startedAt() { return loaded && loaded.i === pos ? audio.currentTime : 0; },
     setAutoSave() { if (settings.autosave) preload(); },
+    textAppended() { if (playing) preload(); },
     saveNow() {
       saveRequested = true;
       preload();
@@ -455,6 +491,12 @@ function createNativePlayer(app) {
     setSpeed() { app.setSpeed(speed()); },
     setVoice() { app.setVoice(voiceEl.value); },
     setAutoSave() { app.setAutoSave(settings.autosave); },
+    textAppended(oldKey, added) {
+      // If the service isn't reading this text yet, Play will load all of it anyway.
+      if (app.append(oldKey, textKey, JSON.stringify(added.map((c) => c.text)), JSON.stringify(added.map((c) => c.p)))) {
+        st.key = textKey;
+      }
+    },
     saveNow() { app.saveNow(); },
     setSleepTimer(minutes) { app.setSleepTimer(minutes); },
     startedAt() { return 0; },
@@ -471,6 +513,7 @@ function createNativePlayer(app) {
         saved: st.saved,
         voice: st.voice,
         cps: st.cps,
+        hold: st.hold,
         sleep: st.sleep,
       };
     },
@@ -484,8 +527,16 @@ const player = nativeApp ? createNativePlayer(nativeApp) : createWebPlayer();
 
 function renderReader() {
   readerEl.textContent = "";
-  let pEl = null;
-  chunks.forEach((c, i) => {
+  appendSpans(0);
+  shown.pos = -1;
+  shown.ready = "";
+}
+
+// Adds the sentences from chunk [start] on to the reader view.
+function appendSpans(start) {
+  let pEl = readerEl.lastElementChild;
+  chunks.slice(start).forEach((c, k) => {
+    const i = start + k;
     if (!pEl || +pEl.dataset.p !== c.p) {
       pEl = document.createElement("p");
       pEl.dataset.p = c.p;
@@ -499,8 +550,6 @@ function renderReader() {
     span.className = "pending";
     pEl.appendChild(span);
   });
-  shown.pos = -1;
-  shown.ready = "";
 }
 
 function highlight(scroll) {
@@ -575,11 +624,12 @@ function refresh() {
     if (s.finished && !s.playing) status = "Finished" + (s.saved ? " · saved to Downloads" : "");
     else {
       status = `Paragraph ${chunks[pos].p + 1} of ${paraStart.length}`;
-      if (loading) status += " · generating…";
+      if (s.hold) status = "Read everything so far · waiting for the next photo";
+      else if (loading) status += " · generating…";
       else if (readyCount < chunks.length) status += ` · ${Math.floor((100 * readyCount) / chunks.length)}% ready`;
       else status += s.saved ? " · saved to Downloads" : " · all ready";
       const cps = s.cps > 0 ? s.cps : 15; // characters per second of speech at 1×
-      status += ` · ${formatDuration((total - done) / cps / speed())} left`;
+      if (!s.hold) status += ` · ${formatDuration((total - done) / cps / speed())} left`;
     }
   }
   if (s.sleep > 0) status += `${status ? " · " : ""}sleep in ${formatDuration(s.sleep / 1000)}`;
@@ -592,8 +642,13 @@ function refresh() {
   }
 }
 
+let cameraOn = false;
+
 function setCameraButton() {
-  $("camera").hidden = !(nativeApp && nativeApp.takePhoto) || readerEl.hidden;
+  $("camera").hidden = !(nativeApp && nativeApp.toggleCamera) || readerEl.hidden;
+  $("camera").classList.toggle("on", cameraOn);
+  $("photo").classList.toggle("on", cameraOn);
+  $("photo").textContent = cameraOn ? "Close camera" : "Camera";
 }
 
 function showReader() {
@@ -903,13 +958,35 @@ textEl.addEventListener("input", () => {
 textEl.addEventListener("click", () => { cursorPicked = true; });
 
 // Editor toolbar. Photo / Pictures read text from pictures on the phone (Android app only).
-if (nativeApp && nativeApp.takePhoto) {
+if (nativeApp && nativeApp.toggleCamera) {
   $("photo").hidden = false;
   $("pictures").hidden = false;
-  $("photo").addEventListener("click", () => nativeApp.takePhoto());
+  $("photo").addEventListener("click", () => nativeApp.toggleCamera());
   $("pictures").addEventListener("click", () => nativeApp.pickPictures());
-  $("camera").addEventListener("click", () => nativeApp.takePhoto());
+  $("camera").addEventListener("click", () => nativeApp.toggleCamera());
 }
+
+// The app's camera (bottom half of the screen) turned on or off.
+window.cameraMode = (on) => {
+  cameraOn = on;
+  setCameraButton();
+  message = on ? "Take a photo of each page. Press play whenever you like; new pages are added to the end." : "";
+  refresh();
+  if (on) setTimeout(() => { if (message.startsWith("Take a photo")) { message = ""; refresh(); } }, 6000);
+};
+
+// Text from a camera photo: the first starts a new text, later ones are added to its end.
+window.cameraText = (text, first) => {
+  if (first || !chunks.length) {
+    const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    setDocument(text, `Photos ${time}`);
+  } else {
+    appendText(text);
+    if (readerEl.hidden) showReader();
+  }
+  message = "";
+  refresh();
+};
 $("openFile").addEventListener("click", () => {
   if (nativeApp && nativeApp.openFile) nativeApp.openFile();
   else $("filePicker").click();

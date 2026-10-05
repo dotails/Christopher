@@ -2,7 +2,6 @@ package com.ttsreader.app
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -14,9 +13,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.provider.MediaStore
-import androidx.core.content.FileProvider
-import java.io.File
 import android.net.Uri
+import android.widget.LinearLayout
+import androidx.activity.ComponentActivity
 import android.webkit.JavascriptInterface
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
@@ -34,7 +33,7 @@ import kotlin.concurrent.thread
  * The page's `api/voices` requests are answered by [Speech], and its playback
  * controls (the `AndroidApp` bridge) drive [PlaybackService], which does the reading.
  */
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private lateinit var speech: Speech
@@ -44,7 +43,8 @@ class MainActivity : Activity() {
     private val pendingControls = ArrayList<(PlaybackService) -> Unit>() // sent before the service connected
     private var askedForNotifications = false
     private val events = ArrayList<String>()
-    private var photoFile: File? = null // where the camera app saves the photo we asked for
+    private lateinit var camera: CameraPanel
+    private var cameraHasText = false // false until the first photo of this camera session is read
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
@@ -76,8 +76,6 @@ class MainActivity : Activity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Android may close the app while the camera is open; remember where the photo goes.
-        savedInstanceState?.getString(STATE_PHOTO)?.let { photoFile = File(it) }
         speech = Speech.get(this)
         bindService(Intent(this, PlaybackService::class.java), connection, BIND_AUTO_CREATE)
         // Copy the model out of the APK (first launch only) and load it while the page opens.
@@ -117,7 +115,18 @@ class MainActivity : Activity() {
                 pendingJs.clear()
             }
         }
-        setContentView(webView)
+        // The page on top; the camera, when it's on, takes the bottom half.
+        camera = CameraPanel(
+            this,
+            onText = { text -> cameraText(text) },
+            onInfo = { message(it) },
+            onClose = { closeCamera() },
+        )
+        setContentView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(webView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            addView(camera, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        })
         handleIncoming(intent)
         webView.loadUrl("https://$ASSET_HOST/index.html")
     }
@@ -163,11 +172,6 @@ class MainActivity : Activity() {
         handleIncoming(intent)
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        photoFile?.let { outState.putString(STATE_PHOTO, it.path) }
-    }
-
     /** Text, documents or pictures shared to / opened with TTS Reader replace the text box contents. */
     private fun handleIncoming(intent: Intent?) {
         when (intent?.action) {
@@ -186,7 +190,7 @@ class MainActivity : Activity() {
                 if (streams.isNotEmpty()) importDocuments(streams)
             }
             Intent.ACTION_VIEW -> intent.data?.let { importDocuments(listOf(it)) }
-            ACTION_READ_PHOTO -> takePhoto()
+            ACTION_READ_PHOTO -> openCamera()
         }
     }
 
@@ -212,22 +216,57 @@ class MainActivity : Activity() {
         runJs("window.appMessage && window.appMessage(${JSONObject.quote(text)})")
     }
 
-    /** Opens the camera; the photo comes back in onActivityResult and is read aloud. */
-    private fun takePhoto() {
-        val dir = File(cacheDir, "photos").apply { mkdirs() }
-        dir.listFiles()?.forEach { it.delete() } // only the newest photo is needed
-        val file = File(dir, "photo-${System.currentTimeMillis()}.jpg")
-        photoFile = file
-        val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
-        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-            .putExtra(MediaStore.EXTRA_OUTPUT, uri)
-            .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        intent.clipData = ClipData.newRawUri("photo", uri) // grants the camera app access on all versions
-        try {
+    /** Runs a playback control now, or as soon as the service is connected. */
+    private fun control(action: (PlaybackService) -> Unit) {
+        runOnUiThread {
+            val service = player
+            if (service != null) {
+                action(service)
+            } else {
+                note("control queued: service not connected")
+                pendingControls.add(action)
+                bindPlayer()
+            }
+        }
+    }
+
+    /** Camera in the bottom half: every photo's text is added to the end of what's being read. */
+    private fun openCamera() {
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             @Suppress("DEPRECATION")
-            startActivityForResult(intent, REQUEST_PHOTO)
-        } catch (e: ActivityNotFoundException) {
-            message("No camera app found.")
+            requestPermissions(arrayOf(Manifest.permission.CAMERA), REQUEST_CAMERA)
+            return
+        }
+        if (camera.isOpen) return
+        note("camera on")
+        cameraHasText = false
+        camera.open()
+        control { it.setHoldAtEnd(true) }
+        runJs("window.cameraMode && window.cameraMode(true)")
+    }
+
+    private fun closeCamera() {
+        if (!camera.isOpen) return
+        note("camera off")
+        camera.close()
+        control { it.setHoldAtEnd(false) }
+        runJs("window.cameraMode && window.cameraMode(false)")
+    }
+
+    /** The first photo starts a new text; later ones are added to its end. */
+    private fun cameraText(text: String) {
+        val first = !cameraHasText
+        cameraHasText = true
+        runJs("window.cameraText(${JSONObject.quote(text)}, $first)")
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        @Suppress("DEPRECATION")
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CAMERA) {
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) openCamera()
+            else message("The camera needs permission to read photos. You can allow it in Settings.")
         }
     }
 
@@ -262,15 +301,18 @@ class MainActivity : Activity() {
         if (resultCode != RESULT_OK) return
         when (requestCode) {
             REQUEST_OPEN, REQUEST_PICTURES -> pickedUris(data).takeIf { it.isNotEmpty() }?.let { importDocuments(it) }
-            REQUEST_PHOTO -> photoFile?.takeIf { it.length() > 0 }?.let { importDocuments(listOf(Uri.fromFile(it))) }
-                ?: message("The camera didn't return a photo.")
         }
     }
 
     /** Back closes the page's menu sheet first (the page adds a history entry for it). */
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+        @Suppress("DEPRECATION")
+        when {
+            webView.canGoBack() -> webView.goBack()
+            camera.isOpen -> closeCamera()
+            else -> super.onBackPressed()
+        }
     }
 
     override fun onDestroy() {
@@ -335,7 +377,14 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
-        fun takePhoto() = runOnUiThread { this@MainActivity.takePhoto() }
+        fun toggleCamera() = runOnUiThread { if (camera.isOpen) closeCamera() else openCamera() }
+
+        @JavascriptInterface
+        fun append(oldKey: String, newKey: String, textsJson: String, parasJson: String): Boolean {
+            val texts = JSONArray(textsJson).let { a -> List(a.length()) { a.getString(it) } }
+            val paras = JSONArray(parasJson).let { a -> IntArray(a.length()) { a.getInt(it) } }
+            return player?.append(oldKey, newKey, texts, paras) ?: false
+        }
 
         @JavascriptInterface
         fun pickPictures() = runOnUiThread { this@MainActivity.pickPictures() }
@@ -358,19 +407,6 @@ class MainActivity : Activity() {
         fun copyText(text: String) {
             getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("TTS Reader", text))
         }
-
-        private fun control(action: (PlaybackService) -> Unit) {
-            runOnUiThread {
-                val service = player
-                if (service != null) {
-                    action(service)
-                } else {
-                    note("control queued: service not connected")
-                    pendingControls.add(action)
-                    bindPlayer()
-                }
-            }
-        }
     }
 
     /** Lets the playback notification show on Android 13+ (asked once, on the first Play). */
@@ -387,9 +423,8 @@ class MainActivity : Activity() {
     companion object {
         private const val ASSET_HOST = "appassets.androidplatform.net"
         private const val REQUEST_OPEN = 7
-        private const val REQUEST_PHOTO = 8
+        private const val REQUEST_CAMERA = 8
         private const val REQUEST_PICTURES = 9
-        private const val STATE_PHOTO = "photoFile"
         private const val ACTION_READ_PHOTO = "com.ttsreader.app.READ_PHOTO"
         private val OPENABLE_TYPES = arrayOf(
             "text/*",
