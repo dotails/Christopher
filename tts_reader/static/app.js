@@ -780,6 +780,24 @@ function renderRecent() {
       if (r.id !== docId) setDocument(text, r.title, r.pos);
       else if (readerEl.hidden) showReader();
     });
+    const rename = document.createElement("button");
+    rename.className = "rename";
+    rename.setAttribute("aria-label", "Rename");
+    rename.textContent = "✎";
+    rename.addEventListener("click", () => {
+      const name = prompt("Rename", r.title);
+      if (name === null || !name.trim()) return;
+      const list = loadRecent();
+      const entry = list.find((x) => x.id === r.id);
+      if (!entry) return;
+      entry.title = name.trim();
+      store.set("recent", JSON.stringify(list));
+      if (r.id === docId) {
+        docTitle = entry.title;
+        store.set("title", docTitle);
+      }
+      renderRecent();
+    });
     const remove = document.createElement("button");
     remove.className = "remove";
     remove.setAttribute("aria-label", "Remove from Recent");
@@ -788,7 +806,7 @@ function renderRecent() {
       saveRecent(loadRecent().filter((x) => x.id !== r.id));
       renderRecent();
     });
-    li.append(open, remove);
+    li.append(open, rename, remove);
     ul.appendChild(li);
   }
 }
@@ -799,6 +817,7 @@ let activeSleep = 0;
 
 function openSheet() {
   renderRecent();
+  managePicker.built = false;
   checkModels();
   $("sizeOut").textContent = settings.size + "%";
   $("autosave").checked = settings.autosave;
@@ -1052,26 +1071,148 @@ window.receiveSharedText = (text, title, autoplay) => {
 };
 window.appMessage = (msg) => { message = msg; refresh(); };
 
-// ---------- voice packs (Android app) ----------
-// Voices come in packs because voices with the same accent share one model:
-// downloading one US voice costs the same as downloading all of them.
+// ---------- choosing voices to download (Android app) ----------
+// Pick voices one by one. US and UK voices share one model (downloaded with the first
+// one); each adds 0.5 MB. The Australian voices all live in one 77 MB model.
 
-const PACKS = [
-  { id: "kokoro", name: "US & UK voices", detail: "27 voices · about 357 MB" },
-  { id: "au", name: "Australian voices", detail: "10 voices · about 77 MB" },
-];
-let modelState = null;
-let packsShownFor = "";
+const MB = { kokoroModel: 328.5, kokoroVoice: 0.52, auModel: 77.1, common: 0.5 };
+const GROUP_NOTES = {
+  US: "US and UK voices share one 328 MB download, fetched with the first one you pick. Each voice adds 0.5 MB.",
+  UK: "",
+  Australian: "Australian voices share one 77 MB download. After the first one, the rest are free.",
+};
+let allVoices = [];         // from api/voices: {id, name, group, installed}
+let modelState = null;      // download progress
+const pickers = [];         // the two pickers (first-launch card, menu)
 
-function readModelState() {
-  if (!nativeApp || !nativeApp.modelStatus) return null;
-  try { return JSON.parse(nativeApp.modelStatus()); } catch { return null; }
+const isAu = (id) => id.startsWith("au_");
+
+function voiceLabel(v) {
+  return v.name.replace(/\s*\([^)]*\b(female|male)\)$/, (_, g) => (g === "female" ? " ♀" : " ♂"));
 }
 
-function downloadPacks(ids) {
-  if (!ids.length) return;
-  nativeApp.downloadModels(ids.join(","));
-  setTimeout(checkModels, 200);
+// Download size (MB) and change counts for going from what's installed to [selected].
+function planChange(selected) {
+  const installed = new Set(allVoices.filter((v) => v.installed).map((v) => v.id));
+  const add = [...selected].filter((id) => !installed.has(id));
+  const remove = [...installed].filter((id) => !selected.has(id));
+  const keepKokoro = [...installed].some((id) => !isAu(id) && selected.has(id));
+  const keepAu = [...installed].some((id) => isAu(id) && selected.has(id));
+  let mb = 0;
+  if (add.length && !installed.size) mb += MB.common;
+  const addKokoro = add.filter((id) => !isAu(id));
+  if (addKokoro.length) mb += (keepKokoro ? 0 : MB.kokoroModel) + addKokoro.length * MB.kokoroVoice;
+  if (add.some(isAu) && !keepAu) mb += MB.auModel;
+  return { add, remove, mb: Math.round(mb) };
+}
+
+function makePicker(container, mode) {
+  const picker = { container, mode, selected: new Set(), built: false };
+  picker.render = () => renderPicker(picker);
+  pickers.push(picker);
+  return picker;
+}
+
+function renderPicker(picker) {
+  const { container, mode } = picker;
+  const running = !!(modelState && modelState.running.length);
+  if (!picker.built) {
+    // Start from what's installed (menu) or a sensible first choice (first launch).
+    picker.selected = new Set(allVoices.filter((v) => v.installed).map((v) => v.id));
+    if (mode === "setup" && !picker.selected.size) picker.selected.add("af_heart");
+    container.textContent = "";
+    const all = document.createElement("label");
+    all.className = "all";
+    all.innerHTML = `<input type="checkbox" data-all="*"> Select all voices`;
+    container.appendChild(all);
+    for (const group of ["US", "UK", "Australian"]) {
+      const voices = allVoices.filter((v) => v.group === group);
+      if (!voices.length) continue;
+      const box = document.createElement("div");
+      box.className = "group";
+      box.innerHTML = `<label class="grouphead"><span></span><input type="checkbox" data-all="${group}"> All</label>`;
+      box.querySelector("span").textContent = group === "Australian" ? "Australian" : group;
+      if (GROUP_NOTES[group]) {
+        const note = document.createElement("p");
+        note.className = "note";
+        note.textContent = GROUP_NOTES[group];
+        box.appendChild(note);
+      }
+      const grid = document.createElement("div");
+      grid.className = "voices";
+      for (const v of voices) {
+        const label = document.createElement("label");
+        label.innerHTML = `<input type="checkbox"><span></span><span class="tag"></span>`;
+        label.querySelector("input").dataset.id = v.id;
+        label.querySelector("span").textContent = voiceLabel(v);
+        grid.appendChild(label);
+      }
+      box.appendChild(grid);
+      container.appendChild(box);
+    }
+    const summary = document.createElement("p");
+    summary.className = "summary";
+    container.appendChild(summary);
+    if (mode === "manage") {
+      const btn = document.createElement("button");
+      btn.className = "pill wide apply";
+      container.appendChild(btn);
+      btn.addEventListener("click", () => applyPicker(picker));
+    }
+    container.addEventListener("change", (e) => {
+      const input = e.target;
+      if (input.dataset.id) {
+        input.checked ? picker.selected.add(input.dataset.id) : picker.selected.delete(input.dataset.id);
+      } else if (input.dataset.all) {
+        const ids = allVoices.filter((v) => input.dataset.all === "*" || v.group === input.dataset.all).map((v) => v.id);
+        ids.forEach((id) => (input.checked ? picker.selected.add(id) : picker.selected.delete(id)));
+      }
+      renderPicker(picker);
+    });
+    picker.built = true;
+  }
+
+  for (const input of container.querySelectorAll("input[data-id]")) {
+    input.checked = picker.selected.has(input.dataset.id);
+    input.disabled = running;
+    const v = allVoices.find((x) => x.id === input.dataset.id);
+    input.parentElement.querySelector(".tag").textContent = v && v.installed ? "on phone" : "";
+  }
+  for (const input of container.querySelectorAll("input[data-all]")) {
+    const ids = allVoices.filter((v) => input.dataset.all === "*" || v.group === input.dataset.all).map((v) => v.id);
+    input.checked = ids.length > 0 && ids.every((id) => picker.selected.has(id));
+    input.indeterminate = !input.checked && ids.some((id) => picker.selected.has(id));
+    input.disabled = running;
+  }
+
+  const plan = planChange(picker.selected);
+  const parts = [];
+  if (plan.add.length) parts.push(`Download ${plan.add.length} ${plan.add.length === 1 ? "voice" : "voices"} · about ${plan.mb} MB`);
+  if (plan.remove.length) parts.push(`Delete ${plan.remove.length} ${plan.remove.length === 1 ? "voice" : "voices"}`);
+  const summary = container.querySelector(".summary");
+  summary.textContent = running ? progressText(modelState) : (modelState && modelState.error) || parts.join(" · ") || (mode === "manage" ? "No changes." : "Pick at least one voice.");
+  if (mode === "setup") {
+    $("setupStart").hidden = running;
+    $("setupStart").disabled = !plan.add.length;
+    $("setupStart").textContent = modelState && modelState.error ? "Retry" : plan.add.length ? `Download (${plan.mb} MB)` : "Download";
+    $("setupFill").style.width = (running && modelState.total ? (100 * modelState.done) / modelState.total : 0) + "%";
+  } else {
+    const btn = container.querySelector(".apply");
+    btn.hidden = running;
+    btn.disabled = !plan.add.length && !plan.remove.length;
+    btn.textContent = plan.add.length && plan.remove.length ? "Apply changes" : plan.remove.length ? "Delete" : `Download${plan.add.length ? ` (${plan.mb} MB)` : ""}`;
+  }
+}
+
+function applyPicker(picker) {
+  const plan = planChange(picker.selected);
+  if (plan.remove.length) {
+    const names = plan.remove.map((id) => voiceLabel(allVoices.find((v) => v.id === id))).join(", ");
+    if (!confirm(`Delete ${names} from this phone? You can download them again any time.`)) return;
+    nativeApp.removeVoices(plan.remove.join(","));
+  }
+  if (plan.add.length) nativeApp.downloadVoices(plan.add.join(","));
+  loadVoices().then(() => { pickers.forEach((p) => p.render()); checkModels(); });
 }
 
 function progressText(st) {
@@ -1082,93 +1223,37 @@ function progressText(st) {
     : st.step;
 }
 
-// First launch, no voices yet: pick packs to download.
-function renderSetup(st) {
-  const el = $("setup");
-  if (st.installed.length && !st.running.length) { el.hidden = true; return; }
-  if (!st.installed.length) el.hidden = false;
-  if (el.hidden) return;
-  const box = $("setupPacks");
-  if (!box.children.length) {
-    for (const p of PACKS) {
-      const label = document.createElement("label");
-      label.className = "pack";
-      label.innerHTML = `<span class="info"><span class="name"></span><span class="detail"></span></span><input type="checkbox">`;
-      label.querySelector(".name").textContent = p.name;
-      label.querySelector(".detail").textContent = p.detail;
-      const box2 = label.querySelector("input");
-      box2.value = p.id;
-      box2.checked = p.id === "kokoro";
-      box.appendChild(label);
-    }
-  }
-  const running = st.running.length > 0;
-  for (const input of box.querySelectorAll("input")) input.disabled = running;
-  $("setupFill").style.width = (st.total ? (100 * st.done) / st.total : 0) + "%";
-  $("setupStart").hidden = running;
-  $("setupStart").textContent = st.error ? "Retry" : "Download";
-  $("setupStatus").textContent = running ? progressText(st) : st.error;
-}
-
-// Menu → Voices: download or delete each pack.
-function renderPacks(st) {
-  $("voicesSection").hidden = false;
-  const key = JSON.stringify([st.installed, st.running]);
-  if (key !== packsShownFor) {
-    packsShownFor = key;
-    const ul = $("packs");
-    ul.textContent = "";
-    for (const p of PACKS) {
-      const li = document.createElement("li");
-      li.className = "pack";
-      const installed = st.installed.includes(p.id);
-      const downloading = st.running.includes(p.id);
-      li.innerHTML = `<span class="info"><span class="name"></span><span class="detail"></span></span>`;
-      li.querySelector(".name").textContent = p.name;
-      li.querySelector(".detail").textContent = p.detail + (installed ? " · on this phone" : downloading ? " · downloading" : "");
-      const btn = document.createElement("button");
-      btn.className = "pill";
-      btn.textContent = installed ? "Delete" : downloading ? "…" : "Download";
-      btn.disabled = downloading || (!installed && st.running.length > 0);
-      btn.addEventListener("click", () => {
-        if (installed) {
-          if (!confirm(`Delete the ${p.name.toLowerCase()} from this phone? You can download them again any time.`)) return;
-          nativeApp.deleteModels(p.id);
-          packsShownFor = "";
-          loadVoices();
-          checkModels();
-        } else {
-          downloadPacks([p.id]);
-        }
-      });
-      li.appendChild(btn);
-      ul.appendChild(li);
-    }
-  }
-  $("packStatus").textContent = st.running.length ? progressText(st) : st.error;
-}
+const setupPicker = makePicker($("setupVoices"), "setup");
+const managePicker = makePicker($("manageVoices"), "manage");
 
 function checkModels() {
-  const st = readModelState();
-  if (!st) return;
+  if (!nativeApp || !nativeApp.modelStatus || !allVoices.length) return;
+  let st;
+  try { st = JSON.parse(nativeApp.modelStatus()); } catch { return; }
   const before = modelState;
   modelState = st;
-  renderSetup(st);
-  renderPacks(st);
-  // A download finished: offer its voices.
-  if (before && before.running.length && !st.running.length) {
-    loadVoices();
+  const running = st.running.length > 0;
+  const anyInstalled = allVoices.some((v) => v.installed);
+  $("voicesSection").hidden = false;
+  $("setup").hidden = anyInstalled; // first launch: choose voices before anything else
+  pickers.forEach((p) => p.render());
+  if (before && before.running.length && !running) {
+    // A download finished: offer its voices.
+    loadVoices().then(() => pickers.forEach((p) => { p.built = false; p.render(); }));
     if (!st.error) {
       message = "Voices downloaded. Ready to read.";
       refresh();
       setTimeout(() => { if (message.startsWith("Voices downloaded")) { message = ""; refresh(); } }, 4000);
     }
   }
-  if (st.running.length || !st.installed.length) setTimeout(checkModels, 500);
+  if (running || !anyInstalled) setTimeout(checkModels, 500);
 }
 
 $("setupStart").addEventListener("click", () => {
-  downloadPacks([...$("setupPacks").querySelectorAll("input:checked")].map((i) => i.value));
+  const plan = planChange(setupPicker.selected);
+  if (!plan.add.length) return;
+  nativeApp.downloadVoices(plan.add.join(","));
+  setTimeout(checkModels, 200);
 });
 
 // ---------- startup ----------
@@ -1190,6 +1275,7 @@ function loadVoices() {
   return fetch("api/voices")
     .then((r) => r.json())
     .then((voices) => {
+      allVoices = voices;
       const usable = voices.filter((v) => v.installed !== false);
       const previous = voiceEl.value;
       voiceEl.textContent = "";
@@ -1221,7 +1307,10 @@ function loadVoices() {
 }
 
 loadVoices()
-  .then((s) => { if (nativeApp && s.playing && chunks.length) showReader(); })
+  .then((s) => {
+    if (nativeApp && s.playing && chunks.length) showReader();
+    checkModels();
+  })
   .catch(() => {
     message = nativeApp ? "Couldn't load the voices." : "Can't reach the TTS server. Is app.py running?";
     refresh();
@@ -1229,4 +1318,3 @@ loadVoices()
 
 setInterval(refresh, 250);
 refresh();
-checkModels();

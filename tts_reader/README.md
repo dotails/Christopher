@@ -19,7 +19,8 @@ don't need an API key or an account, and it works without internet.
   current paragraph if you're partway in; press it again to go back one more.
 - **Tap any sentence** while reading to jump there. To start from a specific
   spot, tap it in the text box before pressing Play.
-- **Menu (☰):** recently read texts, each reopening where you stopped; a
+- **Menu (☰):** voices to download or delete; recently read texts (each
+  reopens where you stopped, and ✎ renames it); a
   **sleep timer**; text size; the auto-save switch and **Save recording now**;
   and **clean-up for listening**, which skips web links, Markdown symbols and
   citation numbers like [12].
@@ -57,13 +58,15 @@ allow your browser to install unknown apps. GitHub Actions rebuilds the APK
 whenever `tts_reader/` changes.
 
 - It needs a 64-bit phone running Android 10 or newer. The app is about
-  25 MB. On first launch you choose which voices to download: **US & UK**
-  (27 voices, about 357 MB) and/or **Australian** (10 voices, about 77 MB).
-  Voices with the same accent share one model, so one voice costs about the
-  same as the whole pack. Add or delete packs any time in **☰ → Voices**.
-  Downloads come from this repository's `tts-reader-models` release, resume
-  if interrupted, retry by themselves and are checked for corruption. Phones
-  that had an earlier version keep their voices.
+  25 MB. On first launch you tick the voices you want, one by one or with
+  **Select all** (or **All** per accent). US and UK voices share one model
+  (about 328 MB, downloaded with the first one you pick) and each adds
+  0.5 MB. The Australian voices all live in one 77 MB model, so after the
+  first the rest are free. The app shows the download size before you start.
+  Add or delete voices any time in **☰ → Voices**. Downloads come from this
+  repository's `tts-reader-models` release, resume if interrupted, retry by
+  themselves and are checked for corruption. Phones that had an earlier
+  version keep their voices.
 - The first launch takes a little longer while it unpacks the voices. The
   first use of each accent then takes a few seconds to load it.
 - It keeps reading with the screen off or the app in the background, with

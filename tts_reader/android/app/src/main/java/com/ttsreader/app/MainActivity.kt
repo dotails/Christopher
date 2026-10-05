@@ -147,7 +147,7 @@ class MainActivity : ComponentActivity() {
                     for (v in speech.voices) {
                         list.put(
                             JSONObject().put("id", v.id).put("name", v.name).put("group", v.accent.label)
-                                .put("pack", speech.packOf(v.accent).id).put("installed", speech.isInstalled(v)),
+                                .put("installed", speech.isInstalled(v)),
                         )
                     }
                     response(200, "application/json", list.toString().toByteArray())
@@ -385,27 +385,27 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        /** Voice packs: which are downloaded, and download progress (for the page). */
+        /** Voice download progress (for the page; which voices are installed comes with api/voices). */
         @JavascriptInterface
         fun modelStatus(): String {
-            val st = ModelStore.status(this@MainActivity)
+            val st = ModelStore.status()
             return JSONObject()
-                .put("installed", JSONArray(st.installed.toList()))
                 .put("running", JSONArray(st.running.toList()))
                 .put("done", st.done).put("total", st.total).put("step", st.step).put("error", st.error)
                 .toString()
         }
 
-        /** [packs]: comma-separated pack ids ("kokoro", "au"). */
+        /** [ids]: comma-separated voice ids to download. */
         @JavascriptInterface
-        fun downloadModels(packs: String) = runOnUiThread {
+        fun downloadVoices(ids: String) = runOnUiThread {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) // keep the download going
-            ModelStore.start(this@MainActivity, packs.split(",").map { it.trim() }.toSet())
+            ModelStore.start(this@MainActivity, ids.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet())
         }
 
+        /** [ids]: comma-separated voice ids to delete. */
         @JavascriptInterface
-        fun deleteModels(pack: String) {
-            ModelStore.Pack.entries.firstOrNull { it.id == pack }?.let { ModelStore.delete(this@MainActivity, it) }
+        fun removeVoices(ids: String) {
+            ModelStore.remove(this@MainActivity, ids.split(",").map { it.trim() }.toSet(), speech.voices.map { it.id })
         }
 
         @JavascriptInterface

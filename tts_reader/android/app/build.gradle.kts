@@ -119,11 +119,20 @@ val prepareAustralian by tasks.registering {
 }
 
 // The voice files the app downloads (see ModelStore.kt), published by CI to the
-// "tts-reader-models" release, in packs the user picks from: "kokoro" (US and UK),
-// "au" (Australian) and "common" (pronunciation data both use). Big model files go
-// as they are, the rest zipped; manifest.txt lists each file's SHA-256, size and pack.
+// "tts-reader-models" release. Users pick voices one by one:
+// - "common": pronunciation data every voice uses (zip).
+// - "kokoro": the model all US and UK voices share (model + zip of extras).
+// - "au": the Australian model; all 10 Australian voices are inside it (model + zip).
+// - "voice:<id>": one US/UK voice's data, a 522,240-byte slice of Kokoro's voices.bin,
+//   which the app writes back into its own voices.bin at the given offset.
+// manifest.txt lines: "<sha256> <size> <file> <part> [<offset>]".
 val modelRelease = layout.buildDirectory.dir("model-release")
 val modelsDir = modelAssets.map { it.dir("models") }
+// Speaker order of kokoro-multi-lang-v1_0 (as in Speech.kt); US/UK voices are published.
+val kokoroSpeakers = ("af_alloy,af_aoede,af_bella,af_heart,af_jessica,af_kore,af_nicole,af_nova,af_river,af_sarah,af_sky," +
+    "am_adam,am_echo,am_eric,am_fenrir,am_liam,am_michael,am_onyx,am_puck,am_santa," +
+    "bf_alice,bf_emma,bf_isabella,bf_lily,bm_daniel,bm_fable,bm_george,bm_lewis").split(",")
+val voiceBytes = 510 * 256 * 4 // one voice's style vectors (float32)
 fun Zip.reproducible(name: String) {
     dependsOn(prepareKokoro, prepareAustralian)
     archiveFileName.set(name)
@@ -148,14 +157,26 @@ val packageModels by tasks.registering {
     doLast {
         val out = modelRelease.get().asFile
         val models = modelsDir.get().asFile
-        mapOf("kokoro-model.onnx" to "kokoro/model.onnx", "kokoro-voices.bin" to "kokoro/voices.bin", "au-model.onnx" to "au/model.onnx")
-            .forEach { (name, path) -> models.resolve(path).copyTo(out.resolve(name), overwrite = true) }
-        val packs = listOf(
+        out.listFiles()?.filter { it.name.startsWith("voice-") || it.name in setOf("kokoro-voices.bin", "tts-reader-extras.zip") }
+            ?.forEach { it.delete() } // left from earlier layouts
+        models.resolve("kokoro/model.onnx").copyTo(out.resolve("kokoro-model.onnx"), overwrite = true)
+        models.resolve("au/model.onnx").copyTo(out.resolve("au-model.onnx"), overwrite = true)
+
+        val entries = mutableListOf(
             "common.zip" to "common",
-            "kokoro-model.onnx" to "kokoro", "kokoro-voices.bin" to "kokoro", "kokoro-extras.zip" to "kokoro",
+            "kokoro-model.onnx" to "kokoro", "kokoro-extras.zip" to "kokoro",
             "au-model.onnx" to "au", "au-extras.zip" to "au",
         )
-        val lines = packs.map { (name, pack) ->
+        val offsets = HashMap<String, Long>()
+        val allVoices = models.resolve("kokoro/voices.bin").readBytes()
+        kokoroSpeakers.forEachIndexed { sid, id ->
+            if (id == "am_santa") return@forEachIndexed // not offered in the app
+            val name = "voice-$id.bin"
+            out.resolve(name).writeBytes(allVoices.copyOfRange(sid * voiceBytes, (sid + 1) * voiceBytes))
+            entries.add(name to "voice:$id")
+            offsets[name] = sid.toLong() * voiceBytes
+        }
+        val lines = entries.map { (name, part) ->
             val file = out.resolve(name)
             val digest = MessageDigest.getInstance("SHA-256")
             file.inputStream().use { input ->
@@ -166,9 +187,9 @@ val packageModels by tasks.registering {
                     digest.update(buffer, 0, n)
                 }
             }
-            digest.digest().joinToString("") { "%02x".format(it) } + " " + file.length() + " " + name + " " + pack
+            val hex = digest.digest().joinToString("") { "%02x".format(it) }
+            listOfNotNull(hex, file.length().toString(), name, part, offsets[name]?.toString()).joinToString(" ")
         }
-        out.resolve("tts-reader-extras.zip").delete() // from the previous single-pack layout
         out.resolve("manifest.txt").writeText(lines.joinToString("\n") + "\n")
     }
 }
@@ -181,8 +202,8 @@ android {
         applicationId = "com.ttsreader.app"
         minSdk = 29 // Android 10+: saving to Downloads needs no storage permission
         targetSdk = 34
-        versionCode = 10
-        versionName = "10.0"
+        versionCode = 11
+        versionName = "11.0"
         ndk { abiFilters += "arm64-v8a" }
     }
 

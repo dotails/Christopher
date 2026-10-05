@@ -4,6 +4,7 @@ import android.content.Context
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
@@ -12,25 +13,29 @@ import kotlin.concurrent.thread
 
 /**
  * The voices aren't inside the APK, so the app stays small enough to download reliably.
- * They come in packs, downloaded (and deleted) from the app, from this repository's
- * "tts-reader-models" release: resumable, retried automatically, and checked against
- * the SHA-256 sums in its manifest.
+ * The user picks voices one by one; they're downloaded (and deleted) from the app, from
+ * this repository's "tts-reader-models" release: resumable, retried automatically, and
+ * checked against the SHA-256 sums in its manifest.
  *
- * - "kokoro": the 27 US and UK voices, which all share one model (about 355 MB).
- * - "au": the 10 Australian voices, which share a smaller model (about 80 MB).
- * - "common": pronunciation data both need (about 3 MB), fetched with either.
+ * What a voice needs:
+ * - "common": pronunciation data every voice uses (about 0.5 MB).
+ * - US and UK voices: the Kokoro model they all share (about 328 MB, with the first
+ *   one) plus the voice's own data (0.5 MB), written into a local voices.bin.
+ * - Australian voices: the Piper model (77 MB, with the first one). All ten are inside
+ *   it, so the others then cost nothing.
  *
- * Phones that already have the voices from an earlier version (copied out of a bigger
- * APK into the same folder) keep them: both packs count as installed.
+ * Phones that already have voices from an earlier version keep them.
  */
 object ModelStore {
 
-    enum class Pack(val id: String) { KOKORO("kokoro"), AU("au") }
-
     private const val BASE = "https://github.com/dotails/Christopher/releases/download/tts-reader-models/"
     private const val COMMON = "common"
+    private const val KOKORO = "kokoro"
+    private const val AU = "au"
+    /** Kokoro's voices.bin: 54 voices of 510 x 256 float32 each (only the downloaded ones are filled in). */
+    private const val VOICES_BIN_SIZE = 54L * 510 * 256 * 4
 
-    class Status(val installed: Set<String>, val running: Set<String>, val done: Long, val total: Long, val step: String, val error: String)
+    class Status(val running: Set<String>, val done: Long, val total: Long, val step: String, val error: String)
 
     @Volatile private var running: Set<String> = emptySet()
     @Volatile private var done = 0L
@@ -41,56 +46,83 @@ object ModelStore {
 
     fun dir(context: Context) = File(context.filesDir, "models")
 
-    private fun marker(context: Context, id: String) = File(dir(context), ".pack-$id")
+    /** Australian voice ids start with "au_"; the rest are Kokoro (US and UK). */
+    fun familyOf(voiceId: String) = if (voiceId.startsWith("au_")) AU else KOKORO
 
-    /** Versions 2 to 8 installed everything at once and left this marker. */
-    private fun migrate(context: Context) {
-        val legacy = File(dir(context), ".complete-v2")
-        if (legacy.exists()) {
-            for (id in listOf(COMMON, Pack.KOKORO.id, Pack.AU.id)) marker(context, id).createNewFile()
-            legacy.delete()
-        }
+    // ---- what's installed ----
+    // models/.part-<name> marks a shared part as installed; models/voices.txt lists installed
+    // voices, where "*kokoro" / "*au" mean every voice of that family (earlier versions).
+
+    private fun hasPart(models: File, part: String) = File(models, ".part-$part").exists()
+
+    private fun installedList(models: File): Set<String> =
+        File(models, "voices.txt").takeIf { it.exists() }?.readLines()?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet().orEmpty()
+
+    private fun saveInstalled(models: File, ids: Set<String>) {
+        models.mkdirs()
+        File(models, "voices.txt").writeText(ids.sorted().joinToString("\n"))
     }
 
-    fun isInstalled(context: Context, pack: Pack): Boolean {
-        migrate(context)
-        return marker(context, COMMON).exists() && marker(context, pack.id).exists()
+    /** Versions 2-9 installed everything ("complete-v2"); version 10 installed whole packs. */
+    @Synchronized
+    private fun migrate(models: File) {
+        val legacy = File(models, ".complete-v2")
+        val packs = listOf(COMMON, KOKORO, AU).filter { File(models, ".pack-$it").exists() }
+        if (!legacy.exists() && packs.isEmpty()) return
+        val all = legacy.exists()
+        val families = if (all) listOf(KOKORO, AU) else packs.filter { it != COMMON }
+        if (all || COMMON in packs) File(models, ".part-$COMMON").createNewFile()
+        for (f in families) File(models, ".part-$f").createNewFile()
+        saveInstalled(models, installedList(models) + families.map { "*$it" })
+        legacy.delete()
+        packs.forEach { File(models, ".pack-$it").delete() }
     }
 
-    fun anyInstalled(context: Context) = Pack.entries.any { isInstalled(context, it) }
+    fun isVoiceInstalled(context: Context, voiceId: String): Boolean {
+        val models = dir(context)
+        migrate(models)
+        val family = familyOf(voiceId)
+        if (!hasPart(models, COMMON) || !hasPart(models, family)) return false
+        val ids = installedList(models)
+        return voiceId in ids || "*$family" in ids
+    }
 
-    /** True once a download was asked for and hasn't finished, so it resumes on the next launch. */
+    fun anyInstalled(context: Context): Boolean {
+        val models = dir(context)
+        migrate(models)
+        return hasPart(models, COMMON) && installedList(models).isNotEmpty()
+    }
+
+    /** Voice ids asked for but not finished, so an interrupted download resumes on the next launch. */
     fun pendingRequest(context: Context): Set<String> =
-        File(context.filesDir, "models-download-requested").takeIf { it.exists() }?.readText()
+        File(context.filesDir, "voices-download-requested").takeIf { it.exists() }?.readText()
             ?.split(",")?.filter { it.isNotBlank() }?.toSet().orEmpty()
 
-    fun status(context: Context) = Status(
-        Pack.entries.filter { isInstalled(context, it) }.map { it.id }.toSet(), running, done, total, step, error,
-    )
+    fun status() = Status(running, done, total, step, error)
 
-    /** Called (on a background thread) whenever packs are installed or deleted. */
+    /** Called (on a background thread) whenever voices are installed or deleted. */
     fun onChange(action: () -> Unit) {
         synchronized(listeners) { listeners.add(action) }
     }
 
     private fun changed() = synchronized(listeners) { ArrayList(listeners) }.forEach { runCatching { it() } }
 
-    /** Downloads the given packs (ids), skipping any already installed. */
+    /** Downloads the given voices (ids), skipping any already installed. */
     @Synchronized
-    fun start(context: Context, packs: Set<String>) {
+    fun start(context: Context, voiceIds: Set<String>) {
         if (running.isNotEmpty()) return
         val app = context.applicationContext
-        val wanted = Pack.entries.filter { it.id in packs && !isInstalled(app, it) }.map { it.id }.toSet()
+        val wanted = voiceIds.filter { !isVoiceInstalled(app, it) }.toSet()
         if (wanted.isEmpty()) return
         running = wanted
         error = ""
         done = 0
         total = 0
-        File(app.filesDir, "models-download-requested").writeText(wanted.joinToString(","))
-        thread(name = "model-download") {
+        File(app.filesDir, "voices-download-requested").writeText(wanted.joinToString(","))
+        thread(name = "voice-download") {
             try {
                 downloadInto(dir(app), BASE, wanted)
-                File(app.filesDir, "models-download-requested").delete()
+                File(app.filesDir, "voices-download-requested").delete()
                 step = "Done"
             } catch (e: Throwable) {
                 error = e.message ?: e.toString()
@@ -101,68 +133,98 @@ object ModelStore {
         }
     }
 
-    /** Deletes a pack's files. The shared data goes too once no pack is left. */
+    /**
+     * Deletes voices. [catalog] is every voice id the app offers (to resolve "all of a
+     * family"). A family's shared model goes once none of its voices are left.
+     */
     @Synchronized
-    fun delete(context: Context, pack: Pack) {
-        if (pack.id in running) return
+    fun remove(context: Context, voiceIds: Set<String>, catalog: List<String>) {
+        if (running.isNotEmpty()) return
         val models = dir(context)
-        marker(context, pack.id).delete()
-        when (pack) {
-            Pack.KOKORO -> File(models, "kokoro").listFiles()?.filter { it.name != "espeak-ng-data" }?.forEach { it.deleteRecursively() }
-            Pack.AU -> File(models, "au").deleteRecursively()
+        migrate(models)
+        val expanded = installedList(models).flatMap { id ->
+            if (id.startsWith("*")) catalog.filter { familyOf(it) == id.drop(1) } else listOf(id)
+        }.toSet()
+        val left = expanded - voiceIds
+        saveInstalled(models, left)
+        if (left.none { familyOf(it) == KOKORO }) {
+            File(models, ".part-$KOKORO").delete()
+            File(models, "kokoro").listFiles()?.filter { it.name != "espeak-ng-data" }?.forEach { it.deleteRecursively() }
         }
-        if (!anyInstalled(context)) {
-            marker(context, COMMON).delete()
+        if (left.none { familyOf(it) == AU }) {
+            File(models, ".part-$AU").delete()
+            File(models, "au").deleteRecursively()
+        }
+        if (left.isEmpty()) {
+            File(models, ".part-$COMMON").delete()
             File(models, "kokoro").deleteRecursively()
         }
         changed()
     }
 
-    private class Item(val sha256: String, val size: Long, val name: String, val pack: String)
+    private class Item(val sha256: String, val size: Long, val name: String, val part: String, val offset: Long)
 
-    /** Downloads and unpacks [packs] (plus the shared data if it's missing) into [models]. */
-    internal fun downloadInto(models: File, base: String, packs: Set<String>) {
+    /** Downloads what [voiceIds] need (shared parts only if missing) into [models], then installs it. */
+    internal fun downloadInto(models: File, base: String, voiceIds: Set<String>) {
+        migrate(models)
         val staging = File(models, ".download").apply { mkdirs() }
+        val families = voiceIds.map { familyOf(it) }.toSet()
 
-        // manifest.txt lines: "<sha256> <size> <file name> <pack>"
         step = "Checking what to download…"
-        val needCommon = !File(models, ".pack-$COMMON").exists()
         val items = withRetries { URL(base + "manifest.txt").readText() }
             .lines().filter { it.isNotBlank() }
-            .map { line -> line.trim().split(Regex("\\s+")).let { Item(it[0], it[1].toLong(), it[2], it[3]) } }
-            .filter { it.pack in packs || (it.pack == COMMON && needCommon) }
+            .map { line ->
+                line.trim().split(Regex("\\s+")).let { Item(it[0], it[1].toLong(), it[2], it[3], it.getOrNull(4)?.toLong() ?: -1) }
+            }
+            .filter { item ->
+                when {
+                    item.part == COMMON -> !hasPart(models, COMMON)
+                    item.part == KOKORO || item.part == AU -> item.part in families && !hasPart(models, item.part)
+                    item.part.startsWith("voice:") -> item.part.removePrefix("voice:") in voiceIds
+                    else -> false
+                }
+            }
         total = items.sumOf { it.size }
 
         var finished = 0L
         for (item in items) {
-            val part = File(staging, item.name)
+            val file = File(staging, item.name)
             step = "Downloading ${item.name}"
-            fetch(base + item.name, part, item.size) { have -> done = finished + have }
+            fetch(base + item.name, file, item.size) { have -> done = finished + have }
             step = "Checking ${item.name}"
-            if (sha256(part) != item.sha256) {
-                part.delete()
+            if (sha256(file) != item.sha256) {
+                file.delete()
                 throw IOException("${item.name} was corrupted in transit. Tap Retry.")
             }
             finished += item.size
             done = finished
         }
 
-        // Install pack by pack: the shared data first, then each pack's files, then its marker.
-        step = "Unpacking…"
-        for (pack in listOf(COMMON) + packs) {
-            val packItems = items.filter { it.pack == pack }
-            if (packItems.isEmpty()) continue
-            for (item in packItems) {
-                val part = File(staging, item.name)
+        // Install: shared parts first (each marked when complete), then the voices.
+        step = "Installing…"
+        for (part in listOf(COMMON, KOKORO, AU)) {
+            val partItems = items.filter { it.part == part }
+            if (partItems.isEmpty()) continue
+            for (item in partItems) {
+                val file = File(staging, item.name)
                 when {
-                    item.name == "kokoro-model.onnx" -> move(part, File(models, "kokoro/model.onnx"))
-                    item.name == "kokoro-voices.bin" -> move(part, File(models, "kokoro/voices.bin"))
-                    item.name == "au-model.onnx" -> move(part, File(models, "au/model.onnx"))
-                    item.name.endsWith(".zip") -> unzip(part, models).also { part.delete() }
+                    item.name == "kokoro-model.onnx" -> move(file, File(models, "kokoro/model.onnx"))
+                    item.name == "au-model.onnx" -> move(file, File(models, "au/model.onnx"))
+                    item.name.endsWith(".zip") -> unzip(file, models).also { file.delete() }
                 }
             }
-            File(models, ".pack-$pack").createNewFile()
+            File(models, ".part-$part").createNewFile()
         }
+        val voicesBin = File(models, "kokoro/voices.bin")
+        for (item in items.filter { it.part.startsWith("voice:") }) {
+            voicesBin.parentFile?.mkdirs()
+            RandomAccessFile(voicesBin, "rw").use { out ->
+                if (out.length() < VOICES_BIN_SIZE) out.setLength(VOICES_BIN_SIZE)
+                out.seek(item.offset)
+                out.write(File(staging, item.name).readBytes())
+            }
+        }
+        saveInstalled(models, installedList(models) + voiceIds) // Australian voices just need the model
         staging.deleteRecursively()
     }
 

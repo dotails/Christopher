@@ -45,21 +45,19 @@ class Speech private constructor(private val context: Context) {
     private fun label(name: String, accent: Accent, female: Boolean) =
         "${name.replaceFirstChar { it.uppercase() }} (${accent.label} ${if (female) "female" else "male"})"
 
-    fun packOf(accent: Accent) = if (accent == Accent.AU) ModelStore.Pack.AU else ModelStore.Pack.KOKORO
-
-    fun isInstalled(v: Voice) = ModelStore.isInstalled(context, packOf(v.accent))
+    fun isInstalled(v: Voice) = ModelStore.isVoiceInstalled(context, v.id)
 
     /** The voice with [id] if its pack is downloaded, otherwise the first downloaded voice. */
     fun voice(id: String?): Voice =
         voices.firstOrNull { it.id == id && isInstalled(it) } ?: voices.firstOrNull { isInstalled(it) } ?: voices.first()
 
     init {
-        // A deleted pack's model is unloaded, freeing its memory.
+        // Voices were added or deleted: reload the models next time (a newly downloaded
+        // voice's data is only read when a model loads; a deleted model frees its memory).
         ModelStore.onChange {
             synchronized(lock) {
-                for (accent in engines.keys.toList()) {
-                    if (!ModelStore.isInstalled(context, packOf(accent))) engines.remove(accent)?.release()
-                }
+                engines.values.forEach { it.release() }
+                engines.clear()
             }
         }
     }
@@ -99,7 +97,7 @@ class Speech private constructor(private val context: Context) {
     }
 
     private fun engineFor(accent: Accent): OfflineTts = engines.getOrPut(accent) {
-        if (!ModelStore.isInstalled(context, packOf(accent))) throw IllegalStateException("Those voices haven't been downloaded.")
+        if (voices.none { it.accent == accent && isInstalled(it) }) throw IllegalStateException("Those voices haven't been downloaded.")
         val dir = modelDir()
         val espeak = "$dir/kokoro/espeak-ng-data"
         val model = when (accent) {
