@@ -193,3 +193,12 @@ button.pill.wide { width: 100%; margin-top: 10px; }
 
 /* Camera toggle while the camera is on */
 button.icon.on, button.pill.on { border-color: var(--accent); background: var(--accent); color: var(--accent-text); }
+
+/* First launch: voice download */
+#setup { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / 0.55); }
+#setup .card { width: min(420px, 100%); padding: 18px 18px 20px; border-radius: 16px; background: var(--surface); box-shadow: 0 10px 40px rgb(0 0 0 / 0.3); }
+#setup h2 { margin: 0 0 8px; font-size: 20px; }
+#setup p { margin: 0 0 14px; line-height: 1.45; }
+#setup .small { min-height: 1.4em; font-size: 14px; color: var(--muted); }
+#setup .bar { height: 8px; margin-bottom: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+#setupFill { width: 0; height: 100%; background: var(--accent); transition: width 0.3s; }

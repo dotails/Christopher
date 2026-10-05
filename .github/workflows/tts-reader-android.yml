@@ -39,9 +39,33 @@ jobs:
           path: tts_reader/android/downloads
           key: tts-downloads-${{ hashFiles('tts_reader/android/app/build.gradle.kts') }}
 
-      - name: Build APK
+      - name: Build APK and voice model files
         working-directory: tts_reader/android
-        run: ./gradlew testReleaseUnitTest assembleRelease --no-daemon --console=plain
+        run: ./gradlew testReleaseUnitTest assembleRelease packageModels --no-daemon --console=plain
+
+      # The app downloads its voices from the "tts-reader-models" release on first launch.
+      # Upload them only when they changed (the manifest lists their SHA-256 sums).
+      - name: Check published voice models
+        id: models
+        run: |
+          if curl -sfL "https://github.com/${{ github.repository }}/releases/download/tts-reader-models/manifest.txt" -o remote-manifest.txt \
+             && cmp -s remote-manifest.txt tts_reader/android/app/build/model-release/manifest.txt; then
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "upload=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish voice models
+        if: steps.models.outputs.upload == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tts-reader-models
+          name: TTS Reader voice models
+          prerelease: true
+          files: tts_reader/android/app/build/model-release/*
+          body: |
+            Voice files that TTS Reader downloads by itself on first launch. You don't need to download these.
+            Kokoro-82M (Apache-2.0) and piper-en_AU-librivox-medium by DataCraftsmanAustralia (CC BY 4.0).
 
       - name: Rename APK
         run: cp tts_reader/android/app/build/outputs/apk/release/app-release.apk TTS-Reader.apk
@@ -64,5 +88,5 @@ jobs:
 
             **Install:** open this page on your Android phone, tap **TTS-Reader.apk**, then open the
             downloaded file. If asked, allow your browser to "install unknown apps".
-            Requires a 64-bit Android 10+ phone. The first launch takes a little longer while it
-            unpacks the voices.
+            Requires a 64-bit Android 10+ phone. On first launch the app downloads its voices
+            (about 410 MB, once). Wi-Fi is best.

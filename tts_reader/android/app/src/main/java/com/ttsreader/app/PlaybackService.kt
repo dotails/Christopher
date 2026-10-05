@@ -439,6 +439,10 @@ class PlaybackService : Service() {
     }
 
     private fun generateNext() {
+        if (!ModelStore.isReady(this)) { // first launch: the voices are still downloading
+            Thread.sleep(1000)
+            return
+        }
         val speech = Speech.get(this)
         run {
             var job: Triple<Int, Int, String>? = null

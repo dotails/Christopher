@@ -1,5 +1,6 @@
 import java.io.ByteArrayOutputStream
 import java.net.URI
+import java.security.MessageDigest
 
 plugins {
     id("com.android.application")
@@ -117,6 +118,44 @@ val prepareAustralian by tasks.registering {
     }
 }
 
+// The voice files the app downloads on first launch (see ModelStore.kt), published by CI
+// to the "tts-reader-models" release: the three big model files as they are, the rest
+// zipped, and a manifest of SHA-256 sums and sizes.
+val modelRelease = layout.buildDirectory.dir("model-release")
+val zipModelExtras by tasks.registering(Zip::class) {
+    dependsOn(prepareKokoro, prepareAustralian)
+    from(modelAssets.map { it.dir("models") }) {
+        exclude("kokoro/model.onnx", "kokoro/voices.bin", "au/model.onnx")
+    }
+    archiveFileName.set("tts-reader-extras.zip")
+    destinationDirectory.set(modelRelease)
+    isPreserveFileTimestamps = false // the same bytes every build, so the manifest stays stable
+    isReproducibleFileOrder = true
+}
+val packageModels by tasks.registering {
+    dependsOn(zipModelExtras)
+    doLast {
+        val out = modelRelease.get().asFile
+        val models = modelAssets.get().asFile.resolve("models")
+        mapOf("kokoro-model.onnx" to "kokoro/model.onnx", "kokoro-voices.bin" to "kokoro/voices.bin", "au-model.onnx" to "au/model.onnx")
+            .forEach { (name, path) -> models.resolve(path).copyTo(out.resolve(name), overwrite = true) }
+        val lines = listOf("kokoro-model.onnx", "kokoro-voices.bin", "au-model.onnx", "tts-reader-extras.zip").map { name ->
+            val file = out.resolve(name)
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(1 shl 20)
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    digest.update(buffer, 0, n)
+                }
+            }
+            digest.digest().joinToString("") { "%02x".format(it) } + " " + file.length() + " " + name
+        }
+        out.resolve("manifest.txt").writeText(lines.joinToString("\n") + "\n")
+    }
+}
+
 android {
     namespace = "com.ttsreader.app"
     compileSdk = 35
@@ -125,8 +164,8 @@ android {
         applicationId = "com.ttsreader.app"
         minSdk = 29 // Android 10+: saving to Downloads needs no storage permission
         targetSdk = 34
-        versionCode = 8
-        versionName = "8.0"
+        versionCode = 9
+        versionName = "9.0"
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -151,10 +190,14 @@ android {
         }
     }
 
-    sourceSets["main"].assets.srcDirs(modelAssets, "../../static")
+    sourceSets["main"].assets.srcDirs("../../static")
 
     packaging {
-        jniLibs.useLegacyPackaging = true // compress the native libraries (smaller APK download)
+        // Compress native libraries and code: a smaller download (they're unpacked on install).
+        jniLibs.useLegacyPackaging = true
+        dex.useLegacyPackaging = true
+        // Post-quantum crypto tables from pdfbox's Bouncy Castle dependency; never used to read PDFs.
+        resources.excludes += "org/bouncycastle/pqc/**"
     }
 
     androidResources {
@@ -175,7 +218,7 @@ android {
     }
 }
 
-tasks.named("preBuild") { dependsOn(prepareKokoro, prepareAustralian) }
+// The models aren't in the APK; packageModels prepares them for the release download.
 
 dependencies {
     implementation(files(sherpaAar))

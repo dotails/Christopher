@@ -79,7 +79,8 @@ class MainActivity : ComponentActivity() {
         speech = Speech.get(this)
         bindService(Intent(this, PlaybackService::class.java), connection, BIND_AUTO_CREATE)
         // Copy the model out of the APK (first launch only) and load it while the page opens.
-        thread(name = "tts-warmup") { runCatching { speech.warmUp(null) } }
+        ModelStore.whenReady(this) { thread(name = "tts-warmup") { runCatching { speech.warmUp(null) } } }
+        if (!ModelStore.isReady(this) && ModelStore.wasRequested(this)) ModelStore.start(this) // resume
 
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -373,6 +374,23 @@ class MainActivity : ComponentActivity() {
                     .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
                 @Suppress("DEPRECATION")
                 startActivityForResult(intent, REQUEST_OPEN)
+            }
+        }
+
+        /** Voice download state for the page's first-launch screen. */
+        @JavascriptInterface
+        fun modelStatus(): String {
+            val st = ModelStore.status(this@MainActivity)
+            return JSONObject().put("ready", st.ready).put("running", st.running).put("done", st.done)
+                .put("total", st.total).put("step", st.step).put("error", st.error).toString()
+        }
+
+        @JavascriptInterface
+        fun downloadModels() = runOnUiThread {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) // keep the download going
+            ModelStore.start(this@MainActivity)
+            ModelStore.whenReady(this@MainActivity) {
+                runOnUiThread { window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
             }
         }
 

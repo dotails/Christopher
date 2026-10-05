@@ -115,27 +115,11 @@ class Speech private constructor(private val context: Context) {
         OfflineTts(config = OfflineTtsConfig(model = model, maxNumSentences = 1))
     }
 
-    /** The engine reads plain files, so the bundled models are copied out of the APK once. */
+    /** The downloaded models (see [ModelStore]). */
     private fun modelDir(): File {
-        val dir = File(context.filesDir, "models")
-        val marker = File(dir, ".complete-v$MODEL_VERSION")
-        if (marker.exists()) return dir
+        if (!ModelStore.isReady(context)) throw IllegalStateException("The voices haven't been downloaded yet.")
         File(context.filesDir, "kokoro").deleteRecursively() // left over from version 1.0
-        dir.deleteRecursively()
-        copyAssets("models", dir)
-        marker.createNewFile()
-        return dir
-    }
-
-    private fun copyAssets(path: String, target: File) {
-        val children = context.assets.list(path).orEmpty()
-        if (children.isEmpty()) {
-            target.parentFile?.mkdirs()
-            context.assets.open(path).use { input -> target.outputStream().use { input.copyTo(it, 1 shl 16) } }
-        } else {
-            target.mkdirs()
-            for (child in children) copyAssets("$path/$child", File(target, child))
-        }
+        return ModelStore.dir(context)
     }
 
     private fun toWav(samples: FloatArray, sampleRate: Int): ByteArray {
@@ -152,9 +136,6 @@ class Speech private constructor(private val context: Context) {
     }
 
     companion object {
-        /** Bump when the bundled models change, so the copied files are refreshed. */
-        private const val MODEL_VERSION = 2
-
         // Leave two cores for the UI and audio; flagship phones get up to 6 synthesis threads.
         private val THREADS = (Runtime.getRuntime().availableProcessors() - 2).coerceIn(2, 6)
 

@@ -56,8 +56,11 @@ and tap **TTS-Reader.apk**, then open the downloaded file. If Android asks,
 allow your browser to install unknown apps. GitHub Actions rebuilds the APK
 whenever `tts_reader/` changes.
 
-- It needs a 64-bit phone running Android 10 or newer. The download is about
-  475 MB, and it uses about 450 MB more once unpacked.
+- It needs a 64-bit phone running Android 10 or newer. The app is about
+  25 MB. On first launch it downloads its voices (about 410 MB, once) from
+  this repository's `tts-reader-models` release. The download resumes if it's
+  interrupted, retries by itself, and is checked for corruption. Phones that
+  had an earlier version keep their voices and skip the download.
 - The first launch takes a little longer while it unpacks the voices. The
   first use of each accent then takes a few seconds to load it.
 - It keeps reading with the screen off or the app in the background, with

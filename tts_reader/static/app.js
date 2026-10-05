@@ -1051,6 +1051,44 @@ window.receiveSharedText = (text, title, autoplay) => {
 };
 window.appMessage = (msg) => { message = msg; refresh(); };
 
+// ---------- first launch: voice download (Android app) ----------
+
+function checkModels() {
+  if (!nativeApp || !nativeApp.modelStatus) return;
+  let st;
+  try { st = JSON.parse(nativeApp.modelStatus()); } catch { return; }
+  const el = $("setup");
+  if (st.ready) {
+    if (!el.hidden) {
+      el.hidden = true;
+      message = "Voices downloaded. Ready to read.";
+      refresh();
+      setTimeout(() => { if (message.startsWith("Voices downloaded")) { message = ""; refresh(); } }, 4000);
+    }
+    return;
+  }
+  el.hidden = false;
+  const mb = (n) => Math.round(n / 1048576);
+  const pct = st.total ? (100 * st.done) / st.total : 0;
+  $("setupFill").style.width = pct + "%";
+  const btn = $("setupStart");
+  if (st.running) {
+    btn.hidden = true;
+    $("setupStatus").textContent = st.total
+      ? `${st.step.startsWith("Downloading") ? "Downloading" : st.step} · ${mb(st.done)} of ${mb(st.total)} MB (${Math.floor(pct)}%). Keep the app open.`
+      : st.step;
+  } else {
+    btn.hidden = false;
+    btn.textContent = st.error ? "Retry" : st.done ? "Resume download" : "Download voices";
+    $("setupStatus").textContent = st.error || (st.done ? "Paused. It continues where it stopped." : "");
+  }
+  setTimeout(checkModels, 500);
+}
+$("setupStart").addEventListener("click", () => {
+  nativeApp.downloadModels();
+  setTimeout(checkModels, 200);
+});
+
 // ---------- startup ----------
 
 textEl.value = store.get("text", "");
@@ -1096,3 +1134,4 @@ fetch("api/voices")
 
 setInterval(refresh, 250);
 refresh();
+checkModels();
