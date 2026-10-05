@@ -45,7 +45,24 @@ class Speech private constructor(private val context: Context) {
     private fun label(name: String, accent: Accent, female: Boolean) =
         "${name.replaceFirstChar { it.uppercase() }} (${accent.label} ${if (female) "female" else "male"})"
 
-    fun voice(id: String?): Voice = voices.firstOrNull { it.id == id } ?: voices.first()
+    fun packOf(accent: Accent) = if (accent == Accent.AU) ModelStore.Pack.AU else ModelStore.Pack.KOKORO
+
+    fun isInstalled(v: Voice) = ModelStore.isInstalled(context, packOf(v.accent))
+
+    /** The voice with [id] if its pack is downloaded, otherwise the first downloaded voice. */
+    fun voice(id: String?): Voice =
+        voices.firstOrNull { it.id == id && isInstalled(it) } ?: voices.firstOrNull { isInstalled(it) } ?: voices.first()
+
+    init {
+        // A deleted pack's model is unloaded, freeing its memory.
+        ModelStore.onChange {
+            synchronized(lock) {
+                for (accent in engines.keys.toList()) {
+                    if (!ModelStore.isInstalled(context, packOf(accent))) engines.remove(accent)?.release()
+                }
+            }
+        }
+    }
 
     /** Generates [text] at normal speed (playback applies the speed). Returns samples and sample rate. */
     fun generate(text: String, voiceId: String?): Pair<FloatArray, Int> {
@@ -82,6 +99,7 @@ class Speech private constructor(private val context: Context) {
     }
 
     private fun engineFor(accent: Accent): OfflineTts = engines.getOrPut(accent) {
+        if (!ModelStore.isInstalled(context, packOf(accent))) throw IllegalStateException("Those voices haven't been downloaded.")
         val dir = modelDir()
         val espeak = "$dir/kokoro/espeak-ng-data"
         val model = when (accent) {
@@ -117,7 +135,6 @@ class Speech private constructor(private val context: Context) {
 
     /** The downloaded models (see [ModelStore]). */
     private fun modelDir(): File {
-        if (!ModelStore.isReady(context)) throw IllegalStateException("The voices haven't been downloaded yet.")
         File(context.filesDir, "kokoro").deleteRecursively() // left over from version 1.0
         return ModelStore.dir(context)
     }

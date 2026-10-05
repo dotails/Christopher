@@ -57,10 +57,13 @@ allow your browser to install unknown apps. GitHub Actions rebuilds the APK
 whenever `tts_reader/` changes.
 
 - It needs a 64-bit phone running Android 10 or newer. The app is about
-  25 MB. On first launch it downloads its voices (about 410 MB, once) from
-  this repository's `tts-reader-models` release. The download resumes if it's
-  interrupted, retries by itself, and is checked for corruption. Phones that
-  had an earlier version keep their voices and skip the download.
+  25 MB. On first launch you choose which voices to download: **US & UK**
+  (27 voices, about 357 MB) and/or **Australian** (10 voices, about 77 MB).
+  Voices with the same accent share one model, so one voice costs about the
+  same as the whole pack. Add or delete packs any time in **☰ → Voices**.
+  Downloads come from this repository's `tts-reader-models` release, resume
+  if interrupted, retry by themselves and are checked for corruption. Phones
+  that had an earlier version keep their voices.
 - The first launch takes a little longer while it unpacks the voices. The
   first use of each accent then takes a few seconds to load it.
 - It keeps reading with the screen off or the app in the background, with

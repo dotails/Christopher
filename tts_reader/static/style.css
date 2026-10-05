@@ -202,3 +202,14 @@ button.icon.on, button.pill.on { border-color: var(--accent); background: var(--
 #setup .small { min-height: 1.4em; font-size: 14px; color: var(--muted); }
 #setup .bar { height: 8px; margin-bottom: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
 #setupFill { width: 0; height: 100%; background: var(--accent); transition: width 0.3s; }
+
+/* Voice packs (first-launch card and menu) */
+.pack { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.pack:last-child { border-bottom: 0; }
+.pack .info { flex: 1; min-width: 0; }
+.pack .name { display: block; font-weight: 600; }
+.pack .detail { display: block; font-size: 13px; color: var(--muted); }
+.pack input { width: 22px; height: 22px; accent-color: var(--accent); }
+#packs { list-style: none; margin: 0; padding: 0; }
+#setupPacks { margin-bottom: 12px; }
+#sheet .small { margin: 4px 0 0; font-size: 13px; color: var(--muted); }

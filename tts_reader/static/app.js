@@ -799,6 +799,7 @@ let activeSleep = 0;
 
 function openSheet() {
   renderRecent();
+  checkModels();
   $("sizeOut").textContent = settings.size + "%";
   $("autosave").checked = settings.autosave;
   $("clean").checked = settings.clean;
@@ -1051,42 +1052,123 @@ window.receiveSharedText = (text, title, autoplay) => {
 };
 window.appMessage = (msg) => { message = msg; refresh(); };
 
-// ---------- first launch: voice download (Android app) ----------
+// ---------- voice packs (Android app) ----------
+// Voices come in packs because voices with the same accent share one model:
+// downloading one US voice costs the same as downloading all of them.
+
+const PACKS = [
+  { id: "kokoro", name: "US & UK voices", detail: "27 voices · about 357 MB" },
+  { id: "au", name: "Australian voices", detail: "10 voices · about 77 MB" },
+];
+let modelState = null;
+let packsShownFor = "";
+
+function readModelState() {
+  if (!nativeApp || !nativeApp.modelStatus) return null;
+  try { return JSON.parse(nativeApp.modelStatus()); } catch { return null; }
+}
+
+function downloadPacks(ids) {
+  if (!ids.length) return;
+  nativeApp.downloadModels(ids.join(","));
+  setTimeout(checkModels, 200);
+}
+
+function progressText(st) {
+  const mb = (n) => Math.round(n / 1048576);
+  const pct = st.total ? Math.floor((100 * st.done) / st.total) : 0;
+  return st.total
+    ? `${st.step.startsWith("Downloading") ? "Downloading" : st.step} · ${mb(st.done)} of ${mb(st.total)} MB (${pct}%). Keep the app open.`
+    : st.step;
+}
+
+// First launch, no voices yet: pick packs to download.
+function renderSetup(st) {
+  const el = $("setup");
+  if (st.installed.length && !st.running.length) { el.hidden = true; return; }
+  if (!st.installed.length) el.hidden = false;
+  if (el.hidden) return;
+  const box = $("setupPacks");
+  if (!box.children.length) {
+    for (const p of PACKS) {
+      const label = document.createElement("label");
+      label.className = "pack";
+      label.innerHTML = `<span class="info"><span class="name"></span><span class="detail"></span></span><input type="checkbox">`;
+      label.querySelector(".name").textContent = p.name;
+      label.querySelector(".detail").textContent = p.detail;
+      const box2 = label.querySelector("input");
+      box2.value = p.id;
+      box2.checked = p.id === "kokoro";
+      box.appendChild(label);
+    }
+  }
+  const running = st.running.length > 0;
+  for (const input of box.querySelectorAll("input")) input.disabled = running;
+  $("setupFill").style.width = (st.total ? (100 * st.done) / st.total : 0) + "%";
+  $("setupStart").hidden = running;
+  $("setupStart").textContent = st.error ? "Retry" : "Download";
+  $("setupStatus").textContent = running ? progressText(st) : st.error;
+}
+
+// Menu → Voices: download or delete each pack.
+function renderPacks(st) {
+  $("voicesSection").hidden = false;
+  const key = JSON.stringify([st.installed, st.running]);
+  if (key !== packsShownFor) {
+    packsShownFor = key;
+    const ul = $("packs");
+    ul.textContent = "";
+    for (const p of PACKS) {
+      const li = document.createElement("li");
+      li.className = "pack";
+      const installed = st.installed.includes(p.id);
+      const downloading = st.running.includes(p.id);
+      li.innerHTML = `<span class="info"><span class="name"></span><span class="detail"></span></span>`;
+      li.querySelector(".name").textContent = p.name;
+      li.querySelector(".detail").textContent = p.detail + (installed ? " · on this phone" : downloading ? " · downloading" : "");
+      const btn = document.createElement("button");
+      btn.className = "pill";
+      btn.textContent = installed ? "Delete" : downloading ? "…" : "Download";
+      btn.disabled = downloading || (!installed && st.running.length > 0);
+      btn.addEventListener("click", () => {
+        if (installed) {
+          if (!confirm(`Delete the ${p.name.toLowerCase()} from this phone? You can download them again any time.`)) return;
+          nativeApp.deleteModels(p.id);
+          packsShownFor = "";
+          loadVoices();
+          checkModels();
+        } else {
+          downloadPacks([p.id]);
+        }
+      });
+      li.appendChild(btn);
+      ul.appendChild(li);
+    }
+  }
+  $("packStatus").textContent = st.running.length ? progressText(st) : st.error;
+}
 
 function checkModels() {
-  if (!nativeApp || !nativeApp.modelStatus) return;
-  let st;
-  try { st = JSON.parse(nativeApp.modelStatus()); } catch { return; }
-  const el = $("setup");
-  if (st.ready) {
-    if (!el.hidden) {
-      el.hidden = true;
+  const st = readModelState();
+  if (!st) return;
+  const before = modelState;
+  modelState = st;
+  renderSetup(st);
+  renderPacks(st);
+  // A download finished: offer its voices.
+  if (before && before.running.length && !st.running.length) {
+    loadVoices();
+    if (!st.error) {
       message = "Voices downloaded. Ready to read.";
       refresh();
       setTimeout(() => { if (message.startsWith("Voices downloaded")) { message = ""; refresh(); } }, 4000);
     }
-    return;
   }
-  el.hidden = false;
-  const mb = (n) => Math.round(n / 1048576);
-  const pct = st.total ? (100 * st.done) / st.total : 0;
-  $("setupFill").style.width = pct + "%";
-  const btn = $("setupStart");
-  if (st.running) {
-    btn.hidden = true;
-    $("setupStatus").textContent = st.total
-      ? `${st.step.startsWith("Downloading") ? "Downloading" : st.step} · ${mb(st.done)} of ${mb(st.total)} MB (${Math.floor(pct)}%). Keep the app open.`
-      : st.step;
-  } else {
-    btn.hidden = false;
-    btn.textContent = st.error ? "Retry" : st.done ? "Resume download" : "Download voices";
-    $("setupStatus").textContent = st.error || (st.done ? "Paused. It continues where it stopped." : "");
-  }
-  setTimeout(checkModels, 500);
+  if (st.running.length || !st.installed.length) setTimeout(checkModels, 500);
 }
+
 $("setupStart").addEventListener("click", () => {
-  nativeApp.downloadModels();
-  setTimeout(checkModels, 200);
+  downloadPacks([...$("setupPacks").querySelectorAll("input:checked")].map((i) => i.value));
 });
 
 // ---------- startup ----------
@@ -1103,30 +1185,43 @@ if (textEl.value) {
   pos = Math.min(+store.get("pos", 0) || 0, Math.max(0, chunks.length - 1));
 }
 
-fetch("api/voices")
-  .then((r) => r.json())
-  .then((voices) => {
-    const groups = {};
-    for (const v of voices) {
-      let parent = voiceEl;
-      if (v.group) {
-        parent = groups[v.group];
-        if (!parent) {
-          parent = groups[v.group] = document.createElement("optgroup");
-          parent.label = v.group;
-          voiceEl.appendChild(parent);
+// Fills the voice menu with the voices that are on this phone.
+function loadVoices() {
+  return fetch("api/voices")
+    .then((r) => r.json())
+    .then((voices) => {
+      const usable = voices.filter((v) => v.installed !== false);
+      const previous = voiceEl.value;
+      voiceEl.textContent = "";
+      const groups = {};
+      for (const v of usable) {
+        let parent = voiceEl;
+        if (v.group) {
+          parent = groups[v.group];
+          if (!parent) {
+            parent = groups[v.group] = document.createElement("optgroup");
+            parent.label = v.group;
+            voiceEl.appendChild(parent);
+          }
         }
+        // Grouped by accent, so the option only needs the name: "Heart (US female)" -> "Heart ♀".
+        const label = v.group ? v.name.replace(/\s*\([^)]*\b(female|male)\)$/, (_, g) => (g === "female" ? " ♀" : " ♂")) : v.name;
+        parent.appendChild(new Option(label, v.id));
       }
-      // Grouped by accent, so the option only needs the name: "Heart (US female)" -> "Heart ♀".
-      const label = v.group ? v.name.replace(/\s*\([^)]*\b(female|male)\)$/, (_, g) => (g === "female" ? " ♀" : " ♂")) : v.name;
-      parent.appendChild(new Option(label, v.id));
-    }
-    // If the app is still reading this text in the background, match its voice and view.
-    const s = player.state();
-    const saved = s.voice || store.get("voice", "");
-    if (voices.some((v) => v.id === saved)) voiceEl.value = saved;
-    if (nativeApp && s.playing && chunks.length) showReader();
-  })
+      // If the app is still reading this text in the background, match its voice and view.
+      const s = player.state();
+      const wanted = s.voice || previous || store.get("voice", "");
+      if (usable.some((v) => v.id === wanted)) voiceEl.value = wanted;
+      if (voiceEl.value !== previous && previous) {
+        store.set("voice", voiceEl.value);
+        player.setVoice();
+      }
+      return s;
+    });
+}
+
+loadVoices()
+  .then((s) => { if (nativeApp && s.playing && chunks.length) showReader(); })
   .catch(() => {
     message = nativeApp ? "Couldn't load the voices." : "Can't reach the TTS server. Is app.py running?";
     refresh();

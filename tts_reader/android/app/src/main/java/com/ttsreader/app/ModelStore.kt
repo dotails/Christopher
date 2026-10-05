@@ -11,23 +11,28 @@ import java.util.zip.ZipInputStream
 import kotlin.concurrent.thread
 
 /**
- * The voice models (about 430 MB) aren't inside the APK, so the app stays small enough
- * to download reliably. They're fetched once, on first launch, from this repository's
+ * The voices aren't inside the APK, so the app stays small enough to download reliably.
+ * They come in packs, downloaded (and deleted) from the app, from this repository's
  * "tts-reader-models" release: resumable, retried automatically, and checked against
  * the SHA-256 sums in its manifest.
  *
- * Phones that already have the models from an earlier version (which copied them out
- * of a bigger APK into the same folder) are ready straight away.
+ * - "kokoro": the 27 US and UK voices, which all share one model (about 355 MB).
+ * - "au": the 10 Australian voices, which share a smaller model (about 80 MB).
+ * - "common": pronunciation data both need (about 3 MB), fetched with either.
+ *
+ * Phones that already have the voices from an earlier version (copied out of a bigger
+ * APK into the same folder) keep them: both packs count as installed.
  */
 object ModelStore {
 
-    /** Same folder layout and files as the copies made by versions 2 to 8. */
-    private const val VERSION = 2
+    enum class Pack(val id: String) { KOKORO("kokoro"), AU("au") }
+
     private const val BASE = "https://github.com/dotails/Christopher/releases/download/tts-reader-models/"
+    private const val COMMON = "common"
 
-    class Status(val ready: Boolean, val running: Boolean, val done: Long, val total: Long, val step: String, val error: String)
+    class Status(val installed: Set<String>, val running: Set<String>, val done: Long, val total: Long, val step: String, val error: String)
 
-    @Volatile private var running = false
+    @Volatile private var running: Set<String> = emptySet()
     @Volatile private var done = 0L
     @Volatile private var total = 0L
     @Volatile private var step = ""
@@ -36,58 +41,100 @@ object ModelStore {
 
     fun dir(context: Context) = File(context.filesDir, "models")
 
-    fun isReady(context: Context) = File(dir(context), ".complete-v$VERSION").exists()
+    private fun marker(context: Context, id: String) = File(dir(context), ".pack-$id")
 
-    /** True once the user has asked for the download, so an interrupted one resumes on the next launch. */
-    fun wasRequested(context: Context) = File(context.filesDir, "models-download-requested").exists()
-
-    fun status(context: Context) = Status(isReady(context), running, done, total, step, error)
-
-    /** Runs [action] (once) when the models become ready. */
-    fun whenReady(context: Context, action: () -> Unit) {
-        synchronized(listeners) {
-            if (isReady(context)) action() else listeners.add(action)
+    /** Versions 2 to 8 installed everything at once and left this marker. */
+    private fun migrate(context: Context) {
+        val legacy = File(dir(context), ".complete-v2")
+        if (legacy.exists()) {
+            for (id in listOf(COMMON, Pack.KOKORO.id, Pack.AU.id)) marker(context, id).createNewFile()
+            legacy.delete()
         }
     }
 
+    fun isInstalled(context: Context, pack: Pack): Boolean {
+        migrate(context)
+        return marker(context, COMMON).exists() && marker(context, pack.id).exists()
+    }
+
+    fun anyInstalled(context: Context) = Pack.entries.any { isInstalled(context, it) }
+
+    /** True once a download was asked for and hasn't finished, so it resumes on the next launch. */
+    fun pendingRequest(context: Context): Set<String> =
+        File(context.filesDir, "models-download-requested").takeIf { it.exists() }?.readText()
+            ?.split(",")?.filter { it.isNotBlank() }?.toSet().orEmpty()
+
+    fun status(context: Context) = Status(
+        Pack.entries.filter { isInstalled(context, it) }.map { it.id }.toSet(), running, done, total, step, error,
+    )
+
+    /** Called (on a background thread) whenever packs are installed or deleted. */
+    fun onChange(action: () -> Unit) {
+        synchronized(listeners) { listeners.add(action) }
+    }
+
+    private fun changed() = synchronized(listeners) { ArrayList(listeners) }.forEach { runCatching { it() } }
+
+    /** Downloads the given packs (ids), skipping any already installed. */
     @Synchronized
-    fun start(context: Context) {
-        if (running || isReady(context)) return
-        running = true
-        error = ""
+    fun start(context: Context, packs: Set<String>) {
+        if (running.isNotEmpty()) return
         val app = context.applicationContext
-        File(app.filesDir, "models-download-requested").createNewFile()
+        val wanted = Pack.entries.filter { it.id in packs && !isInstalled(app, it) }.map { it.id }.toSet()
+        if (wanted.isEmpty()) return
+        running = wanted
+        error = ""
+        done = 0
+        total = 0
+        File(app.filesDir, "models-download-requested").writeText(wanted.joinToString(","))
         thread(name = "model-download") {
             try {
-                download(app)
-                File(dir(app), ".complete-v$VERSION").createNewFile()
+                downloadInto(dir(app), BASE, wanted)
+                File(app.filesDir, "models-download-requested").delete()
                 step = "Done"
-                val ready = synchronized(listeners) { ArrayList(listeners).also { listeners.clear() } }
-                ready.forEach { runCatching { it() } }
             } catch (e: Throwable) {
                 error = e.message ?: e.toString()
             } finally {
-                running = false
+                running = emptySet()
+                changed()
             }
         }
     }
 
-    private class Item(val name: String, val size: Long, val sha256: String)
+    /** Deletes a pack's files. The shared data goes too once no pack is left. */
+    @Synchronized
+    fun delete(context: Context, pack: Pack) {
+        if (pack.id in running) return
+        val models = dir(context)
+        marker(context, pack.id).delete()
+        when (pack) {
+            Pack.KOKORO -> File(models, "kokoro").listFiles()?.filter { it.name != "espeak-ng-data" }?.forEach { it.deleteRecursively() }
+            Pack.AU -> File(models, "au").deleteRecursively()
+        }
+        if (!anyInstalled(context)) {
+            marker(context, COMMON).delete()
+            File(models, "kokoro").deleteRecursively()
+        }
+        changed()
+    }
 
-    private fun download(context: Context) = downloadInto(dir(context), BASE)
+    private class Item(val sha256: String, val size: Long, val name: String, val pack: String)
 
-    internal fun downloadInto(models: File, base: String) {
+    /** Downloads and unpacks [packs] (plus the shared data if it's missing) into [models]. */
+    internal fun downloadInto(models: File, base: String, packs: Set<String>) {
         val staging = File(models, ".download").apply { mkdirs() }
 
-        // manifest.txt lines: "<sha256> <size> <name>"
+        // manifest.txt lines: "<sha256> <size> <file name> <pack>"
         step = "Checking what to download…"
-        val manifest = withRetries { URL(base + "manifest.txt").readText() }
+        val needCommon = !File(models, ".pack-$COMMON").exists()
+        val items = withRetries { URL(base + "manifest.txt").readText() }
             .lines().filter { it.isNotBlank() }
-            .map { line -> line.trim().split(Regex("\\s+")).let { Item(it[2], it[1].toLong(), it[0]) } }
-        total = manifest.sumOf { it.size }
+            .map { line -> line.trim().split(Regex("\\s+")).let { Item(it[0], it[1].toLong(), it[2], it[3]) } }
+            .filter { it.pack in packs || (it.pack == COMMON && needCommon) }
+        total = items.sumOf { it.size }
 
         var finished = 0L
-        for (item in manifest) {
+        for (item in items) {
             val part = File(staging, item.name)
             step = "Downloading ${item.name}"
             fetch(base + item.name, part, item.size) { have -> done = finished + have }
@@ -100,18 +147,21 @@ object ModelStore {
             done = finished
         }
 
+        // Install pack by pack: the shared data first, then each pack's files, then its marker.
         step = "Unpacking…"
-        for (item in manifest) {
-            val part = File(staging, item.name)
-            when (item.name) {
-                "kokoro-model.onnx" -> move(part, File(models, "kokoro/model.onnx"))
-                "kokoro-voices.bin" -> move(part, File(models, "kokoro/voices.bin"))
-                "au-model.onnx" -> move(part, File(models, "au/model.onnx"))
-                else -> if (item.name.endsWith(".zip")) {
-                    unzip(part, models)
-                    part.delete()
+        for (pack in listOf(COMMON) + packs) {
+            val packItems = items.filter { it.pack == pack }
+            if (packItems.isEmpty()) continue
+            for (item in packItems) {
+                val part = File(staging, item.name)
+                when {
+                    item.name == "kokoro-model.onnx" -> move(part, File(models, "kokoro/model.onnx"))
+                    item.name == "kokoro-voices.bin" -> move(part, File(models, "kokoro/voices.bin"))
+                    item.name == "au-model.onnx" -> move(part, File(models, "au/model.onnx"))
+                    item.name.endsWith(".zip") -> unzip(part, models).also { part.delete() }
                 }
             }
+            File(models, ".pack-$pack").createNewFile()
         }
         staging.deleteRecursively()
     }

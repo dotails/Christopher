@@ -118,28 +118,44 @@ val prepareAustralian by tasks.registering {
     }
 }
 
-// The voice files the app downloads on first launch (see ModelStore.kt), published by CI
-// to the "tts-reader-models" release: the three big model files as they are, the rest
-// zipped, and a manifest of SHA-256 sums and sizes.
+// The voice files the app downloads (see ModelStore.kt), published by CI to the
+// "tts-reader-models" release, in packs the user picks from: "kokoro" (US and UK),
+// "au" (Australian) and "common" (pronunciation data both use). Big model files go
+// as they are, the rest zipped; manifest.txt lists each file's SHA-256, size and pack.
 val modelRelease = layout.buildDirectory.dir("model-release")
-val zipModelExtras by tasks.registering(Zip::class) {
+val modelsDir = modelAssets.map { it.dir("models") }
+fun Zip.reproducible(name: String) {
     dependsOn(prepareKokoro, prepareAustralian)
-    from(modelAssets.map { it.dir("models") }) {
-        exclude("kokoro/model.onnx", "kokoro/voices.bin", "au/model.onnx")
-    }
-    archiveFileName.set("tts-reader-extras.zip")
+    archiveFileName.set(name)
     destinationDirectory.set(modelRelease)
     isPreserveFileTimestamps = false // the same bytes every build, so the manifest stays stable
     isReproducibleFileOrder = true
 }
+val zipCommon by tasks.registering(Zip::class) {
+    reproducible("common.zip")
+    from(modelsDir) { include("kokoro/espeak-ng-data/**") }
+}
+val zipKokoroExtras by tasks.registering(Zip::class) {
+    reproducible("kokoro-extras.zip")
+    from(modelsDir) { include("kokoro/tokens.txt", "kokoro/lexicon-*.txt", "kokoro/LICENSE") }
+}
+val zipAuExtras by tasks.registering(Zip::class) {
+    reproducible("au-extras.zip")
+    from(modelsDir) { include("au/tokens.txt", "au/ATTRIBUTION.md") }
+}
 val packageModels by tasks.registering {
-    dependsOn(zipModelExtras)
+    dependsOn(zipCommon, zipKokoroExtras, zipAuExtras)
     doLast {
         val out = modelRelease.get().asFile
-        val models = modelAssets.get().asFile.resolve("models")
+        val models = modelsDir.get().asFile
         mapOf("kokoro-model.onnx" to "kokoro/model.onnx", "kokoro-voices.bin" to "kokoro/voices.bin", "au-model.onnx" to "au/model.onnx")
             .forEach { (name, path) -> models.resolve(path).copyTo(out.resolve(name), overwrite = true) }
-        val lines = listOf("kokoro-model.onnx", "kokoro-voices.bin", "au-model.onnx", "tts-reader-extras.zip").map { name ->
+        val packs = listOf(
+            "common.zip" to "common",
+            "kokoro-model.onnx" to "kokoro", "kokoro-voices.bin" to "kokoro", "kokoro-extras.zip" to "kokoro",
+            "au-model.onnx" to "au", "au-extras.zip" to "au",
+        )
+        val lines = packs.map { (name, pack) ->
             val file = out.resolve(name)
             val digest = MessageDigest.getInstance("SHA-256")
             file.inputStream().use { input ->
@@ -150,8 +166,9 @@ val packageModels by tasks.registering {
                     digest.update(buffer, 0, n)
                 }
             }
-            digest.digest().joinToString("") { "%02x".format(it) } + " " + file.length() + " " + name
+            digest.digest().joinToString("") { "%02x".format(it) } + " " + file.length() + " " + name + " " + pack
         }
+        out.resolve("tts-reader-extras.zip").delete() // from the previous single-pack layout
         out.resolve("manifest.txt").writeText(lines.joinToString("\n") + "\n")
     }
 }
@@ -164,8 +181,8 @@ android {
         applicationId = "com.ttsreader.app"
         minSdk = 29 // Android 10+: saving to Downloads needs no storage permission
         targetSdk = 34
-        versionCode = 9
-        versionName = "9.0"
+        versionCode = 10
+        versionName = "10.0"
         ndk { abiFilters += "arm64-v8a" }
     }
 

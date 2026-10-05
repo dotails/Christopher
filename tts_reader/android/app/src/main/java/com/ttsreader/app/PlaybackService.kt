@@ -439,7 +439,7 @@ class PlaybackService : Service() {
     }
 
     private fun generateNext() {
-        if (!ModelStore.isReady(this)) { // first launch: the voices are still downloading
+        if (!ModelStore.anyInstalled(this)) { // first launch: no voices downloaded yet
             Thread.sleep(1000)
             return
         }

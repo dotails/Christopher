@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun bindPlayer() {
-        bindPlayer()
+        bindService(Intent(this, PlaybackService::class.java), connection, BIND_AUTO_CREATE)
     }
 
     private fun note(message: String) {
@@ -77,10 +77,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         speech = Speech.get(this)
-        bindService(Intent(this, PlaybackService::class.java), connection, BIND_AUTO_CREATE)
-        // Copy the model out of the APK (first launch only) and load it while the page opens.
-        ModelStore.whenReady(this) { thread(name = "tts-warmup") { runCatching { speech.warmUp(null) } } }
-        if (!ModelStore.isReady(this) && ModelStore.wasRequested(this)) ModelStore.start(this) // resume
+        bindPlayer()
+        ModelStore.onChange {
+            runOnUiThread { window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+            if (ModelStore.anyInstalled(this@MainActivity)) thread(name = "tts-warmup") { runCatching { speech.warmUp(null) } }
+        }
+        // Load the default voice in the background so the first Play is quick.
+        if (ModelStore.anyInstalled(this)) thread(name = "tts-warmup") { runCatching { speech.warmUp(null) } }
+        ModelStore.pendingRequest(this).takeIf { it.isNotEmpty() }?.let { ModelStore.start(this, it) } // resume a download
 
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -95,6 +99,7 @@ class MainActivity : ComponentActivity() {
             allowContentAccess = false
         }
         webView.addJavascriptInterface(Bridge(), "AndroidApp")
+        webView.webChromeClient = android.webkit.WebChromeClient() // shows the page's confirm() dialogs
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val url = request.url
@@ -140,7 +145,10 @@ class MainActivity : ComponentActivity() {
                 "/api/voices" -> {
                     val list = JSONArray()
                     for (v in speech.voices) {
-                        list.put(JSONObject().put("id", v.id).put("name", v.name).put("group", v.accent.label))
+                        list.put(
+                            JSONObject().put("id", v.id).put("name", v.name).put("group", v.accent.label)
+                                .put("pack", speech.packOf(v.accent).id).put("installed", speech.isInstalled(v)),
+                        )
                     }
                     response(200, "application/json", list.toString().toByteArray())
                 }
@@ -377,21 +385,27 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        /** Voice download state for the page's first-launch screen. */
+        /** Voice packs: which are downloaded, and download progress (for the page). */
         @JavascriptInterface
         fun modelStatus(): String {
             val st = ModelStore.status(this@MainActivity)
-            return JSONObject().put("ready", st.ready).put("running", st.running).put("done", st.done)
-                .put("total", st.total).put("step", st.step).put("error", st.error).toString()
+            return JSONObject()
+                .put("installed", JSONArray(st.installed.toList()))
+                .put("running", JSONArray(st.running.toList()))
+                .put("done", st.done).put("total", st.total).put("step", st.step).put("error", st.error)
+                .toString()
+        }
+
+        /** [packs]: comma-separated pack ids ("kokoro", "au"). */
+        @JavascriptInterface
+        fun downloadModels(packs: String) = runOnUiThread {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) // keep the download going
+            ModelStore.start(this@MainActivity, packs.split(",").map { it.trim() }.toSet())
         }
 
         @JavascriptInterface
-        fun downloadModels() = runOnUiThread {
-            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) // keep the download going
-            ModelStore.start(this@MainActivity)
-            ModelStore.whenReady(this@MainActivity) {
-                runOnUiThread { window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
-            }
+        fun deleteModels(pack: String) {
+            ModelStore.Pack.entries.firstOrNull { it.id == pack }?.let { ModelStore.delete(this@MainActivity, it) }
         }
 
         @JavascriptInterface

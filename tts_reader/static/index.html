@@ -67,8 +67,9 @@
 
   <div id="setup" hidden>
     <section class="card" role="dialog" aria-label="Download the voices">
-      <h2>Download the voices</h2>
-      <p>The natural voices are a one-time download of about 410 MB, kept on your phone so reading works offline. Wi-Fi is best.</p>
+      <h2>Choose voices to download</h2>
+      <p>Voices are kept on your phone so reading works offline. You can add or delete them later in the menu (☰ → Voices). Wi-Fi is best.</p>
+      <div id="setupPacks"></div>
       <div class="bar"><div id="setupFill"></div></div>
       <p id="setupStatus" class="small"></p>
       <button id="setupStart" class="pill wide">Download voices</button>
@@ -79,6 +80,12 @@
     <div class="backdrop" data-close></div>
     <section class="panel" role="dialog" aria-label="Menu">
       <div class="grab" data-close></div>
+
+      <div id="voicesSection" hidden>
+        <h2>Voices</h2>
+        <ul id="packs"></ul>
+        <p id="packStatus" class="small"></p>
+      </div>
 
       <h2>Recent</h2>
       <ul id="recent"></ul>
