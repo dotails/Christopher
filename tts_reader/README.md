@@ -57,7 +57,7 @@ allow your browser to install unknown apps. GitHub Actions rebuilds the APK
 whenever `tts_reader/` changes.
 
 - It needs a 64-bit phone running Android 10 or newer. The download is about
-  450 MB, and it uses about 450 MB more once unpacked.
+  475 MB, and it uses about 450 MB more once unpacked.
 - The first launch takes a little longer while it unpacks the voices. The
   first use of each accent then takes a few seconds to load it.
 - It keeps reading with the screen off or the app in the background, with
@@ -72,10 +72,18 @@ whenever `tts_reader/` changes.
   your **Downloads** folder as a WAV file named after the text's first words
   and the voice, for example `TTS Reader - It was a bright cold - Heart.wav`.
   Changing the voice records the text again and saves a new file.
-- **Open files:** PDF, EPUB ebooks, Word (.docx), web pages (.html) and
+- **Read pictures of text:** tap **Photo** (or the camera button while
+  reading) to take a picture of a page, sign or screen, and it starts reading
+  aloud as soon as the text is recognized. **Pictures** reads photos or
+  screenshots from your gallery (pick several to read them in order). You can
+  also share pictures to the app, or long-press the app icon and choose
+  **Read a photo**. Text recognition runs on the phone (Google ML Kit's
+  offline model), for English and other Latin-alphabet text.
+- **Open files:** PDF (scanned PDFs are read page by page with text
+  recognition), EPUB ebooks, Word (.docx), web pages (.html) and
   text/Markdown, from the **Open file** button, or with **Open with** or
-  **Share** from other apps. Scanned PDFs (pictures of text) have no text to
-  read. You can also share text to it with **Share → TTS Reader**.
+  **Share** from other apps. You can also share text to it with
+  **Share → TTS Reader**.
 
 To build it yourself, install Android Studio (or the Android SDK and JDK 17)
 and run `./gradlew assembleRelease` in `android/`. The build downloads the

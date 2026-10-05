@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">TTS Reader</string>
+    <string name="shortcut_photo">Read a photo</string>
+    <string name="shortcut_photo_long">Take a photo and read it aloud</string>
 </resources>

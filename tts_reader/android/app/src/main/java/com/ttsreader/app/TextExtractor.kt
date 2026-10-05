@@ -10,39 +10,80 @@ import com.tom_roush.pdfbox.text.PDFTextStripper
 import java.io.File
 import java.util.zip.ZipFile
 
-/** Pulls readable text out of documents: PDF, EPUB, Word (.docx), HTML, and plain text/Markdown. */
+/**
+ * Pulls readable text out of documents: PDF (including scanned ones), EPUB, Word (.docx),
+ * HTML, plain text/Markdown, and pictures of text (photos, screenshots).
+ */
 object TextExtractor {
 
-    class Document(val title: String, val text: String)
+    /** [usedOcr] is true when the text was read from pictures. */
+    class Document(val title: String, val text: String, val usedOcr: Boolean = false)
 
-    fun extract(context: Context, uri: Uri): Document {
+    private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "heic", "heif", "bmp", "gif")
+
+    /** Several files (for example a few photos of pages) read in order as one text. */
+    fun extractAll(context: Context, uris: List<Uri>, progress: (String) -> Unit): Document {
+        if (uris.size == 1) return extract(context, uris[0], progress)
+        val docs = uris.mapIndexedNotNull { i, uri ->
+            progress("Reading ${i + 1} of ${uris.size}…")
+            runCatching { extract(context, uri) {} }.getOrNull()
+        }
+        if (docs.isEmpty()) throw IllegalStateException("No readable text found.")
+        return Document(docs.first().title, docs.joinToString("\n\n") { it.text }, docs.any { it.usedOcr })
+    }
+
+    fun extract(context: Context, uri: Uri, progress: (String) -> Unit = {}): Document {
         val name = displayName(context, uri) ?: uri.lastPathSegment ?: "Document"
         val mime = context.contentResolver.getType(uri).orEmpty()
         val ext = name.substringAfterLast('.', "").lowercase()
         val title = name.substringBeforeLast('.').ifBlank { name }
 
+        if (mime.startsWith("image/") || ext in IMAGE_EXTENSIONS) {
+            progress("Reading the text in the picture…")
+            val text = tidy(Ocr.readImage(context, uri))
+            if (text.isEmpty()) throw IllegalStateException("No text found in that picture.")
+            return Document(if (name.startsWith("photo-")) "Photo ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date())}" else title, text, usedOcr = true)
+        }
+
         // Zip-based formats need random access, so work from a temporary copy.
         val tmp = File.createTempFile("import", ".$ext", context.cacheDir)
         try {
             context.contentResolver.openInputStream(uri)!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
+            var usedOcr = false
             val text = when {
-                ext == "pdf" || mime == "application/pdf" -> pdf(context, tmp)
+                ext == "pdf" || mime == "application/pdf" -> pdf(context, tmp).ifBlank {
+                    // No text layer: a scanned PDF. Read the page images instead.
+                    usedOcr = true
+                    Ocr.readScannedPdf(tmp, progress)
+                }
                 ext == "epub" || mime == "application/epub+zip" -> epub(tmp)
                 ext == "docx" || mime.contains("wordprocessingml") -> docx(tmp)
                 ext in setOf("html", "htm", "xhtml") || mime.contains("html") -> html(tmp.readText())
                 else -> decodeText(tmp.readBytes())
             }
-            val cleaned = text.replace("\r\n", "\n").replace(Regex("[ \\t\\u00A0]+\\n"), "\n")
-                .replace(Regex("\\n{3,}"), "\n\n").trim()
-            if (cleaned.isEmpty()) {
-                throw IllegalStateException(
-                    if (ext == "pdf") "No text found. This PDF may be scanned images." else "No readable text found.",
-                )
-            }
-            return Document(title, cleaned)
+            val cleaned = tidy(text)
+            if (cleaned.isEmpty()) throw IllegalStateException("No readable text found.")
+            return Document(title, cleaned, usedOcr)
         } finally {
             tmp.delete()
         }
+    }
+
+    private fun tidy(text: String) = text.replace("\r\n", "\n").replace(Regex("[ \\t\\u00A0]+\\n"), "\n")
+        .replace(Regex("\\n{3,}"), "\n\n").trim()
+
+    /** Joins hard-wrapped lines into one paragraph, rejoining words split with a hyphen. */
+    internal fun joinLines(lines: List<String>): String {
+        val sb = StringBuilder()
+        for (line in lines.map { it.trim() }.filter { it.isNotEmpty() }) {
+            when {
+                sb.isEmpty() -> sb.append(line)
+                // "exam-" + "ple" -> "example" (a word split across lines)
+                sb.endsWith("-") && line.first().isLowerCase() -> sb.setLength(sb.length - 1).also { sb.append(line) }
+                else -> sb.append(' ').append(line)
+            }
+        }
+        return sb.toString()
     }
 
     private fun displayName(context: Context, uri: Uri): String? = runCatching {
@@ -67,18 +108,7 @@ object TextExtractor {
             }
             // PDF lines are hard-wrapped: join lines inside a paragraph, keep blank-line breaks.
             val raw = stripper.getText(doc)
-            return raw.split(Regex("\\n\\s*\\n")).joinToString("\n\n") { para ->
-                val sb = StringBuilder()
-                for (line in para.lines().map { it.trim() }.filter { it.isNotEmpty() }) {
-                    when {
-                        sb.isEmpty() -> sb.append(line)
-                        // "exam-" + "ple" -> "example" (a word split across lines)
-                        sb.endsWith("-") && line.first().isLowerCase() -> sb.setLength(sb.length - 1).also { sb.append(line) }
-                        else -> sb.append(' ').append(line)
-                    }
-                }
-                sb.toString()
-            }
+            return raw.split(Regex("\\n\\s*\\n")).joinToString("\n\n") { joinLines(it.lines()) }
         }
     }
 

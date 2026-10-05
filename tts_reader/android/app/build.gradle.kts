@@ -125,8 +125,8 @@ android {
         applicationId = "com.ttsreader.app"
         minSdk = 29 // Android 10+: saving to Downloads needs no storage permission
         targetSdk = 34
-        versionCode = 6
-        versionName = "6.0"
+        versionCode = 7
+        versionName = "7.0"
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -181,5 +181,7 @@ dependencies {
     implementation(files(sherpaAar))
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0") // text from PDFs
+    implementation("com.google.mlkit:text-recognition:16.0.1") // text from pictures, on the phone
+    implementation("androidx.core:core:1.13.1") // FileProvider, for the camera's photo
     testImplementation("junit:junit:4.13.2")
 }

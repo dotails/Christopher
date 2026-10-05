@@ -592,6 +592,10 @@ function refresh() {
   }
 }
 
+function setCameraButton() {
+  $("camera").hidden = !(nativeApp && nativeApp.takePhoto) || readerEl.hidden;
+}
+
 function showReader() {
   const changed = textEl.value !== parsedText;
   if (changed) parse(textEl.value);
@@ -603,6 +607,7 @@ function showReader() {
   editorEl.hidden = true;
   readerEl.hidden = false;
   editBtn.hidden = false;
+  setCameraButton();
   shown.pos = -1;
   refresh();
   highlight(true);
@@ -613,6 +618,7 @@ function showEditor() {
   readerEl.hidden = true;
   editorEl.hidden = false;
   editBtn.hidden = true;
+  setCameraButton();
   refresh();
 }
 
@@ -896,7 +902,14 @@ textEl.addEventListener("input", () => {
 });
 textEl.addEventListener("click", () => { cursorPicked = true; });
 
-// Editor toolbar
+// Editor toolbar. Photo / Pictures read text from pictures on the phone (Android app only).
+if (nativeApp && nativeApp.takePhoto) {
+  $("photo").hidden = false;
+  $("pictures").hidden = false;
+  $("photo").addEventListener("click", () => nativeApp.takePhoto());
+  $("pictures").addEventListener("click", () => nativeApp.pickPictures());
+  $("camera").addEventListener("click", () => nativeApp.takePhoto());
+}
 $("openFile").addEventListener("click", () => {
   if (nativeApp && nativeApp.openFile) nativeApp.openFile();
   else $("filePicker").click();
@@ -950,8 +963,15 @@ if ("mediaSession" in navigator && !nativeApp) {
   try { ms.metadata = new MediaMetadata({ title: "TTS Reader", artist: "Kokoro" }); } catch { /* unsupported */ }
 }
 
-// Called by the Android app for shared text and opened documents.
-window.receiveSharedText = (text, title) => setDocument(text, title || "");
+// Called by the Android app for shared text, opened documents and pictures.
+// Text read from pictures starts playing straight away.
+window.receiveSharedText = (text, title, autoplay) => {
+  setDocument(text, title || "");
+  if (autoplay && chunks.length) {
+    player.play();
+    refresh();
+  }
+};
 window.appMessage = (msg) => { message = msg; refresh(); };
 
 // ---------- startup ----------

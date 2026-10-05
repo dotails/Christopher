@@ -24,6 +24,9 @@
     <button id="edit" class="icon" title="Edit text" aria-label="Edit text" hidden>
       <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg>
     </button>
+    <button id="camera" class="icon" title="Read a photo" aria-label="Read a photo" hidden>
+      <svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    </button>
     <button id="menu" class="icon" title="Menu" aria-label="Menu">
       <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
@@ -32,12 +35,14 @@
   <main>
     <div id="editor">
       <div class="toolbar">
+        <button id="photo" class="pill" hidden>Photo</button>
+        <button id="pictures" class="pill" hidden>Pictures</button>
         <button id="openFile" class="pill">Open file</button>
         <button id="paste" class="pill">Paste</button>
         <button id="clear" class="pill">Clear</button>
         <input id="filePicker" type="file" accept=".txt,.md,.markdown,.html,.htm,text/plain,text/markdown,text/html" hidden>
       </div>
-      <textarea id="text" placeholder="Paste or type text here, or open a file, then press play.&#10;&#10;Blank lines separate paragraphs." spellcheck="false"></textarea>
+      <textarea id="text" placeholder="Paste or type text here, open a file, or take a photo of some text, then press play.&#10;&#10;Blank lines separate paragraphs." spellcheck="false"></textarea>
     </div>
     <div id="reader" hidden></div>
   </main>

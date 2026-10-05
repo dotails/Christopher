@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the app icon: "Read a photo" opens the camera straight away. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="read_photo"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_camera"
+        android:shortcutShortLabel="@string/shortcut_photo"
+        android:shortcutLongLabel="@string/shortcut_photo_long">
+        <intent
+            android:action="com.ttsreader.app.READ_PHOTO"
+            android:targetPackage="com.ttsreader.app"
+            android:targetClass="com.ttsreader.app.MainActivity" />
+    </shortcut>
+</shortcuts>
