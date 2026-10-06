@@ -68,6 +68,8 @@ class PlaybackService : Service() {
     private var gen = 0                         // bumped whenever existing audio becomes invalid
     private var ready = BooleanArray(0)
     private var rates = IntArray(0)
+    private var speeds = FloatArray(0)          // the speed each ready chunk was spoken at
+    private var seconds = DoubleArray(0)        // each ready chunk's length at 1x, for time estimates
     private var writePos = 0                    // next chunk the player streams
     private var playing = false
     private var interrupt = false               // player must drop queued audio (seek/voice/new text)
@@ -79,8 +81,6 @@ class PlaybackService : Service() {
     private var savedName: String? = null       // file name of that recording
     private var autoSave = true                 // save to Downloads as soon as everything is generated
     private var saveRequested = false           // "Save recording now"
-    private var readyChars = 0L                 // text and audio generated so far, for time estimates
-    private var readySeconds = 0.0
     private var sleepAt = 0L                    // SystemClock.elapsedRealtime() to pause at; 0 = off
     private var holdAtEnd = false               // camera on: wait at the end for more text instead of finishing
     private var pausedAt = 0L                   // when playback was paused (elapsedRealtime), 0 = not paused
@@ -217,6 +217,8 @@ class PlaybackService : Service() {
             paraOf = paraOf + paragraphs
             ready = ready.copyOf(chunks.size)
             rates = rates.copyOf(chunks.size)
+            speeds = speeds.copyOf(chunks.size)
+            seconds = seconds.copyOf(chunks.size)
             exportedGen = -1 // the recording gets longer, so save it again when it's all ready
             savedName = null
             if (finished) { // reached the end before this arrived: carry on with the new text
@@ -295,10 +297,31 @@ class PlaybackService : Service() {
         publishState()
     }
 
+    /**
+     * Changes the speed. What's already queued in the audio stream is sped up right away
+     * (time-stretched, briefly); everything else is spoken again at the new speed, which
+     * sounds more natural than stretching.
+     */
     fun setSpeed(value: Float) {
         synchronized(lock) {
-            speed = value.coerceIn(0.5f, 2f)
+            val newSpeed = value.coerceIn(0.5f, 2f)
+            if (newSpeed == speed) return
+            speed = newSpeed
             track?.let { applySpeed(it) }
+            val queued = segments.map { it[1].toInt() }.toSet() // in the audio stream already
+            var changed = false
+            for (i in ready.indices) {
+                if (ready[i] && speeds[i] != newSpeed && i !in queued) {
+                    ready[i] = false
+                    changed = true
+                }
+            }
+            if (changed) {
+                exportedGen = -1 // the saved recording would be at the old speed
+                savedName = null
+                log("speed $newSpeed: re-speaking upcoming sentences")
+            }
+            lock.notifyAll()
         }
     }
 
@@ -390,9 +413,20 @@ class PlaybackService : Service() {
             .put("voice", voiceId ?: "")
             .put("error", error ?: "")
             .put("saved", savedName ?: "")
-            .put("cps", if (readySeconds > 0) readyChars / readySeconds else 0.0)
+            .put("cps", charsPerSecond())
             .put("sleep", if (sleepAt > 0) (sleepAt - SystemClock.elapsedRealtime()).coerceAtLeast(0) else 0)
             .toString()
+    }
+
+    /** Speaking rate at 1x (characters per second) measured from the generated audio. Call with [lock] held. */
+    private fun charsPerSecond(): Double {
+        var chars = 0L
+        var secs = 0.0
+        for (i in ready.indices) if (ready[i]) {
+            chars += chunks[i].length
+            secs += seconds[i]
+        }
+        return if (secs > 0) chars / secs else 0.0
     }
 
     // ---------------------------------------------------------------- generation
@@ -400,10 +434,10 @@ class PlaybackService : Service() {
     private fun invalidateAudio() {
         gen++
         savedName = null
-        readyChars = 0
-        readySeconds = 0.0
         ready = BooleanArray(chunks.size)
         rates = IntArray(chunks.size)
+        speeds = FloatArray(chunks.size)
+        seconds = DoubleArray(chunks.size)
         val current = gen
         thread(isDaemon = true) {
             audioDir.listFiles()?.forEach { f ->
@@ -447,6 +481,7 @@ class PlaybackService : Service() {
         run {
             var job: Triple<Int, Int, String>? = null
             var voice: String? = null
+            var jobSpeed = 1f
             var export: Recording? = null
             synchronized(lock) {
                 var next = nextToGenerate()
@@ -466,6 +501,7 @@ class PlaybackService : Service() {
                 } else {
                     job = Triple(gen, next, chunks[next])
                     voice = voiceId
+                    jobSpeed = speed
                 }
             }
             val recording = export
@@ -478,7 +514,7 @@ class PlaybackService : Service() {
             var rate = 24000
             var failure: String? = null
             try {
-                val result = speech.generate(text, voice)
+                val result = speech.generate(text, voice, jobSpeed)
                 samples = result.first
                 rate = result.second
             } catch (e: Throwable) {
@@ -497,11 +533,13 @@ class PlaybackService : Service() {
                 failure = e.message ?: e.toString()
             }
             synchronized(lock) {
-                if (jobGen == gen && index < ready.size) {
+                if (jobGen == gen && index < ready.size && jobSpeed != speed) {
+                    // The speed changed while this was being spoken: it gets spoken again.
+                } else if (jobGen == gen && index < ready.size) {
                     ready[index] = true
                     rates[index] = rate
-                    readyChars += text.length
-                    readySeconds += samples.size.toDouble() / rate
+                    speeds[index] = jobSpeed
+                    seconds[index] = samples.size.toDouble() / rate * jobSpeed
                     if (failure != null) error = "Couldn't read a sentence: $failure"
                     lock.notifyAll()
                 } else {
@@ -588,8 +626,14 @@ class PlaybackService : Service() {
         writtenFrames = 0
     }
 
+    private var streamChunkSpeed = 1f // the speed the chunk now being streamed was spoken at
+
+    /** Time-stretches only the difference between the chosen speed and how the audio was spoken. */
     private fun applySpeed(t: AudioTrack) {
-        runCatching { t.playbackParams = PlaybackParams().setSpeed(speed).setPitch(1f) }
+        val ratio = if (streamChunkSpeed > 0) speed / streamChunkSpeed else speed
+        runCatching {
+            if (t.playbackParams.speed != ratio) t.playbackParams = PlaybackParams().setSpeed(ratio).setPitch(1f)
+        }
     }
 
     private fun newTrack(rate: Int): AudioTrack {
@@ -714,6 +758,8 @@ class PlaybackService : Service() {
                     newTrack(rate).also { track = it }
                 }
                 segments.add(longArrayOf(writtenFrames, index.toLong()))
+                streamChunkSpeed = speeds[index]
+                applySpeed(current)
                 current
             } ?: return
 

@@ -62,11 +62,11 @@ class Speech private constructor(private val context: Context) {
         }
     }
 
-    /** Generates [text] at normal speed (playback applies the speed). Returns samples and sample rate. */
-    fun generate(text: String, voiceId: String?): Pair<FloatArray, Int> {
+    /** Speaks [text] at [speed] (the voice's own pacing, not time-stretching). Returns samples and sample rate. */
+    fun generate(text: String, voiceId: String?, speed: Float): Pair<FloatArray, Int> {
         val v = voice(voiceId)
         synchronized(lock) {
-            val audio = engineFor(v.accent).generate(text, v.sid, 1f)
+            val audio = engineFor(v.accent).generate(text, v.sid, speed)
             return audio.samples to audio.sampleRate
         }
     }

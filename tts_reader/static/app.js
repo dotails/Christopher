@@ -44,8 +44,37 @@ function speed() { return +(+speedEl.value).toFixed(2); }
 
 // ---------- text -> paragraphs -> chunks ----------
 
+// Abbreviations whose full stop doesn't end the sentence. The speech engine treats every
+// "." as a sentence end (a falling tone and a pause), so these are spoken in full and the
+// sentence splitter doesn't break after them. The text on screen is left as it is.
+const ABBREVIATIONS = [
+  [/\bDr\.(?=\s+[A-Z])/g, "Doctor"], [/\bMr\./g, "Mister"], [/\bMrs\./g, "Missus"], [/\bMs\./g, "Miz"],
+  [/\bProf\.(?=\s+[A-Z])/g, "Professor"],
+  [/\b([A-Z][a-z]+\s+)St\./g, "$1Street."], [/\bSt\.(?=\s+[A-Z])/g, "Saint"], // "Main St." / "St. Louis" [/\bMt\.(?=\s+[A-Z])/g, "Mount"],
+  [/\bJr\.(?=,|\s+[a-z])/g, "Junior"], [/\bSr\.(?=,|\s+[a-z])/g, "Senior"], [/\bvs\./gi, "versus"],
+  [/\be\.g\.,?/gi, "for example,"], [/\bi\.e\.,?/gi, "that is,"], [/\betc\.(?=,|\s+[a-z])/g, "et cetera"],
+  [/\bNo\.(?=\s*\d)/g, "number"], [/\bFig\.(?=\s*\d)/gi, "figure"], [/\bapprox\./gi, "approximately"],
+  [/\b([ap])\.m\./gi, (_, x) => x.toUpperCase() + " M"], [/\bU\.S\.(?=\s+[a-z]|[,;:)]|$)/g, "U S"],
+  [/\bU\.K\.(?=\s+[a-z]|[,;:)]|$)/g, "U K"],
+  [/\b((?:[A-Z]\.\s){2,})(?=[A-Z][a-z])/g, (m) => m.replace(/\./g, "")], // "J. R. R. Tolkien"
+];
+const ENDS_WITH_ABBREVIATION = /\b(?:Dr|Mr|Mrs|Ms|Prof|St|Mt|Jr|Sr|vs|No|Fig|approx|e\.g|i\.e|[ap]\.m|U\.S|U\.K|[A-Z])\.["'”’)]*\s*$/;
+
+/** The text as it should be spoken (abbreviations written out). */
+function speakable(text) {
+  let t = text;
+  for (const [re, to] of ABBREVIATIONS) t = t.replace(re, to);
+  return t.replace(/\s{2,}/g, " ").trim();
+}
+
 function splitChunks(t) {
-  const sentences = t.match(/[^.!?…]*[.!?…]+["'”’)\]]*\s*|[^.!?…]+/g) || [t];
+  // Split into sentences, then rejoin pieces that only ended at an abbreviation ("Dr.", "e.g.").
+  const sentences = [];
+  for (const piece of t.match(/[^.!?…]*[.!?…]+["'”’)\]]*\s*|[^.!?…]+/g) || [t]) {
+    const prev = sentences[sentences.length - 1];
+    if (prev !== undefined && ENDS_WITH_ABBREVIATION.test(prev)) sentences[sentences.length - 1] = prev + piece;
+    else sentences.push(piece);
+  }
   const out = [];
   let cur = "";
   for (let s of sentences) {
@@ -193,7 +222,7 @@ function createWebPlayer() {
     if (hit) drop(i);
     const ctrl = new AbortController();
     const entry = { voice, ctrl, url: null };
-    const query = new URLSearchParams({ text: chunks[i].text, voice, speed: 1, client: clientId, epoch });
+    const query = new URLSearchParams({ text: speakable(chunks[i].text), voice, speed: 1, client: clientId, epoch });
     entry.promise = fetch("api/tts?" + query, { signal: ctrl.signal })
       .then((r) => {
         if (!r.ok) throw new Error("server error " + r.status);
@@ -468,7 +497,7 @@ function createNativePlayer(app) {
     app.setAutoSave(settings.autosave); // the service may not have been connected at startup
     poll();
     if (st.key !== textKey) {
-      app.load(textKey, JSON.stringify(chunks.map((c) => c.text)), JSON.stringify(chunks.map((c) => c.p)), voiceEl.value, pos);
+      app.load(textKey, JSON.stringify(chunks.map((c) => speakable(c.text))), JSON.stringify(chunks.map((c) => c.p)), voiceEl.value, pos);
       st = { key: textKey, pos, playing: false, ready: "" };
     }
   };
@@ -493,7 +522,7 @@ function createNativePlayer(app) {
     setAutoSave() { app.setAutoSave(settings.autosave); },
     textAppended(oldKey, added) {
       // If the service isn't reading this text yet, Play will load all of it anyway.
-      if (app.append(oldKey, textKey, JSON.stringify(added.map((c) => c.text)), JSON.stringify(added.map((c) => c.p)))) {
+      if (app.append(oldKey, textKey, JSON.stringify(added.map((c) => speakable(c.text))), JSON.stringify(added.map((c) => c.p)))) {
         st.key = textKey;
       }
     },
