@@ -45,9 +45,15 @@ object Ocr {
 
     private fun read(image: InputImage): String = paragraphs(Tasks.await(recognizer.process(image)))
 
-    /** ML Kit's blocks are roughly paragraphs; their lines are joined back into flowing text. */
-    private fun paragraphs(result: Text): String =
-        result.textBlocks.map { block -> TextExtractor.joinLines(block.lines.map { it.text }) }
-            .filter { it.isNotBlank() }
-            .joinToString("\n\n")
+    /**
+     * ML Kit's blocks are roughly paragraphs. Their lines are joined back into flowing text,
+     * and the blocks are put in reading order (columns, two facing pages; see [ReadingOrder]).
+     */
+    private fun paragraphs(result: Text): String {
+        val boxes = result.textBlocks.mapNotNull { block ->
+            val r = block.boundingBox ?: return@mapNotNull null
+            ReadingOrder.Box(r.left, r.top, r.right, r.bottom, TextExtractor.joinLines(block.lines.map { it.text }))
+        }
+        return ReadingOrder.paragraphs(boxes).joinToString("\n\n")
+    }
 }

@@ -87,7 +87,10 @@ whenever `tts_reader/` changes.
   text is recognized on the phone and added to the end, in the order you took
   them. Press play at any point and keep taking pages; while the camera is
   on, reading waits at the end for the next page and carries on smoothly.
-  Tap the preview to focus. **Pictures** reads photos or screenshots from your
+  Tap the preview to focus. Pages with columns and photos of two facing
+  pages are read in order (left column or page first); page numbers are
+  skipped, and sentences that continue across a column or the spine are
+  joined back together. **Pictures** reads photos or screenshots from your
   gallery (pick several to read them in order). You can also share pictures
   to the app, or long-press the app icon and choose **Read a photo**. Text
   recognition (Google ML Kit's offline model) handles English and other
