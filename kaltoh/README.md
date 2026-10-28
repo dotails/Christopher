@@ -2,20 +2,30 @@
 
 > "Kal-toh is to chess as chess is to tic-tac-toe."
 
-A playable take on the Vulcan game of *Star Trek: Voyager*, as an Android app. A splintering
-nest of steel *t'an* hangs over a stone basin, gathered about a centre mass and held by a field
-that spins on a hidden axis. Players take turns placing one t'an at a time. Close a loop around
-that hidden axis and it becomes a ring. Overload the structure and pieces fall. Ring by ring,
-order comes out of the chaos, and when the form is complete the chaos falls away.
+A playable take on the Vulcan game of *Star Trek: Voyager*, as an Android app, with two games
+of steel *t'an* on a stone basin:
+
+- **The kal-toh**, the way to play at first. A jagged jumble of t'an rests over the basin. Join
+  two tips at a time with a new t'an: true neighbours bring order, false bonds fall, until the
+  jumble becomes the kal-toh, two concentric icosidodecahedra joined junction to junction,
+  spinning true on its hidden axis.
+- **Rings.** A splintering nest of t'an hangs over the basin, gathered about a centre mass and
+  held by a field that spins on a hidden axis. Close a loop around that axis and it becomes a
+  ring. Overload the structure and pieces fall. Ring by ring, order comes out of the chaos.
 
 Nothing is written on the screen. The title, the instructions and every control are carved into
 the underside of the stone: tip the base over to read them, from whichever side you like.
 
 <p align="center">
-  <img src="docs/nest.png" width="19%" alt="The starting nest">
+  <img src="docs/jumble.png" width="19%" alt="The jumble of the original game">
+  <img src="docs/sphere.png" width="19%" alt="The completed kal-toh, spinning on its axis">
+  <img src="docs/nest.png" width="19%" alt="The starting nest of rings">
   <img src="docs/ring.png" width="19%" alt="A ring forming">
-  <img src="docs/complete.png" width="19%" alt="A completed globe">
+  <img src="docs/complete.png" width="19%" alt="A completed globe of rings">
+</p>
+<p align="center">
   <img src="docs/underside.png" width="19%" alt="The carved underside of the base">
+  <img src="docs/ways.png" width="19%" alt="The ways to play, with an arrow at the rim to turn the page">
   <img src="docs/tuning.png" width="19%" alt="The hologram's tuning, carved">
 </p>
 
@@ -38,16 +48,41 @@ over an older one without uninstalling.
 |---|---|
 | Turn the base | Drag the stone or open space. Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. |
 | Turn the t'an | Drag anywhere within the t'an's outline, even between them. The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
-| Place a t'an | Put **two fingers** on the t'an lying at the foot of the screen to lift it. Move each finger onto a piece of the kal-toh. The two pieces glow blue, and the held t'an shows exactly where it will rest. Let go to place it. |
+| Place a t'an | Put **two fingers** on the t'an lying at the foot of the screen to lift it. Move each finger onto a piece of the kal-toh: in the original game, near the tip you mean to join (the tips light up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot). Let go to place it. |
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read: the title, whose turn it is and the score, what just happened, and how to play. |
 | Translate | Everything is carved in Vulcan. **Touch anywhere on the carving** but a glyph or a value: all of it is smoothed away to bare stone and cut again in Standard, as deep. Touch again for Vulcan. |
-| Test the spin | **Tap the t'an twice**, or touch the spiral carved under the base. The kal-toh spins on its hidden axis, and strained t'an glow amber. |
-| Ways to play | Touch the circle carved under the base. Touch a way's value to change it, then *begin anew* to play that way. The lens with rays there opens the hologram's tuning. |
+| Test the spin | **Tap the t'an twice**, or touch the spiral carved under the base. The kal-toh spins on its hidden axis: in the original game an unbalanced one wobbles; in rings, strained t'an glow amber. |
+| Ways to play | Touch the circle carved under the base. The first way is the game itself. Touch a value to change it; some say beneath what they mean. Where there are more ways than fit, a large **arrow carved at the rim** turns the page, and one on the other side turns back. A change to the game waits for a new one: the carving says so and *begin anew* glows. Touch it to play that way. The lens with rays there opens the hologram's tuning. |
 | Begin anew | **Shake the phone for three seconds**, or touch *begin anew* under the base. |
 | Draw nearer | Pinch. |
-| Hologram | Touch the lens carved under the base (or turn it on in the ways to play). See below. |
+| Hologram | Touch the lens carved under the base: beneath it is carved *Hologram on* or *Hologram off*. It is also the first row of the hologram's tuning, and a row of the ways to play. See below. |
 
-### The rules
+### The kal-toh (the original game)
+
+- **The hidden form.** The jumble is the kal-toh scrambled. Its true skeleton is a tree of 29
+  t'an from the outer icosidodecahedron, with every joint twisted about its own t'an, so the
+  joints keep their true angles: two t'an meeting at **60°** frame a triangle of the finished
+  sphere, at **108°** a pentagon. The other 90 t'an (the inner shell and the struts between the
+  shells) are tangled through it. Only junctions of the hidden order answer your touch.
+- **A move** joins the tips of two t'an with a new one. Because the skeleton is a tree, every
+  join closes a loop, and the pieces shift until the tips meet.
+  - *Harmony*: the tips are true neighbours in the sphere. The loop pulls into its true shape, a
+    blue wave runs through the structure, and the tangled t'an nearby glide into the inner shell.
+    Closing one of the six great hoops of ten sends a brighter wave round it.
+  - *Discord*: they are not. The new t'an falls away in amber, shaking loose the newest bond at
+    those tips, and the structure slips back toward chaos.
+- **The hidden spin.** The structure spins about a hidden axis, different every game. Every t'an
+  is mass on that spin. A join that would unbalance it past what it can bear is *flung* away even
+  if it is true. Test the spin to find the axis: a balanced kal-toh spins true, an unbalanced one
+  wobbles, its axis circling toward the heavy side. Build evenly around it.
+- **The end.** The sphere is complete when all 60 outer t'an are in place. The inner shell
+  settles, a thread of light shows the axis, and the kal-toh glows. Alone, you are told how many
+  moves it took and how many t'an fell. With others (one to four, taking turns), whoever places
+  the final t'an wins: plan so that your rival is left with only discord or imbalance.
+- Everything rests on the stone as the rings game does: the kal-toh keeps its place on the base,
+  turns with it, is never cut into by it, and its fallen t'an lie where they fall until a new game.
+
+### Rings
 
 - **The t'an** are all one length. They cling magnetically where they touch, and never pass
   through one another. The opening nest is made by dropping each t'an toward the centre mass
@@ -78,14 +113,14 @@ over an older one without uninstalling.
   When the form is complete, everything that is not a ring, the centre mass, or holding them
   together falls away, and the finished kal-toh glows.
 
-### Ways of play
+How to win at rings:
 
-- **Harmony** (default): a ring scores one point per t'an in it. Each t'an your move drops
-  costs one. Completing the form scores ten. The game ends when the form is complete or the
-  t'an run out.
-- **Collapse**: drop two or more t'an in one move and lose a life. The spin quickens every round.
-  The last player standing wins.
-- **Meditation**: alone, with no limit. Complete the form in as few moves as you can.
+- **Most points** (the default): a ring scores one point per t'an in it. Each t'an your move
+  drops costs one. Completing the form scores ten. The game ends when the form is complete or
+  the t'an run out.
+- **Last standing**: drop two or more t'an in one move and lose a life. The spin quickens every
+  round. The last player standing wins.
+- **Fewest moves**: alone, with no limit. Complete the form in as few moves as you can.
 
 Opponent: a Vulcan *novice*, *adept* (default) or *master*, or nobody (pass and play, one to
 four players). Other settings: the spin's strength (unknown by default), a drift, the axis hidden
@@ -96,7 +131,10 @@ whether the carving reads in Vulcan or Standard until touched.
 
 ### Strategy
 
-The axis is the secret. Until a ring forms or someone tests the spin, every loop you close is a
+In the original game, read the angles: a 60° joint is a triangle waiting to be closed, a 108°
+joint a pentagon. Test the spin early and often, and build on the light side of the axis.
+
+In rings, the axis is the secret. Until a ring forms or someone tests the spin, every loop you close is a
 guess. Testing tells everyone, and it costs your turn. Once the axis is known, rings are a race,
 and the game becomes one of tempo, as in dots and boxes. A loop left one t'an short of closing
 is a ring for your opponent, so build toward rings only where you can finish them. Building far
@@ -106,11 +144,12 @@ it found it.
 
 ### Hologram view
 
-Turn on the hologram (the lens under the base) and allow the camera. The screen becomes a pane of
-glass with the kal-toh standing a few centimetres behind it. Move your head, or the phone, and you
-look around it. Lean in and the view through the glass widens; draw back and it narrows, as
-through a real window. Nothing from the camera is shown or stored, and the camera is released
-whenever the game is out of sight. The illusion is strongest with one eye closed.
+Turn on the hologram (the lens under the base, carved *Hologram off* until it is on) and allow the
+camera. The screen becomes a pane of glass with the kal-toh standing a few centimetres behind it.
+Move your head, or the phone, and you look around it. Lean in and the view through the glass
+widens; draw back and it narrows, as through a real window. Nothing from the camera is shown or
+stored, and the camera is released whenever the game is out of sight. The illusion is strongest
+with one eye closed. While it starts, and while it looks for your eyes, the carving says so.
 
 How it works, after the usual practice for head-coupled ("fish tank") perspective:
 
@@ -118,6 +157,10 @@ How it works, after the usual practice for head-coupled ("fish tank") perspectiv
   so the gyroscope plays no part.
 - **Finding the eye.** MediaPipe's face landmarker finds both irises to a fraction of a pixel. It
   runs in a worker thread, on the GPU, or on the CPU if the GPU cannot be had.
+- **Reading the camera.** Frames are taken straight from the camera's track, so there is no
+  video element for Android to pause for being out of sight. If no frames come that way, a video
+  element kept in the page is read instead. If frames come but the GPU never finds a face, the
+  CPU takes over. Whatever it is doing is said in plain words on the tuning pages.
 - **Distance.** The iris is about 11.7 mm across in nearly everyone, so its size in the picture,
   with the camera's focal length, gives the distance.
 - **Your eye in millimetres.** Its direction from the camera, plus where the camera sits beside the
@@ -129,26 +172,29 @@ How it works, after the usual practice for head-coupled ("fish tank") perspectiv
   carried ahead along its motion by the camera's measured delay, so the view does not trail your
   head.
 
-**Tuning.** Every part of this can be tuned on its own carved page, under the base: ways to play,
-then the lens with rays. Values are always shown in numerals, so a photo of the page records a
-setting. The top lines show what the camera sees now: the eye's position in millimetres, frames
-per second and delay, the engine in use, and the screen and camera as measured.
+**Tuning.** Under the base: ways to play, then the lens with rays. Three carved pages, turned by
+the arrows at the rim: *what you see*, *how it follows you* and *your phone*. Touch the left of a
+value to step it down, the right to step it up. Values are always shown in numerals, so a photo
+of a page records a setting. The top lines say what the hologram is doing now (for instance
+*Following your eyes: 38 cm away, 2 cm left, 1 cm up · 30 a second · 60 ms behind*), then the
+screen and camera as measured and what the face finder runs on.
 
-| Value | What it does |
-|---|---|
-| Depth behind the glass | How far behind the screen the kal-toh's centre stands (mm). |
-| Size | Scale of the kal-toh. |
-| Straight ahead is | Where you first held the phone (the default), or the true middle of the screen. |
-| Head motion | Gain on how far your head moves across (1 is true). |
-| Leaning in and out | Gain on how far your head moves toward or away from the screen (1 is true). |
-| Steadiness | The one-euro filter's cutoff when still (Hz). Lower is steadier but slower. |
-| Quickness | How much the cutoff rises with speed. Higher follows fast moves more closely. |
-| Looking ahead | How far ahead the eye is carried. *Auto* uses the measured delay. |
-| Camera view | The front camera's field of view along its long side. *Auto* asks the phone. |
-| Camera above screen centre | Where the camera sits (mm). *Auto* uses the screen's cutout. |
-| Iris width | Your iris's true width, if you know it (mm). |
-| Seen from | Between the eyes, or one eye (for viewing with the other closed). |
-| Face tracker runs on | GPU or CPU. |
+| Page | Value | What it does |
+|---|---|---|
+| What you see | Hologram | On or off. |
+| | How deep it stands behind the screen | From the glass to the kal-toh's centre, in cm. |
+| | How big it looks | Its scale. |
+| | How far it turns as your head moves | 100% is true to life, as through a window. Less is calmer; more exaggerates. |
+| | How much it nears as you lean in | The same, for moving toward or away from the screen. |
+| How it follows you | Straight on is | Where you first held the phone (the default), or square to the screen. |
+| | Calm when you hold still | The one-euro filter's cutoff when still (Hz). Lower is calmer but slower to start. |
+| | Keeping up when you move fast | How much that cutoff rises with speed. Higher follows fast moves more closely. |
+| | Running ahead of the camera's delay | How far ahead the eye is carried (ms). *Auto* uses the measured delay. |
+| | It follows | The point between your eyes, or one eye (for viewing with the other closed). |
+| Your phone | The front camera's view, long side | Its field of view. *Auto* asks the phone. |
+| | The front camera, above the screen's middle | Where the camera sits (mm). *Auto* uses the screen's cutout. |
+| | Your iris, across | Your iris's true width, if you know it (mm). 11.7 fits nearly everyone. |
+| | The face finder runs on | The GPU (quicker) or the CPU (surer). |
 
 The recentre glyph sets where you hold the phone now as the centre; the defaults glyph restores
 every value. If the page cannot use the camera at all, the Android shell's own, rougher face
@@ -169,10 +215,15 @@ tracker takes over.
       stay in touch, nothing interpenetrates, and the most stretched contact lets go first.
     - `rules.js`: placement, loops around the axis (a breadth-first search over how many times a
       path has crossed a cut around the axis), rings, forms, modes, scoring.
+    - `classic-rules.js`: the original game. The icosidodecahedral lattice, the jumble (a
+      balanced spanning tree with every joint twisted, steered clear of the stone beneath it),
+      harmony, discord, imbalance and the wobble.
     - `ai.js`, `ai-worker.js`: the Vulcan. It tries moves on copies of the game, looks a reply
       ahead, and builds arcs round the axis. It knows the axis only once it has been revealed.
-  - The view: `scene.js` (renderer, lights, mess-hall reflections, the stone, and the window
-    the screen becomes), `motion.js` (base and assembly dynamics, and every t'an kept clear of
+  - The view: `classic.js` (the original game on the stone: the jumble's skeleton kept rigid by a
+    small position-based solver as each junction finds its order, the inner shell settling into
+    place, joining, the spin test and the end), `scene.js` (renderer, lights, mess-hall
+    reflections, the stone, and the window the screen becomes), `motion.js` (base and assembly dynamics, and every t'an kept clear of
     the stone along its length), `rodmesh.js` (brushed stainless t'an with a procedural
     lengthwise scratch normal map), `falling.js` (fallen t'an: tumbling, coming to rest on the
     stone or the floor, and staying until a new game), `tray.js`, `input.js`, `engrave.js`
@@ -192,7 +243,12 @@ tracker takes over.
   - `rules.test.mjs`: placement, rings, forms, modes, the Vulcan, and physical invariants
     checked after every move of many random games. Every t'an keeps its length, nothing passes
     through anything, nothing floats, and every bond bears its load.
-  - `browser-check.cjs`: plays the real game in headless Chromium with simulated touch. It covers
+  - `classic.test.mjs`: the original game's lattice, jumbles (every t'an whole, every joint true),
+    harmony, discord, and complete spheres, balanced and won by whoever places the last t'an.
+  - `browser-check.cjs`: plays the real game in headless Chromium with simulated touch. First the
+    original game: the jumble grows, a two-finger lift joins true neighbours, a false bond falls,
+    two taps test the spin, and no t'an passes into the stone. Then it changes the game in the
+    carved ways to play, turning their pages by the arrows at the rim, and plays rings. It covers
     placing, the Vulcan's reply, the spin test, a ring, and turning the base: the t'an lag, catch
     up, then hold perfectly still. It turns the t'an by their area and checks no t'an ever passes
     into the stone. It turns the base over to read it (top up whichever way it was turned) and
@@ -205,6 +261,7 @@ tracker takes over.
 ```sh
 node kaltoh/tools/physics.test.mjs
 node kaltoh/tools/rules.test.mjs
+node kaltoh/tools/classic.test.mjs
 node kaltoh/tools/browser-check.cjs out/   # needs Playwright with Chromium
 node kaltoh/tools/browser-check.cjs out/ face.y4m   # and the hologram, with a video of a face
 ```

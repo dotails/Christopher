@@ -748,8 +748,13 @@ async function vulcanTurn() {
 
 // --- Beginning anew --------------------------------------------------------------------------
 
+// Whether the game in play is falling away, a new one on its way.
+function dissolving() {
+  return way === 'classic' ? classic?.phase === 'dissolving' : phase === 'dissolving';
+}
+
 function restart() {
-  if (phase === 'loading' || phase === 'dissolving' || classic?.phase === 'dissolving') return;
+  if (phase === 'loading' || dissolving()) return;
   if (way === 'classic') {
     hand.holding = false;
     hand.flight = null;
@@ -886,7 +891,7 @@ function onEngravedOption(key, value) {
 
 const shake = new ShakeDetector({
   onProgress(p) {
-    shaking = phase === 'dissolving' || classic?.phase === 'dissolving' || hand.holding ? 0 : p;
+    shaking = dissolving() || hand.holding ? 0 : p;
     if (shaking > 0.1) sound.rattle(p);
   },
   onComplete: () => {
