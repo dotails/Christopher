@@ -28,7 +28,7 @@ export const OPTIONS = [
     key: 'form', v: 'the form', s: 'Form to complete',
     choices: [
       ['globe', 'globe', 'Globe: four rings, girdled'],
-      ['lantern', 'lantern', 'Lantern: a ring above, a ring below'],
+      ['lantern', 'lantern', 'Lantern: three rings, above and below'],
       ['sphere', 'sphere', 'Sphere: six rings, crowned at both poles'],
     ],
   },

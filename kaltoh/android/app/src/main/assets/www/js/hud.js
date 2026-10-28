@@ -353,6 +353,7 @@ export class Panel {
     this.page = page;
     this.zone.set(this.settings.language === 'standard' ? 's' : 'v');
     this.render();
+    this.el.scrollTop = 0;
     this.el.classList.add('open');
   }
 
@@ -450,7 +451,7 @@ export class Panel {
 function RULES(settings) {
   const form = FORMS[settings.form] ?? FORMS.globe;
   const formLine = settings.form === 'lantern'
-    ? ['a lantern is a ring above the centre and a ring below', 'A lantern: a ring above the centre mass and a ring below it.']
+    ? ['a lantern is three rings at least one above the centre and one below', 'A lantern: three rings - at least one above the centre mass and one below it.']
     : settings.form === 'sphere'
       ? ['a sphere is six rings two above two below one about the middle and one crowning each pole', 'A sphere: six rings - two above, two below, one about the middle, and one crowning each pole.']
       : ['a globe is four rings at least one above one below and one about the middle', 'A globe: four rings - at least one above, one below, and one about the middle.'];
@@ -466,7 +467,7 @@ function RULES(settings) {
     ['harmony each ring scores its tan each fallen tan costs one', "Harmony: a ring scores one point for each of its t'an; each t'an your move drops costs one. Completing the form scores ten."],
     ['collapse drop two or more and lose a life the spin quickens each round', "Collapse: drop two or more t'an and lose a life. The spin quickens every round."],
     ['meditation alone complete the form in as few moves as you can', 'Meditation: alone, complete the form in as few moves as you can.'],
-    [`a game needs ${form.rings === 2 ? 'two' : form.rings === 4 ? 'four' : 'six'} rings`, `This form needs ${form.rings} rings.`],
+    [`this form needs ${spell(form.rings)} rings`, `This form needs ${form.rings} rings.`],
     ['shake the device three seconds to begin anew', 'Shake the device for three seconds to begin anew.'],
   ];
 }

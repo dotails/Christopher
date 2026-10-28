@@ -137,8 +137,7 @@ function check(condition, message) {
       await sleep(40);
       await touch('touchStart', [f1, f2]);
       await sleep(60);
-      const lifted = await page.evaluate(() => ({ mode: window.__kaltoh.input.mode, phase: window.__kaltoh.phase, tray: window.__kaltoh.tray.visible, arrive: window.__kaltoh.tray.arrive }));
-      if (lifted.mode !== 'hold') console.log('lift failed:', JSON.stringify({ ...lifted, f1, f2, trayY: g.y }));
+      check((await page.evaluate(() => window.__kaltoh.input.mode)) === 'hold', 'two fingers on the tray lift a t\'an');
       for (let i = 1; i <= 8; i++) {
         const t = i / 8;
         f1.x += (move.a.x - f1.x) * t;
@@ -151,10 +150,6 @@ function check(condition, message) {
       await sleep(200);
       if (shot) await page.screenshot({ path: path.join(OUT, shot) });
       const held = await page.evaluate(() => document.querySelector('#inscription .s').textContent);
-      if (move.ring) {
-        const a = await page.evaluate(() => { const x = window.__kaltoh.aim; return x && { pieces: x.pieces, pose: Boolean(x.pose), ring: x.ring?.k ?? 0 }; });
-        console.log('aim', JSON.stringify(a), 'expected', JSON.stringify({ rods: move.rods, s: move.s, ring: move.ring }));
-      }
       await touch('touchEnd', [f2]);
       await sleep(30);
       await touch('touchEnd', []);

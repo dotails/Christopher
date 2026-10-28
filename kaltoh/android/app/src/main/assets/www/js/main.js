@@ -175,12 +175,13 @@ function drawAssembly() {
     localToWorld(e.a, e.wa);
     localToWorld(e.b, e.wb);
     vUp.copy(e.up).applyQuaternion(q);
-    let blue = e.flash * 0.9;
+    // The blue of order is soft: a glow, never a glare.
+    let blue = e.flash * 0.6;
     let amber = 0;
-    if (rod?.ring >= 0) blue = Math.max(blue, 0.16);
-    if (completeGlow > 0) blue = Math.max(blue, completeGlow * (0.45 + 0.25 * Math.sin(time * 2.2 + e.id * 0.7)));
-    if (aim && (aim.pieces.includes(e.id))) blue = Math.max(blue, 0.85);
-    if (loopRods.has(e.id)) blue = Math.max(blue, 0.5);
+    if (rod?.ring >= 0) blue = Math.max(blue, 0.3);
+    if (completeGlow > 0) blue = Math.max(blue, completeGlow * (0.32 + 0.16 * Math.sin(time * 2.2 + e.id * 0.7)));
+    if (aim && (aim.pieces.includes(e.id))) blue = Math.max(blue, 0.6);
+    if (loopRods.has(e.id)) blue = Math.max(blue, 0.32);
     const strain = testGlow ? (testGlow.get(e.id) ?? 0) : (strainOf.get(e.id) ?? 0);
     const show = testGlow ? 0.35 : 0.72;
     if (strain > show) {
@@ -195,7 +196,7 @@ function drawAssembly() {
       }
     }
     pool.push(e.wa, e.wb, vUp, blue, amber);
-    if (blue > 0.05 || amber > 0.05) halos.push(e.wa, e.wb, Math.max(blue * 0.38, amber * 0.32), 0.055, amber > blue ? 1 : 0);
+    if (blue > 0.05 || amber > 0.05) halos.push(e.wa, e.wb, Math.max(blue * 0.26, amber * 0.26), 0.06, amber > blue ? 1 : 0);
     obstacles.push({ a: [e.wa.x, e.wa.y, e.wa.z], b: [e.wb.x, e.wb.y, e.wb.z] });
   }
   if (falling) falling.obstacles = obstacles;
@@ -447,7 +448,7 @@ function commit(pose) {
   const placed = game.nest.rods[result.rod];
   const e = entryFor(placed);
   orient(e, placed);
-  e.flash = 0.6;
+  e.flash = 0.5;
   let t = 0.15;
   if (result.ring) {
     const ringSet = new Set(result.ring.rods);
@@ -458,7 +459,7 @@ function commit(pose) {
         toA: new THREE.Vector3(...m.to.a), toB: new THREE.Vector3(...m.to.b),
         t: 0, delay: 0.12, duration: ringSet.has(m.rod) ? 0.95 : 0.8,
       };
-      if (ringSet.has(m.rod)) me.flash = 1.2;
+      if (ringSet.has(m.rod)) me.flash = 1;
     }
     for (const id of result.ring.rods) {
       const rod = game.nest.rods[id];
@@ -473,6 +474,8 @@ function commit(pose) {
     });
     after(0.55, () => sound.hoop());
     for (const id of result.knocked) after(0.5, () => release(id, { amber: 0.8, strength: 1.4 }));
+    // The chaos the ring shakes loose drifts away, lit by the same blue.
+    (result.shaken ?? []).forEach((id, i) => after(0.9 + i * 0.06, () => release(id, { blue: 0.6, strength: 0.6 })));
     hud.say(result.ring.broken ? TEXT.ringLost : ringText(result.ring.k), 2.8);
     t = 1.2;
   }

@@ -23,7 +23,7 @@ export const FIELD_RADIUS = 0.7; // radius of the sphere the rings settle onto
 export const CORE_RADIUS = 0.05;
 export const CAPS = { force: 1, moment: 0.12 };
 const RING_STRENGTH = 2; // the joints of a ring hold twice as firmly as a chance crossing
-export const TUNING = { ringReach: 0.22 };
+export const TUNING = { ringReach: 0.22, band: 0.1, cap: 0.2 };
 
 export const DEFAULTS = {
   mode: 'harmony', // harmony | collapse | meditation
@@ -221,15 +221,16 @@ function crossing(f, p, q) {
 const bondPoint = (nest, b) => (b.r2 === CORE ? nest.point(b.r1, b.s1) : G.lerp(nest.point(b.r1, b.s1), nest.point(b.r2, b.s2), 0.5));
 
 // The shortest loop through the new rod that winds once around the axis, using only free rods
-// (not the centre mass, not existing rings). Breadth-first over (rod, times around the cut).
-export function girdlingLoop(game, rodId, firstBond, lastBond) {
+// (not the centre mass, not existing rings, not `banned`). Breadth-first over (rod, times
+// around the cut).
+export function girdlingLoop(game, rodId, firstBond, lastBond, banned = null, adjacency = null) {
   const { nest } = game;
   const f = axisFrame(game.forces.axis);
-  const free = (id) => id !== CORE && nest.rods[id].alive && !nest.rods[id].anchored && nest.rods[id].ring < 0;
+  const free = (id) => id !== CORE && nest.rods[id].alive && !nest.rods[id].anchored && nest.rods[id].ring < 0 && !banned?.has(id);
   const start = Nest.far(firstBond, rodId).other;
   const end = Nest.far(lastBond, rodId).other;
   if (!free(start) || !free(end) || start === end) return null;
-  const adjacency = nest.adjacency();
+  adjacency ??= nest.adjacency();
   const startPoint = bondPoint(nest, firstBond);
   const endPoint = bondPoint(nest, lastBond);
   // Closing: along the end rod to the new rod, then along the new rod back to the start.
@@ -267,6 +268,47 @@ export function girdlingLoop(game, rodId, firstBond, lastBond) {
     }
   }
   return null;
+}
+
+// Several loops through the new rod around the axis: the shortest, then others found by setting
+// aside, in turn, each t'an of those already found (a few rounds of Yen's method).
+export function girdlingLoops(game, rodId, firstBond, lastBond, limit = 6) {
+  const adjacency = game.nest.adjacency();
+  const first = girdlingLoop(game, rodId, firstBond, lastBond, null, adjacency);
+  if (!first) return [];
+  const loops = [first];
+  const known = new Set([first.rods.slice().sort((a, b) => a - b).join(',')]);
+  const fixed = new Set([rodId, first.rods[1], first.rods[first.rods.length - 1]]);
+  const tried = new Set();
+  for (let i = 0; i < loops.length && loops.length < limit; i++) {
+    for (const id of loops[i].rods) {
+      if (fixed.has(id)) continue;
+      const banned = new Set([...(loops[i].banned ?? []), id]);
+      const sig = [...banned].sort((a, b) => a - b).join(',');
+      if (tried.has(sig) || banned.size > 2) continue;
+      tried.add(sig);
+      const loop = girdlingLoop(game, rodId, firstBond, lastBond, banned, adjacency);
+      if (!loop) continue;
+      const key = loop.rods.slice().sort((a, b) => a - b).join(',');
+      if (known.has(key)) continue;
+      known.add(key);
+      loop.banned = banned;
+      loops.push(loop);
+      if (loops.length >= limit) break;
+    }
+  }
+  return loops;
+}
+
+// The ring a new rod would make, if any: of the loops it closes around the axis, the one that
+// becomes a ring with the least travel.
+export function ringFrom(game, rodId, firstBond, lastBond) {
+  let best = null;
+  for (const loop of girdlingLoops(game, rodId, firstBond, lastBond)) {
+    const target = ringTarget(game, loop);
+    if (target && (!best || target.shift < best.target.shift)) best = { loop, target };
+  }
+  return best;
 }
 
 // Where each rod of a loop goes to become a ring: a regular polygon square to the axis and
@@ -380,6 +422,18 @@ function formRing(game, loop, target, player) {
   }
   for (const id of knocked) nest.rods[id].alive = true; // they fall in settle(), with the rest
 
+  // Order sheds chaos: whatever merely hung from the loop, touching nothing but the ring, falls
+  // away as the ring forms.
+  const shaken = [];
+  for (const r of nest.liveRods) {
+    if (r.anchored || r.ring >= 0 || knocked.includes(r.id)) continue;
+    const bonds = nest.bondsOf(r.id);
+    if (bonds.length && bonds.every((b) => ringSet.has(Nest.far(b, r.id).other))) {
+      shaken.push(r.id);
+      for (const b of bonds) b.alive = false;
+    }
+  }
+
   // Whatever a moved t'an now rests against, it clings to.
   const moved = [];
   const bonded = new Set(nest.liveBonds.map((b) => `${Math.min(b.r1, b.r2)}:${Math.max(b.r1, b.r2)}`));
@@ -395,7 +449,7 @@ function formRing(game, loop, target, player) {
       nest.addBond(id, c.rod, c.s, c.t);
     }
   }
-  return { ring, moved, knocked, torn };
+  return { ring, moved, knocked, torn, shaken };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -404,24 +458,24 @@ function formRing(game, loop, target, player) {
 export const FORMS = {
   // rings: how many in all; north/south: how many above and below the centre mass;
   // girdle: one about the middle; caps: one crowning each pole.
-  lantern: { rings: 2, north: 1, south: 1 },
+  lantern: { rings: 3, north: 1, south: 1 },
   globe: { rings: 4, north: 1, south: 1, girdle: true },
   sphere: { rings: 6, north: 2, south: 2, girdle: true, caps: true },
 };
-const BAND = 0.15; // rings within this of the middle girdle it; beyond it they are north or south
-const CAP = 0.4; // rings beyond this crown a pole
+// Rings within TUNING.band of the middle girdle it; beyond it they are north or south. Rings
+// beyond TUNING.cap crown a pole.
 
 export function formProgress(game) {
   const form = FORMS[game.settings.form] ?? FORMS.globe;
   const rings = game.rings.filter((r) => !r.broken);
-  const north = rings.filter((r) => r.height > BAND);
-  const south = rings.filter((r) => r.height < -BAND);
+  const north = rings.filter((r) => r.height > TUNING.band);
+  const south = rings.filter((r) => r.height < -TUNING.band);
   const need = {
     rings: rings.length >= form.rings,
     north: north.length >= form.north,
     south: south.length >= form.south,
-    girdle: !form.girdle || rings.some((r) => Math.abs(r.height) <= BAND),
-    caps: !form.caps || (north.some((r) => r.height >= CAP) && south.some((r) => r.height <= -CAP)),
+    girdle: !form.girdle || rings.some((r) => Math.abs(r.height) <= TUNING.band),
+    caps: !form.caps || (north.some((r) => r.height >= TUNING.cap) && south.some((r) => r.height <= -TUNING.cap)),
   };
   return { ...need, rings: rings.length, need, done: Object.values(need).every(Boolean), form };
 }
@@ -482,14 +536,15 @@ export function play(game, pose, { quick = false } = {}) {
   game.moves += 1;
   if (Number.isFinite(game.supply)) game.supply -= 1;
 
-  const result = { player, rod: rod.id, ring: null, moved: [], knocked: [], torn: [], fallen: [], broken: [], points: 0, again: false, complete: false };
+  const result = { player, rod: rod.id, ring: null, moved: [], knocked: [], torn: [], shaken: [], fallen: [], broken: [], points: 0, again: false, complete: false };
 
   // Does it close a loop around the hidden axis?
   const bonds = nest.bondsOf(rod.id);
   const first = bonds.find((b) => Nest.far(b, rod.id).other === pose.pieces[0]);
   const last = bonds.find((b) => Nest.far(b, rod.id).other === pose.pieces[1]);
-  const loop = first && last ? girdlingLoop(game, rod.id, first, last) : null;
-  const target = loop ? ringTarget(game, loop) : null;
+  const found = first && last ? ringFrom(game, rod.id, first, last) : null;
+  const loop = found?.loop;
+  const target = found?.target;
   if (target) {
     game.revealed = true;
     const formed = formRing(game, loop, target, player);
@@ -497,13 +552,15 @@ export function play(game, pose, { quick = false } = {}) {
     result.moved = formed.moved;
     result.knocked = formed.knocked;
     result.torn = formed.torn;
+    result.shaken = formed.shaken;
   }
 
   // The hidden forces act.
   const s = settle(nest, game.forces, CAPS, quick ? { maxBreaks: 4 } : {});
   result.broken = s.broken;
-  result.fallen = s.fallen.filter((id) => !result.knocked.includes(id));
-  result.lost = s.fallen.length;
+  // What the ring shook loose is not lost: it is the chaos falling away.
+  result.fallen = s.fallen.filter((id) => !result.knocked.includes(id) && !result.shaken.includes(id));
+  result.lost = s.fallen.filter((id) => !result.shaken.includes(id)).length;
   me.fallen += result.lost;
   // A ring that lost a t'an is only t'an again.
   for (const ring of game.rings) {
