@@ -19,8 +19,9 @@ const C = SIZE / 2;
 const NORMAL_SIZE = 512;
 export const MEDALLION_RADIUS = 0.8; // in the base's own units, inside its foot
 const STANDARD_FONT = "'Roboto', 'Helvetica Neue', system-ui, sans-serif";
-const PAGE_HEIGHT = 540; // texture pixels of rows on a page of the ways
-const ARROW_Y = 506; // where the page arrows are cut, either side
+const GLYPHS_Y = 784; // the row of glyphs at the foot of every page, their names beneath, clear of the frame
+const PAGE_HEIGHT = 510; // texture pixels of rows on a page of the ways
+const ARROW_Y = 466; // where the page arrows are cut, either side
 const ROW_MAX = 680; // the widest a row may be cut, clear of the arrows
 const RELIEF = 1.4; // the normal maps' strength at full depth
 const SMOOTH = 0.32; // seconds for the carving to smooth away ...
@@ -28,7 +29,7 @@ const RECUT = 0.42; // ... and to be cut again
 // How squarely the underside must face the eye to count as seen (and so be set upright).
 const SEEN = 0.08;
 const UNSEEN = 0.02;
-const READOUT = { x: 120, y: 222, w: 784, h: 66 }; // where the tuning pages' live figures are cut
+const READOUT = { x: 120, y: 198, w: 784, h: 66 }; // where the tuning pages' live figures are cut
 
 const canvasOf = (size) => {
   const c = document.createElement('canvas');
@@ -344,9 +345,11 @@ export class Engraving {
 
   drawMain() {
     const { game, event } = this.state;
-    this.line('title', TEXT.title, C, 168, { size: 96, script: true, max: 640, lit: 0.55 });
-    // The players: a mark each (a diamond for a Vulcan), filled for whose turn it is, and a score.
+    this.line('title', TEXT.title, C, 142, { size: 92, script: true, max: 480, lit: 0.55 });
+    // The players: a mark each (a diamond for a Vulcan), filled for whose turn it is, and a score;
+    // with others at the board, each player's plays beneath.
     const seats = this.state.seats ?? game?.players.map((p, i) => ({ vulcan: p.vulcan, now: i === game.current && !game.over, score: scoreText(game, p) })) ?? [];
+    const plays = this.state.plays ?? [];
     seats.forEach((seat, i) => {
       const x = C + (i - (seats.length - 1) / 2) * 150;
       this.cut((g, color) => {
@@ -355,30 +358,41 @@ export class Engraving {
         g.lineWidth = 3;
         g.beginPath();
         if (seat.vulcan) {
-          g.moveTo(x, 244);
-          g.lineTo(x + 11, 255);
-          g.lineTo(x, 266);
-          g.lineTo(x - 11, 255);
+          g.moveTo(x, 189);
+          g.lineTo(x + 11, 200);
+          g.lineTo(x, 211);
+          g.lineTo(x - 11, 200);
           g.closePath();
         } else {
-          g.arc(x, 255, 10, 0, Math.PI * 2);
+          g.arc(x, 200, 10, 0, Math.PI * 2);
         }
         if (seat.now) g.fill();
         else g.stroke();
       }, seat.now ? 0.95 : 0.3);
-      this.line(`seat${i}`, seat.score, x, 290, { size: 24, max: 140, lit: seat.now ? 0.6 : 0.28 });
+      this.line(`seat${i}`, seat.score, x, 230, { size: 30, max: 140, lit: seat.now ? 0.6 : 0.28 });
+      if (seats.length > 1) this.playMarks(plays.filter((p) => p.player === i).map((p) => p.mark), x, 258, seat.now);
     });
-    this.line('event', event, C, 346, { size: 40, max: 2 * chord(346) - 90, lit: 0.6 });
+    this.line('event', event, C, 352, { size: 38, max: 2 * chord(352) - 90, lit: 0.6 });
     const lines = this.state.lines ?? [TEXT.lift, TEXT.touch, TEXT.ring, TEXT.hold, formText(this.settings.form), TEXT.turn, TEXT.shake, TEXT.translate];
     lines.forEach((text, i) => {
-      const y = 412 + i * 50;
-      this.line(`l${i}`, text, C, y, { size: 31, max: 2 * chord(y) - 80 });
+      const y = 398 + i * 44;
+      this.line(`l${i}`, text, C, y, { size: 30, max: 2 * chord(y) - 80 });
     });
     const glyphs = [{ name: 'ways', label: TEXT.ways }];
     if (this.state.testAllowed) glyphs.push({ name: 'test', label: TEXT.test });
     glyphs.push({ name: 'lens', label: this.state.hologram ? TEXT.lensOn : TEXT.lensOff, on: this.state.hologram });
     glyphs.push({ name: 'anew', label: TEXT.anew, on: this.state.pending });
-    this.glyphRow(glyphs, 846);
+    this.glyphRow(glyphs, GLYPHS_Y);
+  }
+
+  // A player's plays, in order, as small marks beneath their seat (see MARKS): rows of seven, the
+  // latest twenty-eight.
+  playMarks(marks, x, y, now) {
+    marks.slice(-28).forEach((mark, i) => {
+      const mx = x + ((i % 7) - 3) * 18;
+      const my = y + Math.floor(i / 7) * 18;
+      this.cut((g, color) => MARKS[mark]?.(g, mx, my, color), now ? 0.75 : 0.4);
+    });
   }
 
   visibleOptions() {
@@ -391,7 +405,7 @@ export class Engraving {
     const pages = [[]];
     let used = 0;
     for (const o of this.visibleOptions()) {
-      const h = o.choices.some((c) => c[3]) ? 112 : 84;
+      const h = o.choices.some((c) => c[3]) ? 106 : 80;
       if (used + h > PAGE_HEIGHT && pages[pages.length - 1].length) {
         pages.push([]);
         used = 0;
@@ -427,36 +441,44 @@ export class Engraving {
   drawWays() {
     const pages = this.wayPages();
     this.wayPage = Math.min(this.wayPage, pages.length - 1);
-    this.line('waysTitle', TEXT.waysTitle, C, 164, { size: 44, lit: 0.5 });
-    this.dots(pages.length, this.wayPage, 210);
-    let y = 262;
+    this.line('waysTitle', TEXT.waysTitle, C, 140, { size: 44, lit: 0.5 });
+    this.dots(pages.length, this.wayPage, 184);
+    let y = 228;
     for (const o of pages[this.wayPage]) {
       const max = Math.min(ROW_MAX, 2 * chord(y + 16) - 90);
       const choice = o.choices.find(([value]) => value === this.settings[o.key]) ?? o.choices[0];
       // The name of the way, its value beneath (touch to change), and what that means.
       this.line(`row:${o.key}`, { v: o.v, s: o.s }, C, y, { size: 25, max, lit: 0.22 });
-      this.line(`row:${o.key}`, { v: choice[1], s: choice[2] }, C, y + 34, { size: 31, max, lit: 0.62, kind: 'value', key: o.key });
-      if (choice[3]) this.line(`hint:${o.key}`, choice[3], C, y + 67, { size: 26, max, lit: 0.36 });
-      y += o.choices.some((c) => c[3]) ? 112 : 84;
+      this.line(`row:${o.key}`, { v: choice[1], s: choice[2] }, C, y + 32, { size: 31, max, lit: 0.62, kind: 'value', key: o.key });
+      if (choice[3]) this.line(`hint:${o.key}`, choice[3], C, y + 63, { size: 26, max, lit: 0.36 });
+      y += o.choices.some((c) => c[3]) ? 106 : 80;
     }
     this.arrows(this.wayPage, pages.length);
     // Ways that shape the game wait for it to begin anew.
-    if (this.state.pending) this.line('pending', TEXT.pending, C, 784, { size: 28, max: 2 * chord(784) - 80, lit: 0.7 });
+    if (this.state.pending) this.line('pending', TEXT.pending, C, 738, { size: 28, max: 2 * chord(738) - 80, lit: 0.7 });
     this.glyphRow([
       { name: 'tune', label: TEXT.tune },
       { name: 'rules', label: TEXT.rules },
       { name: 'anew', label: TEXT.anew, on: this.state.pending },
       { name: 'back', label: TEXT.back },
-    ], 846);
+    ], GLYPHS_Y);
   }
 
   drawRules() {
-    this.line('rulesTitle', TEXT.rulesTitle, C, 170, { size: 44, lit: 0.5 });
+    this.line('rulesTitle', TEXT.rulesTitle, C, 150, { size: 44, lit: 0.5 });
     rulesText(this.settings).forEach((text, i) => {
-      const y = 246 + i * 52;
-      this.line(`r${i}`, text, C, y, { size: 29, max: 2 * chord(y) - 80 });
+      const y = 214 + i * 46;
+      this.line(`r${i}`, text, C, y, { size: 28, max: 2 * chord(y) - 80 });
     });
-    this.glyphRow([{ name: 'ways', label: TEXT.ways }, { name: 'back', label: TEXT.back }], 846);
+    // What the marks beneath each seat mean.
+    const legend = this.settings.way === 'rings' ? [['join', TEXT.markPlaced], ['ring', TEXT.markRing]] : [['join', TEXT.markJoined], ['ring', TEXT.markHoop]];
+    legend.push(['fall', TEXT.markFell], ['test', TEXT.markTested]);
+    legend.forEach(([mark, label], i) => {
+      const x = C + (i - 1.5) * 168;
+      this.cut((g, color) => MARKS[mark](g, x - 52, 690, color), 0.6);
+      this.line(`legend${i}`, label, x + 8, 690, { size: 24, max: 104, lit: 0.36 });
+    });
+    this.glyphRow([{ name: 'ways', label: TEXT.ways }, { name: 'back', label: TEXT.back }], GLYPHS_Y);
   }
 
   // The hologram's tuning, on three pages (what you see, how it follows you, your phone): what the
@@ -465,24 +487,24 @@ export class Engraving {
   drawTune() {
     const pages = TUNE_PAGES.length;
     this.tunePage = Math.min(this.tunePage, pages - 1);
-    this.line('tuneTitle', TEXT.tuneTitle, C, 122, { size: 44, lit: 0.5 });
-    this.dots(pages, this.tunePage, 160);
-    this.line('tunePage', TUNE_PAGES[this.tunePage], C, 196, { size: 30, lit: 0.45 });
+    this.line('tuneTitle', TEXT.tuneTitle, C, 108, { size: 44, lit: 0.5 });
+    this.dots(pages, this.tunePage, 144);
+    this.line('tunePage', TUNE_PAGES[this.tunePage], C, 176, { size: 30, lit: 0.45 });
     this.drawReadout();
-    const rowAt = (i) => 326 + i * 84;
+    const rowAt = (i) => 294 + i * 80;
     let row = 0;
     if (this.tunePage === 0) {
       const y = rowAt(row++);
       const max = Math.min(ROW_MAX, 2 * chord(y + 16) - 90);
       this.line('tune:hologram', TEXT.hologramRow, C, y, { size: 25, max, lit: 0.22 });
-      this.line('tune:hologram', this.settings.hologram ? TEXT.hologramRowOn : TEXT.hologramRowOff, C, y + 34, { size: 31, max, lit: 0.62, kind: 'value', key: 'hologram' });
+      this.line('tune:hologram', this.settings.hologram ? TEXT.hologramRowOn : TEXT.hologramRowOff, C, y + 32, { size: 31, max, lit: 0.62, kind: 'value', key: 'hologram' });
     }
-    for (const t of TUNING.filter((x) => x.page === this.tunePage)) {
+    for (const t of TUNING.filter((x) => x.page === this.tunePage && (!x.when || x.when(this.settings.holo)))) {
       const y = rowAt(row++);
       const max = Math.min(ROW_MAX, 2 * chord(y + 16) - 90);
       this.line(`tune:${t.key}`, { v: t.v, s: t.s }, C, y, { size: 25, max, lit: 0.22 });
       const text = tuningText(t, this.settings.holo[t.key]);
-      const value = this.line(`tune:${t.key}`, { v: text, s: text }, C, y + 34, { size: 31, max: 400, lit: 0.62, kind: 'value', key: t.key, numerals: true });
+      const value = this.line(`tune:${t.key}`, { v: text, s: text }, C, y + 32, { size: 31, max: 400, lit: 0.62, kind: 'value', key: t.key, numerals: true });
       // Chevrons either side: the left half of the row steps down, the right half up.
       for (const side of [-1, 1]) {
         const x = C + side * 240;
@@ -491,9 +513,9 @@ export class Engraving {
           g.lineWidth = 4;
           g.lineCap = 'round';
           g.beginPath();
-          g.moveTo(x - side * 8, y + 22);
-          g.lineTo(x + side * 6, y + 34);
-          g.lineTo(x - side * 8, y + 46);
+          g.moveTo(x - side * 8, y + 20);
+          g.lineTo(x + side * 6, y + 32);
+          g.lineTo(x - side * 8, y + 44);
           g.stroke();
         }, 0.45);
       }
@@ -503,7 +525,7 @@ export class Engraving {
       this.regions.push({ kind: 'step', id: `step:${t.key}+`, key: t.key, by: 1, x: C, y: top, w: 280, h: value.h });
     }
     this.arrows(this.tunePage, pages);
-    this.glyphRow([{ name: 'centre', label: TEXT.centre }, { name: 'reset', label: TEXT.reset }, { name: 'back', label: TEXT.back }], 846);
+    this.glyphRow([{ name: 'centre', label: TEXT.centre }, { name: 'reset', label: TEXT.reset }, { name: 'back', label: TEXT.back }], GLYPHS_Y);
   }
 
   drawReadout() {
@@ -703,6 +725,46 @@ function buildRelief(mask, glow, out, full, rect = null) {
 }
 
 // The glyphs, drawn about their centre.
+// The marks of the plays under each seat: a dot for a true join (or a t'an placed), a ringed dot
+// for a ring or a great hoop, a cross where t'an fell, a circle for a spin test.
+const MARKS = {
+  join(g, x, y, color) {
+    g.fillStyle = color;
+    g.beginPath();
+    g.arc(x, y, 4.6, 0, Math.PI * 2);
+    g.fill();
+  },
+  ring(g, x, y, color) {
+    g.fillStyle = color;
+    g.strokeStyle = color;
+    g.beginPath();
+    g.arc(x, y, 3.2, 0, Math.PI * 2);
+    g.fill();
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(x, y, 7, 0, Math.PI * 2);
+    g.stroke();
+  },
+  fall(g, x, y, color) {
+    g.strokeStyle = color;
+    g.lineWidth = 2.6;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(x - 5, y - 5);
+    g.lineTo(x + 5, y + 5);
+    g.moveTo(x + 5, y - 5);
+    g.lineTo(x - 5, y + 5);
+    g.stroke();
+  },
+  test(g, x, y, color) {
+    g.strokeStyle = color;
+    g.lineWidth = 2.2;
+    g.beginPath();
+    g.arc(x, y, 5.2, 0, Math.PI * 2);
+    g.stroke();
+  },
+};
+
 const GLYPHS = {
   ways(g) {
     g.beginPath();

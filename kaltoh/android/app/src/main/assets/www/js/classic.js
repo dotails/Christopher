@@ -14,6 +14,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import * as K from './classic-rules.js';
 import { PIVOT, SCALE } from './scene.js';
+import { trimAtCorners } from './rodmesh.js';
 import { CLASSIC, TEXT, playerText, spell, classicCompleteText } from './texts.js';
 
 // The finished sphere's radius, in assembly units: 0.66 across the world, so its lowest t'an clear
@@ -61,6 +62,8 @@ class Structure {
     this.hidden = false;
     this.ends = [new THREE.Vector3(), new THREE.Vector3()];
     this.inner = new InnerShell(this);
+    this.drawn = []; // this frame's t'an (see draw)
+    this.slots = []; // reused for them
   }
 
   get root() {
@@ -294,9 +297,13 @@ class Structure {
     return out;
   }
 
+  // Every t'an this frame, then drawn: where they meet at a junction, each stops just short of it,
+  // touching the others there rather than passing through them.
   draw(pool, halos, { shaking = 0 } = {}) {
     if (!this.game || this.hidden) return [];
     const obstacles = [];
+    const drawn = this.drawn;
+    drawn.length = 0;
     this.centreWorld(centre);
     const complete = this.game.complete;
     for (const [e, view] of this.views) {
@@ -311,23 +318,27 @@ class Structure {
       if (complete) blue = Math.max(blue, 0.42);
       if (view.appear < 1) blue = Math.max(blue, 0.35 * (1 - view.appear));
       if (shaking > 0.08) blue = Math.max(blue, shaking * 0.7);
-      up.addVectors(wa, wb).multiplyScalar(0.5).sub(centre);
-      pool.push(wa, wb, up, blue, amber);
-      if (blue > 0.05 || amber > 0.05) halos.push(wa, wb, Math.max(blue, amber) * 0.3, 0.07, amber > blue ? 1 : 0);
+      const halo = blue > 0.05 || amber > 0.05 ? [Math.max(blue, amber) * 0.3, 0.07, amber > blue ? 1 : 0] : null;
+      this.add(wa, wb, blue, amber, halo, view.appear >= 1, 'outer');
       if (view.appear >= 1) obstacles.push({ a: [wa.x, wa.y, wa.z], b: [wb.x, wb.y, wb.z] });
     }
     for (const t of this.temps) {
       const [wa, wb] = this.rodEnds(this.pos[t.u], this.pos[t.v], 1);
       const flicker = 0.75 + 0.25 * Math.sin(this.time * 40);
-      up.addVectors(wa, wb).multiplyScalar(0.5).sub(centre);
-      pool.push(wa, wb, up, t.blue * flicker, t.amber * flicker);
-      halos.push(wa, wb, Math.max(t.blue, t.amber) * flicker * 0.45, 0.07, t.amber > t.blue ? 1 : 0);
+      this.add(wa, wb, t.blue * flicker, t.amber * flicker, [Math.max(t.blue, t.amber) * flicker * 0.45, 0.07, t.amber > t.blue ? 1 : 0], true, 'held');
+    }
+    this.inner.collect(complete, shaking, obstacles);
+    // Only whole t'an meet at junctions; one still growing out of its junction is left as it is.
+    trimAtCorners(drawn.filter((r) => r.whole));
+    for (const r of drawn) {
+      up.addVectors(r.a, r.b).multiplyScalar(0.5).sub(centre);
+      pool.push(r.a, r.b, up, r.blue, r.amber);
+      if (r.halo) halos.push(r.a, r.b, ...r.halo);
     }
     for (const v of this.highlightTips) {
       const w = this.tipWorld(v, v1);
       halos.push(w, w, 0.5, 0.07, 0);
     }
-    this.inner.draw(pool, halos, complete, shaking, obstacles);
     if (this.axisGlow > 0.01) {
       // Complete, its hidden axis shows: a thread of light through it.
       const axis = v2.fromArray(this.game.axis).applyQuaternion(this.root.quaternion);
@@ -335,6 +346,21 @@ class Structure {
       halos.push(centre.clone().addScaledVector(axis, -radius), centre.clone().addScaledVector(axis, radius), this.axisGlow * 0.16, 0.022, 0);
     }
     return obstacles;
+  }
+
+  // One t'an to draw this frame (world ends, copied: the vectors given may be shared): of the outer
+  // shell, the inner, a strut between them, or one held a moment before it falls.
+  add(a, b, blue, amber, halo, whole, kind) {
+    const i = this.drawn.length;
+    const r = (this.slots[i] ??= { a: new THREE.Vector3(), b: new THREE.Vector3() });
+    r.a.copy(a);
+    r.b.copy(b);
+    r.blue = blue;
+    r.amber = amber;
+    r.halo = halo;
+    r.whole = whole;
+    r.kind = kind;
+    this.drawn.push(r);
   }
 }
 
@@ -526,19 +552,17 @@ class InnerShell {
     }
   }
 
-  draw(pool, halos, complete, shaking, obstacles) {
+  // Its t'an, to be drawn with the rest (Structure.draw).
+  collect(complete, shaking, obstacles) {
     const s = this.structure;
-    s.centreWorld(centre);
     for (const rod of this.rods) {
       if (rod.appear <= 0) continue;
-      const a = s.toWorld(rod.wa, new THREE.Vector3());
-      const b = s.toWorld(rod.wb, new THREE.Vector3());
-      up.addVectors(a, b).multiplyScalar(0.5).sub(centre);
+      const a = s.toWorld(rod.wa, v1);
+      const b = s.toWorld(rod.wb, v2);
       let blue = Math.max(rod.glow, 0.3 * (1 - rod.appear));
       if (complete) blue = Math.max(blue, 0.3);
       if (shaking > 0.08) blue = Math.max(blue, shaking * 0.6);
-      pool.push(a, b, up, blue, 0);
-      if (blue > 0.03) halos.push(a, b, blue * 0.35, 0.06, 0);
+      s.add(a, b, blue, 0, blue > 0.03 ? [blue * 0.35, 0.06, 0] : null, rod.appear >= 1, rod.kind);
       if (rod.appear >= 1) obstacles.push({ a: [a.x, a.y, a.z], b: [b.x, b.y, b.z] });
     }
   }
@@ -561,6 +585,7 @@ export class ClassicGame {
     this.aimed = null; // { u, v, pose } while a t'an is carried
     this.aimKey = '';
     this.settled = 0;
+    this.plays = []; // for the carving: { player, mark: join | ring | fall | test }
   }
 
   get hasRods() {
@@ -571,6 +596,7 @@ export class ClassicGame {
     const { settings, motion, tray, say } = this.ctx;
     const floor = (x, z) => this.floor(x * SPHERE, z * SPHERE) / SPHERE;
     this.game = K.createGame({ seed, players: settings.players, floor });
+    this.plays = [];
     motion.resetPlace();
     this.structure.reset(this.game);
     this.phase = 'intro';
@@ -589,7 +615,7 @@ export class ClassicGame {
       return { now: i === game.current && !game.complete, score: { v: spell(joined), s: String(joined) } };
     });
     const lines = [CLASSIC.lift, CLASSIC.touch, CLASSIC.truth, CLASSIC.angles, CLASSIC.axis, CLASSIC.balance, CLASSIC.goal, TEXT.translate];
-    this.ctx.engraving.set({ seats, lines, testAllowed: true });
+    this.ctx.engraving.set({ seats, lines, plays: this.plays, testAllowed: true });
   }
 
   update(dt) {
@@ -722,6 +748,7 @@ export class ClassicGame {
     const { sound, haptic, say, after, motion, tray } = this.ctx;
     const s = this.structure;
     let settle = 0.9;
+    this.plays.push({ player: r.player, mark: r.kind === 'harmony' ? (r.hoops.length ? 'ring' : 'join') : 'fall' });
     if (r.kind === 'harmony') {
       s.join(r.edge);
       s.pulse([r.edge], { strength: 0.8 });
@@ -805,6 +832,10 @@ export class ClassicGame {
     }
     const duration = 3.2;
     const wasPlaying = this.phase === 'play';
+    if (wasPlaying) {
+      this.plays.push({ player: this.game.current, mark: 'test' });
+      this.carve();
+    }
     this.phase = 'testing';
     tray.hide();
     motion.startSpin(spinAxis, 6, duration);

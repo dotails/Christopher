@@ -50,6 +50,7 @@ over an older one without uninstalling.
 | Turn the t'an | Drag anywhere within the t'an's outline, even between them. The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
 | Place a t'an | Put **two fingers** on the t'an lying at the foot of the screen to lift it. Move each finger onto a piece of the kal-toh: in the original game, near the tip you mean to join (the tips light up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot). Let go to place it. |
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read: the title, whose turn it is and the score, what just happened, and how to play. |
+| Play with others | Choose two to four players (or a Vulcan, in rings) in the ways to play. The light behind the kal-toh takes the colour of whoever's turn it is: red for the first player, a rich green for the second, then deep blue and gold. A finished game keeps its winner's colour. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop or a ring, a cross where t'an fell, a circle for a spin test. The rules page shows the marks. |
 | Translate | Everything is carved in Vulcan. **Touch anywhere on the carving** but a glyph or a value: all of it is smoothed away to bare stone and cut again in Standard, as deep. Touch again for Vulcan. |
 | Test the spin | **Tap the t'an twice**, or touch the spiral carved under the base. The kal-toh spins on its hidden axis: in the original game an unbalanced one wobbles; in rings, strained t'an glow amber. |
 | Ways to play | Touch the circle carved under the base. The first way is the game itself. Touch a value to change it; some say beneath what they mean. Where there are more ways than fit, a large **arrow carved at the rim** turns the page, and one on the other side turns back. A change to the game waits for a new one: the carving says so and *begin anew* glows. Touch it to play that way. The lens with rays there opens the hologram's tuning. |
@@ -149,35 +150,39 @@ camera. The screen becomes a pane of glass with the kal-toh standing a few centi
 Move your head, or the phone, and you look around it. Lean in and the view through the glass
 widens; draw back and it narrows, as through a real window. Nothing from the camera is shown or
 stored, and the camera is released whenever the game is out of sight. The illusion is strongest
-with one eye closed. While it starts, and while it looks for your eyes, the carving says so.
+with one eye closed. While it starts, and while it looks for your face, the carving says so.
 
 How it works, after the usual practice for head-coupled ("fish tank") perspective:
 
 - **Only the front camera.** The view depends only on where your eye is relative to the screen,
   so the gyroscope plays no part.
-- **Finding the eye.** MediaPipe's face landmarker finds both irises to a fraction of a pixel. It
-  runs in a worker thread, on the GPU, or on the CPU if the GPU cannot be had.
-- **Reading the camera.** Frames are taken straight from the camera's track, so there is no
-  video element for Android to pause for being out of sight. If no frames come that way, a video
-  element kept in the page is read instead. If frames come but the GPU never finds a face, the
-  CPU takes over. Whatever it is doing is said in plain words on the tuning pages.
-- **Distance.** The iris is about 11.7 mm across in nearly everyone, so its size in the picture,
-  with the camera's focal length, gives the distance.
-- **Your eye in millimetres.** Its direction from the camera, plus where the camera sits beside the
-  screen, places your eye relative to the middle of the screen. Android supplies the screen's
-  true size, the camera's field of view, and the camera's position from the screen cutout.
+- **Following your head.** On the phone the Android shell follows your head itself, with
+  Google's ML Kit face detector (its model bundled in the app, so it works offline and without
+  Google Play services). It reads every camera frame it can keep up with and finds your face,
+  both eyes and how far your head is turned. If ML Kit cannot run, the camera's own face
+  detection, or failing that Android's older face detector, finds the face more roughly.
+- **Distance.** Most people's eyes are about 63 mm apart. Their spacing in the picture, corrected
+  for how far your head is turned and taken with the camera's focal length, gives the distance.
+- **Your eye in millimetres.** The direction of the point between your eyes from the camera, plus
+  where the camera sits beside the screen, places your eye relative to the middle of the screen.
+  Android supplies the screen's true size, the camera's field of view, and the camera's position
+  from the screen cutout.
 - **The window.** The kal-toh is drawn with an off-axis projection through the screen at its true
   size (Kooima's generalised perspective projection).
 - **Steady and quick.** A one-euro filter steadies each axis without lagging fast moves. The eye is
   carried ahead along its motion by the camera's measured delay, so the view does not trail your
   head.
+- **Or your eyes.** You can choose to have the page follow your eyes instead (*It follows your:
+  eyes* in the tuning). MediaPipe's face landmarker then finds both irises to a fraction of a pixel
+  in a worker thread, on the GPU or the CPU, and their size gives the distance (an iris is 11.7 mm
+  across in nearly everyone). In a desktop browser this is the only way.
 
 **Tuning.** Under the base: ways to play, then the lens with rays. Three carved pages, turned by
 the arrows at the rim: *what you see*, *how it follows you* and *your phone*. Touch the left of a
 value to step it down, the right to step it up. Values are always shown in numerals, so a photo
 of a page records a setting. The top lines say what the hologram is doing now (for instance
-*Following your eyes: 38 cm away, 2 cm left, 1 cm up · 30 a second · 60 ms behind*), then the
-screen and camera as measured and what the face finder runs on.
+*Following your head: 38 cm away, 2 cm left, 1 cm up · 30 a second · 60 ms behind*), then the
+screen and camera as measured and what finds your face.
 
 | Page | Value | What it does |
 |---|---|---|
@@ -190,15 +195,17 @@ screen and camera as measured and what the face finder runs on.
 | | Calm when you hold still | The one-euro filter's cutoff when still (Hz). Lower is calmer but slower to start. |
 | | Keeping up when you move fast | How much that cutoff rises with speed. Higher follows fast moves more closely. |
 | | Running ahead of the camera's delay | How far ahead the eye is carried (ms). *Auto* uses the measured delay. |
-| | It follows | The point between your eyes, or one eye (for viewing with the other closed). |
-| Your phone | The front camera's view, long side | Its field of view. *Auto* asks the phone. |
+| | Seen from | Between your eyes, or one eye (for viewing with the other closed). |
+| Your phone | It follows your | Head (the phone's face finder, the default) or eyes (the page's own, finer where the phone can run it). |
+| | The front camera's view, long side | Its field of view. *Auto* asks the phone. |
 | | The front camera, above the screen's middle | Where the camera sits (mm). *Auto* uses the screen's cutout. |
-| | Your iris, across | Your iris's true width, if you know it (mm). 11.7 fits nearly everyone. |
-| | The face finder runs on | The GPU (quicker) or the CPU (surer). |
+| | Your eyes, apart | Following your head: how far apart your eyes are, if you know it (mm). 63 fits most people. |
+| | Your iris, across | Following your eyes: your iris's true width, if you know it (mm). 11.7 fits nearly everyone. |
+| | The eye finder runs on | Following your eyes: the GPU (quicker) or the CPU (surer). |
 
 The recentre glyph sets where you hold the phone now as the centre; the defaults glyph restores
-every value. If the page cannot use the camera at all, the Android shell's own, rougher face
-tracker takes over.
+every value. If the page cannot use the camera to follow your eyes, the shell follows your head
+instead.
 
 ## How it is made
 
@@ -224,8 +231,10 @@ tracker takes over.
     small position-based solver as each junction finds its order, the inner shell settling into
     place, joining, the spin test and the end), `scene.js` (renderer, lights, mess-hall
     reflections, the stone, and the window the screen becomes), `motion.js` (base and assembly dynamics, and every t'an kept clear of
-    the stone along its length), `rodmesh.js` (brushed stainless t'an with a procedural
-    lengthwise scratch normal map), `falling.js` (fallen t'an: tumbling, coming to rest on the
+    the stone along its length), `rodmesh.js` (polished steel t'an: mirror faces, drawn gently
+    crowned so each reflects a broad sweep of the mess hall behind the player, scored by
+    procedural scratches in a normal map and a roughness map; t'an meeting at a corner are drawn
+    just short of it, so they touch rather than pass through each other), `falling.js` (fallen t'an: tumbling, coming to rest on the
     stone or the floor, and staying until a new game), `tray.js`, `input.js`, `engrave.js`
     (everything written, carved into the stone's underside on a layer whose depth the shader can
     smooth away and recut, the ways to play and the hologram's tuning), `texts.js` (the words,
@@ -236,8 +245,9 @@ tracker takes over.
     and its face landmarker model (Apache 2.0).
 - **`android/`**: a small Java shell (`MainActivity.java`, `HeadTracker.java`). It runs a full
   screen WebView that serves the game from the APK, and handles accelerometer shake detection and
-  haptics. For the hologram it grants the page the camera and reports the screen's true size and
-  the camera's field of view and place. `HeadTracker.java` is the fallback face tracker.
+  haptics. For the hologram it follows the player's head with the front camera and ML Kit
+  (`HeadTracker.java`), reports the screen's true size and the camera's field of view and place,
+  and grants the page the camera if the player chooses to have their eyes followed instead.
 - **`tools/`**
   - `physics.test.mjs`: geometry, load paths, and growing nests.
   - `rules.test.mjs`: placement, rings, forms, modes, the Vulcan, and physical invariants
@@ -253,9 +263,12 @@ tracker takes over.
     up, then hold perfectly still. It turns the t'an by their area and checks no t'an ever passes
     into the stone. It turns the base over to read it (top up whichever way it was turned) and
     touches the carving to translate it. It covers the carved ways to play and the hologram's
-    tuning, fallen t'an staying until a new game, and shaking to begin anew. Given a Y4M video of
-    a face as a second argument, Chromium fakes the front camera with it, and the hologram is
-    checked too: the eye is found and the view follows it.
+    tuning, fallen t'an staying until a new game, and shaking to begin anew. It checks that t'an
+    meeting at a junction touch rather than pass through each other, that the light behind turns
+    green on the second player's turn and that each player's plays are kept for the carving. With
+    a stand-in for the Android shell reporting a swaying face, it checks the view follows the
+    head as on the phone. Given a Y4M video of a face as a second argument, Chromium fakes the
+    front camera with it, and the page's own eye finder is checked too.
   - `convert_base.py`, `make_icon.py`: asset and icon generators.
 
 ```sh
@@ -269,7 +282,7 @@ node kaltoh/tools/browser-check.cjs out/ face.y4m   # and the hologram, with a v
 ### Build it yourself
 
 ```sh
-# needs JDK 17+ and the Android SDK (ANDROID_HOME)
+# needs JDK 17+ and the Android SDK (ANDROID_HOME); the first build downloads ML Kit
 cd kaltoh/android
 ./gradlew assembleRelease
 # -> app/build/outputs/apk/release/app-release.apk
@@ -288,6 +301,8 @@ area; press `R` to begin anew, `T` to test the spin, and use the mouse wheel to 
 - three.js is MIT licensed (`android/app/src/main/assets/www/vendor/three.LICENSE`).
 - MediaPipe and its face landmarker model are Apache 2.0 licensed
   (`android/app/src/main/assets/www/vendor/mediapipe/LICENSE`).
-- The head-coupled view follows Robert Kooima's *Generalized Perspective Projection* (2008), the
-  MediaPipe Iris method of estimating distance from the iris, and Casiez, Roussel and Vogel's
-  *1€ filter* (CHI 2012).
+- ML Kit's face detection (`com.google.mlkit:face-detection`) is Google's, used under the
+  [ML Kit terms](https://developers.google.com/ml-kit/terms).
+- The head-coupled view follows Robert Kooima's *Generalized Perspective Projection* (2008),
+  distance from the eyes' spacing (or, following the eyes, the MediaPipe Iris method of
+  estimating it from the iris), and Casiez, Roussel and Vogel's *1€ filter* (CHI 2012).

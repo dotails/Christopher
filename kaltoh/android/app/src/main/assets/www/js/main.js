@@ -62,6 +62,7 @@ const collisionRods = [];
 let shownCount = 0; // t'an drawn last frame: when it changes, the assembly's shape has changed
 let strainOf = new Map();
 let testGlow = null; // per-rod strain shown while the spin test turns
+let plays = []; // the game of rings' plays, for the carving: { player, mark: join | ring | fall | test }
 let aim = null; // { pieces, pose, ring } while a t'an is held
 let completeGlow = 0;
 
@@ -357,6 +358,7 @@ function newGame() {
   }
   game = R.createGame({ ...gameOptions(settings), seed: nextSeed });
   nextSeed = undefined;
+  plays = [];
   tray.length = RINGS_ROD;
   motion.resetPlace();
   refreshStrain();
@@ -382,7 +384,7 @@ function newGame() {
   });
   phase = 'intro';
   tray.hide();
-  engraving.set({ game, seats: null, lines: null, testAllowed: game.settings.test !== 'off' });
+  engraving.set({ game, plays, seats: null, lines: null, testAllowed: game.settings.test !== 'off' });
   say(TEXT.begin);
   after(span + 0.7, () => {
     syncDisplay();
@@ -541,6 +543,8 @@ function commit(pose) {
   sound.place();
   haptic('place');
   const result = R.play(game, pose);
+  const last = game.history[game.history.length - 1];
+  plays.push({ player: last.player, mark: last.ring ? 'ring' : last.lost > 0 ? 'fall' : 'join' });
   const placed = game.nest.rods[result.rod];
   const e = entryFor(placed);
   orient(e, placed);
@@ -592,7 +596,7 @@ function commit(pose) {
   after(settle, () => {
     syncDisplay();
     refreshStrain();
-    engraving.set({ game });
+    engraving.set({ game, plays });
     if (result.complete) {
       celebrate(result);
       return;
@@ -640,8 +644,10 @@ function spinTest(who) {
     say(TEXT.testOff);
     return;
   }
+  const tester = game.current;
   const res = R.spinTest(game);
   if (!res.allowed) return;
+  plays.push({ player: tester, mark: 'test' });
   phase = 'testing';
   tray.hide();
   const perRod = new Map();
@@ -791,6 +797,7 @@ function showHeadStatus(status, announce, source) {
   head.setStatus(status, source);
   engraving?.set({ hologram: status === 'on' || status === 'starting' });
   if (status === 'denied' || status === 'unavailable') {
+    following = null;
     settings.hologram = false;
     saveSettings(settings);
   }
@@ -800,8 +807,14 @@ function showHeadStatus(status, announce, source) {
   if (text) say(text);
 }
 
+// What follows the player now: 'native' (the shell, the head), 'camera' (the page, the eyes) or
+// null. Word from the other is stale and ignored.
+let following = null;
+
 function trackerStatus(status) {
+  if (following !== 'camera') return;
   if (status === 'unavailable' && native.hologram && settings.hologram) {
+    following = 'native';
     showHeadStatus('starting', false, 'native');
     native.setHologram(true);
     return;
@@ -810,7 +823,18 @@ function trackerStatus(status) {
   showHeadStatus(status, status !== 'starting', 'camera');
 }
 
+// On the phone the shell follows the head; in a browser, or if the player chooses the eyes, the
+// page watches the camera itself.
 function watch() {
+  if (native.hologram && settings.holo.follow !== 'eyes') {
+    tracker.stop();
+    following = 'native';
+    showHeadStatus('starting', false, 'native');
+    native.setHologram(true);
+    return;
+  }
+  if (following === 'native') native.setHologram(false);
+  following = 'camera';
   showHeadStatus('starting', false, 'camera');
   tracker.start(settings.holo.engine);
 }
@@ -821,6 +845,7 @@ function setHologram(on, announce = true) {
   if (on) {
     watch();
   } else {
+    following = null;
     tracker.stop();
     native.setHologram(false);
     showHeadStatus('off', announce, null);
@@ -828,14 +853,15 @@ function setHologram(on, announce = true) {
 }
 
 // Out of sight, the camera is let go; back in sight, it is watched again.
+// (The shell lets its own camera go, and takes it up again, by itself.)
 function hide() {
   sound.suspend();
-  if (head.source === 'camera') tracker.stop();
+  if (following === 'camera') tracker.stop();
 }
 
 function reveal() {
   sound.resume();
-  if (settings.hologram && head.source !== 'native') watch();
+  if (settings.hologram && following === 'camera') watch();
 }
 
 // The carving's glyphs and ways.
@@ -869,9 +895,10 @@ function onEngravedTune(key) {
   saveSettings(settings);
   sound.wake();
   haptic('tick');
-  // A different engine for the face tracker: start it afresh.
-  if (key === 'engine' && settings.hologram && head.source === 'camera') {
+  // Following something else, or the eyes found another way: start afresh.
+  if ((key === 'follow' || key === 'engine') && settings.hologram) {
     tracker.stop();
+    native.setHologram(false);
     watch();
   }
 }
@@ -903,8 +930,23 @@ if (!native.present) shake.listenToDeviceMotion();
 
 window.kaltoh = {
   shake: (magnitude) => shake.sample(magnitude),
-  head: (x, y, size) => head.sample(x, y, size),
-  headStatus: (status) => showHeadStatus(status, status !== 'off', 'native'),
+  // A sighting from the shell means it is following, whether or not word of that came first.
+  face(...sighting) {
+    if (following !== 'native') return;
+    if (head.status !== 'on') showHeadStatus('on', true, 'native');
+    head.face(...sighting);
+  },
+  head(x, y, size) {
+    if (following !== 'native') return;
+    if (head.status !== 'on') showHeadStatus('on', true, 'native');
+    head.sample(x, y, size);
+  },
+  headEngine: (engine) => {
+    head.engine = engine;
+  },
+  headStatus: (status) => {
+    if (following === 'native') showHeadStatus(status, status !== 'off', 'native');
+  },
   insets(top, bottom) {
     insets.top = top;
     insets.bottom = bottom;
@@ -997,10 +1039,44 @@ function frame(now) {
   }
 }
 
+// With others at the board, the light behind the kal-toh takes the colour of whoever's turn it is
+// (index.html), and so does the rim light from behind: red, then green, blue and gold. Alone, red.
+// A finished game keeps its winner's.
+const SEAT_LIGHT = [
+  { rim: new THREE.Color(0xff5a4a), ground: new THREE.Color(0x2a0a08) },
+  { rim: new THREE.Color(0x46ff86), ground: new THREE.Color(0x082a12) },
+  { rim: new THREE.Color(0x4f8dff), ground: new THREE.Color(0x08142c) },
+  { rim: new THREE.Color(0xffc74a), ground: new THREE.Color(0x2a2008) },
+];
+const tints = [...document.querySelectorAll('.tint')];
+let shownSeat = 0;
+
+function seatNow() {
+  if (way === 'classic') {
+    const g = classic?.game;
+    if (!g || g.players < 2) return 0;
+    return g.complete ? Math.max(0, g.winner) : g.current;
+  }
+  if (!game || game.players.length < 2) return 0;
+  return game.over && game.winner >= 0 ? game.winner : game.current;
+}
+
+function colourSeat(dt) {
+  const seat = seatNow() % SEAT_LIGHT.length;
+  if (seat !== shownSeat) {
+    shownSeat = seat;
+    tints.forEach((el, i) => el.classList.toggle('on', i + 1 === seat));
+  }
+  const k = 1 - Math.exp(-dt / 0.45);
+  stage.rim.color.lerp(SEAT_LIGHT[seat].rim, k);
+  stage.ambient.groundColor.lerp(SEAT_LIGHT[seat].ground, k);
+}
+
 function step(dt) {
   time += dt;
   tickTimers(dt);
   holograph(dt);
+  colourSeat(dt);
   readingView(dt);
   stage.update();
   if (way === 'classic') classic.update(dt);

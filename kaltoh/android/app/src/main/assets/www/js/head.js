@@ -5,11 +5,14 @@
 // window, while drawing back narrows it.
 //
 // Only the front camera is needed: the head's place relative to the screen is all that matters.
-// The camera finds each iris (tracker.js, eyes-worker.js). Its distance follows from the iris's
-// apparent size, since an iris is 11.7 mm across in nearly everyone, and the camera's focal
-// length; its place across, from the direction it is seen in and where the camera sits beside the
-// screen. A one-euro filter steadies each axis without lagging fast moves, and the eye is carried
-// ahead along its motion by the camera's delay, so the view does not trail the head.
+// On the phone, the Android shell follows the head (HeadTracker.java, with ML Kit): it finds the
+// face and its eyes, whose spacing - about 63 mm in most people - gives the head's distance, with
+// the camera's focal length; the point between them is where the view is seen from, placed by the
+// direction it is seen in and where the camera sits beside the screen. In a browser, or if the
+// player chooses, the page finds each iris itself instead (tracker.js, eyes-worker.js): an iris is
+// 11.7 mm across in nearly everyone. A one-euro filter steadies each axis without lagging fast
+// moves, and the eye is carried ahead along its motion by the camera's delay, so the view does not
+// trail the head.
 //
 // Where the player first settles is the centre for the tuning's gains, the distance the kal-toh
 // is framed for, and (unless the tuning says the middle of the screen) straight ahead. It does
@@ -19,7 +22,14 @@ import { FOV } from './scene.js';
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const RAD = Math.PI / 180;
 const LOST = 600; // ms without a sighting before the view eases back to rest
-const NATIVE_LAG = 70; // ms: the Android tracker's sightings are about this old when they arrive
+const NATIVE_LAG = 70; // ms: the rough Android trackers' sightings are about this old when they arrive
+const FACE_WIDTH = 150; // mm: the box round a face, when its eyes are not found
+// What finds the face, as the tuning pages say it.
+const ENGINES = {
+  mlkit: "the phone's face finder (ML Kit)",
+  camera: "the camera's own face detection",
+  android: "Android's face detector",
+};
 
 // Casiez's one-euro filter: little smoothing when the input moves fast (so it does not lag),
 // more when it is nearly still (so it does not shimmer). Times in seconds.
@@ -58,8 +68,8 @@ export class Head {
     this.device = device;
     this.tuning = tuning;
     this.status = 'off'; // off | starting | on | denied | unavailable
-    this.source = null; // 'camera' (in the page) or 'native' (the Android tracker)
-    this.engine = null; // what the page's face tracker runs on, for the readout
+    this.source = null; // 'native' (the Android shell follows the head) or 'camera' (the page, the eyes)
+    this.engine = null; // what finds the face (ENGINES), or what the page's eye finder runs on
     this.recentre();
     // Where the eye is now, as the view uses it.
     this.view = { x: 0, y: 0, z: null };
@@ -124,7 +134,31 @@ export class Head {
     this.observe(x, y, z, capture);
   }
 
-  // A sighting from the Android tracker: the face's centre from -1 to 1 across its view, as
+  // A face found by the Android shell (ML Kit), in an upright picture of width x height pixels, not
+  // mirrored: the player's own left and right eyes (NaN where not found), the box round the face
+  // (its middle and width), how far the head is turned aside (degrees), and the picture's age (ms).
+  face(leftX, leftY, rightX, rightY, boxX, boxY, boxWidth, width, height, yaw, age) {
+    const f = Math.max(width, height) / 2 / Math.tan((this.fovLong() / 2) * RAD);
+    // Turned aside, the eyes (and the face) look narrower than they are.
+    const turned = Math.cos(clamp(Math.abs(yaw) || 0, 0, 60) * RAD);
+    let at;
+    let z;
+    if (Number.isFinite(leftX) && Number.isFinite(rightX)) {
+      z = (f * this.tuning.ipd * turned) / Math.max(1, Math.hypot(rightX - leftX, rightY - leftY));
+      at = this.tuning.eye === 'left' ? { x: leftX, y: leftY } : this.tuning.eye === 'right' ? { x: rightX, y: rightY }
+        : { x: (leftX + rightX) / 2, y: (leftY + rightY) / 2 };
+    } else {
+      z = (f * FACE_WIDTH * turned) / Math.max(1, boxWidth);
+      at = { x: boxX, y: boxY };
+    }
+    const cam = this.cameraAt();
+    // Seen from the camera, rightward in its picture is the player's left.
+    const x = cam.x - ((at.x - width / 2) / f) * z;
+    const y = cam.y - ((at.y - height / 2) / f) * z;
+    this.observe(x, y, z, performance.now() - age);
+  }
+
+  // A rougher sighting from the Android shell: the face's centre from -1 to 1 across its view, as
   // the player sees themselves in a mirror (y downward), and its size.
   sample(x, y, size) {
     if (!(size > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return;
@@ -202,7 +236,7 @@ export class Head {
   readout(tracker) {
     const cam = this.cameraAt();
     const screen = this.device.screen;
-    const engine = this.source === 'native' ? 'basic face tracker' : this.engine ? `face finder on the ${this.engine.toUpperCase()}` : '';
+    const engine = this.source === 'native' ? ENGINES[this.engine] ?? "the phone's face finder" : this.engine ? `eye finder on the ${this.engine.toUpperCase()}` : '';
     const device = `Screen ${screen.width.toFixed(0)} \u00d7 ${screen.height.toFixed(0)} mm \u00b7 camera sees ${this.fovLong().toFixed(0)}\u00b0, ${cam.y.toFixed(0)} mm above the middle${engine ? ` \u00b7 ${engine}` : ''}`;
     const line = (s) => [{ v: s, s }, { v: device, s: device }];
     const doing = tracker?.state && tracker.state !== 'off' ? tracker.state : '';
@@ -210,12 +244,13 @@ export class Head {
     if (this.status === 'starting') return line(`Hologram starting${doing ? `: ${doing}` : ''}`);
     if (this.status !== 'on') return line(`Hologram off: ${doing || (this.status === 'denied' ? 'the camera was refused' : 'no camera to watch')}`);
     const rate = (this.frames.length / 2).toFixed(0);
+    const whose = this.source === 'native' ? 'head' : 'eyes';
     if (!this.seeing) {
-      const pictures = tracker?.counts ? `, ${tracker.counts.answered} pictures read` : '';
-      return line(`Hologram on: looking for your eyes${pictures}`);
+      const pictures = this.source !== 'native' && tracker?.counts ? `, ${tracker.counts.answered} pictures read` : '';
+      return line(`Hologram on: looking for your ${this.source === 'native' ? 'face' : 'eyes'}${pictures}`);
     }
     const p = this.last;
     const side = (v, plus, minus) => `${Math.abs(v / 10).toFixed(0)} cm ${v < 0 ? minus : plus}`;
-    return line(`Following your eyes: ${(p.z / 10).toFixed(0)} cm away, ${side(p.x, 'right', 'left')}, ${side(p.y, 'up', 'down')} \u00b7 ${rate} a second \u00b7 ${this.latency.toFixed(0)} ms behind`);
+    return line(`Following your ${whose}: ${(p.z / 10).toFixed(0)} cm away, ${side(p.x, 'right', 'left')}, ${side(p.y, 'up', 'down')} \u00b7 ${rate} a second \u00b7 ${this.latency.toFixed(0)} ms behind`);
   }
 }

@@ -63,7 +63,7 @@ export const OPTIONS = [
     choices: [[40, 'forty', '40'], [30, 'thirty', '30'], [60, 'sixty', '60'], [0, 'without end', 'Unlimited']],
   },
   { key: 'lives', v: 'lives', s: 'Lives, when surviving', when: (s) => rings(s) && s.mode === 'collapse', choices: [[3, 'three', '3'], [1, 'one', '1'], [5, 'five', '5']] },
-  { key: 'hologram', v: 'hologram', s: 'Hologram: the view follows your eyes', choices: [[false, 'off', 'Off'], [true, 'on', 'On']] },
+  { key: 'hologram', v: 'hologram', s: 'Hologram: the view follows you', choices: [[false, 'off', 'Off'], [true, 'on', 'On']] },
   { key: 'sound', v: 'sound', s: 'Sound', choices: [[true, 'on', 'On'], [false, 'off', 'Off']] },
   { key: 'haptics', v: 'touch', s: 'Vibration', choices: [[true, 'on', 'On'], [false, 'off', 'Off']] },
   { key: 'language', v: 'script', s: 'Carving first reads in', choices: [['vulcan', 'vulcan', 'Vulcan (touch to translate)'], ['standard', 'standard', 'Standard (touch for Vulcan)']] },
@@ -100,7 +100,11 @@ export const TUNING = [
     key: 'ahead', page: 1, v: 'running ahead', s: "Running ahead of the camera's delay", steps: ['auto', 0, 20, 40, 60, 80, 100, 130], value: 'auto',
     text: (v) => (v === 'auto' ? 'Auto: as long as the delay' : `${v} ms`),
   },
-  { key: 'eye', page: 1, v: 'it follows', s: 'It follows', steps: ['both', 'left', 'right'], names: { both: 'The point between your eyes', left: 'Your left eye', right: 'Your right eye' }, value: 'both' },
+  { key: 'eye', page: 1, v: 'seen from', s: 'Seen from', steps: ['both', 'left', 'right'], names: { both: 'Between your eyes', left: 'Your left eye', right: 'Your right eye' }, value: 'both' },
+  {
+    key: 'follow', page: 2, v: 'it follows your', s: 'It follows your', steps: ['head', 'eyes'], value: 'head',
+    names: { head: 'Head: the phone finds your face', eyes: 'Eyes: finer, where the phone can' },
+  },
   {
     key: 'fov', page: 2, v: 'what the camera sees', s: "The front camera's view, long side", steps: ['auto', 50, 55, 60, 65, 70, 75, 80, 85, 90], value: 'auto',
     text: (v) => (v === 'auto' ? 'Auto: as the phone says' : `${v}\u00b0`),
@@ -109,8 +113,15 @@ export const TUNING = [
     key: 'camera', page: 2, v: 'where the camera is', s: "The front camera, above the screen's middle", steps: ['auto', 50, 55, 60, 65, 70, 75, 80, 85, 90], value: 'auto',
     text: (v) => (v === 'auto' ? 'Auto: as the phone says' : `${v} mm`),
   },
-  { key: 'iris', page: 2, v: 'your iris', s: 'Your iris, across (11.7 mm fits most)', steps: [10.8, 11.2, 11.7, 12.2, 12.6], value: 11.7, text: (v) => `${v} mm` },
-  { key: 'engine', page: 2, v: 'the face finder', s: 'The face finder runs on', steps: ['gpu', 'cpu'], names: { gpu: 'The GPU: quicker', cpu: 'The CPU: surer' }, value: 'gpu' },
+  {
+    key: 'ipd', page: 2, v: 'your eyes apart', s: 'Your eyes, apart (63 mm fits most)', steps: [56, 58, 60, 61, 62, 63, 64, 65, 66, 68, 70], value: 63,
+    text: (v) => `${v} mm`, when: (h) => h.follow !== 'eyes',
+  },
+  { key: 'iris', page: 2, v: 'your iris', s: 'Your iris, across (11.7 mm fits most)', steps: [10.8, 11.2, 11.7, 12.2, 12.6], value: 11.7, text: (v) => `${v} mm`, when: (h) => h.follow === 'eyes' },
+  {
+    key: 'engine', page: 2, v: 'the eye finder', s: 'The eye finder runs on', steps: ['gpu', 'cpu'], names: { gpu: 'The GPU: quicker', cpu: 'The CPU: surer' }, value: 'gpu',
+    when: (h) => h.follow === 'eyes',
+  },
 ];
 
 export const DEFAULT_TUNING = Object.fromEntries(TUNING.map((t) => [t.key, t.value]));

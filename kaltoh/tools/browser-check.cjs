@@ -2,7 +2,8 @@
 // First the original kal-toh, the way to play on first opening: the jumble grows, a two-finger
 // lift joins two true neighbours, a false bond falls, two taps test the spin, and nothing passes
 // into the stone. Then, through the carved ways to play (turning their pages by the arrows at the
-// rim), the game of rings: a two-finger lift and placement, the Vulcan's reply, a spin test, a ring,
+// rim), the game of rings: a two-finger lift and placement, the Vulcan's reply (the light behind
+// turning the second player's green, the plays carved under the seats), a spin test, a ring,
 // turning the base (the t'an lag, catch up, and then hold perfectly still on it), spinning the
 // t'an by dragging their area, t'an never passing into the stone, turning the base over to read
 // its underside (whichever way it was turned, the carving reads with its top up), touching the
@@ -10,8 +11,9 @@
 // lying where they fell until a new game, and shaking to begin anew. Nothing may be written on
 // the screen itself. Screenshots land in the directory given as the first argument.
 //
-// With a Y4M video of a face as the second argument, the hologram is checked too: the front
-// camera (faked by Chromium) is watched for the eyes and the view follows them.
+// The hologram as on the phone, where the Android shell follows the head, is checked with a stand-in
+// for the shell. With a Y4M video of a face as the second argument, the page's own eye finder is
+// checked too: the front camera (faked by Chromium) is watched for the eyes and the view follows them.
 //
 // Run: node kaltoh/tools/browser-check.cjs [out-dir] [face.y4m]
 // Needs Playwright with Chromium (NODE_PATH or a global install).
@@ -225,6 +227,39 @@ function check(condition, message) {
     await waitFor(['play']);
     closest = Math.min(closest, await page.evaluate(() => window.nearest(window.classicRods())));
     check(closest > -0.002, `none of its t'an pass into the stone, at rest or spinning (closest ${closest.toFixed(3)})`);
+    // Where the jumble's t'an meet at a junction, each stops just short, touching the others: the
+    // corner of its end, on the side toward another, lies outside that one.
+    const junctions = await page.evaluate(async () => {
+      const { ROD_WIDTH } = await import('/js/rodmesh.js');
+      const V = window.__kaltoh.stage.camera.position.constructor;
+      const rods = window.__kaltoh.classic.structure.drawn.filter((r) => r.whole && r.kind === 'outer').map((r) => [r.a.clone(), r.b.clone()]);
+      const half = ROD_WIDTH / 2;
+      const along = (p, a, b) => {
+        const ab = new V().subVectors(b, a);
+        const t = Math.max(0, Math.min(1, new V().subVectors(p, a).dot(ab) / ab.lengthSq()));
+        return p.distanceTo(a.clone().addScaledVector(ab, t));
+      };
+      let worst = Infinity;
+      let meetings = 0;
+      for (let i = 0; i < rods.length; i++) {
+        for (let j = 0; j < rods.length; j++) {
+          for (const ki of i === j ? [] : [0, 1]) {
+            for (const kj of [0, 1]) {
+              const p = rods[i][ki];
+              if (p.distanceTo(rods[j][kj]) > 0.035) continue;
+              const di = new V().subVectors(rods[i][1 - ki], p).normalize();
+              const toward = new V().subVectors(rods[j][1 - kj], rods[j][kj]).normalize();
+              toward.addScaledVector(di, -toward.dot(di));
+              if (toward.lengthSq() < 1e-8) continue;
+              meetings += 1;
+              worst = Math.min(worst, along(p.clone().addScaledVector(toward.normalize(), half), rods[j][0], rods[j][1]) - half);
+            }
+          }
+        }
+      }
+      return { worst, meetings };
+    });
+    check(junctions.meetings > 20 && junctions.worst > -0.001, `where t'an meet at a junction they touch, not pass through each other (${junctions.meetings} meetings, closest ${junctions.worst.toFixed(4)})`);
 
     // Turn the base over, and choose the game of rings in the carved ways to play. A change of
     // game waits for a new one; the ways turn their pages by arrows at the rim.
@@ -365,10 +400,17 @@ function check(condition, message) {
     check(held.pose && held.glow > 0.9, 'carried over two pieces, the t\'an shows where it will rest, glowing blue');
     await page.waitForFunction(() => window.__kaltoh.game.moves >= 1, null, { timeout: 60000 });
     check(true, 'releasing places the t\'an');
+    await page.waitForFunction(() => window.__kaltoh.game.current === 1, null, { timeout: 60000 });
+    const lit = (seat) => page.waitForFunction((seat) => [...document.querySelectorAll('.tint')].every((el, i) => el.classList.contains('on') === (i + 1 === seat)),
+      seat, { timeout: 10000 }).then(() => true, () => false);
+    check(await lit(1), 'on the second player\'s turn the light behind turns green');
     // 2. The Vulcan replies.
     await page.waitForFunction(() => window.__kaltoh.phase === 'play' && window.__kaltoh.game.current === 0, null, { timeout: 240000 });
     s = await state();
     check(s.moves >= 2 || s.revealed, `the Vulcan takes its turn (${s.moves} moves)`);
+    check(await lit(0), 'and back to red on the first player\'s');
+    const carvedPlays = await page.evaluate(() => (window.__kaltoh.engraving.state.plays ?? []).map((p) => p.player));
+    check(carvedPlays.includes(0) && carvedPlays.includes(1), `each player's plays are kept for the carving under their seat (${carvedPlays.length})`);
     await page.screenshot({ path: path.join(OUT, '3-after-vulcan.png') });
 
     // 3. Two quick taps on the t'an test the spin (free in this game).
@@ -567,6 +609,52 @@ function check(condition, message) {
       await page.evaluate(() => window.__kaltoh.setHologram(false));
     }
     check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors.join(' | ')}` : ''}`);
+
+    // 12. On the phone the Android shell follows the head (HeadTracker.java). A stand-in for it here
+    // reports a face swaying from side to side, as ML Kit would: the view follows it.
+    const phone = await browser.newContext({ viewport: { width: 412, height: 892 } });
+    const handset = await phone.newPage();
+    const phoneErrors = [];
+    handset.on('pageerror', (e) => phoneErrors.push(e.message));
+    await handset.addInitScript(() => {
+      localStorage.setItem('kaltoh.settings.v2', JSON.stringify({ hologram: true }));
+      let timer = null;
+      window.KalTohAndroid = {
+        hologram(on) {
+          clearInterval(timer);
+          if (!on) return;
+          setTimeout(() => {
+            window.kaltoh.headEngine('mlkit');
+            window.kaltoh.headStatus('on');
+          }, 100);
+          let t = 0;
+          timer = setInterval(() => {
+            t += 1 / 30;
+            // Eyes 60 px apart in a 480 x 640 picture (the player's left eye further right).
+            const sway = Math.sin(t * 1.4) * 70;
+            window.kaltoh.face(270 + sway, 300, 210 + sway, 300, 240 + sway, 320, 160, 480, 640, 0, 40);
+          }, 33);
+        },
+        device: () => JSON.stringify({ xdpi: 420, ydpi: 420, fovLong: 75, fovShort: 60 }),
+        haptic() {},
+        insets: () => '{"top":0,"bottom":0}',
+      };
+    });
+    await handset.goto(`${base}?seed=3`);
+    await handset.waitForFunction(() => window.__kaltoh?.head?.status === 'on' && window.__kaltoh.head.source === 'native' && window.__kaltoh.head.last,
+      null, { timeout: 120000 });
+    const swayed = [];
+    for (let i = 0; i < 30; i++) {
+      swayed.push(await handset.evaluate(() => ({ z: window.__kaltoh.head.last.z, cam: window.__kaltoh.stage.camera.position.x })));
+      await sleep(150);
+    }
+    const near = Math.min(...swayed.map((v) => v.z));
+    const far = Math.max(...swayed.map((v) => v.z));
+    const cams = swayed.map((v) => v.cam);
+    check(near > 300 && far < 600, `on the phone, the shell's sightings place the head at a likely distance (${near.toFixed(0)} to ${far.toFixed(0)} mm)`);
+    check(Math.max(...cams) - Math.min(...cams) > 0.3, 'and the view follows the head as it moves');
+    check(phoneErrors.length === 0, `no errors on the page with the shell${phoneErrors.length ? `: ${phoneErrors.join(' | ')}` : ''}`);
+    await phone.close();
   } finally {
     await browser.close();
     server.close();

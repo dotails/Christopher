@@ -16,7 +16,9 @@ export const FLOOR = -0.62;
 // The layout's vertical field of view (degrees): the screen subtends this from the distance the
 // scene is framed for.
 export const FOV = 30;
-const ENVIRONMENT_TURN = 4.71;
+// The room is turned so that Tuvok, seated at the mess-hall table in the panorama, is behind the
+// player: what a face of a t'an turned toward the player reflects.
+const ENVIRONMENT_TURN = 3.69;
 const across = new THREE.Vector3();
 const upward = new THREE.Vector3();
 const backward = new THREE.Vector3();
@@ -53,7 +55,8 @@ export function createScene(canvas) {
   const fill = new THREE.DirectionalLight(0xbcd4ff, 0.7);
   fill.position.set(3.5, 2.5, 2);
   scene.add(fill);
-  scene.add(new THREE.HemisphereLight(0x3a3e48, 0x2a0a08, 0.55));
+  const ambient = new THREE.HemisphereLight(0x3a3e48, 0x2a0a08, 0.55);
+  scene.add(ambient);
   // The floor itself is not seen, only the shadows that fall on it.
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.ShadowMaterial({ opacity: 0.4 }));
   floor.rotation.x = -Math.PI / 2;
@@ -178,7 +181,7 @@ export function createScene(canvas) {
     return ray.intersectPlane(plane, out) ?? out.copy(anchor);
   }
 
-  return { renderer, scene, camera, key, baseRoot, assemblyRoot, size, view, screen, optics, eye, layout, update, toScreen, fromScreen, rayAt };
+  return { renderer, scene, camera, key, rim, ambient, baseRoot, assemblyRoot, size, view, screen, optics, eye, layout, update, toScreen, fromScreen, rayAt };
 }
 
 // What the metal reflects: a panorama of a starship mess hall. The photograph is low dynamic
@@ -218,7 +221,6 @@ export async function loadEnvironment(stage) {
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromEquirectangular(target.texture).texture;
-  // Turn the room so its ceiling lights and windows fall where the eye sees them in the metal.
   scene.environmentRotation.set(0, ENVIRONMENT_TURN, 0);
   pmrem.dispose();
   target.dispose();

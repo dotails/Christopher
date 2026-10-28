@@ -51,10 +51,10 @@ import java.util.Locale;
  * Pages are served from the APK's assets under a private https origin, so the game's ES
  * modules, textures and fonts load as same-origin content without touching the network.
  *
- * When the player asks for the hologram view, the page itself watches the front camera for their
- * eyes (never shown or kept); the shell grants it the camera, and tells it the screen's true size
- * and where the camera sits, so the screen can be drawn as a window. If the page cannot watch the
- * camera, the shell's own face tracker (HeadTracker) follows the face instead.
+ * When the player asks for the hologram view, the shell follows their head with the front camera
+ * (HeadTracker; never shown or kept), and tells the page the screen's true size and where the
+ * camera sits, so the screen can be drawn as a window. The page can instead watch the camera for
+ * the player's eyes itself, if they choose; then the shell grants it the camera.
  */
 public class MainActivity extends Activity implements SensorEventListener {
     private static final String HOST = "appassets.androidplatform.net";
@@ -297,6 +297,23 @@ public class MainActivity extends Activity implements SensorEventListener {
         if (head != null) return;
         head = new HeadTracker(new HeadTracker.Listener() {
             @Override
+            public void onFace(float leftX, float leftY, float rightX, float rightY, float boxX, float boxY, float boxWidth,
+                               int width, int height, float yaw, long age) {
+                long now = SystemClock.uptimeMillis();
+                if (now - lastHeadSample < HEAD_INTERVAL_MS) return;
+                lastHeadSample = now;
+                String script = String.format(Locale.US,
+                        "window.kaltoh&&window.kaltoh.face(%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%d,%d,%.2f,%d)",
+                        leftX, leftY, rightX, rightY, boxX, boxY, boxWidth, width, height, yaw, age);
+                runOnUiThread(() -> run(script));
+            }
+
+            @Override
+            public void onEngine(String engine) {
+                if (pageReady) runOnUiThread(() -> run("window.kaltoh&&window.kaltoh.headEngine('" + engine + "')"));
+            }
+
+            @Override
             public void onHead(float x, float y, float size) {
                 long now = SystemClock.uptimeMillis();
                 if (now - lastHeadSample < HEAD_INTERVAL_MS) return;
@@ -340,7 +357,8 @@ public class MainActivity extends Activity implements SensorEventListener {
         }
     }
 
-    // The page asks for the camera to watch the player's eyes: granted if the player allows it.
+    // The page asks for the camera to watch the player's eyes (if they chose that over the head):
+    // granted if the player allows it.
     private final class PageCamera extends WebChromeClient {
         @Override
         public void onPermissionRequest(PermissionRequest request) {

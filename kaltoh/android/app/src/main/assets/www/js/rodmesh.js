@@ -1,7 +1,7 @@
-// Drawing t'an: each is a scaled cube (12 triangles) of brushed stainless steel - a light,
-// cool aluminium tint, mirror-bright along its length, with fine scratches running lengthwise -
-// all drawn as one instanced mesh. Glow (the blue of order, the amber of strain) is added light
-// per instance; soft additive halos give the glow its bloom.
+// Drawing t'an: each is a scaled cube (12 triangles) of polished steel - a light, cool tint, its
+// faces true mirrors, scored by scratches running mostly lengthwise that catch the light - all
+// drawn as one instanced mesh. Glow (the blue of order, the amber of strain) is added light per
+// instance; soft additive halos give the glow its bloom.
 import * as THREE from '../vendor/three.module.min.js';
 
 // In world units (the kal-toh is drawn at scene.SCALE): about the rules' contact distance.
@@ -16,8 +16,13 @@ const tmpZ = new THREE.Vector3();
 const tmpM = new THREE.Vector3();
 const basis = new THREE.Matrix4();
 
+// How far each long face's normals turn toward its edges (world angle): the faces are drawn as if
+// gently crowned, so each one, like a polished pole, reflects a broad sweep of the room behind
+// the player rather than a single patch of it.
+const CROWN = Math.tan((22 * Math.PI) / 180);
+
 // A unit box along z (length 1, cross-section 1 x 1) whose long faces are mapped with u running
-// down the length, so the brushed grain and the scratches follow the t'an.
+// down the length, so the scratches follow the t'an.
 function rodGeometry() {
   const positions = [];
   const normals = [];
@@ -25,21 +30,30 @@ function rodGeometry() {
   const index = [];
   // The scratch texture repeats this often along one t'an, and once across each face, so its
   // texels come out about square on the metal.
-  const REPEAT = 2.5;
-  // One face: normal n, u running along uDir; v = n x u keeps every face wound outward.
-  const face = (n, uDir, uScale, vScale) => {
+  const REPEAT = 0.7;
+  // One face: normal n, u running along uDir; v = n x u keeps every face wound outward. Its normals
+  // turn by `crown` toward the edges across it (in the unit box, so as to come out right once it
+  // is scaled to the t'an's cross-section).
+  const face = (n, uDir, uScale, vScale, crown = 0) => {
     const vDir = [n[1] * uDir[2] - n[2] * uDir[1], n[2] * uDir[0] - n[0] * uDir[2], n[0] * uDir[1] - n[1] * uDir[0]];
     const corner = [0, 1, 2].map((k) => 0.5 * n[k] - 0.5 * uDir[k] - 0.5 * vDir[k]);
     const base = positions.length / 3;
     for (const [u, v] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
       positions.push(corner[0] + uDir[0] * u + vDir[0] * v, corner[1] + uDir[1] * u + vDir[1] * v, corner[2] + uDir[2] * u + vDir[2] * v);
-      normals.push(...n);
+      const turn = (2 * v - 1) * crown;
+      const m = [0, 1, 2].map((k) => n[k] + vDir[k] * turn);
+      const length = Math.hypot(...m);
+      normals.push(m[0] / length, m[1] / length, m[2] / length);
       uvs.push(u * uScale, v * vScale);
     }
     index.push(base, base + 1, base + 2, base, base + 2, base + 3);
   };
-  // Long faces: u along the length.
-  for (const n of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]) face(n, [0, 0, 1], REPEAT, 1);
+  // Long faces: u along the length. A face's normals are scaled with the box: across the narrow
+  // faces (normal along x, spanning the depth) the turn grows by width/depth, across the broad
+  // ones it shrinks by as much, so both come out at CROWN.
+  const aspect = ROD_WIDTH / ROD_DEPTH;
+  for (const n of [[1, 0, 0], [-1, 0, 0]]) face(n, [0, 0, 1], REPEAT, 1, CROWN / aspect);
+  for (const n of [[0, 1, 0], [0, -1, 0]]) face(n, [0, 0, 1], REPEAT, 1, CROWN * aspect);
   // End caps.
   face([0, 0, 1], [1, 0, 0], 0.06, 0.06);
   face([0, 0, -1], [1, 0, 0], 0.06, 0.06);
@@ -52,73 +66,104 @@ function rodGeometry() {
   return g;
 }
 
-// A tangent-space normal map of lengthwise scratches over a fine brushed grain: each scratch is
-// a shallow groove (its two walls tilt opposite ways across the t'an).
-function scratchMap() {
-  const W = 1024;
-  const H = 128;
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const g = canvas.getContext('2d');
-  const img = g.createImageData(W, H);
-  const tilt = new Float32Array(W * H); // across-the-grain slope
+// The scratches, as two maps: a tangent-space normal map (each scratch a groove whose two walls
+// tilt opposite ways across the t'an) and a roughness map (the metal mirror-smooth, the scratches
+// rough, so they show as lines that catch the light). Only sixteen texels across a face, so even a
+// fine scratch is still most of a pixel wide on the phone and survives being drawn small.
+function scratchMaps() {
+  const W = 512;
+  const H = 16;
+  const height = new Float32Array(W * H); // how deep the metal is scored
+  const rough = new Float32Array(W * H).fill(0.035);
+  const tilt = new Float32Array(W * H); // across-the-grain slope, from the height
   let seed = 7;
   const rand = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
   };
-  // Brushed grain: every row its own faint ridge, constant along the length.
-  for (let y = 0; y < H; y++) {
-    const ridge = (rand() - 0.5) * 0.06;
-    for (let x = 0; x < W; x++) tilt[y * W + x] += ridge;
-  }
-  // Scratches: long, hairline, of varied depth, a few lying at a slight angle.
-  for (let i = 0; i < 150; i++) {
-    const length = 120 + rand() ** 1.5 * 1400;
+  const at = (x, y) => (((y % H) + H) % H) * W + (((x % W) + W) % W);
+  // Scratches: long, of varied depth and width, a few lying at a slight angle. Each is cut along
+  // its line with its depth shared between the two rows it passes between, so a leaning one runs
+  // smoothly rather than in steps.
+  for (let i = 0; i < 16; i++) {
+    const length = 60 + rand() ** 1.3 * 560;
     const x0 = rand() * W;
     const y0 = rand() * H;
-    const lean = (rand() - 0.5) * 0.012;
-    const depth = 0.2 + rand() ** 2 * 0.8;
+    const lean = rand() < 0.7 ? 0 : (rand() - 0.5) * 0.02;
+    const depth = 0.8 + rand() * 0.7;
+    const wide = rand() < 0.3 ? 2 : 1;
+    const grit = 0.32 + rand() * 0.32;
     for (let s = 0; s < length; s++) {
-      const x = Math.floor(x0 + s) % W;
+      const x = Math.floor(x0 + s);
       const y = y0 + lean * s;
-      const yi = ((Math.floor(y) % H) + H) % H;
-      const fade = Math.sin((s / length) * Math.PI);
-      tilt[yi * W + x] += depth * fade;
-      tilt[((yi + 1) % H) * W + x] -= depth * fade;
+      const row = Math.floor(y);
+      const f = y - row;
+      const cut = depth * Math.sin((s / length) * Math.PI) ** 0.4;
+      for (let k = 0; k < wide; k++) {
+        for (const [r, w] of [[row + k, 1 - f], [row + k + 1, f]]) {
+          height[at(x, r)] -= cut * w;
+          rough[at(x, r)] = Math.max(rough[at(x, r)], 0.035 + grit * w * (cut / depth));
+        }
+      }
     }
   }
-  for (let i = 0; i < W * H; i++) {
-    const t = Math.max(-1, Math.min(1, tilt[i]));
-    const nz = Math.sqrt(1 - t * t * 0.5);
-    img.data[i * 4] = 128;
-    img.data[i * 4 + 1] = Math.round(128 + t * 0.7 * 127);
-    img.data[i * 4 + 2] = Math.round(nz * 255);
-    img.data[i * 4 + 3] = 255;
+  // The slope across the t'an, from the depth on either side; and a faint polish grain, every
+  // row its own slight ridge along the length.
+  for (let y = 0; y < H; y++) {
+    const ridge = (rand() - 0.5) * 0.06;
+    const haze = rand() * 0.01;
+    for (let x = 0; x < W; x++) {
+      tilt[at(x, y)] = (height[at(x, y - 1)] - height[at(x, y + 1)]) * 0.6 + ridge;
+      rough[at(x, y)] += haze;
+    }
   }
-  g.putImageData(img, 0, 0);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.anisotropy = 8;
-  return texture;
+  const make = (fill) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const g = canvas.getContext('2d');
+    const img = g.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) fill(img.data, i * 4, i);
+    g.putImageData(img, 0, 0);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.colorSpace = THREE.NoColorSpace;
+    texture.anisotropy = 8;
+    return texture;
+  };
+  const normal = make((d, o, i) => {
+    const t = Math.max(-1, Math.min(1, tilt[i]));
+    d[o] = 128;
+    d[o + 1] = Math.round(128 + t * 0.8 * 127);
+    d[o + 2] = Math.round(Math.sqrt(1 - 0.64 * t * t) * 255);
+    d[o + 3] = 255;
+  });
+  const roughness = make((d, o, i) => {
+    const r = Math.round(Math.min(1, rough[i]) * 255);
+    d[o] = r;
+    d[o + 1] = r;
+    d[o + 2] = r;
+    d[o + 3] = 255;
+  });
+  return { normal, roughness };
 }
 
 export function rodMaterial() {
+  const { normal, roughness } = scratchMaps();
   const material = new THREE.MeshPhysicalMaterial({
-    color: 0xe6e9ee,
+    color: 0xe8ebf0,
     metalness: 1,
-    roughness: 0.13,
-    // Brushed along its length: highlights stretch into streaks down the t'an.
-    anisotropy: 0.45,
+    // Mirror-smooth where unscratched (the map holds the roughness), so the room behind the
+    // player is seen in the metal, clearly enough to make out who is there.
+    roughness: 1,
+    roughnessMap: roughness,
+    // A trace of the polishing's direction: highlights draw out a little down the t'an.
+    anisotropy: 0.12,
     anisotropyRotation: 0,
-    normalMap: scratchMap(),
-    normalScale: new THREE.Vector2(0.28, 0.28),
-    clearcoat: 0.35,
-    clearcoatRoughness: 0.08,
-    envMapIntensity: 2.4,
+    normalMap: normal,
+    normalScale: new THREE.Vector2(0.9, 0.9),
+    envMapIntensity: 2.2,
   });
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uBlue = { value: BLUE };
@@ -134,8 +179,50 @@ export function rodMaterial() {
         '#include <emissivemap_fragment>\ntotalEmissiveRadiance += uBlue * vGlow.x * 0.42 + uAmber * vGlow.y * 0.5;\ndiffuseColor.rgb *= 1.0 - vGlow.z;',
       );
   };
-  material.customProgramCacheKey = () => 'kaltoh-rod-v2';
+  material.customProgramCacheKey = () => 'kaltoh-rod-v3';
   return material;
+}
+
+// T'an that meet end to end at a corner are drawn just short of it, so that they touch there
+// rather than pass through one another: each end is drawn back by as much as its width needs
+// against the most acute of the others meeting it. Ends within NEAR of each other meet; `rods` is
+// a list of { a, b } (world points, moved in place).
+const NEAR = 0.035;
+const HALF = ROD_WIDTH / 2 + 0.0015;
+const d1 = new THREE.Vector3();
+const d2 = new THREE.Vector3();
+export function trimAtCorners(rods) {
+  const n = rods.length;
+  const back = new Float32Array(n * 2);
+  const end = (r, k) => (k ? r.b : r.a);
+  for (let i = 0; i < n; i++) {
+    for (let ki = 0; ki < 2; ki++) {
+      const p = end(rods[i], ki);
+      for (let j = i + 1; j < n; j++) {
+        for (let kj = 0; kj < 2; kj++) {
+          const q = end(rods[j], kj);
+          if (p.distanceToSquared(q) > NEAR * NEAR) continue;
+          // Their directions away from the corner, and the angle between.
+          d1.subVectors(end(rods[i], 1 - ki), p).normalize();
+          d2.subVectors(end(rods[j], 1 - kj), q).normalize();
+          const half = Math.acos(Math.max(-1, Math.min(1, d1.dot(d2)))) / 2;
+          const by = HALF / Math.tan(Math.max(half, 0.12));
+          back[i * 2 + ki] = Math.max(back[i * 2 + ki], by);
+          back[j * 2 + kj] = Math.max(back[j * 2 + kj], by);
+        }
+      }
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const r = rods[i];
+    const length = r.a.distanceTo(r.b);
+    if (length < 1e-6) continue;
+    d1.subVectors(r.b, r.a).multiplyScalar(1 / length);
+    const limit = length * 0.25;
+    r.a.addScaledVector(d1, Math.min(limit, back[i * 2]));
+    r.b.addScaledVector(d1, -Math.min(limit, back[i * 2 + 1]));
+  }
+  return rods;
 }
 
 // Orientation of a rod from a to b: its length along z, its broad face turned toward `up`.

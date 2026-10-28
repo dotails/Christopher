@@ -10,8 +10,8 @@ android {
         applicationId 'com.dotails.kaltoh'
         minSdk 24
         targetSdk 35
-        versionCode 5
-        versionName '2.3'
+        versionCode 6
+        versionName '2.4'
     }
 
     signingConfigs {
@@ -44,4 +44,10 @@ android {
         // Already-compressed assets gain nothing from zip compression.
         noCompress += ['jpg', 'bin', 'ttf']
     }
+}
+
+dependencies {
+    // Finding the player's face for the hologram: ML Kit's face detector, its model bundled in
+    // the app so it works offline and without Google Play services.
+    implementation 'com.google.mlkit:face-detection:16.1.7'
 }

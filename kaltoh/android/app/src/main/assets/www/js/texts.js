@@ -36,8 +36,8 @@ export const TEXT = {
   testOff: { v: 'testing is not allowed', s: 'Testing the spin is not allowed' },
   lifeLost: { v: 'a life is lost', s: 'A life is lost' },
   quickens: { v: 'the spin quickens', s: 'The spin quickens' },
-  hologramOn: { v: 'it follows your eyes', s: 'Hologram: the view follows your eyes' },
-  hologramLooking: { v: 'looking for your eyes', s: 'Hologram: looking for your eyes' },
+  hologramOn: { v: 'it follows you', s: 'Hologram: the view follows you' },
+  hologramLooking: { v: 'looking for you', s: 'Hologram: looking for your face' },
   hologramOff: { v: 'the view is still', s: 'Hologram off' },
   hologramDenied: { v: 'the camera was refused', s: 'The hologram needs the front camera' },
   hologramUnavailable: { v: 'no camera to follow you', s: 'No front camera for the hologram' },
@@ -57,8 +57,15 @@ export const TEXT = {
   reset: { v: 'as made', s: 'Defaults' },
   rulesTitle: { v: 'the rules', s: 'The rules' },
   pending: { v: 'begin anew to play this way', s: 'Begin anew to play this way' },
+  // The marks of the plays under each seat (the rules page names them).
+  markJoined: { v: 'joined', s: 'joined' },
+  markPlaced: { v: 'placed', s: 'placed' },
+  markHoop: { v: 'a hoop', s: 'a hoop' },
+  markRing: { v: 'a ring', s: 'a ring' },
+  markFell: { v: 'fell', s: 'fell' },
+  markTested: { v: 'tested', s: 'tested' },
   hologramRow: { v: 'hologram', s: 'Hologram' },
-  hologramRowOn: { v: 'on the view follows your eyes', s: 'On: the view follows your eyes' },
+  hologramRowOn: { v: 'on the view follows you', s: 'On: the view follows you' },
   hologramRowOff: { v: 'off touch to turn it on', s: 'Off: touch to turn it on' },
 };
 
