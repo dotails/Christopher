@@ -24,7 +24,8 @@ the underside of the stone: tip the base over to read them, from whichever side 
   <img src="docs/complete.png" width="19%" alt="A completed globe of rings">
 </p>
 <p align="center">
-  <img src="docs/underside.png" width="19%" alt="The carved underside of the base">
+  <img src="docs/green.png" width="19%" alt="Two players: the light behind turns green on the second player's turn">
+  <img src="docs/underside.png" width="19%" alt="The carved underside of the base, each player's plays marked under their seat">
   <img src="docs/ways.png" width="19%" alt="The ways to play, with an arrow at the rim to turn the page">
   <img src="docs/tuning.png" width="19%" alt="The hologram's tuning, carved">
 </p>
@@ -302,7 +303,9 @@ area; press `R` to begin anew, `T` to test the spin, and use the mouse wheel to 
 - MediaPipe and its face landmarker model are Apache 2.0 licensed
   (`android/app/src/main/assets/www/vendor/mediapipe/LICENSE`).
 - ML Kit's face detection (`com.google.mlkit:face-detection`) is Google's, used under the
-  [ML Kit terms](https://developers.google.com/ml-kit/terms).
+  [ML Kit terms](https://developers.google.com/ml-kit/terms). It runs on the phone and needs no
+  network, but like all of ML Kit it may report anonymous usage statistics to Google (never
+  pictures).
 - The head-coupled view follows Robert Kooima's *Generalized Perspective Projection* (2008),
   distance from the eyes' spacing (or, following the eyes, the MediaPipe Iris method of
   estimating it from the iris), and Casiez, Roussel and Vogel's *1€ filter* (CHI 2012).
