@@ -1,10 +1,13 @@
-// Touch. One finger anywhere on the t'an's area turns the assembly on its base; on the stone or
-// open space it turns the base, in any direction, about the sphere's centre; a pinch draws nearer.
-// Two fingers on the tray lift a t'an; carried, each finger rests on a piece, and letting go
-// places the t'an between them. A tap (on an engraving, say) is reported as a tap.
+// Touch. One finger on the t'an's area turns the assembly on its base; on the stone it turns the
+// base, in any direction, about the sphere's centre. Open space (below the stone, say, where a
+// finger reaching for the tray might land) turns nothing. A pinch draws nearer.
+// One finger on the tray takes up the t'an and slides it across the glass; a second finger,
+// anywhere, takes hold of it too. Carried so, each finger rests on a piece, and letting go places
+// the t'an between them; let go of with one finger only, it goes back to the tray. A tap (on an
+// engraving, say) is reported as a tap.
 import * as THREE from '../vendor/three.module.min.js';
 
-const LIFT_SLOP = 26; // a first finger on the tray may drift this far while the second arrives
+const GRAB_MARGIN = 16; // a finger that only just misses the tray's t'an still takes it up
 const FINGER_LEAD = 10; // the eye sees a touch a little above the fingertip's contact centre
 const TURN_RATE = 1.2; // half-turns per screen width
 const TAP_SLOP = 10;
@@ -16,8 +19,9 @@ const UP = new THREE.Vector3(0, 1, 0);
 
 export class Input {
   constructor(canvas, ctx) {
-    // ctx: { stage, tray, motion, pickRod(x, y), touchesAssembly(x, y), canLift(), canSpin(), onLift(),
-    //        onAim(targets, f1, f2), onRelease(targets), onTap(x, y, where), onGrab(what) }
+    // ctx: { stage, tray, motion, pickRod(x, y), touchesAssembly(x, y), touchesBase(x, y), canLift(), canSpin(),
+    //        onLift(x, y), onCarry(x, y), onAim(targets, f1, f2), onRelease(targets, cancelled), onTap(x, y, where),
+    //        onGrab(what) }
     this.ctx = ctx;
     this.pointers = new Map();
     this.mode = 'idle';
@@ -50,33 +54,35 @@ export class Input {
     this.pointers.set(e.pointerId, p);
     const { tray, motion } = this.ctx;
 
-    if (this.mode === 'idle') {
-      if (tray.contains(p.x, p.y) && this.ctx.canLift()) {
-        this.mode = 'wait';
-        this.ids = [p.id];
-      } else if (this.ctx.canSpin() && this.ctx.touchesAssembly(p.x, p.y)) {
+    if ((this.mode === 'idle' || this.mode === 'void') && tray.contains(p.x, p.y, GRAB_MARGIN) && this.ctx.canLift()) {
+      // A finger already resting on open space (a thumb at the edge, say) is let be.
+      if (this.mode === 'void') this.ignored.add(this.ids[0]);
+      this.mode = 'grab';
+      this.ids = [p.id];
+      this.ctx.onLift(p.x, p.y);
+    } else if (this.mode === 'idle') {
+      this.ids = [p.id];
+      if (this.ctx.canSpin() && this.ctx.touchesAssembly(p.x, p.y)) {
         this.mode = 'spin';
-        this.ids = [p.id];
         motion.hold('assembly');
         this.ctx.onGrab?.('assembly');
-      } else {
+      } else if (this.ctx.touchesBase(p.x, p.y)) {
         this.mode = 'turn';
-        this.ids = [p.id];
         motion.hold('base');
         this.ctx.onGrab?.('base');
+      } else {
+        this.mode = 'void';
+        this.ctx.onGrab?.('void');
       }
-    } else if (this.mode === 'wait') {
+    } else if (this.mode === 'grab') {
+      // A second finger, wherever it lands, takes hold of the t'an too.
+      this.mode = 'hold';
+      this.ids = [this.ids[0], p.id];
+      this.targets = [null, null];
+      this.aim();
+    } else if ((this.mode === 'turn' || this.mode === 'spin' || this.mode === 'void') && !tray.contains(p.x, p.y)) {
       const first = this.pointers.get(this.ids[0]);
-      if (tray.contains(p.x, p.y, 40)) {
-        this.mode = 'hold';
-        this.ids = [first.id, p.id];
-        this.targets = [null, null];
-        this.ctx.onLift();
-        this.aim();
-      }
-    } else if ((this.mode === 'turn' || this.mode === 'spin') && !tray.contains(p.x, p.y)) {
-      const first = this.pointers.get(this.ids[0]);
-      motion.release(this.mode === 'turn' ? 'base' : 'assembly', true);
+      if (this.mode !== 'void') motion.release(this.mode === 'turn' ? 'base' : 'assembly', true);
       this.mode = 'pinch';
       this.ids = [first.id, p.id];
       this.pinch = { d0: Math.hypot(p.x - first.x, p.y - first.y) || 1, zoom0: this.ctx.stage.view.zoom };
@@ -104,11 +110,8 @@ export class Input {
         if (this.mode === 'turn') motion.turnBase(turn.axis, turn.angle, dt);
         else motion.turnAssembly(turn.axis, turn.angle, dt);
       }
-    } else if (this.mode === 'wait' && p.id === this.ids[0]) {
-      if (Math.hypot(p.x - p.x0, p.y - p.y0) > LIFT_SLOP) {
-        this.mode = 'turn';
-        motion.hold('base');
-      }
+    } else if (this.mode === 'grab' && p.id === this.ids[0]) {
+      this.ctx.onCarry(p.x, p.y);
     } else if (this.mode === 'pinch') {
       const [a, b] = this.ids.map((id) => this.pointers.get(id));
       if (a && b) {
@@ -135,8 +138,13 @@ export class Input {
       const where = this.mode === 'spin' ? 'assembly' : 'base';
       this.mode = 'idle';
       if (tap) this.ctx.onTap?.(p.x, p.y, where, now);
-    } else if (this.mode === 'wait' && p.id === this.ids[0]) {
+    } else if (this.mode === 'void' && p.id === this.ids[0]) {
       this.mode = 'idle';
+      if (tap) this.ctx.onTap?.(p.x, p.y, 'void', now);
+    } else if (this.mode === 'grab' && p.id === this.ids[0]) {
+      // Let go of with one finger: back to the tray.
+      this.mode = 'idle';
+      this.ctx.onRelease([null, null], true);
       if (tap) this.ctx.onTap?.(p.x, p.y, 'tray', now);
     } else if (this.mode === 'pinch' && this.ids.includes(p.id)) {
       for (const id of this.ids) if (id !== p.id && this.pointers.has(id)) this.ignored.add(id);

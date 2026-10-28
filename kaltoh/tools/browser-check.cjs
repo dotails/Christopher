@@ -1,11 +1,13 @@
 // Plays the real game in headless Chromium and checks it end to end, through simulated touch.
-// First the original kal-toh, the way to play on first opening: the jumble grows, a two-finger
-// lift joins two true neighbours, tips too far apart for a t'an are refused, a false bond falls
+// First the original kal-toh, the way to play on first opening: the jumble grows, a t'an taken up
+// by one finger and then held by a second joins two true neighbours, tips too far apart for a t'an
+// are refused, a false bond falls
 // (the first tip's true neighbours glowing), two taps test the spin, nothing passes into the
 // stone, and t'an meeting at a junction are mitred to touch. Then, through the carved ways to play (turning their pages by the arrows at the
 // rim), the game of rings: a two-finger lift and placement, the Vulcan's reply (the light behind
 // turning the second player's green, the plays carved under the seats), a spin test, a ring,
-// turning the base (the t'an lag, catch up, and then hold perfectly still on it), spinning the
+// a drag on open space turning nothing, turning the base by the stone (the t'an lag, catch up, and
+// then hold perfectly still on it), spinning the
 // t'an by dragging their area, t'an never passing into the stone, turning the base over to read
 // its underside (whichever way it was turned, the carving reads with its top up), touching the
 // carving to translate all of it, the carved ways to play and the hologram's tuning, fallen t'an
@@ -96,6 +98,19 @@ function check(condition, message) {
       return { rel: m.baseQ.clone().invert().multiply(m.q).toArray(), pos: m.pos.toArray(), base: m.baseQ.toArray() };
     });
     const differ = (a, b, tol) => a.some((x, i) => Math.abs(x - b[i]) > tol);
+    // The point on the stone nearest a given one (off the t'an): only there does a drag turn it.
+    const stoneSpot = (near) => page.evaluate((near) => {
+      const k = window.__kaltoh;
+      let best = null;
+      for (let y = 100; y < 860; y += 10) {
+        for (let x = 20; x < 400; x += 10) {
+          if (!k.touchesBase(x, y) || k.touchesAssembly(x, y)) continue;
+          const d = Math.hypot(x - near.x, y - near.y);
+          if (!best || d < best.d) best = { x, y, d };
+        }
+      }
+      return best && { x: best.x, y: best.y };
+    }, near);
 
     // The original game is the way to play at first; these ways wait for the game of rings.
     await page.addInitScript(() => {
@@ -186,7 +201,7 @@ function check(condition, message) {
     }
     let join = await findJoin('harmony');
     check(join, 'two true neighbours within a t\'an\'s reach can be found on screen');
-    const joining = await place(join, '0b-joining.png');
+    const joining = await placeByOne(join, '0b-joining.png');
     check(joining.pose && joining.glow > 0.9, 'carried over two tips, the t\'an shows where it will join them, glowing blue');
     await page.waitForFunction(() => window.__kaltoh.classic.game.history.length >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
     check(await page.evaluate(() => window.__kaltoh.classic.game.history[0].kind === 'harmony'), 'joining true neighbours brings harmony');
@@ -291,7 +306,7 @@ function check(condition, message) {
     const recut = () => page.waitForFunction(() => window.__kaltoh.engraving.phase === 'still', null, { timeout: 10000 });
     const turnOver = async () => {
       await settle();
-      await drag({ x: 30, y: 700 }, 0, -155);
+      await drag(await stoneSpot({ x: 206, y: 640 }), 0, -155);
       await page.waitForFunction(() => window.__kaltoh.stage.view.read.k > 0.9, null, { timeout: 30000 });
       await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
     };
@@ -318,7 +333,7 @@ function check(condition, message) {
     await tap(await where('anew', 'button'));
     await page.waitForFunction(() => window.__kaltoh.way === 'rings', null, { timeout: 30000 });
     await page.evaluate(() => window.__kaltoh.engraving.show('main'));
-    await drag({ x: 30, y: 420 }, 0, 155);
+    await drag(await stoneSpot({ x: 206, y: 420 }), 0, 155);
     await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1, null, { timeout: 30000 });
     await waitFor(['play']);
     check(await page.evaluate(() => window.__kaltoh.falling.rods.length === 0), 'beginning anew plays the game of rings');
@@ -416,6 +431,51 @@ function check(condition, message) {
       return held;
     }
 
+    // Take up the t'an with one finger and carry it to the first piece; a second finger, put down
+    // on the other, takes hold of it too. Let go, it is placed.
+    async function placeByOne(move, shot) {
+      await page.waitForFunction(() => window.__kaltoh.tray.visible && window.__kaltoh.tray.arrive >= 1, null, { timeout: 30000 });
+      const g = await page.evaluate(() => ({ y: window.__kaltoh.tray.y, w: window.__kaltoh.stage.size.width }));
+      const f1 = { id: 1, x: g.w / 2 - 60, y: g.y };
+      await touch('touchStart', [f1]);
+      await sleep(60);
+      check(await page.evaluate(() => window.__kaltoh.input.mode === 'grab' && window.__kaltoh.hand.holding), 'one finger on the tray takes up the t\'an');
+      const from = { ...f1 };
+      for (let i = 1; i <= 8; i++) {
+        f1.x = from.x + ((move.a.x - from.x) * i) / 8;
+        f1.y = from.y + ((move.a.y - from.y) * i) / 8;
+        await touch('touchMove', [f1]);
+        await sleep(30);
+      }
+      await sleep(600);
+      if (shot) await page.screenshot({ path: path.join(OUT, shot.replace('.png', '-one.png')) });
+      // The point it was touched at stays under the finger; carried up from the tray, it draws in to
+      // the size it will be at the kal-toh.
+      const carried = await page.evaluate((f) => {
+        const k = window.__kaltoh;
+        const a = k.stage.toScreen(k.hand.a);
+        const b = k.stage.toScreen(k.hand.b);
+        const t = k.hand.carried.along;
+        return { off: Math.hypot(a.x + (b.x - a.x) * t - f.x, a.y + (b.y - a.y) * t - f.y), length: Math.hypot(b.x - a.x, b.y - a.y), own: k.hand.atKaltoh() };
+      }, f1);
+      check(carried.off < 6, `it slides across the glass under the finger (${carried.off.toFixed(1)} px off)`);
+      check(Math.abs(carried.length - carried.own) < 6, `drawing in to the size it will be at the kal-toh (${carried.length.toFixed(0)} px long)`);
+      const f2 = { id: 2, x: move.b.x, y: move.b.y };
+      await touch('touchStart', [f1, f2]);
+      await sleep(60);
+      check((await page.evaluate(() => window.__kaltoh.input.mode)) === 'hold', 'a second finger, put down on the other piece, takes hold of it too');
+      await sleep(400);
+      if (shot) await page.screenshot({ path: path.join(OUT, shot) });
+      const held = await page.evaluate(() => {
+        const k = window.__kaltoh;
+        return { pose: k.way === 'classic' ? Boolean(k.classic.aimed) : Boolean(k.aim?.pose), glow: k.hand.glow };
+      });
+      await touch('touchEnd', [f1]);
+      await sleep(30);
+      await touch('touchEnd', []);
+      return held;
+    }
+
     // 1. A plain move.
     const first = await findMove(false);
     check(first, 'a placement within reach can be found on screen');
@@ -434,6 +494,7 @@ function check(condition, message) {
     check(await lit(0), 'and back to red on the first player\'s');
     const carvedPlays = await page.evaluate(() => (window.__kaltoh.engraving.state.plays ?? []).map((p) => p.player));
     check(carvedPlays.includes(0) && carvedPlays.includes(1), `each player's plays are kept for the carving under their seat (${carvedPlays.length})`);
+    check(await carved('name0') && await carved('name1'), 'and each seat is named over its mark');
     await page.screenshot({ path: path.join(OUT, '3-after-vulcan.png') });
 
     // 3. Two quick taps on the t'an test the spin (free in this game).
@@ -451,7 +512,7 @@ function check(condition, message) {
     let ringMove = null;
     for (let look = 0; look < 3 && !ringMove; look++) {
       ringMove = await findMove(true);
-      if (!ringMove) await drag({ x: 40, y: 600 }, 60, 0);
+      if (!ringMove) await drag(await stoneSpot({ x: 206, y: 600 }), 60, 0);
     }
     const ringsBefore = (await state()).rings;
     if (ringMove) {
@@ -470,13 +531,26 @@ function check(condition, message) {
     check(true, 'closing a loop around the axis makes a ring');
     await page.waitForFunction(() => ['play', 'over', 'complete'].includes(window.__kaltoh.phase) && window.__kaltoh.game.current === 0, null, { timeout: 240000 });
 
-    // 5. Turn the base on open space: the t'an lag, catch up, then hold perfectly still on it.
+    // 5. A drag on open space below the stone, where a finger reaching for the tray might land, turns
+    // nothing. One on the stone turns it: the t'an lag, catch up, then hold perfectly still on it.
     await settle();
     const start = await onBase();
-    await drag({ x: 40, y: 640 }, 160, 0);
+    const open = await page.evaluate(() => {
+      const k = window.__kaltoh;
+      for (let y = 560; y < 800; y += 8) {
+        for (const x of [40, 372, 206]) if (!k.touchesBase(x, y) && !k.touchesAssembly(x, y) && !k.tray.contains(x, y, 16)) return { x, y };
+      }
+      return null;
+    });
+    check(open, `there is open space below the stone (${open?.x}, ${open?.y})`);
+    await drag(open, 160, 0);
+    await sleep(600);
+    const still = await onBase();
+    check(!differ(start.base, still.base, 1e-6) && !differ(start.rel, still.rel, 1e-6), 'a drag there turns nothing');
+    await drag(await stoneSpot({ x: 206, y: 600 }), 160, 0);
     await sleep(300);
     const during = await onBase();
-    check(differ(start.base, during.base, 0.05), 'a drag on open space turns the base');
+    check(differ(start.base, during.base, 0.05), 'a drag on the stone turns the base');
     check(differ(start.rel, during.rel, 0.01), 'the t\'an lag behind it');
     // Software rendering runs the physics slower than the clock: wait for it to come to rest.
     const settledIn = await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 60000, polling: 100 })
@@ -562,7 +636,7 @@ function check(condition, message) {
 
     // 9. Fallen t'an lie where they fell until a new game: some on the stone's lip, some on the
     // floor in front of it - and none in the stone.
-    await drag({ x: 30, y: 420 }, 0, 155);
+    await drag(await stoneSpot({ x: 206, y: 420 }), 0, 155);
     await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1 && !window.__kaltoh.engraving.seen, null, { timeout: 30000 });
     await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
     await page.evaluate(() => {
@@ -682,6 +756,8 @@ function check(condition, message) {
       const k = window.__kaltoh;
       return [k.stage.toScreen(k.tray.restA), k.stage.toScreen(k.tray.restB)].flatMap((p) => [p.x, p.y]);
     });
+    // (Once it has slid in: under software rendering the jumble may still be growing.)
+    await handset.waitForFunction(() => window.__kaltoh.tray.visible && window.__kaltoh.tray.arrive >= 1, null, { timeout: 120000 });
     const trayAt0 = await trayAt();
     let trayDrift = 0;
     for (let i = 0; i < 8; i++) {

@@ -15,7 +15,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import * as K from './classic-rules.js';
 import { PIVOT, SCALE } from './scene.js';
 import { mitreAtJunctions } from './rodmesh.js';
-import { CLASSIC, TEXT, playerText, spell, classicCompleteText } from './texts.js';
+import { CLASSIC, TEXT, playerText, ofText, classicCompleteText } from './texts.js';
 
 // The finished sphere's radius, in assembly units: 0.66 across the world, so its lowest t'an clear
 // the basin with the kal-toh's centre at the pivot.
@@ -627,12 +627,13 @@ export class ClassicGame {
     this.carve();
   }
 
-  // What the carving shows for this game: the players and how to play.
+  // What the carving shows for this game: the players (each one's score, true joins of those
+  // tried) and how to play.
   carve() {
     const game = this.game;
     const seats = Array.from({ length: game.players }, (_, i) => {
-      const joined = game.stats[i].joined;
-      return { now: i === game.current && !game.complete, score: { v: spell(joined), s: String(joined) } };
+      const { joined, discord } = game.stats[i];
+      return { now: i === game.current && !game.complete, score: ofText(joined, joined + discord) };
     });
     const lines = [CLASSIC.lift, CLASSIC.touch, CLASSIC.truth, CLASSIC.angles, CLASSIC.axis, CLASSIC.balance, CLASSIC.goal, TEXT.translate];
     this.ctx.engraving.set({ seats, lines, plays: this.plays, testAllowed: true });
@@ -885,7 +886,7 @@ export class ClassicGame {
   // The spin test, always allowed: it turns on its hidden axis, and if its t'an are not evenly
   // spread about that axis it wobbles as it turns - more, the further from balance.
   spinTest() {
-    const { motion, sound, haptic, say, after, tray } = this.ctx;
+    const { motion, sound, haptic, say, after } = this.ctx;
     if (this.phase !== 'play' && this.phase !== 'complete') return false;
     const wobble = K.wobble(this.game);
     const axis = new THREE.Vector3().fromArray(this.game.axis);
@@ -902,8 +903,8 @@ export class ClassicGame {
       this.plays.push({ player: this.game.current, mark: 'test' });
       this.carve();
     }
+    // The t'an stays in the tray, waiting (it cannot be lifted while the kal-toh spins).
     this.phase = 'testing';
-    tray.hide();
     motion.startSpin(spinAxis, 6, duration);
     sound.spin(duration);
     haptic('lift');
@@ -911,7 +912,6 @@ export class ClassicGame {
     after(duration + 0.2, () => {
       say(wobble.amount > 0.25 ? CLASSIC.wobble : CLASSIC.steady);
       this.phase = wasPlaying ? 'play' : 'complete';
-      if (wasPlaying) tray.refill();
     });
     return true;
   }

@@ -302,9 +302,20 @@ function touchesAssembly(x, y) {
   }
   if (points.length < 3 || !insideHull(hull(points), x, y, 18)) return false;
   if (!baseModel) return true;
-  baseRay.setFromCamera(new THREE.Vector2((x / stage.size.width) * 2 - 1, -(y / stage.size.height) * 2 + 1), stage.camera);
-  const hit = baseRay.intersectObject(baseModel.mesh, false)[0];
+  const hit = stoneAt(x, y);
   return !hit || hit.distance > stage.camera.position.distanceTo(stage.assemblyRoot.position);
+}
+
+// Where the stone lies under a point on screen, if it does.
+function stoneAt(x, y) {
+  baseRay.setFromCamera(new THREE.Vector2((x / stage.size.width) * 2 - 1, -(y / stage.size.height) * 2 + 1), stage.camera);
+  return baseRay.intersectObject(baseModel.mesh, false)[0] ?? null;
+}
+
+// Is a finger on the stone, or within a fingertip of its edge? Only there does a drag turn it.
+const NEAR_STONE = [[0, 0], [18, 0], [-18, 0], [0, 18], [0, -18], [13, 13], [-13, 13], [13, -13], [-13, -13]];
+function touchesBase(x, y) {
+  return Boolean(baseModel) && NEAR_STONE.some(([dx, dy]) => stoneAt(x + dx, y + dy));
 }
 
 // Convex hull (Andrew's monotone chain), counter-clockwise.
@@ -443,15 +454,19 @@ const input = new Input(canvas, {
   },
   pickRod,
   touchesAssembly,
+  touchesBase,
   canLift: () => (way === 'classic' ? classic.canLift() : phase === 'play' && humanTurn() && !hand.holding && !hand.flight),
   canSpin: () => (way === 'classic'
     ? classic.hasRods && !['intro', 'dissolving'].includes(classic.phase)
     : display.size > 0 && phase !== 'intro' && phase !== 'dissolving'),
-  onLift() {
+  onLift(x, y) {
     sound.wake();
-    hand.lift();
+    hand.lift(x, y);
     sound.lift();
     haptic('lift');
+  },
+  onCarry(x, y) {
+    hand.carry(x, y);
   },
   // While carried: blue where it would rest, amber where it cannot; the ring it would make, in
   // ghostly light, if foresight allows.
@@ -659,7 +674,8 @@ function spinTest(who) {
   if (!res.allowed) return;
   plays.push({ player: tester, mark: 'test' });
   phase = 'testing';
-  tray.hide();
+  // The t'an stays in the tray, unless the test spends the turn.
+  if (game.settings.test === 'turn') tray.hide();
   const perRod = new Map();
   for (const b of game.nest.bonds) {
     if (!b.alive) continue;
@@ -1110,7 +1126,7 @@ function step(dt) {
   else drawAssembly();
   falling.draw(pool, halos);
   tray.draw(trayPool, hand);
-  hand.draw(pool, halos);
+  hand.draw(pool, halos, trayPool);
   pool.end();
   trayPool.end();
   halos.end();
@@ -1216,6 +1232,7 @@ window.__kaltoh = {
   setHologram,
   requestSpinTest,
   touchesAssembly,
+  touchesBase,
   baseSurface: (r) => baseModel?.surface(r) ?? 0,
   get aim() {
     return aim;

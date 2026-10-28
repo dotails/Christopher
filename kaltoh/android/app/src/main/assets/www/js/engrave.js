@@ -12,7 +12,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT } from './scene.js';
 import { OPTIONS, TUNING, TUNE_PAGES, tuningText } from './settings.js';
-import { TEXT, vulcanOnly, scoreText, formText, rulesText } from './texts.js';
+import { TEXT, vulcanOnly, scoreText, formText, rulesText, seatText } from './texts.js';
 
 const SIZE = 1024;
 const C = SIZE / 2;
@@ -30,6 +30,9 @@ const RECUT = 0.42; // ... and to be cut again
 const SEEN = 0.08;
 const UNSEEN = 0.02;
 const READOUT = { x: 120, y: 198, w: 784, h: 66 }; // where the tuning pages' live figures are cut
+// Each seat's colour, as the light behind turns on their turn (main.js), painted into the ring about
+// their mark.
+const SEAT_PAINT = ['#d0261c', '#14a04a', '#2a64e0', '#e0a614'];
 
 const canvasOf = (size) => {
   const c = document.createElement('canvas');
@@ -263,6 +266,17 @@ export class Engraving {
     if (lit > 0) draw(glow.getContext('2d'), `rgba(255, 255, 255, ${lit})`);
   }
 
+  // Paint laid into a shallow groove: its colour, flush in the stone, without the cut's lip or glow.
+  paint(draw) {
+    const { color, mask } = this.layer;
+    const g = mask.getContext('2d');
+    g.save();
+    g.globalAlpha = 0.45;
+    draw(g);
+    g.restore();
+    draw(color.getContext('2d'));
+  }
+
   ring(r, width, lit) {
     this.cut((g, color) => {
       g.strokeStyle = color;
@@ -346,31 +360,42 @@ export class Engraving {
   drawMain() {
     const { game, event } = this.state;
     this.line('title', TEXT.title, C, 142, { size: 92, script: true, max: 480, lit: 0.55 });
-    // The players: a mark each (a diamond for a Vulcan), filled for whose turn it is, and a score;
-    // with others at the board, each player's plays beneath.
+    // The players: a mark each (a diamond for a Vulcan), filled for whose turn it is, in a ring
+    // painted their colour, and a score. With others at the board, each seat is named over its
+    // mark and its plays are marked beneath.
     const seats = this.state.seats ?? game?.players.map((p, i) => ({ vulcan: p.vulcan, now: i === game.current && !game.over, score: scoreText(game, p) })) ?? [];
     const plays = this.state.plays ?? [];
+    const named = seats.length > 1;
+    const y = named ? 226 : 200;
     seats.forEach((seat, i) => {
       const x = C + (i - (seats.length - 1) / 2) * 150;
+      if (named) this.line(`name${i}`, seatText(i, seat.vulcan), x, 190, { size: 27, max: 140, lit: seat.now ? 0.5 : 0.24 });
+      this.paint((g) => {
+        g.strokeStyle = SEAT_PAINT[i % SEAT_PAINT.length];
+        g.lineWidth = 6;
+        g.beginPath();
+        g.arc(x, y, 18, 0, Math.PI * 2);
+        g.stroke();
+      });
       this.cut((g, color) => {
         g.fillStyle = color;
         g.strokeStyle = color;
         g.lineWidth = 3;
         g.beginPath();
         if (seat.vulcan) {
-          g.moveTo(x, 189);
-          g.lineTo(x + 11, 200);
-          g.lineTo(x, 211);
-          g.lineTo(x - 11, 200);
+          g.moveTo(x, y - 11);
+          g.lineTo(x + 11, y);
+          g.lineTo(x, y + 11);
+          g.lineTo(x - 11, y);
           g.closePath();
         } else {
-          g.arc(x, 200, 10, 0, Math.PI * 2);
+          g.arc(x, y, 10, 0, Math.PI * 2);
         }
         if (seat.now) g.fill();
         else g.stroke();
       }, seat.now ? 0.95 : 0.3);
-      this.line(`seat${i}`, seat.score, x, 230, { size: 30, max: 140, lit: seat.now ? 0.6 : 0.28 });
-      if (seats.length > 1) this.playMarks(plays.filter((p) => p.player === i).map((p) => p.mark), x, 258, seat.now);
+      this.line(`seat${i}`, seat.score, x, y + 34, { size: 30, max: 140, lit: seat.now ? 0.6 : 0.28 });
+      if (named) this.playMarks(plays.filter((p) => p.player === i).map((p) => p.mark), x, y + 62, seat.now);
     });
     this.line('event', event, C, 352, { size: 38, max: 2 * chord(352) - 90, lit: 0.6 });
     const lines = this.state.lines ?? [TEXT.lift, TEXT.touch, TEXT.ring, TEXT.hold, formText(this.settings.form), TEXT.turn, TEXT.shake, TEXT.translate];
@@ -386,9 +411,9 @@ export class Engraving {
   }
 
   // A player's plays, in order, as small marks beneath their seat (see MARKS): rows of seven, the
-  // latest twenty-eight.
+  // latest twenty-one.
   playMarks(marks, x, y, now) {
-    marks.slice(-28).forEach((mark, i) => {
+    marks.slice(-21).forEach((mark, i) => {
       const mx = x + ((i % 7) - 3) * 18;
       const my = y + Math.floor(i / 7) * 18;
       this.cut((g, color) => MARKS[mark]?.(g, mx, my, color), now ? 0.75 : 0.4);

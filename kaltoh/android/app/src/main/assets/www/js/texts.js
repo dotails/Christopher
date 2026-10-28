@@ -19,7 +19,7 @@ export const vulcanOnly = (text) => text.toLowerCase().replace(/[^a-z ]+/g, '').
 export const TEXT = {
   title: { v: 'kaltoh', s: 'KAL-TOH' },
   begin: { v: 'find the order within the chaos', s: 'Find the order within the chaos' },
-  lift: { v: 'lift a tan with two fingers', s: "Lift a t'an from the tray with two fingers" },
+  lift: { v: 'take up a tan then hold it with two fingers', s: "Take up a t'an from the tray, then hold it with two fingers" },
   touch: { v: 'touch two tan within its reach', s: "Touch two t'an no further apart than its length" },
   ring: { v: 'close a loop around the hidden spin', s: 'Close a loop around the hidden spin: a ring' },
   hold: { v: 'what cannot bear the spin will fall', s: 'What cannot bear the spin will fall' },
@@ -72,6 +72,10 @@ export const TEXT = {
 export const ringText = (k) => ({ v: `a ring of ${spell(k)}`, s: `A ring of ${k}` });
 export const fellText = (n) => ({ v: n === 1 ? 'one tan falls' : `${spell(n)} tan fall`, s: n === 1 ? "A t'an falls" : `${n} t'an fall` });
 export const playerText = (i) => ({ v: `player ${spell(i + 1)}`, s: `Player ${i + 1}` });
+// A seat's name, carved over its mark.
+export const seatText = (i, vulcan) => (vulcan ? { v: 'the vulcan', s: 'The Vulcan' } : playerText(i));
+// So many of so many, as a seat's score: true joins of those tried, say.
+export const ofText = (x, o) => ({ v: `${spell(x)} of ${spell(o)}`, s: `${x}/${o}` });
 export const supplyText = (n) => ({ v: `${spell(n)} tan remain`, s: `${n} t'an remain` });
 
 export function formText(form) {
@@ -126,7 +130,7 @@ export function rulesText(settings) {
 // The original kal-toh's words (classic.js).
 export const CLASSIC = {
   begin: { v: 'find the order within the chaos', s: 'Find the order within the chaos' },
-  lift: { v: 'lift a tan with two fingers', s: "Lift a t'an from the tray with two fingers" },
+  lift: { v: 'take up a tan then hold it with two fingers', s: "Take up a t'an from the tray, then hold it with two fingers" },
   touch: { v: 'touch two tips a tan apart to join them', s: "Touch two tips about a t'an apart to join them" },
   truth: { v: 'true neighbours bring order', s: 'True neighbours bring order; false bonds fall' },
   angles: { v: 'read the angles of each joint', s: 'Joints keep true angles: 60° a triangle, 108° a pentagon' },
