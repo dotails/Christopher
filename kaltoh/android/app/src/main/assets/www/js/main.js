@@ -10,11 +10,12 @@ import { RodPool, Halos, Ghosts } from './rodmesh.js';
 import { Engraving } from './engrave.js';
 import { Motion } from './motion.js';
 import { Falling } from './falling.js';
-import { Tray, Hand } from './tray.js';
+import { Tray, Hand, ROD_LENGTH as RINGS_ROD } from './tray.js';
+import { ClassicGame } from './classic.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { TEXT, ringText, fellText, playerText, completeText, winnerText, supplyText } from './texts.js';
-import { loadSettings, saveSettings, gameOptions, DEFAULT_TUNING } from './settings.js';
+import { loadSettings, saveSettings, gameOptions, shapeOf, DEFAULT_TUNING } from './settings.js';
 import { ShakeDetector } from './shake.js';
 import { native } from './native.js';
 import { Head } from './head.js';
@@ -39,6 +40,11 @@ let motion = null;
 let falling = null;
 let baseModel = null;
 let engraving = null;
+// The game being played: the original kal-toh (classic.js), or rings round the hidden spin (the
+// rest of this file). A change of game in the ways to play waits for the next one.
+let classic = null;
+let way = 'classic';
+let begunWith = ''; // the ways the game was begun with (settings.js shapeOf)
 
 const insets = { top: 0, bottom: 0 };
 const quality = { maxDpr: 2, time: 0, frames: 0 };
@@ -236,6 +242,7 @@ function drawAssembly() {
 // Picking: the t'an under a finger, and where along it.
 const rayTmp = new THREE.Ray();
 function pickRod(x, y, reach = 30) {
+  if (way === 'classic') return classic.pick(x, y, reach);
   if (!game) return null;
   let best = null;
   let front = Infinity;
@@ -276,9 +283,9 @@ function segmentDistance(x, y, a, b) {
 const baseRay = new THREE.Raycaster();
 function touchesAssembly(x, y) {
   const points = [];
-  for (const e of display.values()) {
-    if (e.anim) continue;
-    for (const p of [e.wa, e.wb]) {
+  const rods = way === 'classic' ? classic.worldRods() : [...display.values()].filter((e) => !e.anim).map((e) => [e.wa, e.wb]);
+  for (const [a, b] of rods) {
+    for (const p of [a, b]) {
       const s = stage.toScreen(p);
       points.push([s.x, s.y]);
     }
@@ -331,14 +338,27 @@ function humanTurn() {
 }
 
 function newGame() {
-  game = R.createGame({ ...gameOptions(settings), seed: nextSeed });
-  nextSeed = undefined;
+  way = settings.way;
+  begunWith = shapeOf(settings);
+  engraving.set({ pending: false });
   display.clear();
   falling.clear();
   timers.length = 0;
   completeGlow = 0;
   testGlow = null;
   aim = null;
+  if (way === 'classic') {
+    game = null;
+    refreshStrain();
+    phase = 'classic';
+    classic.newGame(nextSeed);
+    nextSeed = undefined;
+    return;
+  }
+  game = R.createGame({ ...gameOptions(settings), seed: nextSeed });
+  nextSeed = undefined;
+  tray.length = RINGS_ROD;
+  motion.resetPlace();
   refreshStrain();
   // The nest gathers: the centre mass first, then each t'an flies in along its line and sticks.
   const rods = [...game.nest.liveRods].sort((p, q) => (p.kind === 'core' ? 0 : 1) - (q.kind === 'core' ? 0 : 1) || p.id - q.id);
@@ -362,7 +382,7 @@ function newGame() {
   });
   phase = 'intro';
   tray.hide();
-  engraving.set({ game, testAllowed: game.settings.test !== 'off' });
+  engraving.set({ game, seats: null, lines: null, testAllowed: game.settings.test !== 'off' });
   say(TEXT.begin);
   after(span + 0.7, () => {
     syncDisplay();
@@ -412,8 +432,10 @@ const input = new Input(canvas, {
   },
   pickRod,
   touchesAssembly,
-  canLift: () => phase === 'play' && humanTurn() && !hand.holding && !hand.flight,
-  canSpin: () => display.size > 0 && phase !== 'intro' && phase !== 'dissolving',
+  canLift: () => (way === 'classic' ? classic.canLift() : phase === 'play' && humanTurn() && !hand.holding && !hand.flight),
+  canSpin: () => (way === 'classic'
+    ? classic.hasRods && !['intro', 'dissolving'].includes(classic.phase)
+    : display.size > 0 && phase !== 'intro' && phase !== 'dissolving'),
   onLift() {
     sound.wake();
     hand.lift();
@@ -423,6 +445,10 @@ const input = new Input(canvas, {
   // While carried: blue where it would rest, amber where it cannot; the ring it would make, in
   // ghostly light, if foresight allows.
   onAim([ta, tb], f1, f2) {
+    if (way === 'classic') {
+      classic.aim([ta, tb], f1, f2);
+      return;
+    }
     let pose = null;
     let ring = null;
     let refused = false;
@@ -453,6 +479,10 @@ const input = new Input(canvas, {
     }
   },
   onRelease() {
+    if (way === 'classic') {
+      classic.release();
+      return;
+    }
     const chosen = aim?.pose;
     aim = null;
     aimKey = '';
@@ -590,6 +620,10 @@ function celebrate(result) {
 
 // A player asks to watch it spin: allowed on their own turn, with nothing in hand.
 function requestSpinTest() {
+  if (way === 'classic') {
+    if (!classic.spinTest()) say(TEXT.testNotNow);
+    return;
+  }
   if (game.settings.test === 'off') {
     say(TEXT.testOff);
     return;
@@ -715,7 +749,18 @@ async function vulcanTurn() {
 // --- Beginning anew --------------------------------------------------------------------------
 
 function restart() {
-  if (phase === 'loading' || phase === 'dissolving') return;
+  if (phase === 'loading' || phase === 'dissolving' || classic?.phase === 'dissolving') return;
+  if (way === 'classic') {
+    hand.holding = false;
+    hand.flight = null;
+    tray.hide();
+    timers.length = 0;
+    classic.dissolve();
+    sound.dissolve();
+    haptic('restart');
+    after(1.6, newGame);
+    return;
+  }
   phase = 'dissolving';
   hand.holding = false;
   hand.flight = null;
@@ -745,7 +790,8 @@ function showHeadStatus(status, announce, source) {
     saveSettings(settings);
   }
   if (!announce) return;
-  const text = { on: TEXT.hologramOn, off: TEXT.hologramOff, denied: TEXT.hologramDenied, unavailable: TEXT.hologramUnavailable }[status];
+  // Switched on, it first looks for the eyes; the carving says so again once they are found.
+  const text = { on: TEXT.hologramLooking, off: TEXT.hologramOff, denied: TEXT.hologramDenied, unavailable: TEXT.hologramUnavailable }[status];
   if (text) say(text);
 }
 
@@ -788,11 +834,13 @@ function reveal() {
 }
 
 // The carving's glyphs and ways.
-function onEngravedAction(name) {
+function onEngravedAction(name, to) {
   sound.wake();
   haptic('tick');
   if (name === 'translate' || name === 'page') {
     sound.hover();
+    // Back from the ways with changes that wait for a new game: say so.
+    if (to === 'main' && engraving.state.pending) say(TEXT.pending);
   } else if (name === 'test') {
     requestSpinTest();
   } else if (name === 'lens') {
@@ -825,6 +873,7 @@ function onEngravedTune(key) {
 
 function onEngravedOption(key, value) {
   saveSettings(settings);
+  engraving.set({ pending: shapeOf(settings) !== begunWith });
   sound.wake();
   haptic('tick');
   if (key === 'sound') sound.muted = !value;
@@ -837,7 +886,7 @@ function onEngravedOption(key, value) {
 
 const shake = new ShakeDetector({
   onProgress(p) {
-    shaking = phase === 'dissolving' || hand.holding ? 0 : p;
+    shaking = phase === 'dissolving' || classic?.phase === 'dissolving' || hand.holding ? 0 : p;
     if (shaking > 0.1) sound.rattle(p);
   },
   onComplete: () => {
@@ -898,9 +947,23 @@ function holograph(dt) {
   readoutAge += dt;
   if (readoutAge > 0.5 && engraving.page === 'tune' && engraving.seen) {
     readoutAge = 0;
-    engraving.setReadout(head.readout());
+    engraving.setReadout(head.readout(tracker));
+  }
+  // The carving says when the eyes are found, and when they are lost for a while.
+  const seeing = head.seeing;
+  if (head.active && seeing !== lastSeeing) {
+    lostFor = seeing ? 0 : lostFor + dt;
+    if (seeing || lostFor > 3) {
+      lastSeeing = seeing;
+      say(seeing ? TEXT.hologramOn : TEXT.hologramLooking);
+    }
+  } else if (!head.active) {
+    lastSeeing = null;
+    lostFor = 0;
   }
 }
+let lastSeeing = null;
+let lostFor = 0;
 
 function adapt(dt) {
   quality.time += dt;
@@ -935,7 +998,8 @@ function step(dt) {
   holograph(dt);
   readingView(dt);
   stage.update();
-  animate(dt);
+  if (way === 'classic') classic.update(dt);
+  else animate(dt);
   motion.update(dt);
   motion.apply(stage);
   if (motion.scrape > 0.25) sound.scrape(motion.scrape);
@@ -949,7 +1013,8 @@ function step(dt) {
   pool.begin();
   halos.begin();
   ghosts.begin();
-  drawAssembly();
+  if (way === 'classic') falling.obstacles = classic.draw(pool, halos, shaking);
+  else drawAssembly();
   falling.draw(pool, halos);
   tray.draw(pool, hand);
   hand.draw(pool, halos);
@@ -977,6 +1042,12 @@ async function start() {
   baseModel = base;
   motion = new Motion(base);
   falling = new Falling(motion, base, sound);
+  classic = new ClassicGame({
+    stage, motion, falling, tray, hand, sound, haptic, say, settings, after, base,
+    get engraving() {
+      return engraving;
+    },
+  });
   engraving = new Engraving(stage, {
     settings,
     stone: base.mesh.material.map?.image,
@@ -1018,7 +1089,17 @@ window.__kaltoh = {
     return game;
   },
   get phase() {
-    return phase;
+    return way === 'classic' ? classic?.phase ?? phase : phase;
+  },
+  get classic() {
+    return classic;
+  },
+  get way() {
+    return way;
+  },
+  // The seed of the next game begun (for tests).
+  set seed(v) {
+    nextSeed = v >>> 0;
   },
   restart,
   commit,

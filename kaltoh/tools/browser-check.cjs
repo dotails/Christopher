@@ -1,5 +1,8 @@
-// Plays the real game in headless Chromium and checks it end to end, through simulated touch:
-// a two-finger lift and placement, the Vulcan's reply, a spin test (two taps on the t'an), a ring,
+// Plays the real game in headless Chromium and checks it end to end, through simulated touch.
+// First the original kal-toh, the way to play on first opening: the jumble grows, a two-finger
+// lift joins two true neighbours, a false bond falls, two taps test the spin, and nothing passes
+// into the stone. Then, through the carved ways to play (turning their pages by the arrows at the
+// rim), the game of rings: a two-finger lift and placement, the Vulcan's reply, a spin test, a ring,
 // turning the base (the t'an lag, catch up, and then hold perfectly still on it), spinning the
 // t'an by dragging their area, t'an never passing into the stone, turning the base over to read
 // its underside (whichever way it was turned, the carving reads with its top up), touching the
@@ -91,10 +94,14 @@ function check(condition, message) {
     });
     const differ = (a, b, tol) => a.some((x, i) => Math.abs(x - b[i]) > tol);
 
+    // The original game is the way to play at first; these ways wait for the game of rings.
     await page.addInitScript(() => {
-      localStorage.setItem('kaltoh.settings.v2', JSON.stringify({ opponent: 'adept', foresight: 'always', test: 'free' }));
+      if (!sessionStorage.getItem('kaltoh.check')) {
+        sessionStorage.setItem('kaltoh.check', '1');
+        localStorage.setItem('kaltoh.settings.v2', JSON.stringify({ opponent: 'adept', foresight: 'always', test: 'free' }));
+      }
     });
-    await page.goto(`${base}?seed=42`);
+    await page.goto(`${base}?seed=7`);
     await waitFor(['intro', 'play']);
     // Software rendering is slow; keep game time close to wall time.
     const pace = async () => {
@@ -108,11 +115,158 @@ function check(condition, message) {
       return fps;
     };
     await pace();
+    // How near any t'an comes to the stone: its edge (half its width from its centre line) against
+    // the stone's surface, finely along its whole length - over the basin's lip too.
+    await page.evaluate(() => {
+      const k = window.__kaltoh;
+      const V = k.stage.camera.position.constructor;
+      const local = new V();
+      const point = new V();
+      window.nearest = (rods) => {
+        let worst = Infinity;
+        for (const [a, b] of rods) {
+          for (let i = 0; i <= 40; i++) {
+            k.motion.baseLocal(point.lerpVectors(a, b, i / 40), local);
+            const r = Math.hypot(local.x, local.z);
+            if (r >= 0.98 || local.y < -0.014) continue;
+            worst = Math.min(worst, local.y - 0.014 - k.baseSurface(r));
+          }
+        }
+        return worst;
+      };
+      // Every t'an of the original game, its two shells and the struts between, as world ends.
+      window.classicRods = () => {
+        const s = k.classic.structure;
+        const rods = k.classic.worldRods().map(([a, b]) => [a, b]);
+        for (const r of s.inner.rods) if (r.appear >= 1) rods.push([s.toWorld(r.wa, r.wa.clone()), s.toWorld(r.wb, r.wb.clone())]);
+        return rods;
+      };
+    });
+    const nothingWritten = () => page.evaluate(() => [...document.body.querySelectorAll('*')]
+      .every((el) => el.id === 'note' || !(el.textContent || '').trim() || el.tagName === 'SCRIPT' || el.tagName === 'STYLE'));
+
+    // 0. The original kal-toh, the way to play at first.
+    check(await page.evaluate(() => window.__kaltoh.way === 'classic'), 'the original kal-toh is the way to play at first');
     await waitFor(['play']);
+    check(await page.evaluate(() => window.__kaltoh.classic.worldRods().length === 29 && window.__kaltoh.classic.structure.inner.rods.length === 90),
+      'its jumble grows: twenty-nine t\'an twisted out of their order, ninety more tangled through them');
+    check(await nothingWritten(), 'nothing is written on the screen');
+    await page.screenshot({ path: path.join(OUT, '0-jumble.png') });
+    // Two tips to join, under two fingers: true neighbours, or (for discord) not.
+    async function findJoin(kind) {
+      await settle();
+      return page.evaluate(async (kind) => {
+        const K = await import('/js/classic-rules.js');
+        const k = window.__kaltoh;
+        const c = k.classic;
+        const lattice = K.buildLattice();
+        // For each tip, the spot nearest it (a little way along its t'an) that picks it.
+        const spots = new Map();
+        for (let y = 120; y < 600; y += 4) {
+          for (let x = 10; x < 402; x += 4) {
+            const p = k.pickRod(x, y);
+            if (!p) continue;
+            const t = k.stage.toScreen(c.tipWorld(p.tip));
+            const d = Math.hypot(t.x - x, t.y - y);
+            const steady = [[-3, 0], [3, 0], [0, -3], [0, 3]].every(([dx, dy]) => k.pickRod(x + dx, y + dy)?.tip === p.tip);
+            if (d < 6 || !steady) continue;
+            if (!spots.has(p.tip) || d < spots.get(p.tip).d) spots.set(p.tip, { x, y, d });
+          }
+        }
+        for (const [u, a] of spots) {
+          for (const [v, b] of spots) {
+            if (u >= v || Math.hypot(a.x - b.x, a.y - b.y) < 50) continue;
+            if (K.judge(c.game, u, v).kind !== kind) continue;
+            return { u, v, a: { x: a.x, y: a.y + 10 }, b: { x: b.x, y: b.y + 10 } };
+          }
+        }
+        return null;
+      }, kind);
+    }
+    let join = await findJoin('harmony');
+    check(join, 'two true neighbours can be found on screen');
+    const joining = await place(join, '0b-joining.png');
+    check(joining.pose && joining.glow > 0.9, 'carried over two tips, the t\'an shows where it will join them, glowing blue');
+    await page.waitForFunction(() => window.__kaltoh.classic.game.history.length >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
+    check(await page.evaluate(() => window.__kaltoh.classic.game.history[0].kind === 'harmony'), 'joining true neighbours brings harmony');
+    join = await findJoin('discord');
+    check(join, 'two tips that are not neighbours can be found on screen');
+    await place(join);
+    await page.waitForFunction(() => window.__kaltoh.classic.game.history.length >= 2, null, { timeout: 60000 });
+    check(await page.evaluate(() => window.__kaltoh.classic.game.history[1].kind === 'discord'), 'a false bond is discord');
+    await page.waitForFunction(() => window.__kaltoh.falling.rods.length >= 1, null, { timeout: 20000 });
+    check(true, 'and its t\'an falls away');
+    await waitFor(['play']);
+    await settle();
+    const touchSpot = () => page.evaluate(() => {
+      const k = window.__kaltoh;
+      for (let y = 220; y < 480; y += 12) for (let x = 110; x < 310; x += 12) if (k.touchesAssembly(x, y)) return { x, y };
+      return null;
+    });
+    // Two taps in quick succession. (Dispatched together in the page: under software rendering
+    // each touch sent from outside arrives a frame late, too slow to count as a double tap.)
+    const doubleTap = (spot) => page.evaluate(({ x, y }) => {
+      const canvas = document.getElementById('view');
+      for (let i = 0; i < 2; i++) {
+        for (const type of ['pointerdown', 'pointerup']) {
+          canvas.dispatchEvent(new PointerEvent(type, { pointerId: 40 + i, clientX: x, clientY: y, bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true }));
+        }
+      }
+    }, spot);
+    await doubleTap(await touchSpot());
+    await page.waitForFunction(() => window.__kaltoh.phase === 'testing', null, { timeout: 20000 });
+    let closest = Infinity;
+    for (let i = 0; i < 12; i++) {
+      closest = Math.min(closest, await page.evaluate(() => window.nearest(window.classicRods())));
+      await sleep(150);
+    }
+    await page.screenshot({ path: path.join(OUT, '0c-spin-test.png') });
+    check(true, 'two taps on it test the spin');
+    await waitFor(['play']);
+    closest = Math.min(closest, await page.evaluate(() => window.nearest(window.classicRods())));
+    check(closest > -0.002, `none of its t'an pass into the stone, at rest or spinning (closest ${closest.toFixed(3)})`);
+
+    // Turn the base over, and choose the game of rings in the carved ways to play. A change of
+    // game waits for a new one; the ways turn their pages by arrows at the rim.
+    const where = (id, kind) => page.evaluate(([id, kind]) => window.__kaltoh.engraving.screenOf(id, kind), [id, kind]);
+    const carved = (id) => page.evaluate((id) => window.__kaltoh.engraving.regions.some((r) => r.id === id), id);
+    const recut = () => page.waitForFunction(() => window.__kaltoh.engraving.phase === 'still', null, { timeout: 10000 });
+    const turnOver = async () => {
+      await settle();
+      await drag({ x: 30, y: 700 }, 0, -155);
+      await page.waitForFunction(() => window.__kaltoh.stage.view.read.k > 0.9, null, { timeout: 30000 });
+      await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
+    };
+    await turnOver();
+    await tap(await where('ways', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
+    await recut();
+    check(!(await carved('more')) && !(await carved('prev')), 'the original game\'s ways fit on one page, with no arrows');
+    await tap(await where('row:way', 'value'));
+    await sleep(500);
+    check(await page.evaluate(() => window.__kaltoh.settings.way === 'rings' && window.__kaltoh.engraving.state.pending), 'touching the game changes it, to begin anew');
+    check(await carved('more') && !(await carved('prev')), 'the game of rings has more ways: an arrow at the rim turns to them');
+    await tap(await where('more', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.engraving.wayPage === 1, null, { timeout: 10000 });
+    await recut();
+    await page.screenshot({ path: path.join(OUT, '0d-ways-page.png') });
+    check(await carved('prev'), 'and an arrow on the other side turns back');
+    await tap(await where('prev', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.engraving.wayPage === 0, null, { timeout: 10000 });
+    await recut();
+    await page.evaluate(() => {
+      window.__kaltoh.seed = 42;
+    });
+    await tap(await where('anew', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.way === 'rings', null, { timeout: 30000 });
+    await page.evaluate(() => window.__kaltoh.engraving.show('main'));
+    await drag({ x: 30, y: 420 }, 0, 155);
+    await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1, null, { timeout: 30000 });
+    await waitFor(['play']);
+    check(await page.evaluate(() => window.__kaltoh.falling.rods.length === 0), 'beginning anew plays the game of rings');
+
     let s = await state();
     check(s.rods >= 40, `the nest gathers about its centre mass (${s.rods} t'an)`);
-    check(await page.evaluate(() => [...document.body.querySelectorAll('*')].every((el) => el.id === 'note' || !(el.textContent || '').trim() || el.tagName === 'SCRIPT' || el.tagName === 'STYLE')),
-      'nothing is written on the screen');
     await page.screenshot({ path: path.join(OUT, '1-nest.png') });
 
     // Let the assembly come to rest, so what is found on screen stays where it was found.
@@ -194,8 +348,9 @@ function check(condition, message) {
       await sleep(200);
       if (shot) await page.screenshot({ path: path.join(OUT, shot) });
       const held = await page.evaluate(() => {
-        const a = window.__kaltoh.aim;
-        return { pose: Boolean(a?.pose), ring: a?.ring?.k ?? 0, glow: window.__kaltoh.hand.glow };
+        const k = window.__kaltoh;
+        const a = k.aim;
+        return { pose: k.way === 'classic' ? Boolean(k.classic.aimed) : Boolean(a?.pose), ring: a?.ring?.k ?? 0, glow: k.hand.glow };
       });
       await touch('touchEnd', [f2]);
       await sleep(30);
@@ -218,22 +373,9 @@ function check(condition, message) {
 
     // 3. Two quick taps on the t'an test the spin (free in this game).
     await settle();
-    const spot = await page.evaluate(() => {
-      const k = window.__kaltoh;
-      for (let y = 220; y < 480; y += 12) for (let x = 110; x < 310; x += 12) if (k.touchesAssembly(x, y)) return { x, y };
-      return null;
-    });
+    const spot = await touchSpot();
     check(spot, 'the t\'an have an area to touch');
-    // Two taps in quick succession. (Dispatched together in the page: under software rendering
-    // each touch sent from outside arrives a frame late, too slow to count as a double tap.)
-    await page.evaluate(({ x, y }) => {
-      const canvas = document.getElementById('view');
-      for (let i = 0; i < 2; i++) {
-        for (const type of ['pointerdown', 'pointerup']) {
-          canvas.dispatchEvent(new PointerEvent(type, { pointerId: 40 + i, clientX: x, clientY: y, bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true }));
-        }
-      }
-    }, spot);
+    await doubleTap(spot);
     await page.waitForFunction(() => window.__kaltoh.phase === 'testing', null, { timeout: 20000 });
     await sleep(1200);
     await page.screenshot({ path: path.join(OUT, '4-spin-test.png') });
@@ -295,43 +437,18 @@ function check(condition, message) {
     const after = await onBase();
     check(differ(before.rel, after.rel, 0.05), 'dragging the t\'an\'s area turns the assembly on its base');
     check(!differ(before.base, after.base, 1e-6), 'without turning the base');
-    // How near any t'an comes to the stone: its edge (half its width from its centre line) against
-    // the stone's surface, finely along its whole length - over the basin's lip too.
-    await page.evaluate(() => {
-      const k = window.__kaltoh;
-      const V = k.stage.camera.position.constructor;
-      const local = new V();
-      const point = new V();
-      window.nearest = (rods) => {
-        let worst = Infinity;
-        for (const [a, b] of rods) {
-          for (let i = 0; i <= 40; i++) {
-            k.motion.baseLocal(point.lerpVectors(a, b, i / 40), local);
-            const r = Math.hypot(local.x, local.z);
-            if (r >= 0.98 || local.y < -0.014) continue;
-            worst = Math.min(worst, local.y - 0.014 - k.baseSurface(r));
-          }
-        }
-        return worst;
-      };
-    });
     const clearance = await page.evaluate(() => window.nearest([...window.__kaltoh.display.values()].map((e) => [e.wa, e.wb])));
     check(clearance > -0.002, `the t'an never pass into the stone (closest ${clearance.toFixed(3)})`);
 
     // 7. Turn the base over: its underside comes to the eye to be read, top up whichever way the
     // base had been turned before.
-    await settle();
-    await drag({ x: 30, y: 700 }, 0, -155);
-    await page.waitForFunction(() => window.__kaltoh.stage.view.read.k > 0.9, null, { timeout: 30000 });
+    await turnOver();
     check(true, 'turned over, the base brings its carved underside to the eye');
-    await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
-    const where = (id, kind) => page.evaluate(([id, kind]) => window.__kaltoh.engraving.screenOf(id, kind), [id, kind]);
     const title = await where('title');
     const glyphs = await where('ways', 'button');
     check(title.y < glyphs.y - 100 && Math.abs(title.x - glyphs.x) < 140, 'its carving reads with its top up');
     await page.screenshot({ path: path.join(OUT, '8-underside.png') });
     // Touch the carving: all of it is smoothed away and cut again in Standard; again: Vulcan.
-    const recut = () => page.waitForFunction(() => window.__kaltoh.engraving.phase === 'still', null, { timeout: 10000 });
     await tap(await where('l0'));
     await page.waitForFunction(() => window.__kaltoh.engraving.depth.value < 0.5, null, { timeout: 10000, polling: 'raf' });
     await recut();
@@ -359,7 +476,12 @@ function check(condition, message) {
     await tap(await where('step:depth', 'step'));
     await sleep(400);
     check(await page.evaluate((d) => window.__kaltoh.settings.holo.depth === d, depthBefore), 'and down when its left is');
+    check(await carved('tune:hologram'), 'the tuning begins with the hologram itself, on or off');
     await page.screenshot({ path: path.join(OUT, '10b-tuning.png') });
+    await tap(await where('more', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.engraving.tunePage === 1, null, { timeout: 10000 });
+    await recut();
+    check(await carved('step:steady+') && await carved('prev'), 'an arrow at the rim turns to how it follows the eyes');
     await tap(await where('back', 'button'));
     await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
     await recut();

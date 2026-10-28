@@ -1,7 +1,7 @@
 // Finds the player's eyes in the front camera's frames, away from the page's own thread so the
 // kal-toh keeps its frame rate: MediaPipe's face landmarker, whose iris landmarks give each eye's
-// centre and size to a fraction of a pixel. Frames arrive as ImageBitmaps (see tracker.js); for
-// each, the two irises go back, or none if no face is seen.
+// centre and size to a fraction of a pixel. Frames arrive as ImageBitmaps or VideoFrames (see
+// tracker.js); for each, the two irises go back, or none if no face is seen.
 const BASE = new URL('../vendor/mediapipe/', import.meta.url).href;
 
 // MediaPipe narrates its loading on the console (as warnings, even errors); none of it matters here.
@@ -59,15 +59,21 @@ self.onmessage = async ({ data }) => {
   }
   if (data.type !== 'frame') return;
   const { frame, time, capture } = data;
-  const reply = { type: 'eyes', capture, width: frame.width, height: frame.height, eyes: null };
+  let image = frame;
+  const reply = { type: 'eyes', capture, width: 0, height: 0, eyes: null };
   try {
-    const points = landmarker?.detectForVideo(frame, time).faceLandmarks?.[0];
+    // A frame straight from the camera's track (a VideoFrame) is turned into a picture first.
+    if (typeof VideoFrame !== 'undefined' && frame instanceof VideoFrame) image = await createImageBitmap(frame);
+    reply.width = image.width;
+    reply.height = image.height;
+    const points = landmarker?.detectForVideo(image, time).faceLandmarks?.[0];
     if (points && points.length >= 478) {
-      reply.eyes = [iris(points, 468, frame.width, frame.height), iris(points, 473, frame.width, frame.height)];
+      reply.eyes = [iris(points, 468, image.width, image.height), iris(points, 473, image.width, image.height)];
     }
   } catch (err) {
     reply.error = String(err?.message ?? err);
   }
+  if (image !== frame) image.close();
   frame.close();
   self.postMessage(reply);
 };

@@ -153,6 +153,18 @@ export class Motion {
     return this.mode !== 'held';
   }
 
+  // A new kal-toh takes its place square on the base, at rest.
+  resetPlace() {
+    this.q.copy(this.baseQ);
+    this.anchor.identity();
+    this.w.copy(this.baseW);
+    this.pos.set(0, 0, 0);
+    this.vel.set(0, 0, 0);
+    this.mode = 'held';
+    this.spin = null;
+    this.wake();
+  }
+
   // Its place on the base becomes wherever it is now.
   keepPlace() {
     this.anchor.copy(this.baseQ).invert().multiply(this.q);

@@ -37,6 +37,7 @@ export const TEXT = {
   lifeLost: { v: 'a life is lost', s: 'A life is lost' },
   quickens: { v: 'the spin quickens', s: 'The spin quickens' },
   hologramOn: { v: 'it follows your eyes', s: 'Hologram: the view follows your eyes' },
+  hologramLooking: { v: 'looking for your eyes', s: 'Hologram: looking for your eyes' },
   hologramOff: { v: 'the view is still', s: 'Hologram off' },
   hologramDenied: { v: 'the camera was refused', s: 'The hologram needs the front camera' },
   hologramUnavailable: { v: 'no camera to follow you', s: 'No front camera for the hologram' },
@@ -44,17 +45,21 @@ export const TEXT = {
   // Glyph labels.
   ways: { v: 'ways', s: 'Ways to play' },
   test: { v: 'spin', s: 'Test the spin' },
-  lens: { v: 'eyes', s: 'Hologram' },
+  lensOn: { v: 'eyes open', s: 'Hologram on' },
+  lensOff: { v: 'eyes closed', s: 'Hologram off' },
   anew: { v: 'anew', s: 'Begin anew' },
   rules: { v: 'rules', s: 'Rules' },
   back: { v: 'return', s: 'Return' },
-  more: { v: 'more', s: 'More' },
   waysTitle: { v: 'ways to play', s: 'Ways to play' },
   tune: { v: 'tune', s: 'Tune the hologram' },
   tuneTitle: { v: 'the hologram', s: 'Hologram tuning' },
   centre: { v: 'centre', s: 'Recentre' },
   reset: { v: 'as made', s: 'Defaults' },
   rulesTitle: { v: 'the rules', s: 'The rules' },
+  pending: { v: 'begin anew to play this way', s: 'Begin anew to play this way' },
+  hologramRow: { v: 'hologram', s: 'Hologram' },
+  hologramRowOn: { v: 'on the view follows your eyes', s: 'On: the view follows your eyes' },
+  hologramRowOff: { v: 'off touch to turn it on', s: 'Off: touch to turn it on' },
 };
 
 export const ringText = (k) => ({ v: `a ring of ${spell(k)}`, s: `A ring of ${k}` });
@@ -95,6 +100,7 @@ export function winnerText(game, v = '', s = '') {
 }
 
 export function rulesText(settings) {
+  if (settings.way !== 'rings') return CLASSIC_RULES;
   const form = FORMS[settings.form] ?? FORMS.globe;
   return [
     { v: 'the tan cling where they touch', s: "The t'an cling where they touch" },
@@ -108,4 +114,49 @@ export function rulesText(settings) {
     { v: `this form needs ${spell(form.rings)} rings`, s: `This form needs ${form.rings} rings.` },
     { v: 'a ring scores its tan a fall costs them', s: "A ring scores its t'an; a fall costs them." },
   ];
+}
+
+// The original kal-toh's words (classic.js).
+export const CLASSIC = {
+  begin: { v: 'find the order within the chaos', s: 'Find the order within the chaos' },
+  lift: { v: 'lift a tan with two fingers', s: "Lift a t'an from the tray with two fingers" },
+  touch: { v: 'touch two tan to join their tips', s: "Touch two t'an to join their tips with it" },
+  truth: { v: 'true neighbours bring order', s: 'True neighbours bring order; false bonds fall' },
+  angles: { v: 'read the angles of each joint', s: 'Joints keep true angles: 60° a triangle, 108° a pentagon' },
+  axis: { v: 'it spins on a hidden axis', s: 'It spins on a hidden axis: two taps on it test the spin' },
+  balance: { v: 'build evenly round the axis', s: "Build evenly round the axis, or the spin flings t'an away" },
+  goal: { v: 'complete the sphere', s: "Complete the sphere: sixty t'an round two shells" },
+  aimSame: { v: 'choose two different tips', s: 'Choose two different tips' },
+  aimJoined: { v: 'already joined', s: 'Those tips are already joined' },
+  harmony: { v: 'harmony', s: 'Harmony. Order emerges.' },
+  hoop: { v: 'a great hoop is closed', s: 'A great hoop is closed' },
+  discord: { v: 'discord', s: 'Discord. The bond fails.' },
+  shaken: { v: 'discord', s: "Discord. A t'an is shaken loose." },
+  flung: { v: 'the spin flings it away', s: 'Unbalanced. The spin flings it away.' },
+  wobble: { v: 'it wobbles', s: 'It wobbles. Restore its balance.' },
+  steady: { v: 'it spins true', s: 'It spins true: balanced about its axis' },
+  testing: { v: 'it spins on its hidden axis', s: 'It spins on its hidden axis' },
+};
+
+const CLASSIC_RULES = [
+  { v: 'the jumble hides a sphere', s: 'The jumble hides a sphere:' },
+  { v: 'two shells of tan joined tip to tip', s: "two shells of t'an, joined tip to tip." },
+  { v: 'each tip has four true neighbours', s: 'Each tip has four true neighbours.' },
+  { v: 'join two tips with a tan from the tray', s: "Join two tips with a t'an from the tray:" },
+  { v: 'true neighbours bring harmony and order', s: 'true neighbours bring harmony and order,' },
+  { v: 'a false bond fails and shakes one loose', s: 'a false bond fails and shakes one loose.' },
+  { v: 'it spins on a hidden axis', s: 'It spins on a hidden axis: build evenly' },
+  { v: 'build evenly or the spin flings tan away', s: "round it, or the spin flings t'an away." },
+  { v: 'two taps test the spin a wobble warns', s: 'Two taps test the spin; a wobble warns.' },
+  { v: 'sixty tan complete the sphere', s: "Sixty t'an complete the sphere." },
+];
+
+export function classicCompleteText(game) {
+  if (game.players > 1) {
+    const w = game.winner;
+    return { v: `player ${spell(w + 1)} completes the sphere`, s: `Player ${w + 1} completes the sphere` };
+  }
+  const s = game.stats[0];
+  const moves = s.joined + s.discord + s.flung;
+  return { v: `the sphere is complete in ${spell(moves)} moves`, s: `The sphere is complete in ${moves} moves, ${s.fallen} fallen` };
 }

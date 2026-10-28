@@ -5,7 +5,8 @@ import * as THREE from '../vendor/three.module.min.js';
 import { ROD_LENGTH as RULE_LENGTH } from './rules.js';
 import { SCALE } from './scene.js';
 
-const ROD_LENGTH = RULE_LENGTH * SCALE;
+// The rings game's t'an; the original kal-toh's are shorter (the game sets `length`).
+export const ROD_LENGTH = RULE_LENGTH * SCALE;
 
 const ease = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 
@@ -19,6 +20,7 @@ export class Tray {
     this.restB = new THREE.Vector3();
     this.restUp = new THREE.Vector3();
     this.time = 0;
+    this.length = ROD_LENGTH; // of the t'an it holds, in world units
   }
 
   layout(y) {
@@ -47,7 +49,7 @@ export class Tray {
     const { camera, size } = this.stage;
     // Depth at which one t'an spans about half the screen's width.
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const depth = ROD_LENGTH / (1.0 * t * camera.aspect);
+    const depth = this.length / (1.0 * t * camera.aspect);
     const forward = camera.getWorldDirection(new THREE.Vector3());
     const anchor = camera.position.clone().addScaledVector(forward, depth);
     const slide = (1 - ease(this.arrive)) * size.width * 0.9;
@@ -108,8 +110,8 @@ export class Hand {
     if (dir.lengthSq() < 1e-8) dir.set(1, 0, 0);
     dir.normalize();
     const middle = pa.add(pb).multiplyScalar(0.5);
-    this.goalA.copy(middle).addScaledVector(dir, -ROD_LENGTH / 2);
-    this.goalB.copy(middle).addScaledVector(dir, ROD_LENGTH / 2);
+    this.goalA.copy(middle).addScaledVector(dir, -this.tray.length / 2);
+    this.goalB.copy(middle).addScaledVector(dir, this.tray.length / 2);
     this.glow = !refused && (touchA || touchB) ? 0.35 : 0;
   }
 

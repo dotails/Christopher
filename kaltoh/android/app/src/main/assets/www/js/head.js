@@ -192,20 +192,30 @@ export class Head {
     this.view.z = clamp(r.z + (z - r.z) * lean, 60, 2000);
   }
 
-  // What the tuning page shows of the tracking now.
-  readout() {
+  // Whether the eyes have been seen lately (while on).
+  get seeing() {
+    return this.active && this.last !== null && performance.now() - this.seenAt < 1500;
+  }
+
+  // What the tuning page shows of the tracking now, in plain words: what it is doing, then what it
+  // knows of the phone. `tracker` is the page's camera watcher, for what it is busy with.
+  readout(tracker) {
     const cam = this.cameraAt();
     const screen = this.device.screen;
-    const device = `screen ${screen.width.toFixed(0)}×${screen.height.toFixed(0)} mm · camera ${this.fovLong().toFixed(0)}° at ${cam.y.toFixed(0)} mm`;
-    if (!this.active || !this.last) {
-      const s = this.status === 'off' ? 'Hologram off' : this.status === 'on' ? 'Looking for your eyes' : `Hologram ${this.status}`;
-      return [{ v: s, s }, { v: device, s: device }];
+    const engine = this.source === 'native' ? 'basic face tracker' : this.engine ? `face finder on the ${this.engine.toUpperCase()}` : '';
+    const device = `Screen ${screen.width.toFixed(0)} \u00d7 ${screen.height.toFixed(0)} mm \u00b7 camera sees ${this.fovLong().toFixed(0)}\u00b0, ${cam.y.toFixed(0)} mm above the middle${engine ? ` \u00b7 ${engine}` : ''}`;
+    const line = (s) => [{ v: s, s }, { v: device, s: device }];
+    const doing = tracker?.state && tracker.state !== 'off' ? tracker.state : '';
+    if (this.status === 'off') return line(`Hologram off${doing ? `: ${doing}` : ''}`);
+    if (this.status === 'starting') return line(`Hologram starting${doing ? `: ${doing}` : ''}`);
+    if (this.status !== 'on') return line(`Hologram off: ${doing || (this.status === 'denied' ? 'the camera was refused' : 'no camera to watch')}`);
+    const rate = (this.frames.length / 2).toFixed(0);
+    if (!this.seeing) {
+      const pictures = tracker?.counts ? `, ${tracker.counts.answered} pictures read` : '';
+      return line(`Hologram on: looking for your eyes${pictures}`);
     }
     const p = this.last;
-    const rate = this.frames.length / 2;
-    const sign = (v) => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(0);
-    const engine = this.engine ? ` · ${this.engine.toUpperCase()}` : '';
-    const eye = `eye x ${sign(p.x)}  y ${sign(p.y)}  z ${p.z.toFixed(0)} mm · ${rate.toFixed(0)}/s · ${this.latency.toFixed(0)} ms${engine}`;
-    return [{ v: eye, s: eye }, { v: device, s: device }];
+    const side = (v, plus, minus) => `${Math.abs(v / 10).toFixed(0)} cm ${v < 0 ? minus : plus}`;
+    return line(`Following your eyes: ${(p.z / 10).toFixed(0)} cm away, ${side(p.x, 'right', 'left')}, ${side(p.y, 'up', 'down')} \u00b7 ${rate} a second \u00b7 ${this.latency.toFixed(0)} ms behind`);
   }
 }
