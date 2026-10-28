@@ -31,8 +31,10 @@ jobs:
           # The Android Gradle plugin fetches the platform and build tools it needs itself.
           packages: platform-tools
 
-      - name: Rule tests
-        run: node kaltoh/tools/logic.test.mjs
+      - name: Physics and rule tests
+        run: |
+          node kaltoh/tools/physics.test.mjs
+          node kaltoh/tools/rules.test.mjs
 
       - name: Build APK
         working-directory: kaltoh/android

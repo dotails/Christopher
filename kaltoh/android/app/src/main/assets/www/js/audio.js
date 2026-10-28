@@ -55,7 +55,7 @@ export class Sound {
   }
 
   get ready() {
-    return this.ctx && this.ctx.state === 'running';
+    return !this.muted && this.ctx && this.ctx.state === 'running';
   }
 
   // One enveloped oscillator into the dry mix and the room.
@@ -174,6 +174,20 @@ export class Sound {
 
   rattle(strength) {
     if (Math.random() < strength * 0.5) this.clink(strength * 0.6);
+  }
+
+  // The spin test: a rising, then falling, breath of air.
+  spin(duration) {
+    this.hiss(0.07, duration * 0.5, { from: 300, to: 1800, q: 1.2 });
+    this.hiss(0.05, duration, { from: 1800, to: 240, q: 1.2, delay: duration * 0.45 });
+  }
+
+  // Stone on steel.
+  scrape(strength) {
+    const now = this.ctx?.currentTime ?? 0;
+    if (now - (this.lastScrape ?? 0) < 0.12) return;
+    this.lastScrape = now;
+    this.hiss(0.03 + 0.06 * strength, 0.12, { from: 1400, to: 700, q: 0.9 });
   }
 
   dissolve() {

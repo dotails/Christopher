@@ -1,87 +1,73 @@
-// The stage: renderer, camera rig, light, the stone base and the table it stands on.
+// The stage: renderer, lights, the mess-hall reflections, the stone base, and a camera that
+// stays put while the player's eye may move - the screen is a window into the phone.
+//
+// World units are the base model's own: its foot rests at y = 0 and it is about 1.9 across.
+// The sphere the kal-toh becomes is centred PIVOT above the foot; the base turns about that
+// point, and the field holds the assembly of t'an there.
 import * as THREE from '../vendor/three.module.min.js';
 
-// World layout, in the base model's own units (its footprint is about 1.9 across).
-export const SPHERE_RADIUS = 0.8;
-export const CENTER = new THREE.Vector3(0, 1.14, 0);
-
-const ROOM = 0x08090c;
+export const PIVOT = new THREE.Vector3(0, 0.95, 0);
+// The rules measure the kal-toh in their own units (a t'an is 0.42 long); on the stone it is
+// drawn half again as large, so the finished form overhangs the basin's recess as it should.
+export const SCALE = 1.5;
+const ENVIRONMENT_TURN = 4.71;
 const across = new THREE.Vector3();
 const upward = new THREE.Vector3();
 const backward = new THREE.Vector3();
-const ENVIRONMENT_TURN = 4.71;
-const PITCH_MIN = THREE.MathUtils.degToRad(-4);
-const PITCH_MAX = THREE.MathUtils.degToRad(84);
 
-export function createStage(canvas) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+export function createScene(canvas) {
+  // The canvas is transparent: the black-to-red gradient behind it is the page's own.
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+  renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = 1.15;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
 
   const scene = new THREE.Scene();
-  // One colour for the room and the fog, so the table fades into darkness without a horizon.
-  scene.background = new THREE.Color(ROOM);
-  scene.fog = new THREE.FogExp2(ROOM, 0.12);
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 40);
 
-  // Reflections come from a panorama of a starship mess hall (see loadEnvironment).
-  scene.environmentIntensity = 1;
-
-  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 60);
-
-  // Key light: warm, from high front-left, casting the shadows that give the rods depth.
-  const key = new THREE.DirectionalLight(0xfff0dc, 2.4);
-  key.position.set(-2.6, 5.2, 3.4);
+  // Key light: warm, high front-left. It draws the long specular streaks down the brushed t'an
+  // and casts their shadows into the basin.
+  const key = new THREE.DirectionalLight(0xfff1e0, 3.2);
+  key.position.set(-2.4, 5.6, 3.6);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
-  key.shadow.camera.left = -1.9;
-  key.shadow.camera.right = 1.9;
-  key.shadow.camera.top = 2.2;
-  key.shadow.camera.bottom = -1.6;
-  key.shadow.camera.near = 2;
-  key.shadow.camera.far = 12;
+  Object.assign(key.shadow.camera, { left: -2.1, right: 2.1, top: 2.4, bottom: -1.4, near: 2, far: 12 });
   key.shadow.bias = -0.0004;
-  key.shadow.normalBias = 0.012;
+  key.shadow.normalBias = 0.01;
   key.shadow.radius = 3;
-  key.target.position.set(0, 0.6, 0);
+  key.target.position.copy(PIVOT).setY(0.6);
   scene.add(key, key.target);
-
-  // Cool rim from behind separates the metal from the dark.
-  const rim = new THREE.DirectionalLight(0xa9cbff, 1.1);
-  rim.position.set(2.4, 3.0, -4.2);
+  // A red rim from below and behind, as if the gradient behind glowed; and a cool fill.
+  const rim = new THREE.DirectionalLight(0xff5a4a, 1.3);
+  rim.position.set(2.2, -0.6, -4);
   scene.add(rim);
-  scene.add(new THREE.HemisphereLight(0x2a3240, 0x120d0b, 0.6));
+  const fill = new THREE.DirectionalLight(0xbcd4ff, 0.7);
+  fill.position.set(3.5, 2.5, 2);
+  scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x3a3e48, 0x2a0a08, 0.55));
 
-  const table = new THREE.Mesh(
-    new THREE.CircleGeometry(14, 72),
-    new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.55, metalness: 0.2, envMapIntensity: 0.25 }),
-  );
-  table.rotation.x = -Math.PI / 2;
-  table.receiveShadow = true;
-  scene.add(table);
-
-  // Everything that turns when the base is dragged.
-  const gameRoot = new THREE.Group();
-  scene.add(gameRoot);
-  // The structure hangs at the centre of the basin; its wobble and spin rotate this group.
-  const structureRoot = new THREE.Group();
-  structureRoot.position.copy(CENTER);
-  gameRoot.add(structureRoot);
-
-  const rig = {
-    yaw: 0.6,
-    pitch: THREE.MathUtils.degToRad(17),
-    zoom: 1,
-    yawVelocity: 0,
-    pitchVelocity: 0,
-    distance: 8,
-    focusY: 0.4, // fraction of the screen height where the structure's centre sits
-  };
+  // The base turns about the pivot; the base mesh hangs below it so its foot meets the floor.
+  const baseRoot = new THREE.Group();
+  baseRoot.position.copy(PIVOT);
+  scene.add(baseRoot);
+  // The assembly of t'an: placed and turned by the motion model each frame.
+  const assemblyRoot = new THREE.Group();
+  assemblyRoot.position.copy(PIVOT);
+  assemblyRoot.scale.setScalar(SCALE);
+  scene.add(assemblyRoot);
 
   const size = { width: 1, height: 1, dpr: 1 };
-  // Where the player's eye is relative to the screen (see head.js); centred unless tracked.
+  const view = {
+    distance: 8, // from the eye to the pivot
+    zoom: 1,
+    focus: { x: 0.5, y: 0.4 }, // where the target sits on screen (fractions of width, height)
+    target: PIVOT.clone(),
+  };
+  // The player's eye relative to where it usually is (see head.js): angles off the screen's
+  // axis and relative distance. The window stays fixed, so moving the eye looks around inside.
   const eye = { x: 0, y: 0, distance: 1 };
 
   function layout(width, height, dpr) {
@@ -91,29 +77,24 @@ export function createStage(canvas) {
     renderer.setPixelRatio(dpr);
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
-    // Fit the jumble and the base across the width, and table-to-crown down the height.
+    // Fit the base (and the sphere's overhang) across the width with a little room each side.
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const byWidth = 1.17 / (t * camera.aspect);
-    const byHeight = 1.95 / t;
-    rig.distance = Math.max(byWidth, byHeight);
+    const byWidth = 1.22 / (t * camera.aspect);
+    const byHeight = 1.75 / t;
+    view.distance = Math.max(byWidth, byHeight);
   }
 
-  function update(dt) {
-    // Release inertia when no finger is steering.
-    const decay = Math.exp(-dt / 0.32);
-    rig.yaw += rig.yawVelocity * dt;
-    rig.pitch = THREE.MathUtils.clamp(rig.pitch + rig.pitchVelocity * dt, PITCH_MIN, PITCH_MAX);
-    rig.yawVelocity *= decay;
-    rig.pitchVelocity *= decay;
-    gameRoot.rotation.y = rig.yaw;
+  // Elevation of the eye above the base's plane.
+  const ELEVATION = THREE.MathUtils.degToRad(15);
 
-    const d = rig.distance * rig.zoom;
-    camera.position.set(0, CENTER.y + Math.sin(rig.pitch) * d, Math.cos(rig.pitch) * d);
-    camera.lookAt(CENTER);
+  function update() {
+    const d = view.distance * view.zoom;
+    camera.position.set(0, view.target.y + Math.sin(ELEVATION) * d, Math.cos(ELEVATION) * d);
+    camera.lookAt(view.target);
     camera.updateMatrixWorld();
 
-    // The screen is a window at the structure's depth. Moving the eye keeps that window fixed
-    // and looks through it from the new place: an off-axis frustum, as a hologram would appear.
+    // An off-axis frustum through a fixed window at the target's depth: the eye may move,
+    // the window does not.
     const D = d * eye.distance;
     const ex = D * Math.tan(eye.x);
     const ey = D * Math.tan(eye.y);
@@ -122,27 +103,18 @@ export function createStage(canvas) {
     camera.updateMatrixWorld();
     const half = d * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const width = half * camera.aspect;
-    // The window's centre sits below the structure's, so the structure rides high on screen.
-    const lift = half * (2 * rig.focusY - 1);
+    // Shift the window so the target sits at the chosen point of the screen.
+    const shiftX = width * (1 - 2 * view.focus.x);
+    const shiftY = half * (2 * view.focus.y - 1);
     const n = camera.near / D;
     camera.projectionMatrix.makePerspective(
-      (-width - ex) * n, (width - ex) * n, (lift + half - ey) * n, (lift - half - ey) * n, camera.near, camera.far,
+      (-width + shiftX - ex) * n, (width + shiftX - ex) * n, (half + shiftY - ey) * n, (-half + shiftY - ey) * n, camera.near, camera.far,
     );
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
   }
 
-  function turn(dx, dy) {
-    rig.yaw += (dx / size.width) * Math.PI * 1.25;
-    rig.pitch = THREE.MathUtils.clamp(rig.pitch + (dy / size.height) * Math.PI * 0.9, PITCH_MIN, PITCH_MAX);
-  }
-
-  function fling(vx, vy) {
-    rig.yawVelocity = (vx / size.width) * Math.PI * 1.25;
-    rig.pitchVelocity = (vy / size.height) * Math.PI * 0.9;
-  }
-
   const projected = new THREE.Vector3();
-  // World point to CSS pixels, plus its distance from the camera.
+  // World point to CSS pixels, plus its distance from the eye.
   function toScreen(world, out = { x: 0, y: 0, depth: 0 }) {
     projected.copy(world).project(camera);
     out.x = (projected.x * 0.5 + 0.5) * size.width;
@@ -151,24 +123,30 @@ export function createStage(canvas) {
     return out;
   }
 
-  // CSS pixel to a world point on the plane through `anchor` facing the camera.
+  // The ray from the eye through a CSS pixel.
   const ndc = new THREE.Vector3();
+  function rayAt(x, y, out = new THREE.Ray()) {
+    ndc.set((x / size.width) * 2 - 1, -(y / size.height) * 2 + 1, 0.5).unproject(camera);
+    out.origin.copy(camera.position);
+    out.direction.copy(ndc).sub(camera.position).normalize();
+    return out;
+  }
+
+  // CSS pixel to a world point on the plane through `anchor` facing the eye.
   const ray = new THREE.Ray();
   const plane = new THREE.Plane();
   const facing = new THREE.Vector3();
   function fromScreen(x, y, anchor, out = new THREE.Vector3()) {
-    ndc.set((x / size.width) * 2 - 1, -(y / size.height) * 2 + 1, 0.5).unproject(camera);
-    ray.origin.copy(camera.position);
-    ray.direction.copy(ndc).sub(camera.position).normalize();
+    rayAt(x, y, ray);
     camera.getWorldDirection(facing);
     plane.setFromNormalAndCoplanarPoint(facing, anchor);
     return ray.intersectPlane(plane, out) ?? out.copy(anchor);
   }
 
-  return { renderer, scene, camera, gameRoot, structureRoot, rig, size, eye, layout, update, turn, fling, toScreen, fromScreen, key };
+  return { renderer, scene, camera, key, baseRoot, assemblyRoot, size, view, eye, layout, update, toScreen, fromScreen, rayAt };
 }
 
-// What the chrome reflects: a panorama of a starship mess hall. The photograph is low dynamic
+// What the metal reflects: a panorama of a starship mess hall. The photograph is low dynamic
 // range, so its light panels and glowing tables are lifted far above white before filtering;
 // polished t'an then catch real highlights instead of a flat grey.
 export async function loadEnvironment(stage) {
@@ -190,7 +168,7 @@ export async function loadEnvironment(stage) {
         void main() {
           vec3 c = texture2D(map, vUv).rgb;
           float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
-          gl_FragColor = vec4(c * (1.25 + 14.0 * smoothstep(0.42, 0.95, luma)), 1.0);
+          gl_FragColor = vec4(c * (1.3 + 16.0 * smoothstep(0.42, 0.95, luma)), 1.0);
         }`,
       depthTest: false,
       depthWrite: false,
@@ -214,7 +192,8 @@ export async function loadEnvironment(stage) {
   lift.material.dispose();
 }
 
-// The stone basin, from the compact mesh written by tools/convert_base.py.
+// The stone basin, from the compact mesh written by tools/convert_base.py. Returns the mesh and
+// its profile: the height of its upper surface at each distance from its axis.
 export async function loadBase(stage) {
   const [bin, meta, map, bump] = await Promise.all([
     fetch('assets/base.bin').then((r) => r.arrayBuffer()),
@@ -262,23 +241,29 @@ export async function loadBase(stage) {
     bumpScale: 2.2,
     roughness: 0.78,
     metalness: 0,
-    envMapIntensity: 1.1,
+    envMapIntensity: 1.0,
   });
-  const base = new THREE.Mesh(geometry, material);
-  base.castShadow = true;
-  base.receiveShadow = true;
-  stage.gameRoot.add(base);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.position.y = -PIVOT.y;
+  stage.baseRoot.add(mesh);
 
-  // Height of the basin's upper surface at distance r from its axis (for falling t'an).
+  const profile = meta.profile;
+  const step = meta.profileStep;
+  // Height of the upper surface at distance r from the axis, and its slope there.
   const surface = (r) => {
-    const f = r / meta.profileStep;
+    const f = r / step;
     const i = Math.floor(f);
-    if (i >= meta.profile.length - 1) return 0;
-    const a = meta.profile[i];
-    const b = meta.profile[i + 1];
-    return a + (b - a) * (f - i);
+    if (i >= profile.length - 1) return 0;
+    return profile[i] + (profile[i + 1] - profile[i]) * (f - i);
   };
-  return { mesh: base, meta, surface };
+  const slope = (r) => {
+    const i = Math.min(profile.length - 2, Math.max(0, Math.floor(r / step)));
+    return (profile[i + 1] - profile[i]) / step;
+  };
+  const radius = (profile.length - 1) * step;
+  return { mesh, meta, surface, slope, radius };
 }
 
 function loadTexture(url, color) {
