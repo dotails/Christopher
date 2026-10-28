@@ -10,6 +10,12 @@ export const PIVOT = new THREE.Vector3(0, 0.95, 0);
 // The rules measure the kal-toh in their own units (a t'an is 0.42 long); on the stone it is
 // drawn half again as large, so the finished form overhangs the basin's recess as it should.
 export const SCALE = 1.5;
+// The floor beneath, where fallen t'an come to rest: just below anything the stone or the t'an
+// on it can reach as they turn about the pivot, so what lies there is never disturbed by them.
+export const FLOOR = -0.62;
+// The layout's vertical field of view (degrees): the screen subtends this from the distance the
+// scene is framed for.
+export const FOV = 30;
 const ENVIRONMENT_TURN = 4.71;
 const across = new THREE.Vector3();
 const upward = new THREE.Vector3();
@@ -26,7 +32,7 @@ export function createScene(canvas) {
   renderer.shadowMap.type = THREE.PCFShadowMap;
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 40);
+  const camera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 40);
 
   // Key light: warm, high front-left. It draws the long specular streaks down the brushed t'an
   // and casts their shadows into the basin.
@@ -34,7 +40,7 @@ export function createScene(canvas) {
   key.position.set(-2.4, 5.6, 3.6);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
-  Object.assign(key.shadow.camera, { left: -2.1, right: 2.1, top: 2.4, bottom: -1.4, near: 2, far: 12 });
+  Object.assign(key.shadow.camera, { left: -2.3, right: 2.3, top: 2.4, bottom: -2.4, near: 2, far: 13 }); // the floor in front too
   key.shadow.bias = -0.0004;
   key.shadow.normalBias = 0.01;
   key.shadow.radius = 3;
@@ -48,6 +54,12 @@ export function createScene(canvas) {
   fill.position.set(3.5, 2.5, 2);
   scene.add(fill);
   scene.add(new THREE.HemisphereLight(0x3a3e48, 0x2a0a08, 0.55));
+  // The floor itself is not seen, only the shadows that fall on it.
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.ShadowMaterial({ opacity: 0.4 }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = FLOOR;
+  floor.receiveShadow = true;
+  scene.add(floor);
 
   // The base turns about the pivot; the base mesh hangs below it so its foot meets the floor.
   const baseRoot = new THREE.Group();
@@ -69,9 +81,12 @@ export function createScene(canvas) {
     // point to look at.
     read: { k: 0, center: PIVOT.clone() },
   };
-  // The player's eye relative to where it usually is (see head.js): angles off the screen's
-  // axis and relative distance.
-  const eye = { x: 0, y: 0, distance: 1 };
+  // The window (see head.js): the screen, at its true size in millimetres, is a pane of glass with
+  // the kal-toh's centre `optics.depth` mm behind it; the eye is where the player's is, in mm from
+  // the middle of the screen (z null: at rest, `optics.rest` mm away, or where the layout assumes).
+  const screen = { width: 70, height: 150 };
+  const optics = { depth: 40, size: 1, rest: null };
+  const eye = { x: 0, y: 0, z: null };
 
   function layout(width, height, dpr) {
     size.width = width;
@@ -89,12 +104,12 @@ export function createScene(canvas) {
 
   // Elevation of the eye above the base's plane.
   const ELEVATION = THREE.MathUtils.degToRad(15);
-  // The screen is a pane of glass this far in front of what the eye looks at, so the kal-toh
-  // stands inside the phone, behind it. The glass stays put while the eye moves: lean in and the
-  // view through it widens, draw back and it narrows; move aside and you see around the base.
-  const GLASS = 1.25;
   const target = new THREE.Vector3();
 
+  // The camera is set as the layout has it - looking at the target from `view.distance` - and then
+  // moved to the player's eye, its view framed by the glass. At rest the two agree: the scale
+  // (world units per millimetre) is chosen so the target appears at its laid-out size and place
+  // from the eye at rest, whatever the depth behind the glass.
   function update() {
     const k = view.read.k;
     target.copy(view.target).lerp(view.read.center, k);
@@ -103,23 +118,32 @@ export function createScene(canvas) {
     camera.position.set(target.x, target.y + Math.sin(ELEVATION) * d, target.z + Math.cos(ELEVATION) * d);
     camera.lookAt(target);
     camera.updateMatrixWorld();
-
-    // An off-axis frustum through the fixed glass: W from the usual eye, D from the actual one.
-    const W = Math.max(0.6, d - GLASS);
-    const D = W * eye.distance;
-    const ex = D * Math.tan(eye.x);
-    const ey = D * Math.tan(eye.y);
     camera.matrixWorld.extractBasis(across, upward, backward);
-    camera.position.addScaledVector(across, ex).addScaledVector(upward, ey).addScaledVector(backward, D - W);
-    camera.updateMatrixWorld();
-    const half = W * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+
+    const t = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
+    const rest = optics.rest ?? screen.height / (2 * t);
+    const depth = optics.depth;
+    const s = (2 * d * t * rest) / (screen.height * (rest + depth) * optics.size);
+    const half = (s * screen.height) / 2;
     const width = half * camera.aspect;
-    // Shift the window so the target sits at the chosen point of the screen.
-    const shiftX = width * (1 - 2 * view.focus.x);
-    const shiftY = half * (2 * focusY - 1);
+    // Where the target is to appear, from the middle of the screen; the middle of the glass sits
+    // off the line of sight to the target so that, from the eye at rest, it does.
+    const fx = width * (2 * view.focus.x - 1);
+    const fy = half * (1 - 2 * focusY);
+    const cx = (-fx * (rest + depth)) / rest;
+    const cy = (-fy * (rest + depth)) / rest;
+    const ex = s * eye.x;
+    const ey = s * eye.y;
+    const D = s * Math.max(20, eye.z ?? rest);
+    camera.position.copy(target)
+      .addScaledVector(backward, s * depth + D)
+      .addScaledVector(across, cx + ex)
+      .addScaledVector(upward, cy + ey);
+    camera.updateMatrixWorld();
+    // An off-axis frustum from the eye through the glass.
     const n = camera.near / D;
     camera.projectionMatrix.makePerspective(
-      (-width + shiftX - ex) * n, (width + shiftX - ex) * n, (half + shiftY - ey) * n, (-half + shiftY - ey) * n, camera.near, camera.far,
+      (-width - ex) * n, (width - ex) * n, (half - ey) * n, (-half - ey) * n, camera.near, camera.far,
     );
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
   }
@@ -154,7 +178,7 @@ export function createScene(canvas) {
     return ray.intersectPlane(plane, out) ?? out.copy(anchor);
   }
 
-  return { renderer, scene, camera, key, baseRoot, assemblyRoot, size, view, eye, layout, update, toScreen, fromScreen, rayAt };
+  return { renderer, scene, camera, key, baseRoot, assemblyRoot, size, view, screen, optics, eye, layout, update, toScreen, fromScreen, rayAt };
 }
 
 // What the metal reflects: a panorama of a starship mess hall. The photograph is low dynamic
@@ -274,7 +298,8 @@ export async function loadBase(stage) {
     return (profile[i + 1] - profile[i]) / step;
   };
   const radius = (profile.length - 1) * step;
-  return { mesh, meta, surface, slope, radius };
+  const top = Math.max(...profile); // nothing of the stone stands higher
+  return { mesh, meta, surface, slope, radius, top };
 }
 
 function loadTexture(url, color) {

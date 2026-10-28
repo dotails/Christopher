@@ -14,21 +14,27 @@ import { Tray, Hand } from './tray.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { TEXT, ringText, fellText, playerText, completeText, winnerText, supplyText } from './texts.js';
-import { loadSettings, saveSettings, gameOptions } from './settings.js';
+import { loadSettings, saveSettings, gameOptions, DEFAULT_TUNING } from './settings.js';
 import { ShakeDetector } from './shake.js';
 import { native } from './native.js';
 import { Head } from './head.js';
+import { Tracker } from './tracker.js';
 
 const canvas = document.getElementById('view');
 const stage = createScene(canvas);
-const pool = new RodPool(stage.scene, 320);
+// The kal-toh, the t'an fallen from it (kept until a new game), the one in the tray and in hand.
+const pool = new RodPool(stage.scene, 640);
 const halos = new Halos(stage.scene, 320);
 const ghosts = new Ghosts(stage.scene, 16);
 const sound = new Sound();
 const settings = loadSettings();
 const tray = new Tray(stage);
 const hand = new Hand(stage, tray);
-const head = new Head();
+const head = new Head(deviceGeometry(), settings.holo);
+const tracker = new Tracker({
+  onEyes: (sighting) => head.eyes(sighting),
+  onStatus: (status) => trackerStatus(status),
+});
 let motion = null;
 let falling = null;
 let baseModel = null;
@@ -46,7 +52,7 @@ let thinking = false; // the Vulcan is considering
 // What is drawn of each t'an: its assembly-local ends (which lead or lag the rules' positions
 // while it slides), its face orientation, and its glow.
 const display = new Map();
-const collisionPoints = [];
+const collisionRods = [];
 let shownCount = 0; // t'an drawn last frame: when it changes, the assembly's shape has changed
 let strainOf = new Map();
 let testGlow = null; // per-rod strain shown while the spin test turns
@@ -75,10 +81,30 @@ function tickTimers(dt) {
 
 // --- Layout ------------------------------------------------------------------------------
 
+// The screen's true size and where the front camera sits beside it, in millimetres (from the
+// Android shell; in a browser, a fair guess), for the hologram's window.
+function deviceGeometry() {
+  const info = native.device();
+  const dpr = window.devicePixelRatio || 1;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const coarse = window.matchMedia?.('(pointer: coarse)').matches;
+  const mmX = info?.xdpi > 0 ? (25.4 / info.xdpi) * dpr : 25.4 / (coarse ? 160 : 96);
+  const mmY = info?.ydpi > 0 ? (25.4 / info.ydpi) * dpr : mmX;
+  const screen = { width: w * mmX, height: h * mmY };
+  // A camera in a hole in the screen is where the hole is; otherwise just above the screen.
+  const at = info?.cutout
+    ? { x: (info.cutout.x / dpr - w / 2) * mmX, y: (h / 2 - info.cutout.y / dpr) * mmY }
+    : { x: 0, y: screen.height / 2 + 6 };
+  return { screen, camera: { ...at, fovLong: info?.fovLong || 70, fovShort: info?.fovShort || 55 } };
+}
+
 function layout() {
   const dpr = Math.min(window.devicePixelRatio || 1, quality.maxDpr);
   const w = window.innerWidth;
   const h = window.innerHeight;
+  head.device = deviceGeometry();
+  Object.assign(stage.screen, head.device.screen);
   stage.layout(w, h, dpr);
   stage.view.focus.y = 0.42;
   stage.update();
@@ -146,7 +172,7 @@ function arrToWorld(p, out) {
 }
 
 function animate(dt) {
-  collisionPoints.length = 0;
+  collisionRods.length = 0;
   let reshaped = display.size !== shownCount;
   shownCount = display.size;
   for (const e of display.values()) {
@@ -165,9 +191,9 @@ function animate(dt) {
       }
       if (an.ease === 'drop' && k < 1) continue; // still flying in: not yet part of the body
     }
-    collisionPoints.push(e.a.clone(), e.b.clone(), v1.addVectors(e.a, e.b).multiplyScalar(0.5).clone());
+    collisionRods.push([e.a, e.b]);
   }
-  motion.setPoints(collisionPoints);
+  motion.setRods(collisionRods);
   // A changed shape may no longer rest where it did (or may rest on the stone now).
   if (reshaped) motion.wake();
 }
@@ -308,6 +334,7 @@ function newGame() {
   game = R.createGame({ ...gameOptions(settings), seed: nextSeed });
   nextSeed = undefined;
   display.clear();
+  falling.clear();
   timers.length = 0;
   completeGlow = 0;
   testGlow = null;
@@ -708,8 +735,10 @@ function restart() {
 
 // --- Settings, hologram ---------------------------------------------------------------------
 
-function showHeadStatus(status, announce) {
-  head.setStatus(status);
+// The hologram watches the camera from the page itself (tracker.js); if the page cannot, the
+// Android shell can follow the face instead, more roughly.
+function showHeadStatus(status, announce, source) {
+  head.setStatus(status, source);
   engraving?.set({ hologram: status === 'on' || status === 'starting' });
   if (status === 'denied' || status === 'unavailable') {
     settings.hologram = false;
@@ -720,11 +749,42 @@ function showHeadStatus(status, announce) {
   if (text) say(text);
 }
 
+function trackerStatus(status) {
+  if (status === 'unavailable' && native.hologram && settings.hologram) {
+    showHeadStatus('starting', false, 'native');
+    native.setHologram(true);
+    return;
+  }
+  head.engine = status === 'on' ? tracker.engine : null;
+  showHeadStatus(status, status !== 'starting', 'camera');
+}
+
+function watch() {
+  showHeadStatus('starting', false, 'camera');
+  tracker.start(settings.holo.engine);
+}
+
 function setHologram(on, announce = true) {
   settings.hologram = on;
   saveSettings(settings);
-  showHeadStatus(on ? 'starting' : 'off', announce && !on);
-  native.setHologram(on);
+  if (on) {
+    watch();
+  } else {
+    tracker.stop();
+    native.setHologram(false);
+    showHeadStatus('off', announce, null);
+  }
+}
+
+// Out of sight, the camera is let go; back in sight, it is watched again.
+function hide() {
+  sound.suspend();
+  if (head.source === 'camera') tracker.stop();
+}
+
+function reveal() {
+  sound.resume();
+  if (settings.hologram && head.source !== 'native') watch();
 }
 
 // The carving's glyphs and ways.
@@ -737,10 +797,29 @@ function onEngravedAction(name) {
     requestSpinTest();
   } else if (name === 'lens') {
     setHologram(!(head.active || head.status === 'starting'));
+  } else if (name === 'centre') {
+    head.recentre();
+  } else if (name === 'reset') {
+    const engine = settings.holo.engine;
+    Object.assign(settings.holo, DEFAULT_TUNING);
+    saveSettings(settings);
+    head.recentre();
+    if (engine !== settings.holo.engine) onEngravedTune('engine', settings.holo.engine);
   } else if (name === 'anew') {
-    engraving.page = 'main';
+    engraving.show('main');
     say(TEXT.applied);
     restart();
+  }
+}
+
+function onEngravedTune(key) {
+  saveSettings(settings);
+  sound.wake();
+  haptic('tick');
+  // A different engine for the face tracker: start it afresh.
+  if (key === 'engine' && settings.hologram && head.source === 'camera') {
+    tracker.stop();
+    watch();
   }
 }
 
@@ -751,6 +830,7 @@ function onEngravedOption(key, value) {
   if (key === 'sound') sound.muted = !value;
   if (key === 'hologram') setHologram(value, false);
   if (key === 'strain') refreshStrain();
+  if (key === 'language' && engraving.standard !== (value === 'standard')) engraving.translate();
 }
 
 // --- Shaking ------------------------------------------------------------------------------
@@ -770,15 +850,14 @@ if (!native.present) shake.listenToDeviceMotion();
 window.kaltoh = {
   shake: (magnitude) => shake.sample(magnitude),
   head: (x, y, size) => head.sample(x, y, size),
-  tilt: (rx, ry) => head.turn(rx, ry),
-  headStatus: (status) => showHeadStatus(status, status !== 'off'),
+  headStatus: (status) => showHeadStatus(status, status !== 'off', 'native'),
   insets(top, bottom) {
     insets.top = top;
     insets.bottom = bottom;
     layout();
   },
-  pause: () => sound.suspend(),
-  resume: () => sound.resume(),
+  pause: hide,
+  resume: reveal,
 };
 
 window.addEventListener('resize', layout);
@@ -787,7 +866,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') restart();
   if (e.key === 't' || e.key === 'T') requestSpinTest();
 });
-document.addEventListener('visibilitychange', () => (document.hidden ? sound.suspend() : sound.resume()));
+document.addEventListener('visibilitychange', () => (document.hidden ? hide() : reveal()));
 canvas.addEventListener('webglcontextlost', (e) => {
   e.preventDefault();
   setTimeout(() => location.reload(), 300);
@@ -797,16 +876,30 @@ canvas.addEventListener('webglcontextlost', (e) => {
 
 // Turned over so its underside faces you, the base comes to you to be read.
 const readCenter = new THREE.Vector3();
-const readAxis = new THREE.Vector3();
 function readingView(dt) {
   const { facing } = engraving.facing(stage.camera, readCenter);
   const want = THREE.MathUtils.smoothstep(facing, 0.5, 0.86);
   const read = stage.view.read;
   read.k += (want - read.k) * (1 - Math.exp(-dt / 0.35));
   read.center.copy(readCenter);
-  // Let go while it is read, it turns about its own axis until the carving stands upright.
-  if (want > 0.5 && input.mode === 'idle') motion.right(readAxis, engraving.upright(stage.camera, readAxis));
-  else motion.right(null);
+}
+
+// The hologram: the eye where the camera finds it, the kal-toh framed for where it first rested.
+let readoutAge = 0;
+function holograph(dt) {
+  head.update(dt);
+  Object.assign(stage.eye, head.view);
+  const optics = stage.optics;
+  const rest = head.rest?.z ?? head.designDistance;
+  optics.rest = (optics.rest ?? rest) + (rest - (optics.rest ?? rest)) * (1 - Math.exp(-dt / 0.4));
+  optics.depth = settings.holo.depth;
+  optics.size = settings.holo.size;
+  // The tuning page shows what the camera sees, twice a second, while it can be read.
+  readoutAge += dt;
+  if (readoutAge > 0.5 && engraving.page === 'tune' && engraving.seen) {
+    readoutAge = 0;
+    engraving.setReadout(head.readout());
+  }
 }
 
 function adapt(dt) {
@@ -839,8 +932,7 @@ function frame(now) {
 function step(dt) {
   time += dt;
   tickTimers(dt);
-  head.update(dt);
-  Object.assign(stage.eye, head.view);
+  holograph(dt);
   readingView(dt);
   stage.update();
   animate(dt);
@@ -852,7 +944,7 @@ function step(dt) {
   if (input.mode === 'hold') input.aim();
   hand.update(dt);
   shake.update(dt);
-  engraving.render();
+  engraving.update(stage.camera, dt);
 
   pool.begin();
   halos.begin();
@@ -887,14 +979,14 @@ async function start() {
   falling = new Falling(motion, base, sound);
   engraving = new Engraving(stage, {
     settings,
-    native: native.hologram,
     stone: base.mesh.material.map?.image,
     baseMesh: base.mesh,
     onAction: onEngravedAction,
     onOption: onEngravedOption,
+    onTune: onEngravedTune,
   });
   newGame();
-  if (native.hologram && settings.hologram) setHologram(true, false);
+  if (settings.hologram) setHologram(true, false);
   document.getElementById('veil').classList.add('gone');
   requestAnimationFrame(frame);
 }
@@ -945,6 +1037,8 @@ window.__kaltoh = {
   },
   settings,
   head,
+  tracker,
+  setHologram,
   requestSpinTest,
   touchesAssembly,
   baseSurface: (r) => baseModel?.surface(r) ?? 0,

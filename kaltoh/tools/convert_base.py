@@ -72,13 +72,14 @@ def main(obj_path, tex_path, out_dir):
         f.write(qt.tobytes())
         f.write(idx.tobytes())
 
-    # Top surface height by distance from the axis, from the triangles' upward-facing corners.
+    # Top surface height by distance from the axis: the highest of every corner within a step either
+    # side, so that, interpolated, it never lies below the stone (walls and the basin's lip too).
     r = np.hypot(p[:, 0], p[:, 2])
     step = 0.02
     bins = int(np.ceil(r.max() / step)) + 1
     profile = []
     for b in range(bins):
-        m = (r >= b * step - step) & (r < b * step + step) & (n[:, 1] > 0.3)
+        m = (r >= b * step - step) & (r < b * step + step)
         profile.append(round(float(p[m, 1].max()), 4) if m.any() else 0.0)
     inner = r < 0.3
     meta = {

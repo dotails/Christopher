@@ -25,7 +25,7 @@ export const TEXT = {
   hold: { v: 'what cannot bear the spin will fall', s: 'What cannot bear the spin will fall' },
   turn: { v: 'drag the stone or the tan to turn them', s: "Drag the stone to turn it, the t'an to spin them" },
   shake: { v: 'shake three seconds to begin anew', s: 'Shake for three seconds to begin anew' },
-  translate: { v: 'touch any line to translate it', s: 'Touch any line to translate it' },
+  translate: { v: 'touch the carving to translate it', s: 'Touch anywhere on the carving to translate it' },
   holds: { v: 'it holds', s: 'It holds' },
   ringLost: { v: 'the ring could not hold', s: 'The ring could not hold' },
   vulcanThinks: { v: 'the vulcan considers', s: 'The Vulcan considers' },
@@ -50,6 +50,10 @@ export const TEXT = {
   back: { v: 'return', s: 'Return' },
   more: { v: 'more', s: 'More' },
   waysTitle: { v: 'ways to play', s: 'Ways to play' },
+  tune: { v: 'tune', s: 'Tune the hologram' },
+  tuneTitle: { v: 'the hologram', s: 'Hologram tuning' },
+  centre: { v: 'centre', s: 'Recentre' },
+  reset: { v: 'as made', s: 'Defaults' },
   rulesTitle: { v: 'the rules', s: 'The rules' },
 };
 

@@ -1,12 +1,16 @@
 // Plays the real game in headless Chromium and checks it end to end, through simulated touch:
 // a two-finger lift and placement, the Vulcan's reply, a spin test (two taps on the t'an), a ring,
 // turning the base (the t'an lag, catch up, and then hold perfectly still on it), spinning the
-// t'an by dragging their area, turning the base over to read its underside (it rights itself so
-// the carving reads upright), touching carved lines to translate them, the carved ways to play,
-// and shaking to begin anew. Nothing may be written on the screen itself. Screenshots land in
-// the directory given as the first argument.
+// t'an by dragging their area, t'an never passing into the stone, turning the base over to read
+// its underside (whichever way it was turned, the carving reads with its top up), touching the
+// carving to translate all of it, the carved ways to play and the hologram's tuning, fallen t'an
+// lying where they fell until a new game, and shaking to begin anew. Nothing may be written on
+// the screen itself. Screenshots land in the directory given as the first argument.
 //
-// Run: node kaltoh/tools/browser-check.cjs [out-dir]
+// With a Y4M video of a face as the second argument, the hologram is checked too: the front
+// camera (faked by Chromium) is watched for the eyes and the view follows them.
+//
+// Run: node kaltoh/tools/browser-check.cjs [out-dir] [face.y4m]
 // Needs Playwright with Chromium (NODE_PATH or a global install).
 const http = require('node:http');
 const fs = require('node:fs');
@@ -15,7 +19,11 @@ const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '../android/app/src/main/assets/www');
 const OUT = path.resolve(process.argv[2] || 'kaltoh-check');
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png', '.ttf': 'font/ttf', '.bin': 'application/octet-stream' };
+const FACE = process.argv[3] ? path.resolve(process.argv[3]) : null;
+const TYPES = {
+  '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.jpg': 'image/jpeg',
+  '.png': 'image/png', '.ttf': 'font/ttf', '.bin': 'application/octet-stream', '.wasm': 'application/wasm', '.task': 'application/octet-stream',
+};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function serve() {
@@ -40,7 +48,8 @@ function check(condition, message) {
   fs.mkdirSync(OUT, { recursive: true });
   const server = await serve();
   const base = `http://127.0.0.1:${server.address().port}/index.html`;
-  const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const camera = FACE ? ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-video-capture=${FACE}`] : [];
+  const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', ...camera] });
   const errors = [];
   try {
     const context = await browser.newContext({ viewport: { width: 412, height: 892 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
@@ -283,51 +292,74 @@ function check(condition, message) {
     const after = await onBase();
     check(differ(before.rel, after.rel, 0.05), 'dragging the t\'an\'s area turns the assembly on its base');
     check(!differ(before.base, after.base, 1e-6), 'without turning the base');
-    const clearance = await page.evaluate(() => {
+    // How near any t'an comes to the stone: its edge (half its width from its centre line) against
+    // the stone's surface, finely along its whole length - over the basin's lip too.
+    await page.evaluate(() => {
       const k = window.__kaltoh;
-      const THREE = k.stage.camera.position.constructor;
-      let worst = Infinity;
-      for (const e of k.display.values()) {
-        for (const t of [0, 0.25, 0.5, 0.75, 1]) {
-          const w = new THREE().lerpVectors(e.wa, e.wb, t);
-          const local = k.motion.baseLocal(w, new THREE());
-          const r = Math.hypot(local.x, local.z);
-          if (r > 0.95 || local.y < 0) continue;
-          worst = Math.min(worst, local.y - k.baseSurface(r));
+      const V = k.stage.camera.position.constructor;
+      const local = new V();
+      const point = new V();
+      window.nearest = (rods) => {
+        let worst = Infinity;
+        for (const [a, b] of rods) {
+          for (let i = 0; i <= 40; i++) {
+            k.motion.baseLocal(point.lerpVectors(a, b, i / 40), local);
+            const r = Math.hypot(local.x, local.z);
+            if (r >= 0.98 || local.y < -0.014) continue;
+            worst = Math.min(worst, local.y - 0.014 - k.baseSurface(r));
+          }
         }
-      }
-      return worst;
+        return worst;
+      };
     });
-    check(clearance > -0.03, `the t'an stay clear of the stone (closest ${clearance.toFixed(3)})`);
+    const clearance = await page.evaluate(() => window.nearest([...window.__kaltoh.display.values()].map((e) => [e.wa, e.wb])));
+    check(clearance > -0.002, `the t'an never pass into the stone (closest ${clearance.toFixed(3)})`);
 
-    // 7. Turn the base over: its underside comes to the eye to be read.
+    // 7. Turn the base over: its underside comes to the eye to be read, top up whichever way the
+    // base had been turned before.
     await settle();
     await drag({ x: 30, y: 700 }, 0, -155);
     await page.waitForFunction(() => window.__kaltoh.stage.view.read.k > 0.9, null, { timeout: 30000 });
     check(true, 'turned over, the base brings its carved underside to the eye');
-    // However it was turned, it rights itself about its own axis so the carving reads upright.
     await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
     const where = (id, kind) => page.evaluate(([id, kind]) => window.__kaltoh.engraving.screenOf(id, kind), [id, kind]);
     const title = await where('title');
     const glyphs = await where('ways', 'button');
-    check(title.y < glyphs.y - 100 && Math.abs(title.x - glyphs.x) < 140, 'and turns itself so its carving reads upright');
+    check(title.y < glyphs.y - 100 && Math.abs(title.x - glyphs.x) < 140, 'its carving reads with its top up');
     await page.screenshot({ path: path.join(OUT, '8-underside.png') });
-    // Touch a line: it reads in Standard; touch again: Vulcan.
+    // Touch the carving: all of it is smoothed away and cut again in Standard; again: Vulcan.
+    const recut = () => page.waitForFunction(() => window.__kaltoh.engraving.phase === 'still', null, { timeout: 10000 });
     await tap(await where('l0'));
-    await page.waitForFunction(() => window.__kaltoh.engraving.flipped.has('l0'), null, { timeout: 10000 });
-    await sleep(600);
+    await page.waitForFunction(() => window.__kaltoh.engraving.depth.value < 0.5, null, { timeout: 10000, polling: 'raf' });
+    await recut();
+    check(await page.evaluate(() => window.__kaltoh.engraving.standard), 'touching the carving smooths it away and cuts it again in Standard');
+    await sleep(300);
     await page.screenshot({ path: path.join(OUT, '9-translated.png') });
-    check(true, 'touching a carved line translates it');
-    await tap(await where('l0'));
-    await page.waitForFunction(() => !window.__kaltoh.engraving.flipped.has('l0'), null, { timeout: 10000 });
-    check(true, 'touching it again returns it to Vulcan');
+    await tap(await where('l3'));
+    await recut();
+    check(await page.evaluate(() => !window.__kaltoh.engraving.standard), 'touching it again returns all of it to Vulcan');
 
-    // 8. The carved ways to play: choose pass and play, begin anew.
+    // 8. The carved ways to play, and the hologram's tuning: choose pass and play, begin anew.
     await tap(await where('ways', 'button'));
     await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
-    await sleep(600);
+    await recut();
     await page.screenshot({ path: path.join(OUT, '10-ways.png') });
     check(true, 'the carved circle opens the ways to play');
+    await tap(await where('tune', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'tune', null, { timeout: 10000 });
+    await recut();
+    const depthBefore = await page.evaluate(() => window.__kaltoh.settings.holo.depth);
+    await tap(await where('step:depth+', 'step'));
+    await sleep(400);
+    const depthAfter = await page.evaluate(() => window.__kaltoh.settings.holo.depth);
+    check(depthAfter > depthBefore, `the hologram's tuning steps up when its value's right is touched (${depthBefore} to ${depthAfter} mm)`);
+    await tap(await where('step:depth', 'step'));
+    await sleep(400);
+    check(await page.evaluate((d) => window.__kaltoh.settings.holo.depth === d, depthBefore), 'and down when its left is');
+    await page.screenshot({ path: path.join(OUT, '10b-tuning.png') });
+    await tap(await where('back', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
+    await recut();
     for (let i = 0; i < 4 && (await page.evaluate(() => window.__kaltoh.settings.opponent)) !== 'none'; i++) {
       await tap(await where('row:opponent', 'value'));
       await sleep(400);
@@ -338,7 +370,22 @@ function check(condition, message) {
     await waitFor(['play']);
     check(await page.evaluate(() => window.__kaltoh.game.players.every((p) => !p.vulcan)), 'a new game begins with the new ways');
 
-    // 9. Shake for three seconds to begin anew.
+    // 9. Fallen t'an lie where they fell until a new game.
+    await page.evaluate(() => {
+      const k = window.__kaltoh;
+      const V = k.stage.camera.position.constructor;
+      for (let i = 0; i < 6; i++) {
+        const c = new V((i - 2.5) * 0.3, 1.2, 0.9);
+        k.falling.spawn(c.clone().add(new V(-0.3, 0, 0)), c.clone().add(new V(0.3, 0, 0)), new V(0, 0, 0.4));
+      }
+    });
+    await page.waitForFunction(() => window.__kaltoh.falling.rods.every((r) => r.asleep), null, { timeout: 60000, polling: 200 });
+    await sleep(2000);
+    check(await page.evaluate(() => window.__kaltoh.falling.rods.length >= 6), 'fallen t\'an come to rest and stay');
+    const lying = await page.evaluate(() => window.nearest(window.__kaltoh.falling.rods.map((r) => [r.a, r.b])));
+    check(lying > -0.002, `nor do they pass into the stone (closest ${lying.toFixed(3)})`);
+
+    // 10. Shake for three seconds to begin anew; what had fallen goes with the old game.
     await pace();
     const seedBefore = await page.evaluate(() => window.__kaltoh.game.seed);
     for (let i = 0; i < 400; i++) {
@@ -351,7 +398,29 @@ function check(condition, message) {
     }
     await page.waitForFunction((seed) => window.__kaltoh.game.seed !== seed && window.__kaltoh.phase === 'play', seedBefore, { timeout: 240000 });
     check(true, 'shaking begins anew');
+    await page.waitForFunction(() => window.__kaltoh.falling.rods.length === 0, null, { timeout: 30000 });
+    check(true, 'and the fallen t\'an fade with the old game');
     await page.screenshot({ path: path.join(OUT, '11-anew.png') });
+
+    // 11. The hologram, given a face to watch: the eye is found and the view follows it.
+    if (FACE) {
+      await page.evaluate(() => {
+        window.__kaltoh.settings.holo.engine = 'cpu';
+      });
+      await page.evaluate(() => window.__kaltoh.setHologram(true));
+      await page.waitForFunction(() => window.__kaltoh.head.status === 'on' && window.__kaltoh.head.last, null, { timeout: 120000 });
+      const seen = [];
+      for (let i = 0; i < 40; i++) {
+        seen.push(await page.evaluate(() => ({ x: window.__kaltoh.head.last.x, z: window.__kaltoh.head.last.z, cam: window.__kaltoh.stage.camera.position.x })));
+        await sleep(400);
+      }
+      const xs = seen.map((s) => s.x);
+      const zs = seen.map((s) => s.z);
+      const cams = seen.map((s) => s.cam);
+      check(Math.max(...zs) < 900 && Math.min(...zs) > 120, `the hologram finds the eye at a likely distance (${Math.min(...zs).toFixed(0)} to ${Math.max(...zs).toFixed(0)} mm)`);
+      check(Math.max(...xs) - Math.min(...xs) > 30 && Math.max(...cams) - Math.min(...cams) > 0.5, 'and the view follows it as it moves');
+      await page.evaluate(() => window.__kaltoh.setHologram(false));
+    }
     check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors.join(' | ')}` : ''}`);
   } finally {
     await browser.close();

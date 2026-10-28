@@ -1,11 +1,17 @@
 // Nothing is written on the screen. Everything the kal-toh says is carved into the underside of
 // its stone base, in a medallion: its name, the players, what last happened, how to play, and
 // the glyphs that act - the ways to play, testing the spin, the hologram, beginning anew. Turn
-// the base over to read it. Every line is carved in Vulcan; touch a line and it reads in
-// Standard, touch it again and it is Vulcan once more.
+// the base over to read it: whichever way it is tipped, the carving is found with its top up.
+//
+// It is carved in Vulcan. A touch anywhere on it but a glyph or a value translates all of it:
+// the carving smooths away to bare stone, and the other script is cut in its place, as deep.
+//
+// The medallion's frame is cut into the stone for good. Its words and glyphs are a second layer
+// whose depth the shader can scale (relief, darkened grooves and glow alike), so they can be
+// smoothed away and recut.
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT } from './scene.js';
-import { OPTIONS } from './settings.js';
+import { OPTIONS, TUNING, tuningText } from './settings.js';
 import { TEXT, vulcanOnly, scoreText, formText, rulesText } from './texts.js';
 
 const SIZE = 1024;
@@ -14,6 +20,13 @@ const NORMAL_SIZE = 512;
 export const MEDALLION_RADIUS = 0.8; // in the base's own units, inside its foot
 const STANDARD_FONT = "'Roboto', 'Helvetica Neue', system-ui, sans-serif";
 const ROWS_PER_PAGE = 6;
+const RELIEF = 1.4; // the normal maps' strength at full depth
+const SMOOTH = 0.32; // seconds for the carving to smooth away ...
+const RECUT = 0.42; // ... and to be cut again
+// How squarely the underside must face the eye to count as seen (and so be set upright).
+const SEEN = 0.08;
+const UNSEEN = 0.02;
+const READOUT = { x: 120, y: 182, w: 784, h: 66 }; // where the tuning page's live figures are cut
 
 const canvasOf = (size) => {
   const c = document.createElement('canvas');
@@ -23,36 +36,71 @@ const canvasOf = (size) => {
 };
 // Half the medallion's width at a given height on the canvas.
 const chord = (y) => Math.sqrt(Math.max(0, (C - 34) ** 2 - (y - C) ** 2));
-const textUp = new THREE.Vector3();
 const eyeUp = new THREE.Vector3();
-const across = new THREE.Vector3();
+const qBase = new THREE.Quaternion();
+const qTurn = new THREE.Quaternion();
+const qLay = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+const Y = new THREE.Vector3(0, 1, 0);
+
+// The carving's layer, blended into MeshStandardMaterial: its colour over the stone, its relief
+// added to the frame's, and its glow - all scaled by carveDepth.
+function carveShader(shader, uniforms) {
+  Object.assign(shader.uniforms, uniforms);
+  shader.fragmentShader = `uniform sampler2D carveColor;\nuniform sampler2D carveRelief;\nuniform float carveDepth;\n${shader.fragmentShader}`
+    .replace('#include <map_fragment>', `#include <map_fragment>
+      vec4 carveTint = texture2D( carveColor, vMapUv );
+      diffuseColor.rgb = mix( diffuseColor.rgb, carveTint.rgb, carveTint.a * carveDepth );`)
+    .replace('#include <normal_fragment_maps>', `
+      vec4 carveCut = texture2D( carveRelief, vNormalMapUv );
+      vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;
+      mapN.xy *= normalScale;
+      mapN.xy += ( carveCut.xy * 2.0 - 1.0 ) * normalScale * carveDepth;
+      normal = normalize( tbn * mapN );`)
+    .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      totalEmissiveRadiance += emissive * pow( carveCut.b, 2.2 ) * carveDepth;`);
+}
 
 export class Engraving {
-  constructor(stage, { settings, native, stone, baseMesh, onAction, onOption }) {
+  constructor(stage, { settings, stone, baseMesh, onAction, onOption, onTune }) {
     this.stage = stage;
     this.settings = settings;
-    this.native = native;
     this.baseMesh = baseMesh;
     this.onAction = onAction;
     this.onOption = onOption;
-    this.canvas = canvasOf(SIZE);
-    this.mask = canvasOf(SIZE);
-    this.glow = canvasOf(SIZE);
-    this.normalCanvas = canvasOf(NORMAL_SIZE);
-    this.background = this.makeBackground(stone);
+    this.onTune = onTune;
 
-    const map = new THREE.CanvasTexture(this.canvas);
-    map.colorSpace = THREE.SRGBColorSpace;
-    map.anisotropy = 8;
-    const normalMap = new THREE.CanvasTexture(this.normalCanvas);
-    normalMap.colorSpace = THREE.NoColorSpace;
-    const emissiveMap = new THREE.CanvasTexture(this.glow);
-    emissiveMap.colorSpace = THREE.SRGBColorSpace;
-    this.textures = [map, normalMap, emissiveMap];
+    // The frame, cut for good: stone colour, relief and glow.
+    this.stone = this.makeBackground(stone);
+    const frameMask = canvasOf(SIZE);
+    const frameGlow = canvasOf(SIZE);
+    frameGlow.getContext('2d').fillRect(0, 0, SIZE, SIZE);
+    this.layer = { color: this.stone, mask: frameMask, glow: frameGlow };
+    this.ring(C - 12, 7, 0.2);
+    this.ring(C - 30, 2.5, 0.25);
+    const frameRelief = canvasOf(NORMAL_SIZE);
+    buildRelief(frameMask, null, frameRelief, true);
+
+    // The words and glyphs: a layer of their own.
+    this.carve = { color: canvasOf(SIZE), mask: canvasOf(SIZE), glow: canvasOf(SIZE) };
+    this.relief = canvasOf(NORMAL_SIZE);
+
+    const texture = (canvas, srgb) => {
+      const t = new THREE.CanvasTexture(canvas);
+      t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      t.anisotropy = 8;
+      return t;
+    };
+    const map = texture(this.stone, true);
+    const normalMap = texture(frameRelief, false);
+    const emissiveMap = texture(frameGlow, true);
+    this.carveColor = texture(this.carve.color, true);
+    this.carveRelief = texture(this.relief, false);
+    this.depth = { value: 1 }; // the shader's, eased from `cutting`
+    this.cutting = 1; // how deep the words are cut, 0 (smoothed away) to 1
     const material = new THREE.MeshStandardMaterial({
       map,
       normalMap,
-      normalScale: new THREE.Vector2(1.4, 1.4),
+      normalScale: new THREE.Vector2(RELIEF, RELIEF),
       emissiveMap,
       // The carving holds a faint light, as a Vulcan inlay would, so it reads in the stone's shadow.
       emissive: new THREE.Color(0x9fd2ff),
@@ -60,25 +108,30 @@ export class Engraving {
       roughness: 0.86,
       metalness: 0,
     });
+    material.onBeforeCompile = (shader) => carveShader(shader, {
+      carveColor: { value: this.carveColor },
+      carveRelief: { value: this.carveRelief },
+      carveDepth: this.depth,
+    });
+    material.customProgramCacheKey = () => 'kaltoh-carving';
     this.mesh = new THREE.Mesh(new THREE.CircleGeometry(MEDALLION_RADIUS, 96), material);
-    // Facing down, just proud of the foot; its top edge toward the base's front.
-    this.mesh.rotation.x = Math.PI / 2;
+    // Facing down, just proud of the foot.
+    this.mesh.quaternion.copy(qLay);
     this.mesh.position.y = -PIVOT.y - 0.0025;
     this.mesh.receiveShadow = true;
     stage.baseRoot.add(this.mesh);
 
     this.page = 'main';
     this.wayPage = 0;
-    this.flipped = new Set(); // lines shown in the other script
-    this.state = { game: null, event: TEXT.begin, hologram: false, testAllowed: true };
+    this.tunePage = 0;
+    this.standard = settings.language === 'standard'; // which script is cut now
+    this.state = { game: null, event: TEXT.begin, hologram: false, testAllowed: true, readout: null };
     this.regions = [];
     this.dirty = true;
+    this.change = null; // what is to be cut once the carving has smoothed away
+    this.phase = 'still'; // still | smoothing | cutting
+    this.seen = false; // the underside faces the eye
     this.raycaster = new THREE.Raycaster();
-  }
-
-  // Lines read in Standard if the game is set to Standard, unless touched (and vice versa).
-  standard(id) {
-    return (this.settings.language === 'standard') !== this.flipped.has(id);
   }
 
   set(state) {
@@ -99,17 +152,54 @@ export class Engraving {
     return { facing: normal.dot(camera.position.clone().sub(center).normalize()), center };
   }
 
-  // How far the stone must turn about its own axis for the carving to read upright to the eye:
-  // that axis (world, out of the carving) goes into `axis`; the signed angle is returned.
-  upright(camera, axis) {
-    const q = this.stage.baseRoot.quaternion;
-    axis.set(0, -1, 0).applyQuaternion(q);
-    textUp.set(0, 0, 1).applyQuaternion(q); // the canvas's top, as the medallion lies in the stone
-    eyeUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
-    eyeUp.addScaledVector(axis, -eyeUp.dot(axis));
-    if (eyeUp.lengthSq() < 1e-8) return 0;
-    eyeUp.normalize();
-    return Math.atan2(across.crossVectors(textUp, eyeUp).dot(axis), textUp.dot(eyeUp));
+  // Smooth the carving away, make a change, and cut it again.
+  recut(change) {
+    this.change = change;
+    if (this.phase !== 'smoothing') this.phase = 'smoothing';
+  }
+
+  translate() {
+    this.recut(() => {
+      this.standard = !this.standard;
+    });
+  }
+
+  // Each frame: set the carving upright when the underside comes into view, carry on any
+  // recutting, and cut what has changed.
+  update(camera, dt) {
+    const { facing } = this.facing(camera);
+    if (facing < UNSEEN) this.seen = false;
+    else if (!this.seen && facing > SEEN) {
+      this.seen = true;
+      this.setUpright(camera);
+    }
+    if (this.phase === 'smoothing') {
+      this.cutting = Math.max(0, this.cutting - dt / SMOOTH);
+      if (this.cutting === 0) {
+        this.change?.();
+        this.change = null;
+        this.dirty = true;
+        this.phase = 'cutting';
+      }
+    } else if (this.phase === 'cutting') {
+      this.cutting = Math.min(1, this.cutting + dt / RECUT);
+      if (this.cutting === 1) this.phase = 'still';
+    }
+    // Eased, so the cutting starts and ends gently.
+    const k = this.cutting;
+    this.depth.value = k * k * (3 - 2 * k);
+    if (this.phase !== 'smoothing') this.render();
+  }
+
+  // Turn the carving about its centre so that, seen from here, its top is up.
+  setUpright(camera) {
+    qBase.copy(this.stage.baseRoot.quaternion).invert();
+    eyeUp.set(0, 1, 0).applyQuaternion(camera.quaternion).applyQuaternion(qBase);
+    // Within the medallion's plane (the base's xz-plane), the carving's top lies along +z turned
+    // by the angle about y.
+    if (eyeUp.x * eyeUp.x + eyeUp.z * eyeUp.z < 1e-8) return;
+    qTurn.setFromAxisAngle(Y, Math.atan2(eyeUp.x, eyeUp.z));
+    this.mesh.quaternion.copy(qTurn).multiply(qLay);
   }
 
   // --- Drawing -------------------------------------------------------------------------------
@@ -139,38 +229,35 @@ export class Engraving {
   render() {
     if (!this.dirty) return;
     this.dirty = false;
-    const g = this.canvas.getContext('2d');
-    g.clearRect(0, 0, SIZE, SIZE);
-    g.drawImage(this.background, 0, 0);
-    for (const c of [this.mask, this.glow]) {
-      const x = c.getContext('2d');
-      x.clearRect(0, 0, SIZE, SIZE);
-      if (c === this.glow) {
-        x.fillStyle = '#000';
-        x.fillRect(0, 0, SIZE, SIZE);
-      }
-    }
+    const { color, mask, glow } = this.carve;
+    color.getContext('2d').clearRect(0, 0, SIZE, SIZE);
+    mask.getContext('2d').clearRect(0, 0, SIZE, SIZE);
+    const gl = glow.getContext('2d');
+    gl.fillStyle = '#000';
+    gl.fillRect(0, 0, SIZE, SIZE);
+    this.layer = this.carve;
     this.regions = [];
-    this.ring(C - 12, 7, 0.2);
-    this.ring(C - 30, 2.5, 0.25);
     if (this.page === 'ways') this.drawWays();
     else if (this.page === 'rules') this.drawRules();
+    else if (this.page === 'tune') this.drawTune();
     else this.drawMain();
-    this.buildNormals();
-    for (const t of this.textures) t.needsUpdate = true;
+    buildRelief(mask, glow, this.relief, false);
+    this.carveColor.needsUpdate = true;
+    this.carveRelief.needsUpdate = true;
   }
 
-  // Cut into all three layers: the stone (a bright lower lip and a dark groove), the depth mask
-  // (for the normal map), and the glow.
+  // Cut into a layer: the stone (a bright lower lip and a dark groove), the depth mask (for the
+  // relief), and the glow.
   cut(draw, lit) {
-    const g = this.canvas.getContext('2d');
+    const { color, mask, glow } = this.layer;
+    const g = color.getContext('2d');
     g.save();
     g.translate(1.6, 1.6);
     draw(g, 'rgba(255, 240, 230, 0.42)');
     g.restore();
     draw(g, 'rgba(46, 20, 16, 0.84)');
-    draw(this.mask.getContext('2d'), '#fff');
-    if (lit > 0) draw(this.glow.getContext('2d'), `rgba(255, 255, 255, ${lit})`);
+    draw(mask.getContext('2d'), '#fff');
+    if (lit > 0) draw(glow.getContext('2d'), `rgba(255, 255, 255, ${lit})`);
   }
 
   ring(r, width, lit) {
@@ -183,22 +270,22 @@ export class Engraving {
     }, lit);
   }
 
-  // A line of text, centred at (x, y), fitted into `max` pixels. Touching it translates it.
-  line(id, text, x, y, { size = 32, script = false, max = 760, lit = 0.32, kind = 'line', key } = {}) {
-    const standard = this.standard(id);
+  // A line of text, centred at (x, y), fitted into `max` pixels. `numerals` keeps it in Standard
+  // letters whatever the script (the Vulcan fonts have no digits).
+  line(id, text, x, y, { size = 32, script = false, max = 760, lit = 0.32, kind = 'line', key, numerals = false } = {}) {
+    const standard = this.standard || numerals;
     const str = standard ? text.s : vulcanOnly(text.v);
-    if (!str) return;
+    if (!str) return null;
     const family = standard ? STANDARD_FONT : script ? "'VulcanScript'" : "'ModernVulcan'";
-    const weight = standard ? 400 : 400;
     let px = standard ? size * (script ? 0.55 : 0.82) : size;
-    const g = this.canvas.getContext('2d');
-    g.font = `${weight} ${px}px ${family}`;
+    const g = this.layer.color.getContext('2d');
+    g.font = `400 ${px}px ${family}`;
     let w = g.measureText(str).width;
     if (w > max) {
       px *= max / w;
       w = max;
     }
-    const font = `${weight} ${px}px ${family}`;
+    const font = `400 ${px}px ${family}`;
     const x0 = x - w / 2;
     this.cut((c, color) => {
       c.font = font;
@@ -208,7 +295,9 @@ export class Engraving {
       c.fillText(str, x0, y);
     }, lit);
     const h = Math.max(px * 1.5, 44);
-    this.regions.push({ kind, id, key, x: x0 - 14, y: y - h / 2, w: w + 28, h });
+    const region = { kind, id, key, x: x0 - 14, y: y - h / 2, w: w + 28, h };
+    this.regions.push(region);
+    return region;
   }
 
   // A glyph that acts when touched, with its name carved beneath.
@@ -235,6 +324,20 @@ export class Engraving {
       const x = C + (i - (items.length - 1) / 2) * gap;
       this.glyph(item.name, x, y, item.label, item);
     });
+  }
+
+  // Page marks: one dot for each page, the current one larger.
+  dots(count, current, y) {
+    for (let i = 0; i < count; i++) {
+      const x = C + (i - (count - 1) / 2) * 26;
+      const on = i === current;
+      this.cut((g, color) => {
+        g.fillStyle = color;
+        g.beginPath();
+        g.arc(x, y, on ? 6 : 4, 0, Math.PI * 2);
+        g.fill();
+      }, on ? 0.9 : 0.25);
+    }
   }
 
   drawMain() {
@@ -273,13 +376,13 @@ export class Engraving {
     });
     const glyphs = [{ name: 'ways', label: TEXT.ways }];
     if (this.state.testAllowed) glyphs.push({ name: 'test', label: TEXT.test });
-    if (this.native) glyphs.push({ name: 'lens', label: TEXT.lens, on: this.state.hologram });
+    glyphs.push({ name: 'lens', label: TEXT.lens, on: this.state.hologram });
     glyphs.push({ name: 'anew', label: TEXT.anew });
     this.glyphRow(glyphs, 846);
   }
 
   visibleOptions() {
-    return OPTIONS.filter((o) => (!o.when || o.when(this.settings)) && (!o.native || this.native));
+    return OPTIONS.filter((o) => !o.when || o.when(this.settings));
   }
 
   drawWays() {
@@ -287,29 +390,19 @@ export class Engraving {
     const pages = Math.ceil(options.length / ROWS_PER_PAGE);
     this.wayPage = Math.min(this.wayPage, pages - 1);
     this.line('waysTitle', TEXT.waysTitle, C, 164, { size: 44, lit: 0.5 });
-    for (let i = 0; i < pages; i++) {
-      const x = C + (i - (pages - 1) / 2) * 26;
-      const on = i === this.wayPage;
-      this.cut((g, color) => {
-        g.fillStyle = color;
-        g.beginPath();
-        g.arc(x, 210, on ? 6 : 4, 0, Math.PI * 2);
-        g.fill();
-      }, on ? 0.9 : 0.25);
-    }
+    this.dots(pages, this.wayPage, 210);
     options.slice(this.wayPage * ROWS_PER_PAGE, (this.wayPage + 1) * ROWS_PER_PAGE).forEach((o, i) => {
       const y = 268 + i * 86;
       const max = 2 * chord(y + 16) - 90;
-      const id = `row:${o.key}`;
       const choice = o.choices.find(([value]) => value === this.settings[o.key]) ?? o.choices[0];
-      // The name of the way (touch to translate), and its value beneath (touch to change).
-      this.line(id, { v: o.v, s: o.s }, C, y, { size: 25, max, lit: 0.22 });
-      this.line(id, { v: choice[1], s: choice[2] }, C, y + 34, { size: 31, max, lit: 0.62, kind: 'value', key: o.key });
+      // The name of the way, and its value beneath (touch to change).
+      this.line(`row:${o.key}`, { v: o.v, s: o.s }, C, y, { size: 25, max, lit: 0.22 });
+      this.line(`row:${o.key}`, { v: choice[1], s: choice[2] }, C, y + 34, { size: 31, max, lit: 0.62, kind: 'value', key: o.key });
     });
     const glyphs = [];
     if (this.wayPage > 0) glyphs.push({ name: 'prev', label: TEXT.back });
     if (this.wayPage < pages - 1) glyphs.push({ name: 'more', label: TEXT.more });
-    glyphs.push({ name: 'rules', label: TEXT.rules }, { name: 'anew', label: TEXT.anew }, { name: 'back', label: TEXT.back });
+    glyphs.push({ name: 'tune', label: TEXT.tune }, { name: 'rules', label: TEXT.rules }, { name: 'anew', label: TEXT.anew }, { name: 'back', label: TEXT.back });
     this.glyphRow(glyphs, 846);
   }
 
@@ -322,44 +415,80 @@ export class Engraving {
     this.glyphRow([{ name: 'ways', label: TEXT.ways }, { name: 'back', label: TEXT.back }], 846);
   }
 
-  // A normal map from the depth mask: the carving is cut into the stone, so light catches the
-  // lower lip of each stroke and shades the upper.
-  buildNormals() {
-    const n = NORMAL_SIZE;
-    const g = this.normalCanvas.getContext('2d', { willReadFrequently: true });
-    g.clearRect(0, 0, n, n);
-    g.drawImage(this.mask, 0, 0, n, n);
-    const src = g.getImageData(0, 0, n, n);
-    const depth = new Float32Array(n * n);
-    for (let i = 0; i < n * n; i++) depth[i] = src.data[i * 4 + 3] / 255;
-    // Soften the walls a little.
-    const soft = new Float32Array(n * n);
-    for (let y = 1; y < n - 1; y++) {
-      for (let x = 1; x < n - 1; x++) {
-        const i = y * n + x;
-        soft[i] = (depth[i] * 4 + depth[i - 1] + depth[i + 1] + depth[i - n] + depth[i + n]) / 8;
+  // The hologram's tuning: what the camera sees of the eye now, then each value between a step
+  // down (touch its left) and a step up (touch its right).
+  drawTune() {
+    const pages = Math.ceil(TUNING.length / ROWS_PER_PAGE);
+    this.tunePage = Math.min(this.tunePage, pages - 1);
+    this.line('tuneTitle', TEXT.tuneTitle, C, 122, { size: 44, lit: 0.5 });
+    this.dots(pages, this.tunePage, 160);
+    this.drawReadout();
+    TUNING.slice(this.tunePage * ROWS_PER_PAGE, (this.tunePage + 1) * ROWS_PER_PAGE).forEach((t, i) => {
+      const y = 292 + i * 84;
+      const max = 2 * chord(y + 16) - 90;
+      this.line(`tune:${t.key}`, { v: t.v, s: t.s }, C, y, { size: 25, max, lit: 0.22 });
+      const text = tuningText(t, this.settings.holo[t.key]);
+      const value = this.line(`tune:${t.key}`, { v: text, s: text }, C, y + 34, { size: 31, max: 300, lit: 0.62, kind: 'value', key: t.key, numerals: true });
+      // Chevrons either side: the left half of the row steps down, the right half up.
+      for (const side of [-1, 1]) {
+        const x = C + side * 190;
+        this.cut((g, color) => {
+          g.strokeStyle = color;
+          g.lineWidth = 4;
+          g.lineCap = 'round';
+          g.beginPath();
+          g.moveTo(x - side * 8, y + 22);
+          g.lineTo(x + side * 6, y + 34);
+          g.lineTo(x - side * 8, y + 46);
+          g.stroke();
+        }, 0.45);
       }
+      this.regions.pop(); // the value's own region gives way to the two halves
+      const top = value.y;
+      this.regions.push({ kind: 'step', id: `step:${t.key}`, key: t.key, by: -1, x: C - 240, y: top, w: 240, h: value.h });
+      this.regions.push({ kind: 'step', id: `step:${t.key}+`, key: t.key, by: 1, x: C, y: top, w: 240, h: value.h });
+    });
+    const glyphs = [];
+    if (this.tunePage > 0) glyphs.push({ name: 'prev', label: TEXT.back });
+    if (this.tunePage < pages - 1) glyphs.push({ name: 'more', label: TEXT.more });
+    glyphs.push({ name: 'centre', label: TEXT.centre }, { name: 'reset', label: TEXT.reset }, { name: 'back', label: TEXT.back });
+    this.glyphRow(glyphs, 846);
+  }
+
+  drawReadout() {
+    const lines = this.state.readout ?? [{ v: 'not tracking', s: 'Not tracking' }];
+    lines.slice(0, 2).forEach((text, i) => {
+      this.line(`readout${i}`, text, C, READOUT.y + 16 + i * 32, { size: 24, max: READOUT.w, lit: 0.4, numerals: true });
+    });
+  }
+
+  // New live figures on the tuning page: recut just their strip of the carving.
+  setReadout(lines) {
+    this.state.readout = lines;
+    if (this.page !== 'tune' || this.phase !== 'still' || this.dirty) return;
+    const { x, y, w, h } = READOUT;
+    const { color, mask, glow } = this.carve;
+    color.getContext('2d').clearRect(x, y, w, h);
+    mask.getContext('2d').clearRect(x, y, w, h);
+    const gl = glow.getContext('2d');
+    gl.fillStyle = '#000';
+    gl.fillRect(x, y, w, h);
+    const keep = this.regions;
+    this.regions = [];
+    this.layer = this.carve;
+    const g = [color, mask, glow].map((c) => c.getContext('2d'));
+    for (const c of g) {
+      c.save();
+      c.beginPath();
+      c.rect(x, y, w, h);
+      c.clip();
     }
-    const out = g.createImageData(n, n);
-    const k = 2.6;
-    for (let y = 0; y < n; y++) {
-      for (let x = 0; x < n; x++) {
-        const i = y * n + x;
-        const dx = x > 0 && x < n - 1 ? soft[i + 1] - soft[i - 1] : 0;
-        const dy = y > 0 && y < n - 1 ? soft[i + n] - soft[i - n] : 0;
-        // Height is minus depth; v runs up the texture while canvas rows run down.
-        let nx = dx * k;
-        let ny = -dy * k;
-        const len = Math.hypot(nx, ny, 1);
-        nx /= len;
-        ny /= len;
-        out.data[i * 4] = Math.round((nx * 0.5 + 0.5) * 255);
-        out.data[i * 4 + 1] = Math.round((ny * 0.5 + 0.5) * 255);
-        out.data[i * 4 + 2] = Math.round((0.5 / len + 0.5) * 255);
-        out.data[i * 4 + 3] = 255;
-      }
-    }
-    g.putImageData(out, 0, 0);
+    this.drawReadout();
+    for (const c of g) c.restore();
+    this.regions = keep;
+    buildRelief(mask, glow, this.relief, false, { x: x - 4, y: y - 4, w: w + 8, h: h + 8 });
+    this.carveColor.needsUpdate = true;
+    this.carveRelief.needsUpdate = true;
   }
 
   // Where a carved region shows on screen (for tests): its centre in CSS pixels.
@@ -375,23 +504,28 @@ export class Engraving {
 
   // --- Touch ---------------------------------------------------------------------------------
 
-  // A tap at CSS pixel (x, y). Returns true if it fell on the medallion (and was used).
+  // A tap at CSS pixel (x, y). Returns true if it fell on the underside (and was used).
   tap(x, y) {
     const { stage } = this;
     const ndc = new THREE.Vector2((x / stage.size.width) * 2 - 1, -(y / stage.size.height) * 2 + 1);
     this.raycaster.setFromCamera(ndc, stage.camera);
-    const hits = this.raycaster.intersectObjects([this.baseMesh, this.mesh], false);
-    if (!hits.length || hits[0].object !== this.mesh || !hits[0].uv) return false;
-    const px = hits[0].uv.x * SIZE;
-    const py = (1 - hits[0].uv.y) * SIZE;
-    // The most specific region under the finger (a value before the name of its way).
-    const region = this.regions.filter((r) => px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h)
+    const hit = this.raycaster.intersectObjects([this.baseMesh, this.mesh], false)[0];
+    if (!hit || !this.seen) return false;
+    if (hit.object !== this.mesh) {
+      // The stone around the medallion: its underside translates too, its sides and basin do not.
+      const local = stage.baseRoot.worldToLocal(hit.point.clone());
+      if (local.y > -PIVOT.y + 0.06) return false;
+      this.translate();
+      this.onAction?.('translate');
+      return true;
+    }
+    const px = hit.uv.x * SIZE;
+    const py = (1 - hit.uv.y) * SIZE;
+    // The most specific region under the finger.
+    const region = this.regions.filter((r) => r.kind !== 'line' && px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h)
       .sort((a, b) => a.w * a.h - b.w * b.h)[0];
-    if (!region) return true;
-    if (region.kind === 'line') {
-      if (this.flipped.has(region.id)) this.flipped.delete(region.id);
-      else this.flipped.add(region.id);
-      this.dirty = true;
+    if (!region) {
+      this.translate();
       this.onAction?.('translate');
     } else if (region.kind === 'value') {
       const option = OPTIONS.find((o) => o.key === region.key);
@@ -400,6 +534,15 @@ export class Engraving {
       this.settings[option.key] = next;
       this.dirty = true;
       this.onOption?.(option.key, next);
+    } else if (region.kind === 'step') {
+      const t = TUNING.find((x) => x.key === region.key);
+      const i = t.steps.indexOf(this.settings.holo[t.key]);
+      const next = t.steps[Math.max(0, Math.min(t.steps.length - 1, i + region.by))];
+      if (next !== this.settings.holo[t.key]) {
+        this.settings.holo[t.key] = next;
+        this.dirty = true;
+        this.onTune?.(t.key, next);
+      }
     } else if (region.kind === 'button') {
       this.press(region.id);
     }
@@ -407,23 +550,102 @@ export class Engraving {
   }
 
   press(name) {
+    const turn = (page) => this.recut(page);
     if (name === 'ways') {
-      this.page = 'ways';
-      this.wayPage = 0;
+      turn(() => {
+        this.page = 'ways';
+        this.wayPage = 0;
+      });
     } else if (name === 'rules') {
-      this.page = 'rules';
+      turn(() => {
+        this.page = 'rules';
+      });
+    } else if (name === 'tune') {
+      turn(() => {
+        this.page = 'tune';
+        this.tunePage = 0;
+      });
     } else if (name === 'back') {
-      this.page = this.page === 'rules' ? 'ways' : 'main';
-    } else if (name === 'more') {
-      this.wayPage += 1;
-    } else if (name === 'prev') {
-      this.wayPage = Math.max(0, this.wayPage - 1);
+      turn(() => {
+        this.page = this.page === 'rules' || this.page === 'tune' ? 'ways' : 'main';
+      });
+    } else if (name === 'more' || name === 'prev') {
+      const by = name === 'more' ? 1 : -1;
+      turn(() => {
+        if (this.page === 'tune') this.tunePage = Math.max(0, this.tunePage + by);
+        else this.wayPage = Math.max(0, this.wayPage + by);
+      });
     } else {
       this.onAction?.(name);
+      this.dirty = true;
+      return;
     }
-    this.dirty = true;
-    if (['ways', 'rules', 'back', 'more', 'prev'].includes(name)) this.onAction?.('page');
+    this.onAction?.('page');
   }
+
+  // Straight to a page, without recutting (a new game returns to the first).
+  show(page) {
+    this.page = page;
+    this.dirty = true;
+  }
+}
+
+// The relief (and, for the words, the glow) from a depth mask: the carving is cut into the
+// stone, so light catches the lower lip of each stroke and shades the upper. The frame's relief is
+// a full normal map; the words' keeps only the slope (red, green) and carries the glow in blue.
+// `rect`, in mask pixels, limits the work to a strip.
+function buildRelief(mask, glow, out, full, rect = null) {
+  const n = NORMAL_SIZE;
+  const f = SIZE / n;
+  const x0 = rect ? Math.max(0, Math.floor(rect.x / f)) : 0;
+  const y0 = rect ? Math.max(0, Math.floor(rect.y / f)) : 0;
+  const x1 = rect ? Math.min(n, Math.ceil((rect.x + rect.w) / f)) : n;
+  const y1 = rect ? Math.min(n, Math.ceil((rect.y + rect.h) / f)) : n;
+  const w = x1 - x0;
+  const h = y1 - y0;
+  const scratch = buildRelief.scratch ??= canvasOf(n).getContext('2d', { willReadFrequently: true });
+  scratch.clearRect(0, 0, n, n);
+  scratch.drawImage(mask, 0, 0, n, n);
+  const src = scratch.getImageData(x0, y0, w, h).data;
+  let light = null;
+  if (glow) {
+    scratch.clearRect(0, 0, n, n);
+    scratch.drawImage(glow, 0, 0, n, n);
+    light = scratch.getImageData(x0, y0, w, h).data;
+  }
+  const depth = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) depth[i] = src[i * 4 + 3] / 255;
+  // Soften the walls a little.
+  const soft = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      soft[i] = x > 0 && x < w - 1 && y > 0 && y < h - 1
+        ? (depth[i] * 4 + depth[i - 1] + depth[i + 1] + depth[i - w] + depth[i + w]) / 8
+        : depth[i];
+    }
+  }
+  const g = out.getContext('2d');
+  const img = g.createImageData(w, h);
+  const k = 2.6;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      const dx = x > 0 && x < w - 1 ? soft[i + 1] - soft[i - 1] : 0;
+      const dy = y > 0 && y < h - 1 ? soft[i + w] - soft[i - w] : 0;
+      // Height is minus depth; v runs up the texture while canvas rows run down.
+      let nx = dx * k;
+      let ny = -dy * k;
+      const len = Math.hypot(nx, ny, 1);
+      nx /= len;
+      ny /= len;
+      img.data[i * 4] = Math.round((nx * 0.5 + 0.5) * 255);
+      img.data[i * 4 + 1] = Math.round((ny * 0.5 + 0.5) * 255);
+      img.data[i * 4 + 2] = full ? Math.round((0.5 / len + 0.5) * 255) : light ? light[i * 4] : 0;
+      img.data[i * 4 + 3] = 255;
+    }
+  }
+  g.putImageData(img, x0, y0);
 }
 
 // The glyphs, drawn about their centre.
@@ -496,5 +718,37 @@ const GLYPHS = {
     g.lineTo(6, -22);
     g.lineTo(-6, -12);
     g.stroke();
+  },
+  // The lens, with the lines of sight that tune it.
+  tune(g) {
+    g.beginPath();
+    g.arc(0, 0, 13, 0, Math.PI * 2);
+    g.stroke();
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * 20, Math.sin(a) * 20);
+      g.lineTo(Math.cos(a) * 31, Math.sin(a) * 31);
+      g.stroke();
+    }
+  },
+  centre(g) {
+    g.beginPath();
+    g.arc(0, 0, 22, 0, Math.PI * 2);
+    g.stroke();
+    for (const [x, y] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+      g.beginPath();
+      g.moveTo(x * 12, y * 12);
+      g.lineTo(x * 32, y * 32);
+      g.stroke();
+    }
+  },
+  reset(g) {
+    g.beginPath();
+    g.arc(0, 0, 28, Math.PI * 0.2, Math.PI * 1.8);
+    g.stroke();
+    g.beginPath();
+    g.arc(0, 0, 4.5, 0, Math.PI * 2);
+    g.fill();
   },
 };

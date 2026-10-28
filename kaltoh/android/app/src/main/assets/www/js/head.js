@@ -1,31 +1,33 @@
-// The hologram view. In the Android app the front camera follows the player's face (never
-// shown), and the gyroscope feels the phone turn; together they give where the eye is relative
-// to the screen, which stays a fixed window onto the kal-toh so it seems to stand inside the phone.
+// The hologram: where the player's eye is, in millimetres from the middle of the screen (x to the
+// right, y up, z out toward the player). The screen is a pane of glass with the kal-toh standing
+// behind it (scene.js); drawn from where the eye really is, the kal-toh keeps its place as the
+// head, or the phone, moves - and leaning in widens the view through the glass, as through a
+// window, while drawing back narrows it.
 //
-// Face sightings arrive as the player sees themselves in a mirror: x and y from -1 to 1 across
-// the camera's view (y downward) and a face size that grows as they lean in. The camera is slow
-// (a frame or more behind), so the two are blended as a complementary filter: the gyroscope's
-// quick changes are taken at once and handed over, as they fade, to the camera's slower truth.
+// Only the front camera is needed: the head's place relative to the screen is all that matters.
+// The camera finds each iris (tracker.js, eyes-worker.js). Its distance follows from the iris's
+// apparent size, since an iris is 11.7 mm across in nearly everyone, and the camera's focal
+// length; its place across, from the direction it is seen in and where the camera sits beside the
+// screen. A one-euro filter steadies each axis without lagging fast moves, and the eye is carried
+// ahead along its motion by the camera's delay, so the view does not trail the head.
 //
-// Where the player first settles becomes the centre, once; it does not drift afterwards, so
-// leaning in or away keeps its effect for as long as you hold it.
+// Where the player first settles is the centre for the tuning's gains, the distance the kal-toh
+// is framed for, and (unless the tuning says the middle of the screen) straight ahead. It does
+// not drift afterwards; recentring sets it afresh.
+import { FOV } from './scene.js';
 
-// Half the front camera's field of view, in radians: how far the eye has swung when the face
-// reaches the edge of the camera's view.
-const SPAN = 0.62;
-// How long the gyroscope's word stands before the camera's takes over (about the camera's lag).
-const HANDOVER = 0.18;
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+const RAD = Math.PI / 180;
+const LOST = 600; // ms without a sighting before the view eases back to rest
+const NATIVE_LAG = 70; // ms: the Android tracker's sightings are about this old when they arrive
 
 // Casiez's one-euro filter: little smoothing when the input moves fast (so it does not lag),
-// more when it is nearly still (so it does not shimmer).
+// more when it is nearly still (so it does not shimmer). Times in seconds.
 class OneEuro {
-  constructor(minCutoff, beta, dCutoff = 1.5) {
-    this.minCutoff = minCutoff;
-    this.beta = beta;
-    this.dCutoff = dCutoff;
+  constructor() {
     this.x = null;
     this.dx = 0;
+    this.t = 0;
   }
 
   static alpha(cutoff, dt) {
@@ -33,106 +35,177 @@ class OneEuro {
     return 1 / (1 + tau / dt);
   }
 
-  filter(x, dt) {
+  filter(x, t, minCutoff, beta, dCutoff = 1.2) {
     if (this.x === null) {
       this.x = x;
+      this.t = t;
       return x;
     }
+    const dt = clamp(t - this.t, 1 / 240, 0.25);
+    this.t = t;
     const dx = (x - this.x) / dt;
-    this.dx += OneEuro.alpha(this.dCutoff, dt) * (dx - this.dx);
-    const cutoff = this.minCutoff + this.beta * Math.abs(this.dx);
+    this.dx += OneEuro.alpha(dCutoff, dt) * (dx - this.dx);
+    const cutoff = minCutoff + beta * Math.abs(this.dx);
     this.x += OneEuro.alpha(cutoff, dt) * (x - this.x);
     return this.x;
-  }
-
-  reset() {
-    this.x = null;
-    this.dx = 0;
   }
 }
 
 export class Head {
-  constructor() {
+  // device: { screen: { width, height } mm, camera: { fovLong, fovShort } degrees, { x, y } mm }.
+  // tuning: the live settings.holo.
+  constructor(device, tuning) {
+    this.device = device;
+    this.tuning = tuning;
     this.status = 'off'; // off | starting | on | denied | unavailable
-    this.time = 0;
-    this.seenAt = -Infinity;
-    this.lastSample = -Infinity;
-    this.neutral = null;
-    this.calibration = [];
-    this.filters = { x: new OneEuro(1.4, 0.9), y: new OneEuro(1.4, 0.9), size: new OneEuro(0.9, 0.5) };
-    this.camera = { x: 0, y: 0, distance: 1 }; // where the camera last put the eye
-    this.gyro = { x: 0, y: 0 }; // the phone's turning, summed
-    this.gyroSlow = { x: 0, y: 0 }; // ... as the camera would see it, a moment late
-    // Where the eye is: angles off the screen's axis (radians; x right, y up), and distance
-    // relative to where the player first held the phone.
-    this.view = { x: 0, y: 0, distance: 1 };
+    this.source = null; // 'camera' (in the page) or 'native' (the Android tracker)
+    this.engine = null; // what the page's face tracker runs on, for the readout
+    this.recentre();
+    // Where the eye is now, as the view uses it.
+    this.view = { x: 0, y: 0, z: null };
+    this.frames = []; // sighting times, for the rate
+    this.latency = 0;
   }
 
   get active() {
     return this.status === 'on';
   }
 
-  setStatus(status) {
+  setStatus(status, source = this.source) {
     this.status = status;
+    this.source = source;
     if (status !== 'on') this.recentre();
   }
 
   // Forget the centre: the next sightings set it afresh.
   recentre() {
-    this.neutral = null;
     this.calibration = [];
-    for (const f of Object.values(this.filters)) f.reset();
-    this.camera = { x: 0, y: 0, distance: 1 };
+    this.rest = null; // { x, y, z } mm
+    this.filters = { x: new OneEuro(), y: new OneEuro(), z: new OneEuro() };
+    this.last = null; // { t: ms, x, y, z, vx, vy, vz } filtered, at the time of the frame
+    this.seenAt = -Infinity;
+    this.nativeSize = null;
   }
 
-  // A face sighting from the camera.
+  // The distance the layout is drawn for: the screen subtends the scene's field of view from it.
+  get designDistance() {
+    return this.device.screen.height / (2 * Math.tan((FOV / 2) * RAD));
+  }
+
+  // The eye's distance at rest, for which the kal-toh is framed as laid out.
+  get restDistance() {
+    return this.rest?.z ?? this.designDistance;
+  }
+
+  fovLong() {
+    return this.tuning.fov === 'auto' ? this.device.camera.fovLong : this.tuning.fov;
+  }
+
+  cameraAt() {
+    const { camera } = this.device;
+    return { x: camera.x, y: this.tuning.camera === 'auto' ? camera.y : this.tuning.camera };
+  }
+
+  // Irises seen by the camera in a frame of width x height pixels (not mirrored: the player's
+  // left eye is the one further right). Each iris: { x, y, d } - centre and diameter in pixels.
+  eyes({ eyes, width, height, capture }) {
+    if (!eyes) return;
+    const [a, b] = eyes;
+    const left = a.x > b.x ? a : b;
+    const right = left === a ? b : a;
+    const eye = this.tuning.eye === 'left' ? left : this.tuning.eye === 'right' ? right
+      : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const f = Math.max(width, height) / 2 / Math.tan((this.fovLong() / 2) * RAD);
+    const z = (f * this.tuning.iris) / ((a.d + b.d) / 2);
+    const cam = this.cameraAt();
+    // Seen from the camera, rightward in its frame is the player's left.
+    const x = cam.x - ((eye.x - width / 2) / f) * z;
+    const y = cam.y - ((eye.y - height / 2) / f) * z;
+    this.observe(x, y, z, capture);
+  }
+
+  // A sighting from the Android tracker: the face's centre from -1 to 1 across its view, as
+  // the player sees themselves in a mirror (y downward), and its size.
   sample(x, y, size) {
     if (!(size > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return;
-    const dt = Math.min(0.2, Math.max(0.008, this.time - this.lastSample));
-    this.lastSample = this.time;
-    this.seenAt = this.time;
-    if (!this.neutral) {
-      // The centre is where the face rests over the first few sightings.
-      this.calibration.push({ x, y, size });
+    this.nativeSize ??= size;
+    const z = (this.designDistance * this.nativeSize) / size;
+    const cam = this.cameraAt();
+    const fovAcross = this.device.camera.fovShort;
+    const fovDown = this.fovLong();
+    this.observe(cam.x + z * Math.tan(x * (fovAcross / 2) * RAD), cam.y - z * Math.tan(y * (fovDown / 2) * RAD), z, performance.now() - NATIVE_LAG);
+  }
+
+  observe(x, y, z, capture) {
+    const now = performance.now();
+    if (!(z > 40 && z < 3000)) return;
+    this.seenAt = now;
+    this.latency += (now - capture - this.latency) * 0.2;
+    this.frames.push(now);
+    while (this.frames.length && this.frames[0] < now - 2000) this.frames.shift();
+    if (!this.rest) {
+      // The centre is where the eye rests over the first few sightings.
+      this.calibration.push({ x, y, z });
       if (this.calibration.length < 5) return;
-      const median = (key) => this.calibration.map((s) => s[key]).sort((a, b) => a - b)[2];
-      this.neutral = { x: median('x'), y: median('y'), size: median('size') };
+      const median = (key) => this.calibration.map((s) => s[key]).sort((p, q) => p - q)[2];
+      this.rest = { x: median('x'), y: median('y'), z: median('z') };
     }
-    const fx = this.filters.x.filter(x, dt);
-    const fy = this.filters.y.filter(y, dt);
-    const fs = this.filters.size.filter(size, dt);
-    this.camera.x = clamp(fx - this.neutral.x, -0.9, 0.9) * SPAN;
-    this.camera.y = -clamp(fy - this.neutral.y, -0.9, 0.9) * SPAN;
-    // Apparent size falls as the face draws back: distance is the inverse ratio.
-    this.camera.distance = clamp(this.neutral.size / fs, 0.4, 2.4);
+    const { steady, quick } = this.tuning;
+    const t = capture / 1000;
+    const f = this.filters;
+    this.last = {
+      t: capture,
+      x: f.x.filter(x, t, steady, quick),
+      y: f.y.filter(y, t, steady, quick),
+      // Distance is the noisiest: steadied twice as much.
+      z: f.z.filter(z, t, steady / 2, quick),
+      vx: f.x.dx,
+      vy: f.y.dx,
+      vz: f.z.dx,
+    };
   }
 
-  // The phone turned by (rx, ry) radians about its own x (across) and y (along) axes since the
-  // last report. Tipping its top toward you puts your eye above the screen's axis; turning its
-  // right edge away puts your eye to the left.
-  turn(rx, ry) {
-    this.gyro.x -= ry;
-    this.gyro.y += rx;
+  update(dt, now = performance.now()) {
+    const tracking = this.active && this.last && now - this.seenAt < LOST;
+    if (!tracking) {
+      // Lost or off: ease back to the eye at rest, straight in front of the screen.
+      const k = 1 - Math.exp(-dt / 0.4);
+      const z = this.view.z ?? this.restDistance;
+      this.view.x += (0 - this.view.x) * k;
+      this.view.y += (0 - this.view.y) * k;
+      this.view.z = z + (this.restDistance - z) * k;
+      return;
+    }
+    const { shift, lean, ahead } = this.tuning;
+    // Carried forward by the time the sighting has taken to reach the screen.
+    const lead = clamp(ahead === 'auto' ? now - this.last.t + 8 : ahead, 0, 160) / 1000;
+    const p = this.last;
+    const r = this.rest;
+    const x = p.x + p.vx * lead;
+    const y = p.y + p.vy * lead;
+    const z = p.z + p.vz * lead;
+    // Seen from where the eye truly is, or with where it first rested taken as straight ahead.
+    const ox = this.tuning.origin === 'screen' ? r.x : 0;
+    const oy = this.tuning.origin === 'screen' ? r.y : 0;
+    this.view.x = ox + (x - r.x) * shift;
+    this.view.y = oy + (y - r.y) * shift;
+    this.view.z = clamp(r.z + (z - r.z) * lean, 60, 2000);
   }
 
-  update(dt) {
-    this.time += dt;
-    const k = 1 - Math.exp(-dt / HANDOVER);
-    this.gyroSlow.x += (this.gyro.x - this.gyroSlow.x) * k;
-    this.gyroSlow.y += (this.gyro.y - this.gyroSlow.y) * k;
-    const tracking = this.active && this.neutral && this.time - this.seenAt < 1.5;
-    let target = { x: 0, y: 0, distance: 1 };
-    if (tracking) {
-      target = {
-        x: this.camera.x + (this.gyro.x - this.gyroSlow.x),
-        y: this.camera.y + (this.gyro.y - this.gyroSlow.y),
-        distance: this.camera.distance,
-      };
+  // What the tuning page shows of the tracking now.
+  readout() {
+    const cam = this.cameraAt();
+    const screen = this.device.screen;
+    const device = `screen ${screen.width.toFixed(0)}×${screen.height.toFixed(0)} mm · camera ${this.fovLong().toFixed(0)}° at ${cam.y.toFixed(0)} mm`;
+    if (!this.active || !this.last) {
+      const s = this.status === 'off' ? 'Hologram off' : this.status === 'on' ? 'Looking for your eyes' : `Hologram ${this.status}`;
+      return [{ v: s, s }, { v: device, s: device }];
     }
-    // Tracking, follow at once; lost for long, glide back to the plain view.
-    const glide = tracking ? 1 : 1 - Math.exp(-dt / 0.5);
-    this.view.x += (clamp(target.x, -0.75, 0.75) - this.view.x) * glide;
-    this.view.y += (clamp(target.y, -0.75, 0.75) - this.view.y) * glide;
-    this.view.distance += (target.distance - this.view.distance) * glide;
+    const p = this.last;
+    const rate = this.frames.length / 2;
+    const sign = (v) => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(0);
+    const engine = this.engine ? ` · ${this.engine.toUpperCase()}` : '';
+    const eye = `eye x ${sign(p.x)}  y ${sign(p.y)}  z ${p.z.toFixed(0)} mm · ${rate.toFixed(0)}/s · ${this.latency.toFixed(0)} ms${engine}`;
+    return [{ v: eye, s: eye }, { v: device, s: device }];
   }
 }

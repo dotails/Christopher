@@ -7,7 +7,16 @@ export const native = {
   get hologram() {
     return Boolean(bridge?.hologram);
   },
-  // Ask the shell to start or stop following the player's face.
+  // The phone's screen and front camera, for the hologram's window: { xdpi, ydpi, fovLong,
+  // fovShort, cutout: { x, y } (the camera's hole in the screen, in device pixels) }, or null.
+  device() {
+    try {
+      return JSON.parse(bridge?.device?.() ?? 'null');
+    } catch {
+      return null;
+    }
+  },
+  // Ask the shell to follow the player's face itself (when the page cannot watch the camera).
   setHologram(on) {
     try {
       bridge?.hologram(on);

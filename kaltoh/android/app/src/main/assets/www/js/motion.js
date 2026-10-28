@@ -10,9 +10,6 @@
 // The two never pass through each other. While the assembly is being turned (by hand, by its
 // own momentum, or by the spin test) the base gives way just enough and comes back; when the
 // base is turned into the t'an they are bumped aside and drawn back into place.
-//
-// Turned over and let go to be read, the stone turns about its own axis until the carving on its
-// underside stands upright to the eye.
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT, SCALE } from './scene.js';
 
@@ -23,8 +20,8 @@ const HOLD = 24; // how firmly the assembly keeps its place on the base (1/s^2, 
 const COAST = 0.9; // seconds for a flung assembly to slow to rest on the base
 const HOME = 30; // how firmly it is drawn back to the pivot after a bump (1/s^2, critically damped)
 const CLEAR = 0.022; // how far a t'an's centre line stays from the stone: half its thickness and a hair
+const SAMPLE = 0.02; // a t'an is tested against the stone this often along its length (world units)
 const BASE_RETURN = 0.6; // seconds for a base that gave way to come back
-const RIGHTING = 14; // how firmly a stone being read turns its carving upright (1/s^2, critically damped)
 
 const v1 = new THREE.Vector3();
 const v2 = new THREE.Vector3();
@@ -33,6 +30,21 @@ const qInv = new THREE.Quaternion();
 const qStep = new THREE.Quaternion();
 const qErr = new THREE.Quaternion();
 const qTarget = new THREE.Quaternion();
+const endA = new THREE.Vector3();
+const endB = new THREE.Vector3();
+const sample = new THREE.Vector3();
+const sampleNormal = new THREE.Vector3();
+const contactNormal = new THREE.Vector3();
+const contactAt = new THREE.Vector3();
+
+// How near the segment a-b comes to the y axis (seen from above).
+function axisDistance(a, b) {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const len2 = dx * dx + dz * dz;
+  const t = len2 > 1e-12 ? Math.max(0, Math.min(1, -(a.x * dx + a.z * dz) / len2)) : 0;
+  return Math.hypot(a.x + dx * t, a.z + dz * t);
+}
 
 function integrate(q, w, h) {
   const angle = w.length() * h;
@@ -65,28 +77,25 @@ export class Motion {
     this.mode = 'held'; // held | drag | coast | spin
     this.baseDragged = false;
     this.spin = null; // { axis (assembly-local), rate, time, duration } during a spin test
-    this.points = []; // assembly-local points kept clear of the stone
+    this.rods = []; // assembly-local ends [a, b] of the t'an, kept clear of the stone
     this.acc = 0;
     this.scrape = 0; // how hard the stone met the t'an lately (for sound)
     this.dragW = new THREE.Vector3();
     this.resting = null; // the stone's normal where the assembly lay against it last step
+    this.restingNormal = new THREE.Vector3();
     this.asleep = false;
     this.stillFor = 0;
-    this.righting = false;
-    this.rightAxis = new THREE.Vector3(); // the stone's own axis (world) ...
-    this.rightAngle = 0; // ... and how far it has yet to turn about it to read upright
   }
 
-  // Assembly-local points (THREE.Vector3) that must stay clear of the stone.
-  setPoints(points) {
-    this.points = points;
+  // The t'an (assembly-local ends, THREE.Vector3 pairs) that must stay clear of the stone.
+  setRods(rods) {
+    this.rods = rods;
   }
 
   // A finger turns the base (world axis, angle in radians over dt seconds).
   turnBase(axis, angle, dt) {
     this.asleep = false;
     this.baseDragged = true;
-    this.righting = false;
     qStep.setFromAxisAngle(axis, angle);
     this.baseQ.premultiply(qStep).normalize();
     this.dragW.copy(axis).multiplyScalar(angle / Math.max(dt, 1 / 240));
@@ -109,7 +118,6 @@ export class Motion {
     this.asleep = false;
     if (what === 'base') {
       this.baseDragged = true;
-      this.righting = false;
       this.baseW.set(0, 0, 0);
     } else if (what === 'assembly') {
       this.mode = 'drag';
@@ -135,22 +143,6 @@ export class Motion {
     this.asleep = false;
     this.spin = { axis: axis.clone().normalize(), rate, time: 0, duration };
     this.mode = 'spin';
-  }
-
-  // Being read: the stone should turn by `angle` about its own axis (world) for its carving to
-  // stand upright. Called each frame while it is read and nobody holds it; null otherwise.
-  right(axis, angle = 0) {
-    if (!axis || this.baseDragged) {
-      this.righting = false;
-      return;
-    }
-    if (!this.righting) {
-      if (Math.abs(angle) < 2e-3) return;
-      this.righting = true;
-      this.wake();
-    }
-    this.rightAxis.copy(axis);
-    this.rightAngle = angle;
   }
 
   get spinning() {
@@ -187,33 +179,18 @@ export class Motion {
   step(h) {
     // At rest, nothing moves at all - until a hand, the base, or the stone itself disturbs it.
     if (this.asleep) {
-      if (this.baseDragged || this.righting || this.baseW.lengthSq() > 0 || this.mode !== 'held') this.asleep = false;
+      if (this.baseDragged || this.baseW.lengthSq() > 0 || this.mode !== 'held') this.asleep = false;
       else if (this.collide(h, true) > 0.003) this.asleep = false;
       else return;
     }
     // The base: turned by hand, or gliding to rest.
     if (!this.baseDragged) {
-      // Righting itself, its turn about its own axis is the righting's alone.
-      let along = 0;
-      if (this.righting) {
-        along = this.baseW.dot(this.rightAxis);
-        this.baseW.addScaledVector(this.rightAxis, -along);
-      }
       // A heavy stone glides, then stops: smooth drag, plus a little steady grip so it comes to
       // rest in a moment rather than creeping on forever.
       const speed = this.baseW.length();
       const slower = Math.max(0, speed * Math.exp(-h / BASE_GLIDE) - BASE_GRIP * h);
       if (slower <= 0) this.baseW.set(0, 0, 0);
       else this.baseW.multiplyScalar(slower / speed);
-      if (this.righting) {
-        along += (RIGHTING * this.rightAngle - 2 * Math.sqrt(RIGHTING) * along) * h;
-        this.rightAngle -= along * h;
-        if (Math.abs(this.rightAngle) < 1e-3 && Math.abs(along) < 0.01) {
-          along = 0;
-          this.righting = false;
-        }
-        this.baseW.addScaledVector(this.rightAxis, along);
-      }
       integrate(this.baseQ, this.baseW, h);
     }
 
@@ -269,7 +246,7 @@ export class Motion {
     this.collide(h);
 
     // Settled - in its place on a base at rest, hardly moving - it goes still entirely.
-    const settled = this.mode === 'held' && !this.baseDragged && !this.righting && this.baseW.lengthSq() === 0 &&
+    const settled = this.mode === 'held' && !this.baseDragged && this.baseW.lengthSq() === 0 &&
       this.baseOffset.lengthSq() === 0 && this.vel.length() < 0.004 && this.w.length() < 0.004 &&
       rotationTo(this.q, qTarget.copy(this.baseQ).multiply(this.anchor), v1).length() < 0.001;
     this.stillFor = settled ? this.stillFor + h : 0;
@@ -287,44 +264,47 @@ export class Motion {
     this.stillFor = 0;
   }
 
-  // Keep every point clear of the stone. A turning assembly pushes the base aside; otherwise the
-  // stone has its way and the assembly is bumped (or simply rests on it).
+  // Keep every t'an clear of the stone, along its whole length - over the basin's lip as much as
+  // at its ends. A turning assembly pushes the base aside; otherwise the stone has its way and the
+  // assembly is bumped (or simply rests on it).
   collide(h, onlyLook = false) {
     const { base } = this;
     let deepest = 0;
-    const normal = new THREE.Vector3();
-    const at = new THREE.Vector3();
+    const normal = contactNormal;
+    const at = contactAt;
     qInv.copy(this.baseQ).invert();
     const origin = v2.copy(PIVOT).add(this.baseOffset);
-    for (const p of this.points) {
+    const high = base.top + CLEAR;
+    for (const [pa, pb] of this.rods) {
       // Into the base's own frame: foot at y = 0, axis along y.
-      const local = this.toWorld(p, v1).sub(origin).applyQuaternion(qInv);
-      local.y += PIVOT.y;
-      const r = Math.hypot(local.x, local.z);
-      if (r >= base.radius || local.y < -CLEAR) continue;
-      const top = base.surface(r) + CLEAR;
-      if (local.y >= top) continue;
-      // Out through the top, along the surface's normal - or out through the foot.
-      const slope = base.slope(r);
-      let nx = r > 1e-6 ? (-slope * local.x) / r : 0;
-      let ny = 1;
-      let nz = r > 1e-6 ? (-slope * local.z) / r : 0;
-      const nl = Math.hypot(nx, ny, nz);
-      nx /= nl;
-      ny /= nl;
-      nz /= nl;
-      let depth = (top - local.y) * ny;
-      if (local.y + CLEAR < depth) {
-        depth = local.y + CLEAR;
-        nx = 0;
-        ny = -1;
-        nz = 0;
+      const a = this.toWorld(pa, endA).sub(origin).applyQuaternion(qInv);
+      const b = this.toWorld(pb, endB).sub(origin).applyQuaternion(qInv);
+      a.y += PIVOT.y;
+      b.y += PIVOT.y;
+      // Wholly above the stone, wholly below its foot, or never within its reach: untouched.
+      if ((a.y >= high && b.y >= high) || (a.y < -CLEAR && b.y < -CLEAR)) continue;
+      if (axisDistance(a, b) >= base.radius) continue;
+      // Only the stretch of it lower than the stone's highest point needs looking at.
+      let s0 = 0;
+      let s1 = 1;
+      if (a.y >= high) s0 = (high - a.y) / (b.y - a.y);
+      else if (b.y >= high) s1 = (high - a.y) / (b.y - a.y);
+      const steps = Math.max(1, Math.ceil((a.distanceTo(b) * (s1 - s0)) / SAMPLE));
+      for (let i = 0; i <= steps; i++) {
+        const t = s0 + ((s1 - s0) * i) / steps;
+        sample.lerpVectors(a, b, t);
+        const depth = this.depthAt(sample, sampleNormal);
+        if (depth > deepest) {
+          deepest = depth;
+          normal.copy(sampleNormal);
+          at.copy(sample);
+        }
       }
-      if (depth > deepest) {
-        deepest = depth;
-        normal.set(nx, ny, nz).applyQuaternion(this.baseQ);
-        this.toWorld(p, at);
-      }
+    }
+    if (deepest > 0) {
+      normal.applyQuaternion(this.baseQ);
+      at.y -= PIVOT.y;
+      at.applyQuaternion(this.baseQ).add(origin);
     }
     if (deepest <= 0 || onlyLook) return deepest;
     if (this.mode !== 'held' && !this.baseDragged) {
@@ -335,7 +315,7 @@ export class Motion {
     // from the blow (its place on the base then draws it back). Resting on it, it merely stops:
     // stone grips steel, so it does not slide about on the slope either.
     this.pos.addScaledVector(normal, deepest);
-    this.resting = normal;
+    this.resting = this.restingNormal.copy(normal);
     const surfaceV = v1.copy(this.baseW).cross(v2.copy(at).sub(PIVOT).sub(this.baseOffset));
     const push = Math.min(3, Math.max(0, surfaceV.dot(normal) - this.vel.dot(normal)));
     this.vel.addScaledVector(normal, push);
@@ -348,6 +328,24 @@ export class Motion {
     }
     this.scrape = Math.max(this.scrape, Math.min(1, blow * 2));
     return deepest;
+  }
+
+  // How far a point in the base's frame (foot at y = 0) lies inside the stone, and the way out
+  // (into `out`): up through its upper surface, or down through its foot.
+  depthAt(p, out) {
+    const { base } = this;
+    const r = Math.hypot(p.x, p.z);
+    if (r >= base.radius || p.y < -CLEAR) return 0;
+    const top = base.surface(r) + CLEAR;
+    if (p.y >= top) return 0;
+    const slope = base.slope(r);
+    out.set(r > 1e-6 ? (-slope * p.x) / r : 0, 1, r > 1e-6 ? (-slope * p.z) / r : 0).normalize();
+    let depth = (top - p.y) * out.y;
+    if (p.y + CLEAR < depth) {
+      depth = p.y + CLEAR;
+      out.set(0, -1, 0);
+    }
+    return depth;
   }
 
   // Apply to the scene graph.
