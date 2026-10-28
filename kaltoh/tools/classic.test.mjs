@@ -124,6 +124,90 @@ for (let seed = 100; seed < 140; seed++) {
   ok(vec.length(K.imbalance(g)) < 1e-9, 'complete sphere is perfectly balanced');
   ok(g.winner === (g.turns % 2), 'the player who places the last t\'an wins');
 }
+// Within reach: a t'an joins only tips about its own length apart as the jumble lies (REACH). The
+// jumble lies as the game draws it: each junction drawn toward its place as far as it has found its
+// order, every t'an kept rigid (the solver of classic.js, run to rest after each move). Played only
+// by true, balanced moves within reach, every game can still be finished.
+{
+  const smooth = (x) => x * x * (3 - 2 * x);
+  const settle = (g, pos, iterations) => {
+    const anchors = g.chaos.map((c, v) => {
+      const o = smooth(Math.max(0, Math.min(1, g.order[v])));
+      return c.map((x, k) => x + (g.target[v][k] - x) * o);
+    });
+    for (let it = 0; it < iterations; it++) {
+      for (let v = 0; v < 30; v++) for (let k = 0; k < 3; k++) pos[v][k] += (anchors[v][k] - pos[v][k]) * 0.06;
+      for (const e of g.present.keys()) {
+        const [a, b] = L.edges[e];
+        const d = vec.sub(pos[b], pos[a]);
+        const len = vec.length(d) || 1e-9;
+        const shift = vec.scale(d, ((len - K.EDGE_LENGTH) / len) * 0.5);
+        pos[a] = vec.add(pos[a], shift);
+        pos[b] = vec.sub(pos[b], shift);
+      }
+    }
+  };
+  const [near, far] = K.REACH;
+  // Played by true moves alone, and with false bonds mixed in (a third of the moves, when there is
+  // one within reach): the jumble eases whenever no true join lies within reach (as the game does),
+  // and the sphere is always completed.
+  for (const mistakes of [0, 0.35]) {
+    let eased = 0;
+    for (let seed = 300; seed < 330; seed++) {
+      const g = K.createGame({ seed });
+      const pos = g.chaos.map((p) => [...p]);
+      settle(g, pos, 400);
+      let firstChoices = null;
+      let steps = 0;
+      while (!g.complete && steps++ < 2000) {
+        const good = [];
+        const bad = [];
+        for (let u = 0; u < 30; u++) {
+          for (let v = u + 1; v < 30; v++) {
+            if (K.isJoined(g, u, v)) continue;
+            const apart = vec.length(vec.sub(pos[u], pos[v])) / K.EDGE_LENGTH;
+            if (apart < near || apart > far) continue;
+            const kind = K.judge(g, u, v).kind;
+            if (kind === 'harmony') good.push([u, v]);
+            else if (kind === 'discord') bad.push([u, v]);
+          }
+        }
+        firstChoices ??= good.length;
+        if (!good.length) {
+          K.ease(g);
+          eased += 1;
+          settle(g, pos, 60);
+          continue;
+        }
+        const pool = bad.length && g.rng() < mistakes ? bad : good;
+        const [u, v] = pool[Math.floor(g.rng() * pool.length)];
+        K.play(g, u, v);
+        settle(g, pos, 200);
+      }
+      ok(g.complete, `seed ${seed}: played within reach${mistakes ? ', mistakes and all,' : ''} the sphere completes`);
+      if (!mistakes) ok(firstChoices >= 3, `seed ${seed}: from the start there are true moves within reach (${firstChoices})`);
+    }
+    console.log(`  within reach, ${mistakes ? 'with mistakes' : 'true moves only'}: the jumble eased ${eased} times in 30 games`);
+  }
+}
+
+// Past the balance limit (a false bond can shake loose what kept it in balance), a join that brings
+// the spin back toward balance still holds; one that makes it worse is flung.
+{
+  const g = K.createGame({ seed: 5, balanceLimit: 0.2 });
+  for (const e of K.missingEdges(g)) g.present.set(e, { seq: 0, by: 0, tree: false });
+  // Take away t'an from one side until it is well past the limit.
+  const lean = [...g.present.keys()].sort((a, b) => vec.dot(g.midPerp[b], [1, 0, 0]) - vec.dot(g.midPerp[a], [1, 0, 0]));
+  for (const e of lean.slice(0, 6)) g.present.delete(e);
+  const before = vec.length(K.imbalance(g));
+  ok(before > g.balanceLimit, 'a kal-toh can be left past its balance limit');
+  for (const e of K.missingEdges(g)) {
+    const after = vec.length(K.imbalance(g, e));
+    ok(K.balancedAfter(g, e) === (after <= g.balanceLimit || after <= before), 'past the limit, only joins that make it worse are flung');
+  }
+  ok(K.missingEdges(g).some((e) => K.balancedAfter(g, e)), 'and some join can always bring it back');
+}
+
 console.log(`classic rules: ${checks} checks passed`);
 
 // --- Balance tuning --------------------------------------------------------------------------

@@ -1,6 +1,8 @@
 // The tray at the foot of the screen where the next t'an lies, and the hand that carries it.
-// The resting t'an lies close to the eye, so it is large enough for two fingers; lifted, it
-// travels out to the kal-toh and is seen at its scale.
+// The resting t'an lies on the glass itself (scene.js), so it keeps its place and size on the
+// screen however the eye moves or the view draws near, and it is drawn over everything else; it is
+// large enough there for two fingers. Lifted, it travels out to the kal-toh and is seen at its
+// scale.
 import * as THREE from '../vendor/three.module.min.js';
 import { ROD_LENGTH as RULE_LENGTH } from './rules.js';
 import { SCALE } from './scene.js';
@@ -21,6 +23,7 @@ export class Tray {
     this.restUp = new THREE.Vector3();
     this.time = 0;
     this.length = ROD_LENGTH; // of the t'an it holds, in world units
+    this.widthScale = 1; // the resting t'an's breadth, in proportion to its length on the glass
   }
 
   layout(y) {
@@ -46,27 +49,25 @@ export class Tray {
   update(dt) {
     this.time += dt;
     if (this.visible) this.arrive = Math.min(1, this.arrive + dt / 0.45);
-    const { camera, size } = this.stage;
-    // Depth at which one t'an spans about half the screen's width.
-    const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const depth = this.length / (1.0 * t * camera.aspect);
-    const forward = camera.getWorldDirection(new THREE.Vector3());
-    const anchor = camera.position.clone().addScaledVector(forward, depth);
+    const { camera, size, glass } = this.stage;
+    // On the glass, half the screen's width long.
     const slide = (1 - ease(this.arrive)) * size.width * 0.9;
     const half = size.width * 0.25;
-    this.stage.fromScreen(size.width / 2 - half + slide, this.y, anchor, this.restA);
-    this.stage.fromScreen(size.width / 2 + half + slide, this.y, anchor, this.restB);
+    this.stage.onGlass(size.width / 2 - half + slide, this.y, this.restA);
+    this.stage.onGlass(size.width / 2 + half + slide, this.y, this.restB);
+    this.widthScale = glass.width / this.length;
     // Lying on its edge to the eye, turning slowly so its faces catch the light in turn.
-    this.restUp.copy(camera.position).sub(anchor).normalize();
+    this.restUp.addVectors(this.restA, this.restB).multiplyScalar(-0.5).add(camera.position).normalize();
     // Tipped up toward the ceiling lights, so its face catches them.
     const roll = -0.6 + Math.sin(this.time * 0.6) * 0.18;
     const axis = new THREE.Vector3().subVectors(this.restB, this.restA).normalize();
     this.restUp.applyAxisAngle(axis, roll);
   }
 
+  // Into a pool of its own, drawn over everything (RodPool's onTop).
   draw(pool, hand) {
     if (!this.visible || hand.holding || hand.flight) return;
-    pool.push(this.restA, this.restB, this.restUp, 0, 0);
+    pool.push(this.restA, this.restB, this.restUp, 0, 0, this.widthScale);
   }
 }
 
@@ -84,12 +85,16 @@ export class Hand {
     this.glow = 0;
     this.amber = 0; // it cannot rest where it is held
     this.flight = null;
+    this.scale = 1; // its breadth: the tray's, easing to its own once lifted
+    this.scaleGoal = 1;
   }
 
   lift() {
     this.holding = true;
     this.a.copy(this.tray.restA);
     this.b.copy(this.tray.restB);
+    this.scale = this.tray.widthScale;
+    this.scaleGoal = 1;
     this.glow = 0;
     this.amber = 0;
   }
@@ -122,12 +127,14 @@ export class Hand {
   returnToTray() {
     this.glow = 0;
     this.amber = 0;
+    this.scaleGoal = this.tray.widthScale;
     this.fly(this.a, this.b, this.tray.restA, this.tray.restB, 0.28, () => {
       this.holding = false;
     });
   }
 
   update(dt) {
+    this.scale += (this.scaleGoal - this.scale) * (1 - Math.exp(-dt / 0.08));
     if (this.flight) {
       const f = this.flight;
       f.t += dt;
@@ -149,7 +156,7 @@ export class Hand {
   draw(pool, halos) {
     if (!this.holding && !this.flight) return;
     this.up.copy(this.stage.camera.position).sub(this.a).normalize();
-    pool.push(this.a, this.b, this.up, this.glow * 0.7, this.amber * 0.6);
+    pool.push(this.a, this.b, this.up, this.glow * 0.7, this.amber * 0.6, this.scale);
     if (this.glow > 0) halos.push(this.a, this.b, this.glow * 0.42, 0.07, 0);
     else if (this.amber > 0) halos.push(this.a, this.b, this.amber * 0.3, 0.06, 1);
   }

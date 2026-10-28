@@ -169,8 +169,20 @@ export function rodMaterial() {
     shader.uniforms.uBlue = { value: BLUE };
     shader.uniforms.uAmber = { value: AMBER };
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aGlow;\nvarying vec3 vGlow;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGlow = aGlow;');
+      .replace('#include <common>', '#include <common>\nattribute vec3 aGlow;\nattribute vec4 aTrimA;\nattribute vec4 aTrimB;\nvarying vec3 vGlow;')
+      .replace(
+        '#include <begin_vertex>',
+        // Each corner of each end moved along the t'an by its trim (world units; see mitreAtJunctions).
+        `#include <begin_vertex>
+vGlow = aGlow;
+#ifdef USE_INSTANCING
+{
+  vec4 trim = position.z < 0.0 ? aTrimA : aTrimB;
+  float t = position.x < 0.0 ? (position.y < 0.0 ? trim.x : trim.w) : (position.y < 0.0 ? trim.y : trim.z);
+  transformed.z += (position.z < 0.0 ? t : -t) / max(length(instanceMatrix[2].xyz), 1e-4);
+}
+#endif`,
+      );
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nuniform vec3 uBlue;\nuniform vec3 uAmber;\nvarying vec3 vGlow;')
       .replace(
@@ -179,81 +191,123 @@ export function rodMaterial() {
         '#include <emissivemap_fragment>\ntotalEmissiveRadiance += uBlue * vGlow.x * 0.42 + uAmber * vGlow.y * 0.5;\ndiffuseColor.rgb *= 1.0 - vGlow.z;',
       );
   };
-  material.customProgramCacheKey = () => 'kaltoh-rod-v3';
+  material.customProgramCacheKey = () => 'kaltoh-rod-v4';
   return material;
 }
 
-// T'an that meet end to end at a corner are drawn just short of it, so that they touch there
-// rather than pass through one another: each end is drawn back by as much as its width needs
-// against the most acute of the others meeting it. Ends within NEAR of each other meet; `rods` is
-// a list of { a, b } (world points, moved in place).
-const NEAR = 0.035;
-const HALF = ROD_WIDTH / 2 + 0.0015;
-const d1 = new THREE.Vector3();
-const d2 = new THREE.Vector3();
-export function trimAtCorners(rods) {
+// Where t'an meet at a junction, each end is cut on the planes that halve the angles between it and
+// the others there - a mitre - so that they meet the last millimetre to the last, neither apart
+// nor passing through one another. Each corner of an end is drawn back (or on, past the junction's
+// point) to the nearest of those planes; the shader moves the corners (RodPool's aTrimA, aTrimB).
+// `rods`: a list of { a, b, up, trims } - world ends, the broad face's direction, and eight trims
+// (four corners at a, four at b; filled in, in world units).
+const NEAR = 0.035; // ends this close meet at a junction
+const CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+const frames = [];
+const into = new THREE.Vector3();
+const intoOther = new THREE.Vector3();
+const corner = new THREE.Vector3();
+const offset = new THREE.Vector3();
+const meeting = new THREE.Vector3();
+export function mitreAtJunctions(rods) {
   const n = rods.length;
-  const back = new Float32Array(n * 2);
-  const end = (r, k) => (k ? r.b : r.a);
   for (let i = 0; i < n; i++) {
-    for (let ki = 0; ki < 2; ki++) {
-      const p = end(rods[i], ki);
-      for (let j = i + 1; j < n; j++) {
-        for (let kj = 0; kj < 2; kj++) {
-          const q = end(rods[j], kj);
-          if (p.distanceToSquared(q) > NEAR * NEAR) continue;
-          // Their directions away from the corner, and the angle between.
-          d1.subVectors(end(rods[i], 1 - ki), p).normalize();
-          d2.subVectors(end(rods[j], 1 - kj), q).normalize();
-          const half = Math.acos(Math.max(-1, Math.min(1, d1.dot(d2)))) / 2;
-          const by = HALF / Math.tan(Math.max(half, 0.12));
-          back[i * 2 + ki] = Math.max(back[i * 2 + ki], by);
-          back[j * 2 + kj] = Math.max(back[j * 2 + kj], by);
-        }
-      }
-    }
+    frames[i] ??= { x: new THREE.Vector3(), y: new THREE.Vector3(), z: new THREE.Vector3(), length: 1 };
+    rodFrame(rods[i].a, rods[i].b, rods[i].up, frames[i]);
   }
+  const ends = [];
   for (let i = 0; i < n; i++) {
     const r = rods[i];
-    const length = r.a.distanceTo(r.b);
-    if (length < 1e-6) continue;
-    d1.subVectors(r.b, r.a).multiplyScalar(1 / length);
-    const limit = length * 0.25;
-    r.a.addScaledVector(d1, Math.min(limit, back[i * 2]));
-    r.b.addScaledVector(d1, -Math.min(limit, back[i * 2 + 1]));
+    r.trims.fill(0);
+    for (let k = 0; k < 2; k++) {
+      const p = k ? r.b : r.a;
+      ends.length = 0;
+      meeting.copy(p);
+      for (let j = 0; j < n; j++) {
+        if (j === i) continue;
+        for (let kj = 0; kj < 2; kj++) {
+          const q = kj ? rods[j].b : rods[j].a;
+          if (p.distanceToSquared(q) > NEAR * NEAR) continue;
+          ends.push(j, kj);
+          meeting.add(q);
+        }
+      }
+      if (!ends.length) continue;
+      // The junction's point, and this end's offset from it.
+      meeting.multiplyScalar(1 / (1 + ends.length / 2));
+      offset.subVectors(p, meeting);
+      const f = frames[i];
+      into.copy(f.z).multiplyScalar(k ? -1 : 1);
+      for (let c = 0; c < 4; c++) {
+        const [sx, sy] = CORNERS[c];
+        corner.copy(f.x).multiplyScalar((sx * ROD_WIDTH) / 2).addScaledVector(f.y, (sy * ROD_DEPTH) / 2);
+        let t = -Infinity;
+        for (let m = 0; m < ends.length; m += 2) {
+          const g = frames[ends[m]];
+          intoOther.copy(g.z).multiplyScalar(ends[m + 1] ? -1 : 1);
+          const apart = 1 - into.dot(intoOther);
+          if (apart < 1e-3) continue;
+          // On this t'an's side of the plane halving the angle between the two.
+          t = Math.max(t, (corner.dot(intoOther) + offset.dot(intoOther) - offset.dot(into)) / apart);
+        }
+        if (t === -Infinity) continue;
+        r.trims[k * 4 + c] = Math.max(-0.6 * ROD_WIDTH, Math.min(0.3 * f.length, t));
+      }
+    }
   }
   return rods;
 }
 
-// Orientation of a rod from a to b: its length along z, its broad face turned toward `up`.
-export function rodMatrix(a, b, up, widthScale, out) {
-  tmpZ.subVectors(b, a);
-  const len = tmpZ.length() || 1e-6;
-  tmpZ.multiplyScalar(1 / len);
-  tmpY.copy(up).addScaledVector(tmpZ, -up.dot(tmpZ));
-  if (tmpY.lengthSq() < 1e-8) {
-    tmpY.set(0, 1, 0).addScaledVector(tmpZ, -tmpZ.y);
-    if (tmpY.lengthSq() < 1e-8) tmpY.set(1, 0, 0);
+// A rod's frame: along it from a to b, and its cross-section's axes, the broad face (y, its depth)
+// turned toward `up`.
+function rodFrame(a, b, up, out) {
+  out.z.subVectors(b, a);
+  out.length = out.z.length() || 1e-6;
+  out.z.multiplyScalar(1 / out.length);
+  out.y.copy(up).addScaledVector(out.z, -up.dot(out.z));
+  if (out.y.lengthSq() < 1e-8) {
+    out.y.set(0, 1, 0).addScaledVector(out.z, -out.z.y);
+    if (out.y.lengthSq() < 1e-8) out.y.set(1, 0, 0);
   }
-  tmpY.normalize();
-  tmpX.crossVectors(tmpY, tmpZ);
+  out.y.normalize();
+  out.x.crossVectors(out.y, out.z);
+  return out;
+}
+
+// Orientation of a rod from a to b: its length along z, its broad face turned toward `up`.
+const frame = { x: tmpX, y: tmpY, z: tmpZ, length: 1 };
+export function rodMatrix(a, b, up, widthScale, out) {
+  rodFrame(a, b, up, frame);
   tmpM.addVectors(a, b).multiplyScalar(0.5);
-  basis.makeBasis(tmpX.multiplyScalar(ROD_WIDTH * widthScale), tmpY.multiplyScalar(ROD_DEPTH * widthScale), tmpZ.multiplyScalar(len));
+  basis.makeBasis(tmpX.multiplyScalar(ROD_WIDTH * widthScale), tmpY.multiplyScalar(ROD_DEPTH * widthScale), tmpZ.multiplyScalar(frame.length));
   basis.setPosition(tmpM);
   return out.copy(basis);
 }
 
 export class RodPool {
-  constructor(scene, capacity = 256) {
+  // onTop: drawn over everything else, untouched by shadow (the tray's t'an, on the glass).
+  constructor(scene, capacity = 256, { onTop = false } = {}) {
     this.capacity = capacity;
     const geometry = rodGeometry();
     this.glow = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
     this.glow.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('aGlow', this.glow);
+    // How far each corner of each end is drawn back (mitreAtJunctions).
+    this.trimA = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
+    this.trimB = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
+    this.trimA.setUsage(THREE.DynamicDrawUsage);
+    this.trimB.setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute('aTrimA', this.trimA);
+    geometry.setAttribute('aTrimB', this.trimB);
     this.mesh = new THREE.InstancedMesh(geometry, rodMaterial(), capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.mesh.castShadow = true;
-    this.mesh.receiveShadow = true;
+    this.mesh.castShadow = !onTop;
+    this.mesh.receiveShadow = !onTop;
+    if (onTop) {
+      this.mesh.material.depthTest = false;
+      this.mesh.material.depthWrite = false;
+      this.mesh.renderOrder = 10;
+    }
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
     scene.add(this.mesh);
@@ -264,19 +318,28 @@ export class RodPool {
     this.mesh.count = 0;
   }
 
-  // Draw one rod between world points a and b this frame.
-  push(a, b, up, blue = 0, amber = 0, widthScale = 1, dark = 0) {
+  // Draw one rod between world points a and b this frame (its ends mitred by `trims`, if given).
+  push(a, b, up, blue = 0, amber = 0, widthScale = 1, dark = 0, trims = null) {
     const i = this.mesh.count;
     if (i >= this.capacity) return;
     rodMatrix(a, b, up, widthScale, this.matrix);
     this.mesh.setMatrixAt(i, this.matrix);
     this.glow.setXYZ(i, blue, amber, dark);
+    if (trims) {
+      this.trimA.setXYZW(i, trims[0], trims[1], trims[2], trims[3]);
+      this.trimB.setXYZW(i, trims[4], trims[5], trims[6], trims[7]);
+    } else {
+      this.trimA.setXYZW(i, 0, 0, 0, 0);
+      this.trimB.setXYZW(i, 0, 0, 0, 0);
+    }
     this.mesh.count = i + 1;
   }
 
   end() {
     this.mesh.instanceMatrix.needsUpdate = true;
     this.glow.needsUpdate = true;
+    this.trimA.needsUpdate = true;
+    this.trimB.needsUpdate = true;
   }
 }
 

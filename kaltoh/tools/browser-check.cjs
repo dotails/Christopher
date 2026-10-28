@@ -1,7 +1,8 @@
 // Plays the real game in headless Chromium and checks it end to end, through simulated touch.
 // First the original kal-toh, the way to play on first opening: the jumble grows, a two-finger
-// lift joins two true neighbours, a false bond falls, two taps test the spin, and nothing passes
-// into the stone. Then, through the carved ways to play (turning their pages by the arrows at the
+// lift joins two true neighbours, tips too far apart for a t'an are refused, a false bond falls
+// (the first tip's true neighbours glowing), two taps test the spin, nothing passes into the
+// stone, and t'an meeting at a junction are mitred to touch. Then, through the carved ways to play (turning their pages by the arrows at the
 // rim), the game of rings: a two-finger lift and placement, the Vulcan's reply (the light behind
 // turning the second player's green, the plays carved under the seats), a spin test, a ring,
 // turning the base (the t'an lag, catch up, and then hold perfectly still on it), spinning the
@@ -154,48 +155,54 @@ function check(condition, message) {
       'its jumble grows: twenty-nine t\'an twisted out of their order, ninety more tangled through them');
     check(await nothingWritten(), 'nothing is written on the screen');
     await page.screenshot({ path: path.join(OUT, '0-jumble.png') });
-    // Two tips to join, under two fingers: true neighbours, or (for discord) not.
+    // Two tips to join, under two fingers (a finger touches a little below what it picks): true
+    // neighbours within a t'an's reach, false ones within reach, or a pair too far apart.
     async function findJoin(kind) {
       await settle();
       return page.evaluate(async (kind) => {
         const K = await import('/js/classic-rules.js');
         const k = window.__kaltoh;
         const c = k.classic;
-        const lattice = K.buildLattice();
-        // For each tip, the spot nearest it (a little way along its t'an) that picks it.
+        // Tips that a finger there picks, steadily.
         const spots = new Map();
-        for (let y = 120; y < 600; y += 4) {
-          for (let x = 10; x < 402; x += 4) {
-            const p = k.pickRod(x, y);
-            if (!p) continue;
-            const t = k.stage.toScreen(c.tipWorld(p.tip));
-            const d = Math.hypot(t.x - x, t.y - y);
-            const steady = [[-3, 0], [3, 0], [0, -3], [0, 3]].every(([dx, dy]) => k.pickRod(x + dx, y + dy)?.tip === p.tip);
-            if (d < 6 || !steady) continue;
-            if (!spots.has(p.tip) || d < spots.get(p.tip).d) spots.set(p.tip, { x, y, d });
-          }
+        for (let v = 0; v < 30; v++) {
+          const t = k.stage.toScreen(c.tipWorld(v));
+          if (t.y < 120 || t.y > 600 || t.x < 20 || t.x > 392) continue;
+          const steady = [[0, 0], [-3, 0], [3, 0], [0, -3], [0, 3]].every(([dx, dy]) => k.pickRod(t.x + dx, t.y + dy)?.tip === v);
+          if (steady) spots.set(v, { x: t.x, y: t.y });
         }
+        const [near, far] = K.REACH;
         for (const [u, a] of spots) {
           for (const [v, b] of spots) {
-            if (u >= v || Math.hypot(a.x - b.x, a.y - b.y) < 50) continue;
-            if (K.judge(c.game, u, v).kind !== kind) continue;
-            return { u, v, a: { x: a.x, y: a.y + 10 }, b: { x: b.x, y: b.y + 10 } };
+            if (u >= v || Math.hypot(a.x - b.x, a.y - b.y) < 50 || K.isJoined(c.game, u, v)) continue;
+            const apart = c.apart(u, v);
+            const within = apart >= near && apart <= far;
+            const fits = kind === 'far' ? apart > far + 0.1 : within && K.judge(c.game, u, v).kind === kind;
+            if (fits) return { u, v, a: { x: a.x, y: a.y + 10 }, b: { x: b.x, y: b.y + 10 } };
           }
         }
         return null;
       }, kind);
     }
     let join = await findJoin('harmony');
-    check(join, 'two true neighbours can be found on screen');
+    check(join, 'two true neighbours within a t\'an\'s reach can be found on screen');
     const joining = await place(join, '0b-joining.png');
     check(joining.pose && joining.glow > 0.9, 'carried over two tips, the t\'an shows where it will join them, glowing blue');
     await page.waitForFunction(() => window.__kaltoh.classic.game.history.length >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
     check(await page.evaluate(() => window.__kaltoh.classic.game.history[0].kind === 'harmony'), 'joining true neighbours brings harmony');
+    join = await findJoin('far');
+    check(join, 'two tips too far apart for one t\'an can be found on screen');
+    const reaching = await place(join);
+    await sleep(800);
+    check(!reaching.pose && await page.evaluate(() => window.__kaltoh.classic.game.history.length === 1 && !window.__kaltoh.hand.holding),
+      'a t\'an cannot join tips further apart than it reaches: it goes back to the tray');
     join = await findJoin('discord');
-    check(join, 'two tips that are not neighbours can be found on screen');
+    check(join, 'two tips within reach that are not neighbours can be found on screen');
     await place(join);
     await page.waitForFunction(() => window.__kaltoh.classic.game.history.length >= 2, null, { timeout: 60000 });
     check(await page.evaluate(() => window.__kaltoh.classic.game.history[1].kind === 'discord'), 'a false bond is discord');
+    await page.waitForFunction(() => window.__kaltoh.classic.structure.lesson?.tips.length > 0, null, { timeout: 10000 });
+    check(true, 'and where the first tip truly belongs glows a moment');
     await page.waitForFunction(() => window.__kaltoh.falling.rods.length >= 1, null, { timeout: 20000 });
     check(true, 'and its t\'an falls away');
     await waitFor(['play']);
@@ -227,39 +234,55 @@ function check(condition, message) {
     await waitFor(['play']);
     closest = Math.min(closest, await page.evaluate(() => window.nearest(window.classicRods())));
     check(closest > -0.002, `none of its t'an pass into the stone, at rest or spinning (closest ${closest.toFixed(3)})`);
-    // Where the jumble's t'an meet at a junction, each stops just short, touching the others: the
-    // corner of its end, on the side toward another, lies outside that one.
+    // Where the jumble's t'an meet at a junction their ends are mitred: each corner of an end lies on
+    // its own side of the plane halving the angle to every other t'an there, and rests against one.
     const junctions = await page.evaluate(async () => {
-      const { ROD_WIDTH } = await import('/js/rodmesh.js');
+      const { ROD_WIDTH, ROD_DEPTH } = await import('/js/rodmesh.js');
       const V = window.__kaltoh.stage.camera.position.constructor;
-      const rods = window.__kaltoh.classic.structure.drawn.filter((r) => r.whole && r.kind === 'outer').map((r) => [r.a.clone(), r.b.clone()]);
-      const half = ROD_WIDTH / 2;
-      const along = (p, a, b) => {
-        const ab = new V().subVectors(b, a);
-        const t = Math.max(0, Math.min(1, new V().subVectors(p, a).dot(ab) / ab.lengthSq()));
-        return p.distanceTo(a.clone().addScaledVector(ab, t));
+      const rods = window.__kaltoh.classic.structure.drawn.filter((r) => r.whole && r.kind === 'outer');
+      const frame = (r) => {
+        const z = new V().subVectors(r.b, r.a).normalize();
+        let y = r.up.clone().addScaledVector(z, -r.up.dot(z));
+        if (y.lengthSq() < 1e-8) y = new V(0, 1, 0).addScaledVector(z, -z.y);
+        y.normalize();
+        return { z, y, x: new V().crossVectors(y, z) };
       };
       let worst = Infinity;
       let meetings = 0;
-      for (let i = 0; i < rods.length; i++) {
-        for (let j = 0; j < rods.length; j++) {
-          for (const ki of i === j ? [] : [0, 1]) {
-            for (const kj of [0, 1]) {
-              const p = rods[i][ki];
-              if (p.distanceTo(rods[j][kj]) > 0.035) continue;
-              const di = new V().subVectors(rods[i][1 - ki], p).normalize();
-              const toward = new V().subVectors(rods[j][1 - kj], rods[j][kj]).normalize();
-              toward.addScaledVector(di, -toward.dot(di));
-              if (toward.lengthSq() < 1e-8) continue;
+      let resting = 0;
+      rods.forEach((r, i) => {
+        const f = frame(r);
+        for (const k of [0, 1]) {
+          const p = k ? r.b : r.a;
+          const into = f.z.clone().multiplyScalar(k ? -1 : 1);
+          const others = [];
+          rods.forEach((o, j) => {
+            if (j === i) return;
+            for (const kj of [0, 1]) if (p.distanceTo(kj ? o.b : o.a) < 0.035) others.push({ o, kj });
+          });
+          if (!others.length) continue;
+          const meet = others.reduce((m, { o, kj }) => m.add(kj ? o.b : o.a), p.clone()).multiplyScalar(1 / (others.length + 1));
+          [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy], c) => {
+            const corner = p.clone().addScaledVector(into, r.trims[k * 4 + c]).addScaledVector(f.x, (sx * ROD_WIDTH) / 2).addScaledVector(f.y, (sy * ROD_DEPTH) / 2);
+            let closest = Infinity;
+            for (const { o, kj } of others) {
+              const g = frame(o);
+              const intoOther = g.z.clone().multiplyScalar(kj ? -1 : 1);
+              const m = into.clone().sub(intoOther);
+              if (m.lengthSq() < 1e-8) continue;
+              const d = corner.clone().sub(meet).dot(m.normalize());
               meetings += 1;
-              worst = Math.min(worst, along(p.clone().addScaledVector(toward.normalize(), half), rods[j][0], rods[j][1]) - half);
+              worst = Math.min(worst, d);
+              closest = Math.min(closest, d);
             }
-          }
+            if (closest < 1e-4) resting += 1;
+          });
         }
-      }
-      return { worst, meetings };
+      });
+      return { worst, meetings, resting };
     });
-    check(junctions.meetings > 20 && junctions.worst > -0.001, `where t'an meet at a junction they touch, not pass through each other (${junctions.meetings} meetings, closest ${junctions.worst.toFixed(4)})`);
+    check(junctions.meetings > 20 && junctions.worst > -1e-4 && junctions.resting > 20,
+      `where t'an meet at a junction their ends are mitred to touch, neither apart nor through each other (${junctions.resting} corners resting, closest ${junctions.worst.toExponential(1)})`);
 
     // Turn the base over, and choose the game of rings in the carved ways to play. A change of
     // game waits for a new one; the ways turn their pages by arrows at the rim.
@@ -653,6 +676,26 @@ function check(condition, message) {
     const cams = swayed.map((v) => v.cam);
     check(near > 300 && far < 600, `on the phone, the shell's sightings place the head at a likely distance (${near.toFixed(0)} to ${far.toFixed(0)} mm)`);
     check(Math.max(...cams) - Math.min(...cams) > 0.3, 'and the view follows the head as it moves');
+    // The t'an at the foot of the screen lies on the glass: it keeps its place however the head
+    // moves or the view is drawn near.
+    const trayAt = () => handset.evaluate(() => {
+      const k = window.__kaltoh;
+      return [k.stage.toScreen(k.tray.restA), k.stage.toScreen(k.tray.restB)].flatMap((p) => [p.x, p.y]);
+    });
+    const trayAt0 = await trayAt();
+    let trayDrift = 0;
+    for (let i = 0; i < 8; i++) {
+      if (i === 4) {
+        await handset.evaluate(() => {
+          window.__kaltoh.stage.view.zoom = 0.45;
+          window.dispatchEvent(new Event('resize'));
+        });
+      }
+      await sleep(200);
+      const now = await trayAt();
+      trayDrift = Math.max(trayDrift, ...now.map((v, j) => Math.abs(v - trayAt0[j])));
+    }
+    check(trayDrift < 1.5 && trayAt0[1] < 892 && trayAt0[1] > 600, `the t'an at the foot of the screen stays put as the head moves and the view draws near (${trayDrift.toFixed(2)} px)`);
     check(phoneErrors.length === 0, `no errors on the page with the shell${phoneErrors.length ? `: ${phoneErrors.join(' | ')}` : ''}`);
     await phone.close();
   } finally {

@@ -145,7 +145,7 @@ export class Input {
       // The first finger to let go decides; the other is ignored until it lifts too.
       for (const id of this.ids) if (id !== p.id && this.pointers.has(id)) this.ignored.add(id);
       this.mode = 'idle';
-      this.ctx.onRelease(cancelled ? [null, null] : this.targets);
+      this.ctx.onRelease(cancelled ? [null, null] : this.targets, cancelled);
       this.targets = [null, null];
     }
   }

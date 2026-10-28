@@ -90,6 +90,9 @@ export function createScene(canvas) {
   const screen = { width: 70, height: 150 };
   const optics = { depth: 40, size: 1, rest: null };
   const eye = { x: 0, y: 0, z: null };
+  // The glass itself in the world: its middle, its axes, and its half-width and half-height. A
+  // point on it stays where it is on the screen however the eye moves.
+  const glass = { centre: new THREE.Vector3(), across: new THREE.Vector3(), upward: new THREE.Vector3(), width: 1, half: 1 };
 
   function layout(width, height, dpr) {
     size.width = width;
@@ -135,6 +138,11 @@ export function createScene(canvas) {
     const fy = half * (1 - 2 * focusY);
     const cx = (-fx * (rest + depth)) / rest;
     const cy = (-fy * (rest + depth)) / rest;
+    glass.centre.copy(target).addScaledVector(backward, s * depth).addScaledVector(across, cx).addScaledVector(upward, cy);
+    glass.across.copy(across);
+    glass.upward.copy(upward);
+    glass.width = width;
+    glass.half = half;
     const ex = s * eye.x;
     const ey = s * eye.y;
     const D = s * Math.max(20, eye.z ?? rest);
@@ -143,7 +151,9 @@ export function createScene(canvas) {
       .addScaledVector(across, cx + ex)
       .addScaledVector(upward, cy + ey);
     camera.updateMatrixWorld();
-    // An off-axis frustum from the eye through the glass.
+    // An off-axis frustum from the eye through the glass, reaching well past everything however far
+    // back the eye is.
+    camera.far = D + s * depth + 30;
     const n = camera.near / D;
     camera.projectionMatrix.makePerspective(
       (-width - ex) * n, (width - ex) * n, (half - ey) * n, (-half - ey) * n, camera.near, camera.far,
@@ -159,6 +169,13 @@ export function createScene(canvas) {
     out.y = (-projected.y * 0.5 + 0.5) * size.height;
     out.depth = camera.position.distanceTo(world);
     return out;
+  }
+
+  // CSS pixel to the world point on the glass shown there.
+  function onGlass(x, y, out = new THREE.Vector3()) {
+    return out.copy(glass.centre)
+      .addScaledVector(glass.across, ((2 * x) / size.width - 1) * glass.width)
+      .addScaledVector(glass.upward, (1 - (2 * y) / size.height) * glass.half);
   }
 
   // The ray from the eye through a CSS pixel.
@@ -181,7 +198,7 @@ export function createScene(canvas) {
     return ray.intersectPlane(plane, out) ?? out.copy(anchor);
   }
 
-  return { renderer, scene, camera, key, rim, ambient, baseRoot, assemblyRoot, size, view, screen, optics, eye, layout, update, toScreen, fromScreen, rayAt };
+  return { renderer, scene, camera, key, rim, ambient, baseRoot, assemblyRoot, size, view, screen, optics, eye, glass, layout, update, toScreen, fromScreen, onGlass, rayAt };
 }
 
 // What the metal reflects: a panorama of a starship mess hall. The photograph is low dynamic

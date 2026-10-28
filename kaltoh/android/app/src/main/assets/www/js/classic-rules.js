@@ -25,6 +25,10 @@ export const EDGE_COUNT = 60;
 export const EDGE_LENGTH = 1 / PHI;
 // How far the imbalance may grow, in units of the sphere's radius, before the spin flings a t'an.
 export const BALANCE_LIMIT = 1.6;
+// A t'an joins only tips it can reach: about its own length apart as the jumble lies, no more than
+// a quarter longer or shorter. (Played only by true moves within this reach, every game can still
+// be finished: tools/classic.test.mjs.)
+export const REACH = [0.75, 1.25];
 
 // ---------------------------------------------------------------------------------------------
 // Small vector helpers on [x, y, z] arrays.
@@ -463,9 +467,22 @@ export function missingEdges(state) {
   return out;
 }
 
+// When no true join lies within a t'an's reach, the jumble eases: each junction still missing a true
+// neighbour finds a little more of its order, drawing those neighbours toward a t'an's length apart.
+// (The game calls this while it is stuck, so a true move always comes within reach.)
+export function ease(state, amount = 0.04) {
+  const loose = new Set();
+  for (const e of missingEdges(state)) for (const v of buildLattice().edges[e]) loose.add(v);
+  shiftOrder(state, [...loose], amount);
+  return loose.size;
+}
+
 // Would joining these t'an keep the spin within its limit?
 export function balancedAfter(state, e) {
-  return length(imbalance(state, e)) <= state.balanceLimit;
+  // Within the limit; or, past it (a false bond's shaking loose can leave it there), no worse than
+  // before - a join that brings the spin back toward balance always holds.
+  const after = length(imbalance(state, e));
+  return after <= state.balanceLimit || after <= length(imbalance(state));
 }
 
 // Faces and hoops whose every rod is present.

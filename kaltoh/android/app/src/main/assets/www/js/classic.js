@@ -14,7 +14,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import * as K from './classic-rules.js';
 import { PIVOT, SCALE } from './scene.js';
-import { trimAtCorners } from './rodmesh.js';
+import { mitreAtJunctions } from './rodmesh.js';
 import { CLASSIC, TEXT, playerText, spell, classicCompleteText } from './texts.js';
 
 // The finished sphere's radius, in assembly units: 0.66 across the world, so its lowest t'an clear
@@ -25,6 +25,7 @@ export const ROD = K.EDGE_LENGTH * SPHERE;
 // t'an and a strut between the shells are exactly the same length.
 const INNER = 1 / K.PHI;
 const CLEAR = 0.03; // how far above the stone the jumble keeps (world units)
+const { REACH } = K; // how far apart two tips may be for a t'an to join them (classic-rules.js)
 const lattice = K.buildLattice();
 const smooth = (x) => x * x * (3 - 2 * x);
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -57,6 +58,7 @@ class Structure {
     this.game = null;
     this.highlightEdges = new Set();
     this.highlightTips = [];
+    this.lesson = null; // { tips, at }: after a false bond, where the tip truly belongs, glowing a moment
     this.axisGlow = 0;
     this.onDrop = null; // (aWorld, bWorld, velocityWorld, options) when a t'an leaves the structure
     this.hidden = false;
@@ -76,6 +78,7 @@ class Structure {
     this.temps = [];
     this.time = 0;
     this.hidden = false;
+    this.lesson = null;
     this.axisGlow = 0;
     this.order.fill(0);
     for (let v = 0; v < K.VERTEX_COUNT; v++) this.pos[v].fromArray(game.chaos[v]).multiplyScalar(SPHERE);
@@ -297,8 +300,8 @@ class Structure {
     return out;
   }
 
-  // Every t'an this frame, then drawn: where they meet at a junction, each stops just short of it,
-  // touching the others there rather than passing through them.
+  // Every t'an this frame, then drawn: where they meet at a junction, their ends are mitred, so
+  // they meet the last millimetre to the last rather than passing through one another.
   draw(pool, halos, { shaking = 0 } = {}) {
     if (!this.game || this.hidden) return [];
     const obstacles = [];
@@ -328,16 +331,29 @@ class Structure {
       this.add(wa, wb, t.blue * flicker, t.amber * flicker, [Math.max(t.blue, t.amber) * flicker * 0.45, 0.07, t.amber > t.blue ? 1 : 0], true, 'held');
     }
     this.inner.collect(complete, shaking, obstacles);
+    // Each t'an's broad face turned out from the centre.
+    for (const r of drawn) r.up.addVectors(r.a, r.b).multiplyScalar(0.5).sub(centre);
     // Only whole t'an meet at junctions; one still growing out of its junction is left as it is.
-    trimAtCorners(drawn.filter((r) => r.whole));
+    mitreAtJunctions(drawn.filter((r) => r.whole));
     for (const r of drawn) {
-      up.addVectors(r.a, r.b).multiplyScalar(0.5).sub(centre);
-      pool.push(r.a, r.b, up, r.blue, r.amber);
+      pool.push(r.a, r.b, r.up, r.blue, r.amber, 1, 0, r.whole ? r.trims : null);
       if (r.halo) halos.push(r.a, r.b, ...r.halo);
     }
     for (const v of this.highlightTips) {
       const w = this.tipWorld(v, v1);
       halos.push(w, w, 0.5, 0.07, 0);
+    }
+    if (this.lesson) {
+      const t = this.time - this.lesson.at;
+      if (t > 3.2) {
+        this.lesson = null;
+      } else {
+        const glow = Math.min(1, t / 0.25) * Math.min(1, (3.2 - t) / 0.6) * (0.75 + 0.25 * Math.sin(t * 9));
+        for (const v of this.lesson.tips) {
+          const w = this.tipWorld(v, v1);
+          halos.push(w, w, 0.6 * glow, 0.09, 0);
+        }
+      }
     }
     if (this.axisGlow > 0.01) {
       // Complete, its hidden axis shows: a thread of light through it.
@@ -352,7 +368,7 @@ class Structure {
   // shell, the inner, a strut between them, or one held a moment before it falls.
   add(a, b, blue, amber, halo, whole, kind) {
     const i = this.drawn.length;
-    const r = (this.slots[i] ??= { a: new THREE.Vector3(), b: new THREE.Vector3() });
+    const r = (this.slots[i] ??= { a: new THREE.Vector3(), b: new THREE.Vector3(), up: new THREE.Vector3(), trims: new Float32Array(8) });
     r.a.copy(a);
     r.b.copy(b);
     r.blue = blue;
@@ -586,6 +602,8 @@ export class ClassicGame {
     this.aimKey = '';
     this.settled = 0;
     this.plays = []; // for the carving: { player, mark: join | ring | fall | test }
+    this.sinceEase = 0;
+    this.easing = false; // the jumble is easing toward its order (no true join was within reach)
   }
 
   get hasRods() {
@@ -597,6 +615,8 @@ export class ClassicGame {
     const floor = (x, z) => this.floor(x * SPHERE, z * SPHERE) / SPHERE;
     this.game = K.createGame({ seed, players: settings.players, floor });
     this.plays = [];
+    this.sinceEase = 0;
+    this.easing = false;
     motion.resetPlace();
     this.structure.reset(this.game);
     this.phase = 'intro';
@@ -630,6 +650,28 @@ export class ClassicGame {
       this.phase = 'play';
       tray.refill();
     }
+    this.easeIfStuck(dt);
+  }
+
+  // When no true join lies within a t'an's reach (as the jumble lies, once still), the jumble eases
+  // a little toward its order, and again, until one does: a true move always comes within reach.
+  easeIfStuck(dt) {
+    this.sinceEase += dt;
+    if (this.phase !== 'play' || this.sinceEase < 0.6 || this.settling()) return;
+    this.sinceEase = 0;
+    const [near, far] = REACH;
+    const reachable = K.missingEdges(this.game).some((e) => {
+      const [u, v] = lattice.edges[e];
+      const apart = this.apart(u, v);
+      return apart >= near && apart <= far && K.judge(this.game, u, v).kind === 'harmony';
+    });
+    if (reachable) {
+      this.easing = false;
+      return;
+    }
+    K.ease(this.game);
+    if (!this.easing) this.ctx.say(CLASSIC.eases);
+    this.easing = true;
   }
 
   // Junctions still travelling toward their order.
@@ -652,30 +694,45 @@ export class ClassicGame {
     return this.phase === 'play' && !hand.holding && !hand.flight;
   }
 
-  // The t'an under a finger and its tip nearest the finger: only the jumble's own junctions answer.
-  pick(x, y, reach = 30) {
+  // The tip under a finger: the junction of the jumble's own t'an nearest it on screen (among close
+  // ones, the nearer the eye wins), and of the t'an meeting there, the one nearest the finger.
+  pick(x, y, reach = 34) {
     const { stage } = this.ctx;
-    let best = null;
-    let front = Infinity;
+    const s = this.structure;
+    const tips = new Set();
+    for (const [e, view] of s.views) if (view.appear >= 1) for (const v of lattice.edges[e]) tips.add(v);
     const candidates = [];
-    for (const [wa, wb, e] of this.structure.worldRods()) {
-      const sa = stage.toScreen(wa);
-      const sb = stage.toScreen(wb);
-      const d = segmentDistance(x, y, sa, sb);
+    let front = Infinity;
+    for (const v of tips) {
+      const p = stage.toScreen(s.tipWorld(v, v1));
+      const d = Math.hypot(p.x - x, p.y - y);
       if (d > reach) continue;
-      const depth = Math.min(sa.depth, sb.depth);
-      front = Math.min(front, depth);
-      candidates.push({ e, d, depth, sa, sb });
+      candidates.push({ v, d, depth: p.depth, p });
+      front = Math.min(front, p.depth);
     }
+    let best = null;
     for (const c of candidates) {
       const score = c.d + (c.depth - front) * 22;
       if (!best || score < best.score) best = { ...c, score };
     }
     if (!best) return null;
-    const [a, b] = lattice.edges[best.e];
-    const nearA = Math.hypot(best.sa.x - x, best.sa.y - y) <= Math.hypot(best.sb.x - x, best.sb.y - y);
-    const tip = nearA ? a : b;
-    return { rod: best.e, tip, world: this.structure.tipWorld(tip) };
+    let rod;
+    let nearest = Infinity;
+    for (const w of lattice.neighbours[best.v]) {
+      const e = K.latticeEdge(best.v, w);
+      if (s.views.get(e)?.appear !== 1) continue;
+      const d = segmentDistance(x, y, best.p, stage.toScreen(s.tipWorld(w, v2)));
+      if (d < nearest) {
+        nearest = d;
+        rod = e;
+      }
+    }
+    return { rod, tip: best.v, world: s.tipWorld(best.v) };
+  }
+
+  // How far apart two tips are, in t'an lengths.
+  apart(u, v) {
+    return this.structure.pos[u].distanceTo(this.structure.pos[v]) / ROD;
   }
 
   // Carried over two t'an: blue and in place when it can join their tips, amber when it cannot.
@@ -686,8 +743,14 @@ export class ClassicGame {
     const v = tb?.tip ?? null;
     let pose = null;
     let refused = false;
+    let why = null;
     if (u !== null && v !== null) {
-      if (u === v || K.isJoined(this.game, u, v)) {
+      const apart = u === v ? 0 : this.apart(u, v);
+      if (u === v) why = CLASSIC.aimSame;
+      else if (K.isJoined(this.game, u, v)) why = CLASSIC.aimJoined;
+      else if (apart > REACH[1]) why = CLASSIC.aimFar;
+      else if (apart < REACH[0]) why = CLASSIC.aimNear;
+      if (why) {
         refused = true;
       } else {
         const [a, b] = s.rodEnds(s.pos[u], s.pos[v], 1);
@@ -705,13 +768,13 @@ export class ClassicGame {
         sound.hover();
         haptic('tick');
       }
-      if (refused) say(u === v ? CLASSIC.aimSame : CLASSIC.aimJoined);
+      if (why) say(why);
     }
   }
 
-  release() {
+  release(cancelled = false) {
     const { hand, tray, sound, haptic } = this.ctx;
-    const chosen = this.aimed;
+    const chosen = cancelled ? null : this.aimed;
     this.aimed = null;
     this.aimKey = '';
     this.structure.highlightEdges = new Set();
@@ -776,6 +839,9 @@ export class ClassicGame {
     } else if (r.kind === 'discord') {
       sound.discord();
       haptic('discord');
+      // Where the first tip truly belongs: its neighbours in the sphere not yet joined to it.
+      const tips = lattice.neighbours[r.u].filter((w) => !K.isJoined(this.game, r.u, w));
+      s.lesson = { tips, at: s.time + 0.4 };
       s.strain(r.u, r.v, { life: 0.5, stiffness: 0.3, amber: 1, velocity: () => this.outward(r.u, r.v, 0.5) });
       r.fallen.forEach((e, i) => after(0.3 + i * 0.12, () => {
         const [a, b] = lattice.edges[e];

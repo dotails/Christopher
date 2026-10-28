@@ -25,6 +25,7 @@ const canvas = document.getElementById('view');
 const stage = createScene(canvas);
 // The kal-toh, the t'an fallen from it (kept until a new game), the one in the tray and in hand.
 const pool = new RodPool(stage.scene, 640);
+const trayPool = new RodPool(stage.scene, 2, { onTop: true });
 const halos = new Halos(stage.scene, 320);
 const ghosts = new Ghosts(stage.scene, 16);
 const sound = new Sound();
@@ -114,10 +115,18 @@ function layout() {
   Object.assign(stage.screen, head.device.screen);
   stage.layout(w, h, dpr);
   stage.view.focus.y = 0.42;
+  // The t'an to place lies at the foot of the screen, below the base as the view first frames it
+  // (not as it may be drawn nearer, or turned over to be read), and never off the screen.
+  const { zoom } = stage.view;
+  const reading = stage.view.read.k;
+  stage.view.zoom = 1;
+  stage.view.read.k = 0;
   stage.update();
-  // The t'an to place lies at the foot of the screen, below the base.
   const foot = stage.toScreen(new THREE.Vector3(0, 0, 0.9));
-  tray.layout(Math.max(foot.y + 110, h - insets.bottom - 88));
+  stage.view.zoom = zoom;
+  stage.view.read.k = reading;
+  stage.update();
+  tray.layout(Math.min(h - insets.bottom - 64, Math.max(foot.y + 110, h - insets.bottom - 88)));
 }
 
 // --- The display of the kal-toh ----------------------------------------------------------
@@ -480,12 +489,13 @@ const input = new Input(canvas, {
       }
     }
   },
-  onRelease() {
+  // Let go: placed where it was shown, unless the touch was cancelled (the system took it).
+  onRelease(targets, cancelled) {
     if (way === 'classic') {
-      classic.release();
+      classic.release(cancelled);
       return;
     }
-    const chosen = aim?.pose;
+    const chosen = cancelled ? null : aim?.pose;
     aim = null;
     aimKey = '';
     if (!chosen || phase !== 'play') {
@@ -741,6 +751,7 @@ async function vulcanTurn() {
       const lift = new THREE.Vector3(0.4, 1.8, 0.6);
       hand.holding = false;
       hand.glow = 0.4;
+      hand.scale = hand.scaleGoal = 1;
       hand.a.copy(toA).add(lift);
       hand.b.copy(toB).add(lift);
       phase = 'resolving';
@@ -1092,14 +1103,16 @@ function step(dt) {
   engraving.update(stage.camera, dt);
 
   pool.begin();
+  trayPool.begin();
   halos.begin();
   ghosts.begin();
   if (way === 'classic') falling.obstacles = classic.draw(pool, halos, shaking);
   else drawAssembly();
   falling.draw(pool, halos);
-  tray.draw(pool, hand);
+  tray.draw(trayPool, hand);
   hand.draw(pool, halos);
   pool.end();
+  trayPool.end();
   halos.end();
   ghosts.end();
   stage.renderer.render(stage.scene, stage.camera);
