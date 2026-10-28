@@ -63,6 +63,22 @@
     position: fixed; inset: 0; pointer-events: none;
     background: radial-gradient(120% 75% at 50% 42%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.55) 100%);
   }
+  #lens {
+    position: absolute; top: calc(var(--inset-top) + 16px); right: 14px; width: 26px; height: 26px;
+    padding: 10px; pointer-events: auto; display: none;
+  }
+  #lens.available { display: block; }
+  #lens::before {
+    content: ''; display: block; width: 24px; height: 24px; border-radius: 50%; box-sizing: border-box;
+    border: 1px solid rgba(236, 228, 216, 0.4); transition: border-color 0.4s, box-shadow 0.4s;
+  }
+  #lens::after {
+    content: ''; position: absolute; left: 18px; top: 18px; width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(236, 228, 216, 0.4); transition: background 0.4s, box-shadow 0.4s;
+  }
+  #lens.on::before { border-color: var(--blue); box-shadow: 0 0 8px rgba(89, 198, 255, 0.5); }
+  #lens.on::after { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+  #lens.starting::after { background: rgba(89, 198, 255, 0.5); }
   #veil { position: fixed; inset: 0; background: #08090c; transition: opacity 1.4s ease; pointer-events: none; }
   #veil.gone { opacity: 0; }
 </style>
@@ -76,12 +92,21 @@
     <div id="title-standard">KAL-TOH</div>
     <div id="minds" class="solo" role="button" aria-label="Number of players"></div>
   </div>
+  <div id="lens" role="button" aria-label="Hologram view"></div>
   <div id="inscription">
     <div id="vulcan" class="line"></div>
     <div id="standard" class="line"></div>
   </div>
 </div>
 <div id="veil"></div>
+<script>
+  // three.js needs WebGL 2; say so plainly rather than show a blank screen.
+  if (!document.createElement('canvas').getContext('webgl2')) {
+    document.getElementById('standard').textContent = 'This device cannot draw WebGL 2. Update Android System WebView and try again.';
+    document.getElementById('hud').classList.add('ready');
+    document.getElementById('veil').classList.add('gone');
+  }
+</script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

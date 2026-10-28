@@ -1,9 +1,11 @@
 package com.dotails.kaltoh;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.Color;
 import android.hardware.Sensor;
@@ -17,6 +19,7 @@ import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.DisplayCutout;
+import android.view.Surface;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -39,6 +42,9 @@ import java.util.Locale;
  *
  * Pages are served from the APK's assets under a private https origin, so the game's ES
  * modules, textures and fonts load as same-origin content without touching the network.
+ *
+ * When the player asks for the hologram view, the front camera follows their face (never shown)
+ * and the page tilts its perspective to match.
  */
 public class MainActivity extends Activity implements SensorEventListener {
     private static final String HOST = "appassets.androidplatform.net";
@@ -46,6 +52,8 @@ public class MainActivity extends Activity implements SensorEventListener {
     // Linear acceleration (m/s^2) worth reporting; the page decides what counts as a shake.
     private static final float SHAKE_FLOOR = 6f;
     private static final long SHAKE_INTERVAL_MS = 33;
+    private static final long HEAD_INTERVAL_MS = 30;
+    private static final int REQUEST_CAMERA = 7;
 
     private WebView web;
     private SensorManager sensors;
@@ -57,6 +65,9 @@ public class MainActivity extends Activity implements SensorEventListener {
     private volatile boolean pageReady;
     private volatile float insetTop;
     private volatile float insetBottom;
+    private HeadTracker head;
+    private boolean headWanted;
+    private volatile long lastHeadSample;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -173,12 +184,14 @@ public class MainActivity extends Activity implements SensorEventListener {
         }
         immerse();
         if (pageReady) run("window.kaltoh&&window.kaltoh.resume()");
+        if (headWanted && cameraAllowed()) startHead();
     }
 
     @Override
     protected void onPause() {
         if (pageReady) run("window.kaltoh&&window.kaltoh.pause()");
         if (sensors != null) sensors.unregisterListener(this);
+        stopHead(); // never hold the camera while the game is out of sight
         web.onPause();
         web.pauseTimers();
         super.onPause();
@@ -220,6 +233,84 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
+    }
+
+    // --- Hologram view: following the player's face ------------------------------------------
+
+    private void setHologram(boolean on) {
+        headWanted = on;
+        if (!on) {
+            stopHead();
+            headStatus("off");
+        } else if (cameraAllowed()) {
+            startHead();
+        } else {
+            requestPermissions(new String[] {Manifest.permission.CAMERA}, REQUEST_CAMERA);
+        }
+    }
+
+    private boolean cameraAllowed() {
+        return Build.VERSION.SDK_INT < 23
+                || checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode != REQUEST_CAMERA) return;
+        if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+            if (headWanted) startHead();
+        } else {
+            headWanted = false;
+            headStatus("denied");
+        }
+    }
+
+    private void startHead() {
+        if (head != null) return;
+        head = new HeadTracker(new HeadTracker.Listener() {
+            @Override
+            public void onHead(float x, float y, float size) {
+                long now = SystemClock.uptimeMillis();
+                if (now - lastHeadSample < HEAD_INTERVAL_MS) return;
+                lastHeadSample = now;
+                String script = String.format(Locale.US, "window.kaltoh&&window.kaltoh.head(%.4f,%.4f,%.4f)", x, y, size);
+                runOnUiThread(() -> run(script));
+            }
+
+            @Override
+            public void onStatus(String status) {
+                runOnUiThread(() -> {
+                    if (!"on".equals(status)) {
+                        stopHead();
+                        headWanted = false;
+                    }
+                    headStatus(status);
+                });
+            }
+        }, displayDegrees());
+        head.start();
+    }
+
+    private void stopHead() {
+        if (head != null) {
+            head.stop();
+            head = null;
+        }
+    }
+
+    private void headStatus(String status) {
+        if (pageReady) run("window.kaltoh&&window.kaltoh.headStatus('" + status + "')");
+    }
+
+    @SuppressWarnings("deprecation")
+    private int displayDegrees() {
+        switch (getWindowManager().getDefaultDisplay().getRotation()) {
+            case Surface.ROTATION_90: return 90;
+            case Surface.ROTATION_180: return 180;
+            case Surface.ROTATION_270: return 270;
+            default: return 0;
+        }
     }
 
     // --- Haptics ------------------------------------------------------------------------------
@@ -279,6 +370,11 @@ public class MainActivity extends Activity implements SensorEventListener {
         @JavascriptInterface
         public void haptic(String kind) {
             runOnUiThread(() -> buzz(kind));
+        }
+
+        @JavascriptInterface
+        public void hologram(boolean on) {
+            runOnUiThread(() -> setHologram(on));
         }
 
         @JavascriptInterface

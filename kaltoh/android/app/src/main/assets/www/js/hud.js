@@ -39,6 +39,11 @@ export const TEXT = {
   flung: { v: 'the spin flings it away', s: 'Unbalanced. The spin flings it away.' },
   wobble: { v: 'it wobbles', s: 'It wobbles. Restore its balance.' },
   keepShaking: { v: 'keep shaking', s: 'Keep shaking to begin anew' },
+  lens: { v: 'touch the lens to see it as a hologram', s: 'Tap the lens above for the hologram view' },
+  hologramOn: { v: 'it follows your eyes', s: 'Hologram: the view follows your eyes' },
+  hologramOff: { v: 'the view is still', s: 'Hologram off' },
+  hologramDenied: { v: 'the camera was refused', s: 'Hologram needs the front camera; permission was refused' },
+  hologramUnavailable: { v: 'no camera to follow you', s: 'No front camera is available for the hologram' },
   locked: { v: 'begin anew to change players', s: 'Shake to begin anew, then choose players' },
 };
 

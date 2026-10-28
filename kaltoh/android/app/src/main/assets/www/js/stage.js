@@ -6,6 +6,9 @@ export const SPHERE_RADIUS = 0.8;
 export const CENTER = new THREE.Vector3(0, 1.14, 0);
 
 const ROOM = 0x08090c;
+const across = new THREE.Vector3();
+const upward = new THREE.Vector3();
+const backward = new THREE.Vector3();
 const ENVIRONMENT_TURN = 4.71;
 const PITCH_MIN = THREE.MathUtils.degToRad(-4);
 const PITCH_MAX = THREE.MathUtils.degToRad(84);
@@ -78,6 +81,8 @@ export function createStage(canvas) {
   };
 
   const size = { width: 1, height: 1, dpr: 1 };
+  // Where the player's eye is relative to the screen (see head.js); centred unless tracked.
+  const eye = { x: 0, y: 0, distance: 1 };
 
   function layout(width, height, dpr) {
     size.width = width;
@@ -91,8 +96,6 @@ export function createStage(canvas) {
     const byWidth = 1.17 / (t * camera.aspect);
     const byHeight = 1.95 / t;
     rig.distance = Math.max(byWidth, byHeight);
-    camera.setViewOffset(width, height, 0, (0.5 - rig.focusY) * height, width, height);
-    camera.updateProjectionMatrix();
   }
 
   function update(dt) {
@@ -108,6 +111,24 @@ export function createStage(canvas) {
     camera.position.set(0, CENTER.y + Math.sin(rig.pitch) * d, Math.cos(rig.pitch) * d);
     camera.lookAt(CENTER);
     camera.updateMatrixWorld();
+
+    // The screen is a window at the structure's depth. Moving the eye keeps that window fixed
+    // and looks through it from the new place: an off-axis frustum, as a hologram would appear.
+    const D = d * eye.distance;
+    const ex = D * Math.tan(eye.x);
+    const ey = D * Math.tan(eye.y);
+    camera.matrixWorld.extractBasis(across, upward, backward);
+    camera.position.addScaledVector(across, ex).addScaledVector(upward, ey).addScaledVector(backward, D - d);
+    camera.updateMatrixWorld();
+    const half = d * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const width = half * camera.aspect;
+    // The window's centre sits below the structure's, so the structure rides high on screen.
+    const lift = half * (2 * rig.focusY - 1);
+    const n = camera.near / D;
+    camera.projectionMatrix.makePerspective(
+      (-width - ex) * n, (width - ex) * n, (lift + half - ey) * n, (lift - half - ey) * n, camera.near, camera.far,
+    );
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
   }
 
   function turn(dx, dy) {
@@ -144,7 +165,7 @@ export function createStage(canvas) {
     return ray.intersectPlane(plane, out) ?? out.copy(anchor);
   }
 
-  return { renderer, scene, camera, gameRoot, structureRoot, rig, size, layout, update, turn, fling, toScreen, fromScreen, key };
+  return { renderer, scene, camera, gameRoot, structureRoot, rig, size, eye, layout, update, turn, fling, toScreen, fromScreen, key };
 }
 
 // What the chrome reflects: a panorama of a starship mess hall. The photograph is low dynamic

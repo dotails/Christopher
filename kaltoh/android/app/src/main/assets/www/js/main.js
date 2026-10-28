@@ -11,6 +11,7 @@ import { Sound } from './audio.js';
 import { Hud, TEXT, completeText, playersText, turnText } from './hud.js';
 import { ShakeDetector } from './shake.js';
 import { native } from './native.js';
+import { Head } from './head.js';
 
 const canvas = document.getElementById('view');
 const stage = createStage(canvas);
@@ -21,6 +22,7 @@ const hud = new Hud();
 const structure = new Structure(stage);
 const tray = new Tray(stage);
 const hand = new Hand(stage, tray, structure);
+const head = new Head();
 
 const insets = { top: 0, bottom: 0 };
 const quality = { maxDpr: 2, time: 0, frames: 0 };
@@ -74,7 +76,51 @@ function layout() {
 function cycleLines() {
   const lines = [TEXT.lift, TEXT.touch, TEXT.truth, TEXT.angles, TEXT.axis, TEXT.goal, TEXT.turn, TEXT.shake];
   if (game && game.turns === 0) lines.splice(6, 0, TEXT.minds);
+  if (native.hologram && !head.active) lines.push(TEXT.lens);
   return lines;
+}
+
+// --- Hologram view ---------------------------------------------------------------------------
+
+const lens = document.getElementById('lens');
+
+function readHologram() {
+  try {
+    return localStorage.getItem('kaltoh.hologram') === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveHologram(on) {
+  try {
+    localStorage.setItem('kaltoh.hologram', on ? '1' : '0');
+  } catch {
+    // Not remembered; it simply starts off next time.
+  }
+}
+
+function showHeadStatus(status, announce) {
+  head.setStatus(status);
+  lens.classList.toggle('on', status === 'on');
+  lens.classList.toggle('starting', status === 'starting');
+  if (status === 'denied' || status === 'unavailable') saveHologram(false);
+  if (!announce) return;
+  const say = { on: TEXT.hologramOn, off: TEXT.hologramOff, denied: TEXT.hologramDenied, unavailable: TEXT.hologramUnavailable }[status];
+  if (say) hud.say(say, status === 'on' || status === 'off' ? 2.4 : 4);
+  if (game) hud.setCycle(cycleLines());
+}
+
+if (native.hologram) {
+  lens.classList.add('available');
+  lens.addEventListener('click', () => {
+    sound.wake();
+    native.haptic('tick');
+    const on = !(head.active || head.status === 'starting');
+    saveHologram(on);
+    showHeadStatus(on ? 'starting' : 'off', !on);
+    native.setHologram(on);
+  });
 }
 
 // ?seed=N replays a particular game (used by the automated checks).
@@ -305,6 +351,8 @@ if (!native.present) shake.listenToDeviceMotion();
 // The Android shell calls these.
 window.kaltoh = {
   shake: (magnitude) => shake.sample(magnitude),
+  head: (x, y, size) => head.sample(x, y, size),
+  headStatus: (status) => showHeadStatus(status, status !== 'off'),
   insets(top, bottom) {
     insets.top = top;
     insets.bottom = bottom;
@@ -358,6 +406,8 @@ function frame(now) {
 
 function step(dt) {
   tickTimers(dt);
+  head.update(dt);
+  Object.assign(stage.eye, head.view);
   stage.update(dt);
   structure.update(dt);
   falling.update(dt);
@@ -404,6 +454,10 @@ async function start() {
   structure.onDrop = (a, b, velocity, options) => falling.spawn(a, b, velocity, options);
   newGame();
   hud.show();
+  if (native.hologram && readHologram()) {
+    showHeadStatus('starting', false);
+    native.setHologram(true);
+  }
   document.getElementById('veil').classList.add('gone');
   requestAnimationFrame(frame);
 }
@@ -433,6 +487,7 @@ window.__kaltoh = {
   tipScreen: (v) => stage.toScreen(structure.tipWorld(v)),
   restart,
   place,
+  head,
   set timeScale(s) {
     timeScale = s;
   },

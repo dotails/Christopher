@@ -1,0 +1,48 @@
+name: Build Kal-toh APK
+
+# Builds the Kal-toh Android app on GitHub's Linux runners whenever the game changes.
+# The installable APK is attached to each run (Actions tab -> the run -> Artifacts).
+
+on:
+  push:
+    paths:
+      - "kaltoh/**"
+      - ".github/workflows/kaltoh-android.yml"
+  workflow_dispatch: {}
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Rule tests
+        run: node kaltoh/tools/logic.test.mjs
+
+      - name: Build APK
+        working-directory: kaltoh/android
+        run: |
+          # Maven Central sometimes rate-limits bursts of downloads; try again before failing.
+          for attempt in 1 2 3; do
+            ./gradlew assembleRelease --no-daemon --max-workers=2 && exit 0
+            sleep $((attempt * 20))
+          done
+          exit 1
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KalToh-apk
+          path: kaltoh/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

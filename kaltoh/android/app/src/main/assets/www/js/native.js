@@ -4,6 +4,17 @@ const bridge = window.KalTohAndroid;
 
 export const native = {
   present: Boolean(bridge),
+  get hologram() {
+    return Boolean(bridge?.hologram);
+  },
+  // Ask the shell to start or stop following the player's face.
+  setHologram(on) {
+    try {
+      bridge?.hologram(on);
+    } catch {
+      // Without the camera the view simply stays still.
+    }
+  },
   haptic(kind) {
     try {
       bridge?.haptic(kind);
