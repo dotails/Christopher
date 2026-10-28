@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.dotails.kaltoh'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.dotails.kaltoh'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        // Deliberately public, like a debug key: it only lets any build of this app install
+        // over another (from this machine, CI, or Android Studio) without uninstalling first.
+        sideload {
+            storeFile file('sideload.keystore')
+            storePassword 'kaltoh-sideload'
+            keyAlias 'kaltoh'
+            keyPassword 'kaltoh-sideload'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sideload
+        }
+        debug {
+            signingConfig signingConfigs.sideload
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    androidResources {
+        // Already-compressed assets gain nothing from zip compression.
+        noCompress += ['jpg', 'bin', 'ttf']
+    }
+}
