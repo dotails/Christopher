@@ -370,20 +370,40 @@ function check(condition, message) {
     await waitFor(['play']);
     check(await page.evaluate(() => window.__kaltoh.game.players.every((p) => !p.vulcan)), 'a new game begins with the new ways');
 
-    // 9. Fallen t'an lie where they fell until a new game.
+    // 9. Fallen t'an lie where they fell until a new game: some on the stone's lip, some on the
+    // floor in front of it - and none in the stone.
+    await drag({ x: 30, y: 420 }, 0, 155);
+    await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1 && !window.__kaltoh.engraving.seen, null, { timeout: 30000 });
+    await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
     await page.evaluate(() => {
       const k = window.__kaltoh;
       const V = k.stage.camera.position.constructor;
-      for (let i = 0; i < 6; i++) {
-        const c = new V((i - 2.5) * 0.3, 1.2, 0.9);
-        k.falling.spawn(c.clone().add(new V(-0.3, 0, 0)), c.clone().add(new V(0.3, 0, 0)), new V(0, 0, 0.4));
+      for (let i = 0; i < 3; i++) {
+        // Across the lip, at the front of the basin.
+        const angle = ((i - 1) * Math.PI) / 3;
+        const c = new V(Math.sin(angle) * 0.64, 0.9, Math.cos(angle) * 0.64);
+        const along = new V(Math.cos(angle), 0, -Math.sin(angle)).multiplyScalar(0.315);
+        k.falling.spawn(c.clone().sub(along), c.clone().add(along), new V(0, -0.2, 0), { spin: 0.4 });
+        // And in front of the stone, onto the floor.
+        const d = new V((i - 1) * 0.6, 1.0, 1.1);
+        k.falling.spawn(d.clone().add(new V(-0.3, 0, 0)), d.clone().add(new V(0.3, 0, 0)), new V(0, 0, 0.3));
+      }
+      // Two into the basin itself, beneath the kal-toh.
+      for (const side of [-1, 1]) {
+        const c = new V(side * 0.36, 0.45, 0);
+        k.falling.spawn(c.clone().add(new V(0, 0, -0.315)), c.clone().add(new V(0, 0, 0.315)), new V(0, -0.1, 0), { spin: 0.2 });
       }
     });
     await page.waitForFunction(() => window.__kaltoh.falling.rods.every((r) => r.asleep), null, { timeout: 60000, polling: 200 });
     await sleep(2000);
-    check(await page.evaluate(() => window.__kaltoh.falling.rods.length >= 6), 'fallen t\'an come to rest and stay');
+    const fallen = await page.evaluate(() => ({
+      count: window.__kaltoh.falling.rods.length,
+      onStone: window.__kaltoh.falling.rods.filter((r) => r.mid.y > 0.1).length,
+    }));
+    check(fallen.count >= 8, `fallen t'an come to rest and stay (${fallen.onStone} on the stone, ${fallen.count - fallen.onStone} on the floor)`);
     const lying = await page.evaluate(() => window.nearest(window.__kaltoh.falling.rods.map((r) => [r.a, r.b])));
-    check(lying > -0.002, `nor do they pass into the stone (closest ${lying.toFixed(3)})`);
+    check(fallen.onStone > 0 && lying > -0.002, `nor do they pass into the stone (closest ${lying.toFixed(3)})`);
+    await page.screenshot({ path: path.join(OUT, '10c-fallen.png') });
 
     // 10. Shake for three seconds to begin anew; what had fallen goes with the old game.
     await pace();
