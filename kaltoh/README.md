@@ -16,7 +16,7 @@ the underside of the stone: tip the base over to read them, from whichever side 
   <img src="docs/ring.png" width="19%" alt="A ring forming">
   <img src="docs/complete.png" width="19%" alt="A completed globe">
   <img src="docs/underside.png" width="19%" alt="The carved underside of the base">
-  <img src="docs/ways.png" width="19%" alt="The ways to play, carved">
+  <img src="docs/tuning.png" width="19%" alt="The hologram's tuning, carved">
 </p>
 
 ## Install

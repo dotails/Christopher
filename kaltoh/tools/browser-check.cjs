@@ -60,10 +60,13 @@ function check(condition, message) {
     const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', {
       type, touchPoints: points.map((p) => ({ x: p.x, y: p.y, id: p.id, radiusX: 8, radiusY: 8, force: 1 })),
     });
+    // A tap is stamped 50 ms long however slowly the page answers, so a slow frame never makes
+    // it a press.
     const tap = async (p, id = 9) => {
-      await touch('touchStart', [{ id, x: p.x, y: p.y }]);
+      const t = Date.now() / 1000;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p.x, y: p.y, id, radiusX: 8, radiusY: 8, force: 1 }], timestamp: t });
       await sleep(50);
-      await touch('touchEnd', []);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t + 0.05 });
     };
     const drag = async (from, dx, dy, steps = 10, id = 3) => {
       const f = { id, x: from.x, y: from.y };
