@@ -12,6 +12,7 @@ import { Motion } from './motion.js';
 import { Falling } from './falling.js';
 import { Tray, Hand, ROD_LENGTH as RINGS_ROD } from './tray.js';
 import { ClassicGame } from './classic.js';
+import { FormsGame } from './forms.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { TEXT, ringText, fellText, playerText, completeText, winnerText, supplyText } from './texts.js';
@@ -41,10 +42,14 @@ let motion = null;
 let falling = null;
 let baseModel = null;
 let engraving = null;
-// The game being played: the original kal-toh (classic.js), or rings round the hidden spin (the
-// rest of this file). A change of game in the ways to play waits for the next one.
+// The game being played: the original kal-toh (classic.js), many forms built from the inside out
+// (forms.js), or rings round the hidden spin (the rest of this file). A change of game in the ways
+// to play waits for the next one.
 let classic = null;
+let forms = null;
 let way = 'classic';
+// The game on the stone when it is a form to bring about (the original kal-toh, or many forms).
+const shaped = () => (way === 'classic' ? classic : way === 'forms' ? forms : null);
 let begunWith = ''; // the ways the game was begun with (settings.js shapeOf)
 
 const insets = { top: 0, bottom: 0 };
@@ -252,7 +257,7 @@ function drawAssembly() {
 // Picking: the t'an under a finger, and where along it.
 const rayTmp = new THREE.Ray();
 function pickRod(x, y, reach = 30) {
-  if (way === 'classic') return classic.pick(x, y, reach);
+  if (shaped()) return shaped().pick(x, y, reach);
   if (!game) return null;
   let best = null;
   let front = Infinity;
@@ -293,7 +298,7 @@ function segmentDistance(x, y, a, b) {
 const baseRay = new THREE.Raycaster();
 function touchesAssembly(x, y) {
   const points = [];
-  const rods = way === 'classic' ? classic.worldRods() : [...display.values()].filter((e) => !e.anim).map((e) => [e.wa, e.wb]);
+  const rods = shaped() ? shaped().worldRods() : [...display.values()].filter((e) => !e.anim).map((e) => [e.wa, e.wb]);
   for (const [a, b] of rods) {
     for (const p of [a, b]) {
       const s = stage.toScreen(p);
@@ -368,11 +373,11 @@ function newGame() {
   completeGlow = 0;
   testGlow = null;
   aim = null;
-  if (way === 'classic') {
+  if (shaped()) {
     game = null;
     refreshStrain();
-    phase = 'classic';
-    classic.newGame(nextSeed);
+    phase = 'shaped';
+    shaped().newGame(nextSeed);
     nextSeed = undefined;
     return;
   }
@@ -455,9 +460,9 @@ const input = new Input(canvas, {
   pickRod,
   touchesAssembly,
   touchesBase,
-  canLift: () => (way === 'classic' ? classic.canLift() : phase === 'play' && humanTurn() && !hand.holding && !hand.flight),
-  canSpin: () => (way === 'classic'
-    ? classic.hasRods && !['intro', 'dissolving'].includes(classic.phase)
+  canLift: () => (shaped() ? shaped().canLift() : phase === 'play' && humanTurn() && !hand.holding && !hand.flight),
+  canSpin: () => (shaped()
+    ? shaped().hasRods && !['intro', 'dissolving'].includes(shaped().phase)
     : display.size > 0 && phase !== 'intro' && phase !== 'dissolving'),
   onLift(x, y) {
     sound.wake();
@@ -471,8 +476,8 @@ const input = new Input(canvas, {
   // While carried: blue where it would rest, amber where it cannot; the ring it would make, in
   // ghostly light, if foresight allows.
   onAim([ta, tb], f1, f2) {
-    if (way === 'classic') {
-      classic.aim([ta, tb], f1, f2);
+    if (shaped()) {
+      shaped().aim([ta, tb], f1, f2);
       return;
     }
     let pose = null;
@@ -506,8 +511,8 @@ const input = new Input(canvas, {
   },
   // Let go: placed where it was shown, unless the touch was cancelled (the system took it).
   onRelease(targets, cancelled) {
-    if (way === 'classic') {
-      classic.release(cancelled);
+    if (shaped()) {
+      shaped().release(cancelled);
       return;
     }
     const chosen = cancelled ? null : aim?.pose;
@@ -649,8 +654,8 @@ function celebrate(result) {
 
 // A player asks to watch it spin: allowed on their own turn, with nothing in hand.
 function requestSpinTest() {
-  if (way === 'classic') {
-    if (!classic.spinTest()) say(TEXT.testNotNow);
+  if (shaped()) {
+    if (!shaped().spinTest()) say(TEXT.testNotNow);
     return;
   }
   if (game.settings.test === 'off') {
@@ -783,17 +788,17 @@ async function vulcanTurn() {
 
 // Whether the game in play is falling away, a new one on its way.
 function dissolving() {
-  return way === 'classic' ? classic?.phase === 'dissolving' : phase === 'dissolving';
+  return shaped() ? shaped().phase === 'dissolving' : phase === 'dissolving';
 }
 
 function restart() {
   if (phase === 'loading' || dissolving()) return;
-  if (way === 'classic') {
+  if (shaped()) {
     hand.holding = false;
     hand.flight = null;
     tray.hide();
     timers.length = 0;
-    classic.dissolve();
+    shaped().dissolve();
     sound.dissolve();
     haptic('restart');
     after(1.6, newGame);
@@ -1079,8 +1084,8 @@ const tints = [...document.querySelectorAll('.tint')];
 let shownSeat = 0;
 
 function seatNow() {
-  if (way === 'classic') {
-    const g = classic?.game;
+  if (shaped()) {
+    const g = shaped().game;
     if (!g || g.players < 2) return 0;
     return g.complete ? Math.max(0, g.winner) : g.current;
   }
@@ -1106,7 +1111,7 @@ function step(dt) {
   colourSeat(dt);
   readingView(dt);
   stage.update();
-  if (way === 'classic') classic.update(dt);
+  if (shaped()) shaped().update(dt);
   else animate(dt);
   motion.update(dt);
   motion.apply(stage);
@@ -1122,7 +1127,7 @@ function step(dt) {
   trayPool.begin();
   halos.begin();
   ghosts.begin();
-  if (way === 'classic') falling.obstacles = classic.draw(pool, halos, shaking);
+  if (shaped()) falling.obstacles = shaped().draw(pool, halos, shaking);
   else drawAssembly();
   falling.draw(pool, halos);
   tray.draw(trayPool, hand);
@@ -1152,12 +1157,14 @@ async function start() {
   baseModel = base;
   motion = new Motion(base);
   falling = new Falling(motion, base, sound);
-  classic = new ClassicGame({
+  const shapeContext = {
     stage, motion, falling, tray, hand, sound, haptic, say, settings, after, base,
     get engraving() {
       return engraving;
     },
-  });
+  };
+  classic = new ClassicGame(shapeContext);
+  forms = new FormsGame(shapeContext);
   engraving = new Engraving(stage, {
     settings,
     stone: base.mesh.material.map?.image,
@@ -1199,10 +1206,13 @@ window.__kaltoh = {
     return game;
   },
   get phase() {
-    return way === 'classic' ? classic?.phase ?? phase : phase;
+    return shaped()?.phase ?? phase;
   },
   get classic() {
     return classic;
+  },
+  get forms() {
+    return forms;
   },
   get way() {
     return way;

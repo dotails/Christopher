@@ -496,7 +496,8 @@ export class Engraving {
       this.line(`r${i}`, text, C, y, { size: 28, max: 2 * chord(y) - 80 });
     });
     // What the marks beneath each seat mean.
-    const legend = this.settings.way === 'rings' ? [['join', TEXT.markPlaced], ['ring', TEXT.markRing]] : [['join', TEXT.markJoined], ['ring', TEXT.markHoop]];
+    const legend = this.settings.way === 'rings' ? [['join', TEXT.markPlaced], ['ring', TEXT.markRing]]
+      : [['join', TEXT.markJoined], ['ring', this.settings.way === 'forms' ? TEXT.markLoop : TEXT.markHoop]];
     legend.push(['fall', TEXT.markFell], ['test', TEXT.markTested]);
     legend.forEach(([mark, label], i) => {
       const x = C + (i - 1.5) * 168;

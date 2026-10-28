@@ -62,6 +62,7 @@ export const TEXT = {
   markPlaced: { v: 'placed', s: 'placed' },
   markHoop: { v: 'a hoop', s: 'a hoop' },
   markRing: { v: 'a ring', s: 'a ring' },
+  markLoop: { v: 'a loop', s: 'a loop' },
   markFell: { v: 'fell', s: 'fell' },
   markTested: { v: 'tested', s: 'tested' },
   hologramRow: { v: 'hologram', s: 'Hologram' },
@@ -111,6 +112,7 @@ export function winnerText(game, v = '', s = '') {
 }
 
 export function rulesText(settings) {
+  if (settings.way === 'forms') return MANY_RULES;
   if (settings.way !== 'rings') return CLASSIC_RULES;
   const form = FORMS[settings.form] ?? FORMS.globe;
   return [
@@ -164,6 +166,66 @@ const CLASSIC_RULES = [
   { v: 'two taps test the spin a wobble warns', s: 'Two taps test the spin; a wobble warns.' },
   { v: 'sixty tan complete the sphere', s: "Sixty t'an complete the sphere." },
 ];
+
+// Many forms' words (forms.js).
+export const MANY = {
+  begin: { v: 'a new form hides in the jumble', s: 'A new form hides in the jumble' },
+  angles: { v: 'the angles that repeat tell its loops', s: 'Joint angles that repeat tell its loops:' },
+  corners: { v: 'sixty a triangle ninety a square', s: '60° a triangle, 90° a square, 108° a pentagon, 120° a hexagon' },
+  noise: { v: 'loose tan among it are noise', s: "Loose t'an hanging among it are noise" },
+  holds: { v: 'a loop closed whole holds and braces out', s: 'A loop closed whole holds, and struts brace outward' },
+  outer: { v: 'then build it again on the struts', s: 'Then build the same form again on the struts' },
+  harmony: { v: 'true neighbours', s: 'True neighbours' },
+  discord: { v: 'discord not neighbours in this form', s: 'Discord: not neighbours. Where it belongs glows' },
+  shaken: { v: 'discord a tan is shaken loose', s: "Discord: a t'an is shaken loose. Where it belongs glows" },
+  noiseTouched: { v: 'that was noise it falls away', s: 'That was noise: it falls away' },
+  noiseFalls: { v: 'noise falls away', s: 'Noise falls away' },
+  whole: { v: 'the inner form is whole build it again on the struts', s: 'The inner form is whole: build it again on the struts' },
+  aimOuter: { v: 'the outer shell waits for the inner', s: 'The outer shell waits for the inner' },
+  aimInner: { v: 'build on the struts now', s: 'The inner form is whole: build on the struts' },
+  eases: { v: 'the jumble eases toward its form', s: 'No true join within reach: the jumble eases toward its form' },
+  easesOuter: { v: 'the struts ease toward their true lines', s: 'No true join within reach: the struts ease toward their true lines' },
+};
+
+const LOOPS = { 3: 'triangle', 4: 'square', 5: 'pentagon', 6: 'hexagon', 7: 'heptagon', 8: 'octagon' };
+// Loops of the form closed whole: what they are, and that struts brace out from them.
+export function loopText(sizes, braced) {
+  const names = [...new Set(sizes)].map((n) => LOOPS[n] ?? `loop of ${n}`);
+  const what = sizes.length === 1 ? `a ${names[0]}` : `${spell(sizes.length)} loops`;
+  const closes = `${what} ${sizes.length === 1 ? 'closes' : 'close'} true`;
+  const said = `${what[0].toUpperCase()}${what.slice(1)} closed true`;
+  return braced ? { v: `${closes} struts brace outward`, s: `${said}: struts brace outward` } : { v: closes, s: said };
+}
+
+// How far each shell has come: its loops closed, of how many.
+export const loopsText = (p) => ({
+  v: `loops closed ${spell(p.inner)} within ${spell(p.outer)} without of ${spell(p.loops)}`,
+  s: `Loops closed: ${p.inner} of ${p.loops} within, ${p.outer} without`,
+});
+
+const MANY_RULES = [
+  { v: 'each game the jumble hides a new form', s: 'Each game the jumble hides a new form:' },
+  { v: 'two shells of it joined by struts', s: 'two shells of it, joined by struts.' },
+  { v: 'its joints keep their true angles', s: 'Its joints keep their true angles:' },
+  { v: 'sixty a triangle ninety a square', s: '60° a triangle, 90° a square, 108° a pentagon,' },
+  { v: 'one hundred twenty a hexagon', s: '120° a hexagon, 135° an octagon.' },
+  { v: 'join two tips a tan apart with another', s: "Join two tips about a t'an apart with another:" },
+  { v: 'true neighbours close its loops', s: 'true neighbours close its loops; a false bond falls.' },
+  { v: 'a loop closed whole holds and braces out', s: 'A loop closed whole holds, and struts brace out.' },
+  { v: 'then build the form again on the struts', s: 'The inner form whole, build it again on the struts.' },
+  { v: 'loose tan among it are noise', s: "Loose t'an hanging among it are noise." },
+];
+
+export function manyCompleteText(game, form) {
+  const name = { v: `the ${form.v} is whole`, s: `The ${form.s} is whole` };
+  if (game.players > 1) {
+    const w = game.winner;
+    return { v: `${name.v} player ${spell(w + 1)} prevails`, s: `${name.s}. Player ${w + 1} prevails` };
+  }
+  const st = game.stats[0];
+  const moves = st.joined + st.discord;
+  return { v: `${name.v} in ${spell(moves)} moves`, s: `${name.s}, in ${moves} moves` };
+}
 
 export function classicCompleteText(game) {
   if (game.players > 1) {

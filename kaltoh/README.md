@@ -2,13 +2,18 @@
 
 > "Kal-toh is to chess as chess is to tic-tac-toe."
 
-A playable take on the Vulcan game of *Star Trek: Voyager*, as an Android app, with two games
+A playable take on the Vulcan game of *Star Trek: Voyager*, as an Android app, with three games
 of steel *t'an* on a stone basin:
 
 - **The kal-toh**, the way to play at first. A jagged jumble of t'an rests over the basin. Join
   two tips at a time with a new t'an: true neighbours bring order, false bonds fall, until the
   jumble becomes the kal-toh, two concentric icosidodecahedra joined junction to junction,
   spinning true on its hidden axis.
+- **Many forms.** A new form every game, built rather than found. A jumble hides one of fourteen
+  solids whose loops are of more than one kind (triangles and hexagons, squares and octagons,
+  ...), with a sample of its pattern already closed and loose t'an hanging among it as noise.
+  Read the angles that repeat, close its loops one by one, and struts brace outward from each
+  loop closed; then build the same form again on their tips, an outer shell round the inner.
 - **Rings.** A splintering nest of t'an hangs over the basin, gathered about a centre mass and
   held by a field that spins on a hidden axis. Close a loop around that axis and it becomes a
   ring. Overload the structure and pieces fall. Ring by ring, order comes out of the chaos.
@@ -19,13 +24,18 @@ the underside of the stone: tip the base over to read them, from whichever side 
 <p align="center">
   <img src="docs/jumble.png" width="19%" alt="The jumble of the original game">
   <img src="docs/sphere.png" width="19%" alt="The completed kal-toh, spinning on its axis">
+  <img src="docs/forms.png" width="19%" alt="Many forms: a new form's jumble, a sample of its loops closed, noise among it">
+  <img src="docs/forms-whole.png" width="19%" alt="Many forms: the inner form whole, struts bracing out from every junction">
+  <img src="docs/forms-complete.png" width="19%" alt="Many forms: both shells whole">
+</p>
+<p align="center">
   <img src="docs/nest.png" width="19%" alt="The starting nest of rings">
   <img src="docs/ring.png" width="19%" alt="A ring forming">
   <img src="docs/complete.png" width="19%" alt="A completed globe of rings">
+  <img src="docs/green.png" width="19%" alt="Two players: the light behind turns green on the second player's turn">
+  <img src="docs/underside.png" width="19%" alt="The carved underside of the base: each seat named, its mark ringed in its colour, its plays marked beneath">
 </p>
 <p align="center">
-  <img src="docs/green.png" width="19%" alt="Two players: the light behind turns green on the second player's turn">
-  <img src="docs/underside.png" width="19%" alt="The carved underside of the base, each player's plays marked under their seat">
   <img src="docs/ways.png" width="19%" alt="The ways to play, with an arrow at the rim to turn the page">
   <img src="docs/tuning.png" width="19%" alt="The hologram's tuning, carved">
 </p>
@@ -47,13 +57,13 @@ over an older one without uninstalling.
 
 | To | Do |
 |---|---|
-| Turn the base | Drag the stone or open space. Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. |
+| Turn the base | Drag the stone (a fingertip off its edge counts). Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. A drag on open space turns nothing, so a finger that only just misses the t'an at the foot of the screen sets nothing spinning. |
 | Turn the t'an | Drag anywhere within the t'an's outline, even between them. The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
-| Place a t'an | Put **two fingers** on the t'an lying at the foot of the screen to lift it. Move each finger onto a piece of the kal-toh: in the original game, onto the tips you mean to join (each finger picks the tip nearest it, which lights up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you move your head or draw the view nearer. |
+| Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it slides across the glass under your finger, drawing in to the size it will be at the kal-toh as you raise it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Move each finger onto a piece of the kal-toh: in the original game and many forms, onto the tips you mean to join (each finger picks the tip nearest it, which lights up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you move your head or draw the view nearer, and while the kal-toh spins. |
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read: the title, whose turn it is and the score, what just happened, and how to play. |
-| Play with others | Choose two to four players (or a Vulcan, in rings) in the ways to play. The light behind the kal-toh takes the colour of whoever's turn it is: red for the first player, a rich green for the second, then deep blue and gold. A finished game keeps its winner's colour. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop or a ring, a cross where t'an fell, a circle for a spin test. The rules page shows the marks. |
+| Play with others | Choose two to four players (or a Vulcan, in rings) in the ways to play. The light behind the kal-toh takes the colour of whoever's turn it is: red for the first player, a rich green for the second, then deep blue and gold. A finished game keeps its winner's colour. Under the base each seat is named (*Player 1*, *Player 2*, ... or *The Vulcan*) over its mark, which is ringed in paint of its colour, the mark filled for whose turn it is. Beneath is the score: in the original game and many forms, true joins of those tried (*7/9*); in rings, points. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop, a loop closed or a ring, a cross where t'an fell, a circle for a spin test. The rules page shows the marks. |
 | Translate | Everything is carved in Vulcan. **Touch anywhere on the carving** but a glyph or a value: all of it is smoothed away to bare stone and cut again in Standard, as deep. Touch again for Vulcan. |
-| Test the spin | **Tap the t'an twice**, or touch the spiral carved under the base. The kal-toh spins on its hidden axis: in the original game an unbalanced one wobbles; in rings, strained t'an glow amber. |
+| Test the spin | **Tap the t'an twice**, or touch the spiral carved under the base. The kal-toh spins on its hidden axis: in the original game and many forms an unbalanced one wobbles; in rings, strained t'an glow amber. The t'an waiting in the tray stays there. |
 | Ways to play | Touch the circle carved under the base. The first way is the game itself. Touch a value to change it; some say beneath what they mean. Where there are more ways than fit, a large **arrow carved at the rim** turns the page, and one on the other side turns back. A change to the game waits for a new one: the carving says so and *begin anew* glows. Touch it to play that way. The lens with rays there opens the hologram's tuning. |
 | Begin anew | **Shake the phone for three seconds**, or touch *begin anew* under the base. |
 | Draw nearer | Pinch. |
@@ -90,6 +100,38 @@ over an older one without uninstalling.
   the final t'an wins: plan so that your rival is left with only discord or imbalance.
 - Everything rests on the stone as the rings game does: the kal-toh keeps its place on the base,
   turns with it, is never cut into by it, and its fallen t'an lie where they fall until a new game.
+
+### Many forms
+
+- **A new form every game.** The jumble hides one of fourteen solids, each with t'an all of one
+  length and loops of more than one kind: the truncated tetrahedron (triangles and hexagons), the
+  cuboctahedron (triangles and squares), the truncated octahedron (squares and hexagons), the
+  truncated cube (triangles and octagons), the rhombicuboctahedron (triangles and squares), the
+  prisms of five to eight sides and the antiprisms of four to eight. It is turned any way up, and
+  the jumble is twisted anew.
+- **The jumble** is the inner form's skeleton, a tree of its t'an with every joint twisted about
+  its own t'an, so the joints keep their true angles: **60°** a triangle, **90°** a square,
+  **108°** a pentagon, **120°** a hexagon, **135°** an octagon. A sample of its pattern is already
+  closed in its true shape: some of the loops about one junction, of more than one kind. Loose
+  t'an hang among it as noise.
+- **A move** joins two tips about a t'an apart with a new one, as in the original game (it will
+  not stretch or squeeze; if no true join lies within reach, the jumble eases toward its form).
+  - *Harmony*: true neighbours. The loop the new t'an closes pulls toward its true shape. A loop
+    of the form closed whole finds its equilibrium: it glows round, holds for good (no false bond
+    can shake it loose), and struts brace outward from each of its junctions. Noise hanging from a
+    junction whose loops are all closed falls away.
+  - *Discord*: not neighbours, or a tip of the noise. The new t'an falls, shaking loose the newest
+    bond at those tips that no closed loop holds, and where the tip truly belongs glows a moment.
+    Noise you touch falls away with it.
+- **The outer shell.** When the inner form is whole, a strut stands out from every junction, the
+  last of the noise falls, and the tray brings a longer t'an. Build the same form again on the
+  struts' tips. The struts lean a little at first and find their true lines as the outer loops
+  close about them, so copy the pattern of the shell within: two struts' tips are neighbours only
+  if their junctions are.
+- **The end.** Both shells whole, the kal-toh glows, its hidden axis shows, and the carving names
+  the form. Alone, you are told how many moves it took; with others (one to four, taking turns),
+  whoever made the most true joins prevails. Two taps test the spin, as in the original game: a
+  half-built kal-toh wobbles.
 
 ### Rings
 
@@ -142,6 +184,12 @@ whether the carving reads in Vulcan or Standard until touched.
 
 In the original game, read the angles: a 60° joint is a triangle waiting to be closed, a 108°
 joint a pentagon. Test the spin early and often, and build on the light side of the axis.
+
+In many forms, look first at the sample: its loops tell you two of the form's kinds, and how they
+meet at a junction. Then find the angles that repeat in the jumble, close small loops first (they
+lock, and their struts mark the junctions that are settled), and look for the pattern of loops
+round each junction: it is the same at every one. Leave the noise alone; a tip that hangs from a
+single t'an at an angle no loop of the form would make is likely noise.
 
 In rings, the axis is the secret. Until a ring forms or someone tests the spin, every loop you close is a
 guess. Testing tells everyone, and it costs your turn. Once the axis is known, rings are a race,
@@ -233,11 +281,16 @@ instead.
     - `classic-rules.js`: the original game. The icosidodecahedral lattice, the jumble (a
       balanced spanning tree with every joint twisted, steered clear of the stone beneath it),
       harmony, discord, imbalance and the wobble.
+    - `forms-rules.js`: many forms. The fourteen solids, each built from its points (rods as the
+      closest pairs, loops walked round each junction's neighbours in turn), the jumble (a
+      spanning tree holding the sample's loops, every other joint twisted), the noise, the leaning
+      struts, the two shells, harmony, discord and easing.
     - `ai.js`, `ai-worker.js`: the Vulcan. It tries moves on copies of the game, looks a reply
       ahead, and builds arcs round the axis. It knows the axis only once it has been revealed.
   - The view: `classic.js` (the original game on the stone: the jumble's skeleton kept rigid by a
     small position-based solver as each junction finds its order, the inner shell settling into
-    place, joining, the spin test and the end), `scene.js` (renderer, lights, mess-hall
+    place, joining, the spin test and the end), `forms.js` (many forms on the stone, in the same
+    way: loops closing, struts growing out, noise falling away, the outer shell), `scene.js` (renderer, lights, mess-hall
     reflections, the stone, and the window the screen becomes), `motion.js` (base and assembly dynamics, and every t'an kept clear of
     the stone along its length), `rodmesh.js` (polished steel t'an: mirror faces, drawn gently
     crowned so each reflects a broad sweep of the mess hall behind the player, scored by
@@ -267,18 +320,27 @@ instead.
     that played within a t'an's reach, with the jumble lying as the game draws it and easing when
     stuck, every game can be finished, mistakes and all; and that past the balance limit a join
     that restores balance still holds.
+  - `forms.test.mjs`: many forms. Every solid (rods equal, loops flat and regular, junctions,
+    rods and loops as a solid's), new games of them (the jumble keeps every t'an whole and every
+    joint true, the sample in its true shape and place, noise, leaning struts), moves, loops
+    holding and bracing outward, both shells completed, and that played within reach, easing
+    when stuck, every game ends, mistakes and all.
   - `browser-check.cjs`: plays the real game in headless Chromium with simulated touch. First the
-    original game: the jumble grows, a two-finger lift joins true neighbours, tips too far apart
-    for a t'an are refused, a false bond falls and shows where the tip belonged, two taps test the
-    spin, no t'an passes into the stone, and t'an meeting at a junction are mitred to touch. Then it changes the game in the
-    carved ways to play, turning their pages by the arrows at the rim, and plays rings. It covers
+    original game: the jumble grows, a t'an taken up by one finger and held by a second joins true
+    neighbours, tips too far apart for a t'an are refused, a false bond falls and shows where the
+    tip belonged, two taps test the spin, no t'an passes into the stone, and t'an meeting at a
+    junction are mitred to touch. Then it changes the game in the carved ways to play and plays
+    many forms: the sample and the noise, a true join, noise touched falling away, the inner form
+    whole with struts at every junction and a longer t'an in the tray, a join on the struts' tips.
+    Then, turning the ways' pages by the arrows at the rim, it plays rings. It covers
     placing, the Vulcan's reply, the spin test, a ring, and turning the base: the t'an lag, catch
-    up, then hold perfectly still. It turns the t'an by their area and checks no t'an ever passes
+    up, then hold perfectly still; a drag on open space below the stone turns nothing. It turns
+    the t'an by their area and checks no t'an ever passes
     into the stone. It turns the base over to read it (top up whichever way it was turned) and
     touches the carving to translate it. It covers the carved ways to play and the hologram's
     tuning, fallen t'an staying until a new game, and shaking to begin anew. It checks that the
-    light behind turns green on the second player's turn and that each player's plays are kept
-    for the carving. With a stand-in for the Android shell reporting a swaying face, it checks the
+    light behind turns green on the second player's turn, that each player's plays are kept for
+    the carving, and that each seat is named. With a stand-in for the Android shell reporting a swaying face, it checks the
     view follows the head as on the phone, and that the t'an at the foot of the screen stays put
     as the head moves and the view draws near. Given a Y4M video of a face as a second argument, Chromium fakes the
     front camera with it, and the page's own eye finder is checked too.
@@ -288,6 +350,7 @@ instead.
 node kaltoh/tools/physics.test.mjs
 node kaltoh/tools/rules.test.mjs
 node kaltoh/tools/classic.test.mjs
+node kaltoh/tools/forms.test.mjs
 node kaltoh/tools/browser-check.cjs out/   # needs Playwright with Chromium
 node kaltoh/tools/browser-check.cjs out/ face.y4m   # and the hologram, with a video of a face
 ```

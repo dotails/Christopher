@@ -9,6 +9,7 @@ export const OPTIONS = [
     key: 'way', v: 'the game', s: 'The game',
     choices: [
       ['classic', 'the kal toh', 'The kal-toh', { v: 'join true neighbours until the jumble is a sphere', s: 'Join true neighbours until the jumble becomes the sphere' }],
+      ['forms', 'many forms', 'Many forms', { v: 'a new form each game built from within', s: 'A new form each game: find its loops, build it from the inside out' }],
       ['rings', 'rings', 'Rings', { v: 'close loops round the hidden spin', s: 'Close loops round the hidden spin to build a shape of rings' }],
     ],
   },

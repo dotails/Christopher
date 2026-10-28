@@ -3,8 +3,11 @@
 // by one finger and then held by a second joins two true neighbours, tips too far apart for a t'an
 // are refused, a false bond falls
 // (the first tip's true neighbours glowing), two taps test the spin, nothing passes into the
-// stone, and t'an meeting at a junction are mitred to touch. Then, through the carved ways to play (turning their pages by the arrows at the
-// rim), the game of rings: a two-finger lift and placement, the Vulcan's reply (the light behind
+// stone, and t'an meeting at a junction are mitred to touch. Then, through the carved ways to play,
+// many forms: a new form's jumble with a sample of its loops true and noise among it, a true join,
+// noise touched falling away, the inner form whole with struts at every junction and a longer t'an
+// in the tray, and a join on the struts' tips. Then (turning the ways' pages by the arrows at the
+// rim) the game of rings: a two-finger lift and placement, the Vulcan's reply (the light behind
 // turning the second player's green, the plays carved under the seats), a spin test, a ring,
 // a drag on open space turning nothing, turning the base by the stone (the t'an lag, catch up, and
 // then hold perfectly still on it), spinning the
@@ -317,7 +320,109 @@ function check(condition, message) {
     check(!(await carved('more')) && !(await carved('prev')), 'the original game\'s ways fit on one page, with no arrows');
     await tap(await where('row:way', 'value'));
     await sleep(500);
-    check(await page.evaluate(() => window.__kaltoh.settings.way === 'rings' && window.__kaltoh.engraving.state.pending), 'touching the game changes it, to begin anew');
+    check(await page.evaluate(() => window.__kaltoh.settings.way === 'forms' && window.__kaltoh.engraving.state.pending), 'touching the game changes it, to begin anew: many forms');
+    await page.evaluate(() => {
+      window.__kaltoh.seed = 7;
+    });
+    await tap(await where('anew', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.way === 'forms', null, { timeout: 30000 });
+    await page.evaluate(() => window.__kaltoh.engraving.show('main'));
+    await drag(await stoneSpot({ x: 206, y: 420 }), 0, 155);
+    await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1, null, { timeout: 30000 });
+    await waitFor(['play']);
+
+    // 0b. Many forms: a new form each game, its inner shell built loop by loop from a sample of its
+    // pattern among noise; struts brace out from each loop closed, and the outer shell is built on them.
+    const formsState = () => page.evaluate(() => {
+      const g = window.__kaltoh.forms.game;
+      return {
+        form: g.form, phase: g.phase, doneIn: g.doneIn.size, sprouted: g.sprouted.filter(Boolean).length, noise: g.noise.filter((n) => n.alive).length,
+        history: g.history.map((h) => h.kind), tray: window.__kaltoh.tray.length, rods: g.rodOut / g.rodIn,
+      };
+    });
+    const formsAt = await formsState();
+    check(formsAt.doneIn >= 2 && formsAt.sprouted >= 3 && formsAt.noise >= 1,
+      `many forms: a new form hides in the jumble (${formsAt.form}), a sample of its loops true, struts bracing out from them, noise among it`);
+    check(await nothingWritten(), 'nothing is written on the screen');
+    await page.screenshot({ path: path.join(OUT, '0e-forms.png') });
+    // Two tips under two fingers, steadily, within a t'an's reach: true neighbours, or noise.
+    async function findFormsJoin(kind) {
+      await settle();
+      return page.evaluate(async (kind) => {
+        const F = await import('/js/forms-rules.js');
+        const k = window.__kaltoh;
+        const f = k.forms;
+        const shown = f.structure.shownTips();
+        const spots = new Map();
+        for (const t of F.liveTips(f.game)) {
+          if (!shown.has(t)) continue;
+          const p = k.stage.toScreen(f.tipWorld(t));
+          if (p.y < 120 || p.y > 600 || p.x < 20 || p.x > 392) continue;
+          const steady = [[0, 0], [-3, 0], [3, 0], [0, -3], [0, 3]].every(([dx, dy]) => k.pickRod(p.x + dx, p.y + dy)?.tip === t);
+          if (steady) spots.set(t, { x: p.x, y: p.y });
+        }
+        for (const [a, pa] of spots) {
+          for (const [b, pb] of spots) {
+            if (a >= b || Math.hypot(pa.x - pb.x, pa.y - pb.y) < 40) continue;
+            const apart = f.apart(a, b);
+            if (apart < F.REACH[0] || apart > F.REACH[1]) continue;
+            const v = F.judge(f.game, a, b);
+            if (kind === 'noise' ? v.kind === 'discord' && v.noise >= 0 : v.kind === kind) return { a: { x: pa.x, y: pa.y + 10 }, b: { x: pb.x, y: pb.y + 10 } };
+          }
+        }
+        return null;
+      }, kind);
+    }
+    let formsJoin = await findFormsJoin('harmony');
+    check(formsJoin, 'two true neighbours within a t\'an\'s reach can be found on screen');
+    const formsHeld = await place(formsJoin, '0e-forms-joining.png');
+    check(formsHeld.pose && formsHeld.glow > 0.9, 'carried over two tips, the t\'an shows where it will join them');
+    await page.waitForFunction(() => window.__kaltoh.forms.game.history.length >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
+    check((await formsState()).history[0] === 'harmony', 'true neighbours join');
+    formsJoin = await findFormsJoin('noise');
+    check(formsJoin, 'a tip of the noise within reach can be found on screen');
+    const noiseBefore = (await formsState()).noise;
+    await place(formsJoin);
+    await page.waitForFunction(() => window.__kaltoh.forms.game.history.length >= 2 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
+    const touchedNoise = await formsState();
+    check(touchedNoise.history[1] === 'discord' && touchedNoise.noise < noiseBefore, 'joining it to the noise is discord, and the noise falls away');
+    // The rest of the inner form's loops closed (as players would close them): it is whole.
+    for (let i = 0; i < 80; i++) {
+      const left = await page.evaluate(async () => {
+        const F = await import('/js/forms-rules.js');
+        const k = window.__kaltoh;
+        const f = k.forms;
+        const g = f.game;
+        if (g.phase !== 'inner') return 0;
+        const [a, b] = F.tipsOf(g, 'inner', F.missingEdges(g)[0]);
+        f.phase = 'resolving';
+        k.tray.hide();
+        f.resolve(F.play(g, a, b));
+        return F.missingEdges(g).length + 1;
+      });
+      if (!left) break;
+      await page.waitForFunction(() => window.__kaltoh.phase === 'play' && window.__kaltoh.tray.visible, null, { timeout: 60000 });
+    }
+    const whole = await formsState();
+    check(whole.phase === 'outer' && whole.sprouted === await page.evaluate(() => window.__kaltoh.forms.game.V) && whole.noise === 0,
+      'the inner form whole, struts brace out from every junction and the noise is gone');
+    check(Math.abs(whole.tray / formsAt.tray - whole.rods) < 1e-6, 'and the tray brings a longer t\'an for the outer shell');
+    await sleep(1500);
+    await page.screenshot({ path: path.join(OUT, '0f-forms-whole.png') });
+    formsJoin = await findFormsJoin('harmony');
+    check(formsJoin, 'two struts\' tips, true neighbours within reach, can be found on screen');
+    await place(formsJoin);
+    await page.waitForFunction(() => window.__kaltoh.forms.game.presentOut.size >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
+    check(true, 'the outer shell is built on the struts\' tips');
+
+    // Then the game of rings, whose ways turn their pages by arrows at the rim.
+    await turnOver();
+    await tap(await where('ways', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
+    await recut();
+    await tap(await where('row:way', 'value'));
+    await sleep(500);
+    check(await page.evaluate(() => window.__kaltoh.settings.way === 'rings' && window.__kaltoh.engraving.state.pending), 'touching it again chooses the game of rings');
     check(await carved('more') && !(await carved('prev')), 'the game of rings has more ways: an arrow at the rim turns to them');
     await tap(await where('more', 'button'));
     await page.waitForFunction(() => window.__kaltoh.engraving.wayPage === 1, null, { timeout: 10000 });
@@ -423,7 +528,7 @@ function check(condition, message) {
       const held = await page.evaluate(() => {
         const k = window.__kaltoh;
         const a = k.aim;
-        return { pose: k.way === 'classic' ? Boolean(k.classic.aimed) : Boolean(a?.pose), ring: a?.ring?.k ?? 0, glow: k.hand.glow };
+        return { pose: k.way === 'rings' ? Boolean(a?.pose) : Boolean((k.way === 'classic' ? k.classic : k.forms).aimed), ring: a?.ring?.k ?? 0, glow: k.hand.glow };
       });
       await touch('touchEnd', [f2]);
       await sleep(30);
@@ -468,7 +573,7 @@ function check(condition, message) {
       if (shot) await page.screenshot({ path: path.join(OUT, shot) });
       const held = await page.evaluate(() => {
         const k = window.__kaltoh;
-        return { pose: k.way === 'classic' ? Boolean(k.classic.aimed) : Boolean(k.aim?.pose), glow: k.hand.glow };
+        return { pose: k.way === 'rings' ? Boolean(k.aim?.pose) : Boolean((k.way === 'classic' ? k.classic : k.forms).aimed), glow: k.hand.glow };
       });
       await touch('touchEnd', [f1]);
       await sleep(30);
