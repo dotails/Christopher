@@ -582,16 +582,32 @@ function think() {
       return;
     }
     const id = ++requestId;
+    const w = worker;
+    let settled = false;
+    const finish = (choice, failed) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      w.removeEventListener('message', onMessage);
+      w.removeEventListener('error', onError);
+      if (failed) fallback();
+      else resolve(choice);
+    };
     const onMessage = (e) => {
       if (e.data.id !== id) return;
-      worker.removeEventListener('message', onMessage);
-      if (e.data.error) {
-        console.error(e.data.error);
-        fallback();
-      } else resolve(e.data.choice);
+      if (e.data.error) console.error(e.data.error);
+      finish(e.data.choice, Boolean(e.data.error));
     };
-    worker.addEventListener('message', onMessage);
-    worker.postMessage({ id, game: data, level, seed });
+    // A worker that cannot load (or never answers) must not stall the game: think here instead.
+    const onError = (e) => {
+      console.error('Vulcan worker failed', e.message ?? e);
+      worker = null;
+      finish(null, true);
+    };
+    const timer = setTimeout(() => finish(null, true), 30000);
+    w.addEventListener('message', onMessage);
+    w.addEventListener('error', onError);
+    w.postMessage({ id, game: data, level, seed });
   });
 }
 

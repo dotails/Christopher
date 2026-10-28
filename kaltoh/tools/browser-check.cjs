@@ -117,7 +117,14 @@ function check(condition, message) {
                 if (!pose.ok) continue;
                 const ring = AI.ringFor(game, pose);
                 const move = { a: { x: pa.x, y: pa.y + 10 }, b: { x: pb.x, y: pb.y + 10 }, ring: ring?.k ?? 0, rods: [ia, ib], s: [ha.s, hb.s] };
-                if (!wantRing || ring) return move;
+                // A ring that still forms when the fingers land a few pixels off.
+                const sure = () => [[-3, 0], [3, 0], [0, -3], [0, 3]].every(([dx, dy]) => {
+                  const ja = k.pickRod(pa.x + dx, pa.y + dy);
+                  const jb = k.pickRod(pb.x + dx, pb.y + dy);
+                  const p = ja && jb && R.placement(game, ja, jb, [eye.x, eye.y, eye.z]);
+                  return p?.ok && AI.ringFor(game, p);
+                });
+                if (!wantRing || (ring && sure())) return move;
                 fallback ??= move;
               }
             }
@@ -201,7 +208,24 @@ function check(condition, message) {
       check(true, 'closing a loop around the axis makes a ring');
       await page.waitForFunction(() => ['play', 'over', 'complete'].includes(window.__kaltoh.phase) && window.__kaltoh.game.current === 0, null, { timeout: 240000 });
     } else {
-      console.log('(no ring within reach on screen this game)');
+      // No ring sits steadily under the fingers from here; place one directly, to see it form.
+      const before = (await state()).rings;
+      const placed = await page.evaluate(() => {
+        const k = window.__kaltoh;
+        const pose = k.AI.candidateMoves(k.game, { limit: 900 }).find((p) => k.AI.ringFor(k.game, p));
+        if (!pose) return false;
+        k.commit(pose);
+        return true;
+      });
+      if (placed) {
+        await sleep(900);
+        await page.screenshot({ path: path.join(OUT, '6-ring-forming.png') });
+        await page.waitForFunction((n) => window.__kaltoh.game.rings.length > n, before, { timeout: 30000 });
+        check(true, 'closing a loop around the axis makes a ring (placed directly)');
+        await page.waitForFunction(() => ['play', 'over', 'complete'].includes(window.__kaltoh.phase) && window.__kaltoh.game.current === 0, null, { timeout: 240000 });
+      } else {
+        console.log('(no ring to be made this game)');
+      }
     }
 
     // 4. Turn the base with one finger on open space: the assembly lags, then follows.
