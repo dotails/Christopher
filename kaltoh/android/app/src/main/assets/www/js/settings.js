@@ -57,7 +57,7 @@ export const OPTIONS = [
   { key: 'hologram', v: 'hologram', s: 'Hologram: the view follows your eyes', native: true, choices: [[false, 'off', 'Off'], [true, 'on', 'On']] },
   { key: 'sound', v: 'sound', s: 'Sound', choices: [[true, 'on', 'On'], [false, 'off', 'Off']] },
   { key: 'haptics', v: 'touch', s: 'Vibration', choices: [[true, 'on', 'On'], [false, 'off', 'Off']] },
-  { key: 'language', v: 'script', s: 'Text appears in', choices: [['vulcan', 'vulcan', 'Vulcan (swipe to translate)'], ['standard', 'standard', 'Standard (swipe for Vulcan)']] },
+  { key: 'language', v: 'script', s: 'Text appears in', choices: [['vulcan', 'vulcan', 'Vulcan (touch a line to translate)'], ['standard', 'standard', 'Standard (touch a line for Vulcan)']] },
 ];
 
 export const DEFAULT_SETTINGS = Object.fromEntries(OPTIONS.map((o) => [o.key, o.choices[0][0]]));

@@ -1,18 +1,19 @@
-// Kal-toh: brings the rules, the stage, the hands and the Vulcan together.
+// Kal-toh: brings the rules, the stage, the hands and the Vulcan together. Nothing is drawn on
+// the screen but the kal-toh, its stone and the t'an in the tray: everything it says is carved
+// into the underside of the base (engrave.js).
 import * as THREE from '../vendor/three.module.min.js';
 import * as G from './geom.js';
 import * as R from './rules.js';
 import * as AI from './ai.js';
 import { createScene, loadBase, loadEnvironment } from './scene.js';
 import { RodPool, Halos, Ghosts } from './rodmesh.js';
+import { Engraving } from './engrave.js';
 import { Motion } from './motion.js';
 import { Falling } from './falling.js';
 import { Tray, Hand } from './tray.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
-import {
-  Hud, Panel, TEXT, ringText, fellText, ringPreviewText, playerText, completeText, winnerText, supplyText,
-} from './hud.js';
+import { TEXT, ringText, fellText, playerText, completeText, winnerText, supplyText } from './texts.js';
 import { loadSettings, saveSettings, gameOptions } from './settings.js';
 import { ShakeDetector } from './shake.js';
 import { native } from './native.js';
@@ -25,27 +26,28 @@ const halos = new Halos(stage.scene, 320);
 const ghosts = new Ghosts(stage.scene, 16);
 const sound = new Sound();
 const settings = loadSettings();
-const hud = new Hud({ language: settings.language });
 const tray = new Tray(stage);
 const hand = new Hand(stage, tray);
 const head = new Head();
 let motion = null;
 let falling = null;
 let baseModel = null;
+let engraving = null;
 
 const insets = { top: 0, bottom: 0 };
 const quality = { maxDpr: 2, time: 0, frames: 0 };
 let game = null;
 let phase = 'loading'; // loading | intro | play | resolving | vulcan | testing | complete | over | dissolving
 let aimKey = '';
-let shakeHinting = false;
-let thinking = null;
 let time = 0;
+let shaking = 0; // how far a shake to begin anew has gone (0..1)
+let thinking = false; // the Vulcan is considering
 
 // What is drawn of each t'an: its assembly-local ends (which lead or lag the rules' positions
 // while it slides), its face orientation, and its glow.
 const display = new Map();
 const collisionPoints = [];
+let shownCount = 0; // t'an drawn last frame: when it changes, the assembly's shape has changed
 let strainOf = new Map();
 let testGlow = null; // per-rod strain shown while the spin test turns
 let aim = null; // { pieces, pose, ring } while a t'an is held
@@ -55,6 +57,8 @@ const haptic = (kind) => {
   if (settings.haptics) native.haptic(kind);
 };
 sound.muted = !settings.sound;
+// What the kal-toh says goes into its stone.
+const say = (text) => engraving?.setEvent(text);
 
 // --- Timers on game time ------------------------------------------------------------------
 
@@ -76,15 +80,11 @@ function layout() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   stage.layout(w, h, dpr);
-  stage.view.focus.y = 0.4;
+  stage.view.focus.y = 0.42;
   stage.update();
-  // The inscription sits just under the base; the tray below it.
+  // The t'an to place lies at the foot of the screen, below the base.
   const foot = stage.toScreen(new THREE.Vector3(0, 0, 0.9));
-  const root = document.documentElement.style;
-  root.setProperty('--inset-top', `${insets.top}px`);
-  root.setProperty('--inset-bottom', `${insets.bottom}px`);
-  root.setProperty('--under-base', `${Math.round(foot.y + 10)}px`);
-  tray.layout(Math.max(foot.y + 128, h - insets.bottom - 84));
+  tray.layout(Math.max(foot.y + 110, h - insets.bottom - 88));
 }
 
 // --- The display of the kal-toh ----------------------------------------------------------
@@ -130,6 +130,7 @@ function syncDisplay() {
     orient(e, rod);
   }
   for (const id of [...display.keys()]) if (!alive.has(id)) display.delete(id);
+  motion.wake();
 }
 
 function refreshStrain() {
@@ -146,9 +147,12 @@ function arrToWorld(p, out) {
 
 function animate(dt) {
   collisionPoints.length = 0;
+  let reshaped = display.size !== shownCount;
+  shownCount = display.size;
   for (const e of display.values()) {
     e.flash = Math.max(0, e.flash - dt * 0.7);
     if (e.anim) {
+      reshaped = true;
       const an = e.anim;
       an.t += dt;
       const k = Math.min(1, Math.max(0, (an.t - an.delay) / an.duration));
@@ -164,6 +168,8 @@ function animate(dt) {
     collisionPoints.push(e.a.clone(), e.b.clone(), v1.addVectors(e.a, e.b).multiplyScalar(0.5).clone());
   }
   motion.setPoints(collisionPoints);
+  // A changed shape may no longer rest where it did (or may rest on the stone now).
+  if (reshaped) motion.wake();
 }
 
 function drawAssembly() {
@@ -175,26 +181,20 @@ function drawAssembly() {
     localToWorld(e.a, e.wa);
     localToWorld(e.b, e.wb);
     vUp.copy(e.up).applyQuaternion(q);
-    // The blue of order is soft: a glow, never a glare.
+    // The blue of order is soft: a glow, never a glare. Nothing here moves a t'an.
     let blue = e.flash * 0.6;
     let amber = 0;
     if (rod?.ring >= 0) blue = Math.max(blue, 0.3);
-    if (completeGlow > 0) blue = Math.max(blue, completeGlow * (0.32 + 0.16 * Math.sin(time * 2.2 + e.id * 0.7)));
+    if (completeGlow > 0) blue = Math.max(blue, completeGlow * 0.42);
     if (aim && (aim.pieces.includes(e.id))) blue = Math.max(blue, 0.6);
     if (loopRods.has(e.id)) blue = Math.max(blue, 0.32);
+    // The Vulcan considering: its thought is a slow light in the centre mass.
+    if (thinking && rod?.kind === 'core') blue = Math.max(blue, 0.18 + 0.14 * Math.sin(time * 2.4));
+    // A gathering shake lights everything, the nearer to beginning anew the brighter.
+    if (shaking > 0.08) blue = Math.max(blue, shaking * 0.7);
     const strain = testGlow ? (testGlow.get(e.id) ?? 0) : (strainOf.get(e.id) ?? 0);
     const show = testGlow ? 0.35 : 0.72;
-    if (strain > show) {
-      const k = Math.min(1, (strain - show) / (1 - show));
-      amber = k * 0.75;
-      // A strained t'an trembles.
-      if (!testGlow) {
-        const j = 0.0035 * k;
-        v2.set(Math.sin(time * 47 + e.id), Math.sin(time * 53 + e.id * 2.1), Math.sin(time * 41 + e.id * 3.7)).multiplyScalar(j);
-        e.wa.add(v2);
-        e.wb.add(v2);
-      }
-    }
+    if (strain > show) amber = Math.min(1, (strain - show) / (1 - show)) * 0.75;
     pool.push(e.wa, e.wb, vUp, blue, amber);
     if (blue > 0.05 || amber > 0.05) halos.push(e.wa, e.wb, Math.max(blue * 0.26, amber * 0.26), 0.06, amber > blue ? 1 : 0);
     obstacles.push({ a: [e.wa.x, e.wa.y, e.wa.z], b: [e.wb.x, e.wb.y, e.wb.z] });
@@ -245,18 +245,60 @@ function segmentDistance(x, y, a, b) {
   return Math.hypot(a.x + dx * t - x, a.y + dy * t - y);
 }
 
+// Is a finger on the t'an's area - anywhere within the outline of the assembly on screen, and
+// not on the stone where the stone is nearer the eye?
+const baseRay = new THREE.Raycaster();
+function touchesAssembly(x, y) {
+  const points = [];
+  for (const e of display.values()) {
+    if (e.anim) continue;
+    for (const p of [e.wa, e.wb]) {
+      const s = stage.toScreen(p);
+      points.push([s.x, s.y]);
+    }
+  }
+  if (points.length < 3 || !insideHull(hull(points), x, y, 18)) return false;
+  if (!baseModel) return true;
+  baseRay.setFromCamera(new THREE.Vector2((x / stage.size.width) * 2 - 1, -(y / stage.size.height) * 2 + 1), stage.camera);
+  const hit = baseRay.intersectObject(baseModel.mesh, false)[0];
+  return !hit || hit.distance > stage.camera.position.distanceTo(stage.assemblyRoot.position);
+}
+
+// Convex hull (Andrew's monotone chain), counter-clockwise.
+function hull(points) {
+  const p = points.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [];
+  for (const q of p) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop();
+    lower.push(q);
+  }
+  const upper = [];
+  for (let i = p.length - 1; i >= 0; i--) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p[i]) <= 0) upper.pop();
+    upper.push(p[i]);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+// Inside the hull, or within `margin` pixels of it.
+function insideHull(h, x, y, margin) {
+  let inside = true;
+  let nearest = Infinity;
+  for (let i = 0; i < h.length; i++) {
+    const a = h[i];
+    const b = h[(i + 1) % h.length];
+    const side = (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+    if (side < 0) inside = false;
+    nearest = Math.min(nearest, segmentDistance(x, y, { x: a[0], y: a[1] }, { x: b[0], y: b[1] }));
+  }
+  return inside || nearest <= margin;
+}
+
 // --- A game -------------------------------------------------------------------------------
 
 const seedParam = new URLSearchParams(location.search).get('seed');
 let nextSeed = seedParam === null ? undefined : Number(seedParam) >>> 0;
-
-function cycleLines() {
-  const lines = [TEXT.lift, TEXT.touch, TEXT.ring, TEXT.hold, TEXT.form, TEXT.turnBase];
-  if (game.settings.test !== 'off') lines.push(TEXT.test);
-  lines.push(TEXT.wipe, TEXT.gear, TEXT.shake);
-  if (native.hologram && !head.active) lines.push(TEXT.lens);
-  return lines;
-}
 
 function humanTurn() {
   return game && !game.over && !game.players[game.current].vulcan;
@@ -293,10 +335,8 @@ function newGame() {
   });
   phase = 'intro';
   tray.hide();
-  hud.setPlayers(game);
-  hud.setCycle(cycleLines());
-  hud.say(TEXT.begin, 3.4);
-  document.getElementById('spiral').classList.toggle('available', game.settings.test !== 'off');
+  engraving.set({ game, testAllowed: game.settings.test !== 'off' });
+  say(TEXT.begin);
   after(span + 0.7, () => {
     syncDisplay();
     beginTurn();
@@ -308,7 +348,7 @@ function beginTurn() {
     finishGame();
     return;
   }
-  hud.setPlayers(game);
+  engraving.set({ game });
   if (game.players[game.current].vulcan) {
     vulcanTurn();
     return;
@@ -316,17 +356,14 @@ function beginTurn() {
   phase = 'play';
   tray.refill();
   const humans = game.players.filter((p) => !p.vulcan).length;
-  if (humans > 1) hud.then(playerText(game.current), 2.4);
-  else if (game.players.length > 1) hud.then(TEXT.yourTurn, 1.8);
+  if (humans > 1) say(playerText(game.current));
 }
 
 function finishGame() {
   phase = 'over';
   tray.hide();
-  hud.setPlayers(game);
-  const text = game.complete ? completeText(game) : game.supply <= 0 ? { v: `no tan remain ${winnerText(game).v}`, s: `No t'an remain. ${winnerText(game).s}` } : winnerText(game);
-  hud.say(text, 9);
-  hud.setCycle([text, TEXT.shake]);
+  engraving.set({ game });
+  say(game.complete ? completeText(game) : game.supply <= 0 ? { v: `no tan remain ${winnerText(game).v}`, s: `No t'an remain. ${winnerText(game).s}` } : winnerText(game));
 }
 
 // --- Holding and placing ---------------------------------------------------------------------
@@ -340,8 +377,6 @@ function foresight() {
   return settings.foresight === 'always' || (settings.foresight === 'known' && game.revealed);
 }
 
-const REASONS = { same: TEXT.aimSame, far: TEXT.aimFar, near: TEXT.aimNear, blocked: TEXT.aimBlocked, gone: TEXT.aimNone };
-
 const input = new Input(canvas, {
   stage,
   tray,
@@ -349,6 +384,7 @@ const input = new Input(canvas, {
     return motion;
   },
   pickRod,
+  touchesAssembly,
   canLift: () => phase === 'play' && humanTurn() && !hand.holding && !hand.flight,
   canSpin: () => display.size > 0 && phase !== 'intro' && phase !== 'dissolving',
   onLift() {
@@ -356,35 +392,30 @@ const input = new Input(canvas, {
     hand.lift();
     sound.lift();
     haptic('lift');
-    hud.hint(TEXT.aimNone);
   },
+  // While carried: blue where it would rest, amber where it cannot; the ring it would make, in
+  // ghostly light, if foresight allows.
   onAim([ta, tb], f1, f2) {
     let pose = null;
-    let hint = TEXT.aimNone;
     let ring = null;
+    let refused = false;
     if (ta && tb) {
       const p = R.placement(game, ta, tb, eyeLocal());
       if (p.ok) {
         pose = p;
-        hint = TEXT.aimReady;
-        if (foresight()) {
-          ring = AI.ringFor(game, p);
-          if (ring) hint = ringPreviewText(ring.k);
-        }
+        if (foresight()) ring = AI.ringFor(game, p);
       } else {
-        hint = REASONS[p.reason] ?? TEXT.aimNone;
+        refused = true;
       }
-    } else if (ta || tb) {
-      hint = TEXT.aimOne;
     }
-    aim = { pieces: [ta?.rod, tb?.rod].filter((x) => x !== undefined), pose, ring };
+    aim = { pieces: [ta?.rod, tb?.rod].filter((x) => x !== undefined), pose, ring, refused };
     hand.follow(f1, f2, {
       pose: pose ? { a: arrToWorld(pose.a, new THREE.Vector3()), b: arrToWorld(pose.b, new THREE.Vector3()) } : null,
       touchA: ta?.world ?? null,
       touchB: tb?.world ?? null,
       anchor: stage.assemblyRoot.position,
+      refused,
     });
-    hud.hint(hint);
     const key = `${ta?.rod}:${tb?.rod}:${Boolean(pose)}:${ring?.k ?? 0}`;
     if (key !== aimKey) {
       aimKey = key;
@@ -398,10 +429,8 @@ const input = new Input(canvas, {
     const chosen = aim?.pose;
     aim = null;
     aimKey = '';
-    hud.hint(null);
     if (!chosen || phase !== 'play') {
       hand.returnToTray();
-      hud.say(TEXT.returned, 1.8);
       return;
     }
     phase = 'resolving';
@@ -411,14 +440,24 @@ const input = new Input(canvas, {
       commit(chosen);
     });
   },
-  onTap(x, y, where) {
+  onTap(x, y, where, at) {
     sound.wake();
-    if (where === 'tray' && phase === 'play') hud.say({ v: 'two fingers lift a tan', s: "Two fingers lift a t'an" }, 2.2);
+    // A tap on the carving reads or acts on it; two quick taps on the t'an test the spin.
+    if (engraving?.tap(x, y)) return;
+    const now = at ?? performance.now();
+    if (where === 'assembly' && now - lastTap < 500) {
+      lastTap = 0;
+      requestSpinTest();
+      return;
+    }
+    lastTap = where === 'assembly' ? now : 0;
   },
   onGrab() {
     sound.wake();
   },
 });
+
+let lastTap = 0;
 
 // The way the hidden spin throws a t'an free: out from the axis, plus how the assembly was turning.
 function flingVelocity(e, strength = 1) {
@@ -476,7 +515,7 @@ function commit(pose) {
     for (const id of result.knocked) after(0.5, () => release(id, { amber: 0.8, strength: 1.4 }));
     // The chaos the ring shakes loose drifts away, lit by the same blue.
     (result.shaken ?? []).forEach((id, i) => after(0.9 + i * 0.06, () => release(id, { blue: 0.6, strength: 0.6 })));
-    hud.say(result.ring.broken ? TEXT.ringLost : ringText(result.ring.k), 2.8);
+    say(result.ring.broken ? TEXT.ringLost : ringText(result.ring.k));
     t = 1.2;
   }
   const falls = result.fallen.filter((id) => !result.knocked.includes(id));
@@ -486,22 +525,22 @@ function commit(pose) {
       haptic('discord');
       falls.forEach((id, i) => after(i * 0.05, () => release(id, { amber: 1 })));
     });
-    hud.then(fellText(result.lost), 2.6);
+    if (!result.ring) say(fellText(result.lost));
   } else if (!result.ring) {
-    hud.say(TEXT.holds, 1.6);
+    say(TEXT.holds);
   }
-  if (result.lifeLost) hud.then(TEXT.lifeLost, 2.4);
-  if (result.quickened) hud.then(TEXT.quickens, 2.4);
+  if (result.lifeLost) say(TEXT.lifeLost);
+  else if (result.quickened) say(TEXT.quickens);
   const settle = t + (falls.length ? 0.6 + falls.length * 0.05 : 0.25);
   after(settle, () => {
     syncDisplay();
     refreshStrain();
-    hud.setPlayers(game);
+    engraving.set({ game });
     if (result.complete) {
       celebrate(result);
       return;
     }
-    if (Number.isFinite(game.supply) && game.supply > 0 && game.supply <= 5) hud.then(supplyText(game.supply), 2);
+    if (Number.isFinite(game.supply) && game.supply > 0 && game.supply <= 5) say(supplyText(game.supply));
     beginTurn();
   });
 }
@@ -514,19 +553,30 @@ function celebrate(result) {
     completeGlow = 1;
     sound.complete();
     haptic('complete');
-    motion.startSpin(new THREE.Vector3(...game.forces.axis), 1.4, 10);
   });
-  const text = completeText(game);
-  hud.say(text, 9);
-  hud.setCycle([text, TEXT.shake]);
   game.over = true;
+  engraving.set({ game });
+  say(completeText(game));
 }
 
 // --- The spin test --------------------------------------------------------------------------
 
+// A player asks to watch it spin: allowed on their own turn, with nothing in hand.
+function requestSpinTest() {
+  if (game.settings.test === 'off') {
+    say(TEXT.testOff);
+    return;
+  }
+  if (phase !== 'play' || !humanTurn() || hand.holding) {
+    say(TEXT.testNotNow);
+    return;
+  }
+  spinTest('player');
+}
+
 function spinTest(who) {
   if (game.settings.test === 'off') {
-    hud.say(TEXT.testOff, 2.4);
+    say(TEXT.testOff);
     return;
   }
   const res = R.spinTest(game);
@@ -544,23 +594,13 @@ function spinTest(who) {
   motion.startSpin(new THREE.Vector3(...game.forces.axis), 4 + game.forces.spin * 3, duration);
   sound.spin(duration);
   haptic('lift');
-  hud.say(who === 'vulcan' ? TEXT.vulcanTests : TEXT.testing, duration);
+  say(who === 'vulcan' ? TEXT.vulcanTests : TEXT.testing);
   after(duration + 0.3, () => {
     testGlow = null;
-    hud.setPlayers(game);
-    hud.setCycle(cycleLines());
+    engraving.set({ game });
     beginTurn();
   });
 }
-
-document.getElementById('spiral').addEventListener('click', () => {
-  sound.wake();
-  if (phase !== 'play' || !humanTurn() || hand.holding) {
-    hud.say(TEXT.testNotNow, 1.6);
-    return;
-  }
-  spinTest('player');
-});
 
 // --- The Vulcan ---------------------------------------------------------------------------
 
@@ -613,14 +653,15 @@ function think() {
 
 async function vulcanTurn() {
   phase = 'vulcan';
-  hud.say(TEXT.vulcanThinks, 30);
+  say(TEXT.vulcanThinks);
+  thinking = true;
   const started = performance.now();
   const forGame = game;
   const choice = await think();
   const wait = Math.max(0, 1.3 - (performance.now() - started) / 1000);
   after(wait, () => {
     if (game !== forGame || phase !== 'vulcan') return;
-    hud.say(null);
+    thinking = false;
     if (!choice) {
       game.over = true;
       finishGame();
@@ -652,8 +693,8 @@ function restart() {
   hand.holding = false;
   hand.flight = null;
   aim = null;
+  thinking = false;
   tray.hide();
-  hud.hint(null);
   timers.length = 0;
   completeGlow = 0;
   for (const id of [...display.keys()]) {
@@ -667,19 +708,16 @@ function restart() {
 
 // --- Settings, hologram ---------------------------------------------------------------------
 
-const lens = document.getElementById('lens');
 function showHeadStatus(status, announce) {
   head.setStatus(status);
-  lens.classList.toggle('on', status === 'on');
-  lens.classList.toggle('starting', status === 'starting');
+  engraving?.set({ hologram: status === 'on' || status === 'starting' });
   if (status === 'denied' || status === 'unavailable') {
     settings.hologram = false;
     saveSettings(settings);
   }
   if (!announce) return;
-  const say = { on: TEXT.hologramOn, off: TEXT.hologramOff, denied: TEXT.hologramDenied, unavailable: TEXT.hologramUnavailable }[status];
-  if (say) hud.say(say, status === 'on' || status === 'off' ? 2.4 : 4);
-  if (game) hud.setCycle(cycleLines());
+  const text = { on: TEXT.hologramOn, off: TEXT.hologramOff, denied: TEXT.hologramDenied, unavailable: TEXT.hologramUnavailable }[status];
+  if (text) say(text);
 }
 
 function setHologram(on, announce = true) {
@@ -689,64 +727,41 @@ function setHologram(on, announce = true) {
   native.setHologram(on);
 }
 
-if (native.hologram) {
-  lens.classList.add('available');
-  lens.addEventListener('click', () => {
-    sound.wake();
-    haptic('tick');
-    setHologram(!(head.active || head.status === 'starting'));
-  });
-}
-
-const panel = new Panel({
-  settings,
-  nativeHologram: native.hologram,
-  onChange(key, value) {
-    saveSettings(settings);
-    sound.wake();
-    haptic('tick');
-    if (key === 'sound') sound.muted = !value;
-    if (key === 'language') {
-      hud.setLanguage(value);
-      panel.zone.set(value === 'standard' ? 's' : 'v');
-    }
-    if (key === 'hologram') setHologram(value, false);
-    if (key === 'strain') refreshStrain();
-  },
-  onApply() {
-    panel.hide();
-    hud.say(TEXT.applied, 2);
-    restart();
-  },
-  onClose() {
-    panel.hide();
-  },
-});
-
-document.getElementById('gear').addEventListener('click', () => {
+// The carving's glyphs and ways.
+function onEngravedAction(name) {
   sound.wake();
   haptic('tick');
-  if (panel.open) panel.hide();
-  else panel.show('ways');
-});
+  if (name === 'translate' || name === 'page') {
+    sound.hover();
+  } else if (name === 'test') {
+    requestSpinTest();
+  } else if (name === 'lens') {
+    setHologram(!(head.active || head.status === 'starting'));
+  } else if (name === 'anew') {
+    engraving.page = 'main';
+    say(TEXT.applied);
+    restart();
+  }
+}
+
+function onEngravedOption(key, value) {
+  saveSettings(settings);
+  sound.wake();
+  haptic('tick');
+  if (key === 'sound') sound.muted = !value;
+  if (key === 'hologram') setHologram(value, false);
+  if (key === 'strain') refreshStrain();
+}
 
 // --- Shaking ------------------------------------------------------------------------------
 
 const shake = new ShakeDetector({
   onProgress(p) {
-    hud.charge(p > 0.08);
-    if (p > 0.1 && phase !== 'dissolving' && !hand.holding) {
-      hud.hint(TEXT.keepShaking);
-      shakeHinting = true;
-      sound.rattle(p);
-    } else if (shakeHinting && p <= 0.1) {
-      hud.hint(null);
-      shakeHinting = false;
-    }
+    shaking = phase === 'dissolving' || hand.holding ? 0 : p;
+    if (shaking > 0.1) sound.rattle(p);
   },
   onComplete: () => {
-    shakeHinting = false;
-    hud.hint(null);
+    shaking = 0;
     restart();
   },
 });
@@ -755,6 +770,7 @@ if (!native.present) shake.listenToDeviceMotion();
 window.kaltoh = {
   shake: (magnitude) => shake.sample(magnitude),
   head: (x, y, size) => head.sample(x, y, size),
+  tilt: (rx, ry) => head.turn(rx, ry),
   headStatus: (status) => showHeadStatus(status, status !== 'off'),
   insets(top, bottom) {
     insets.top = top;
@@ -769,7 +785,7 @@ window.addEventListener('resize', layout);
 window.addEventListener('pointerdown', () => sound.wake(), { capture: true });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') restart();
-  if (e.key === 't' || e.key === 'T') document.getElementById('spiral').click();
+  if (e.key === 't' || e.key === 'T') requestSpinTest();
 });
 document.addEventListener('visibilitychange', () => (document.hidden ? sound.suspend() : sound.resume()));
 canvas.addEventListener('webglcontextlost', (e) => {
@@ -778,6 +794,20 @@ canvas.addEventListener('webglcontextlost', (e) => {
 });
 
 // --- Frame loop ---------------------------------------------------------------------------
+
+// Turned over so its underside faces you, the base comes to you to be read.
+const readCenter = new THREE.Vector3();
+const readAxis = new THREE.Vector3();
+function readingView(dt) {
+  const { facing } = engraving.facing(stage.camera, readCenter);
+  const want = THREE.MathUtils.smoothstep(facing, 0.5, 0.86);
+  const read = stage.view.read;
+  read.k += (want - read.k) * (1 - Math.exp(-dt / 0.35));
+  read.center.copy(readCenter);
+  // Let go while it is read, it turns about its own axis until the carving stands upright.
+  if (want > 0.5 && input.mode === 'idle') motion.right(readAxis, engraving.upright(stage.camera, readAxis));
+  else motion.right(null);
+}
 
 function adapt(dt) {
   quality.time += dt;
@@ -811,6 +841,7 @@ function step(dt) {
   tickTimers(dt);
   head.update(dt);
   Object.assign(stage.eye, head.view);
+  readingView(dt);
   stage.update();
   animate(dt);
   motion.update(dt);
@@ -821,7 +852,7 @@ function step(dt) {
   if (input.mode === 'hold') input.aim();
   hand.update(dt);
   shake.update(dt);
-  hud.update(dt);
+  engraving.render();
 
   pool.begin();
   halos.begin();
@@ -854,8 +885,15 @@ async function start() {
   baseModel = base;
   motion = new Motion(base);
   falling = new Falling(motion, base, sound);
+  engraving = new Engraving(stage, {
+    settings,
+    native: native.hologram,
+    stone: base.mesh.material.map?.image,
+    baseMesh: base.mesh,
+    onAction: onEngravedAction,
+    onOption: onEngravedOption,
+  });
   newGame();
-  hud.show();
   if (native.hologram && settings.hologram) setHologram(true, false);
   document.getElementById('veil').classList.add('gone');
   requestAnimationFrame(frame);
@@ -863,10 +901,9 @@ async function start() {
 
 start().catch((err) => {
   console.error(err);
-  const line = document.querySelector('#inscription .s');
-  if (line) line.textContent = `Could not start: ${err.message}`;
-  document.getElementById('inscription').classList.add('show-s');
-  document.getElementById('hud').classList.add('ready');
+  const note = document.getElementById('note');
+  note.textContent = `Could not start: ${err.message}`;
+  note.hidden = false;
   document.getElementById('veil').classList.add('gone');
 });
 
@@ -903,8 +940,13 @@ window.__kaltoh = {
   set timeScale(s) {
     timeScale = s;
   },
-  panel,
+  get engraving() {
+    return engraving;
+  },
   settings,
+  head,
+  requestSpinTest,
+  touchesAssembly,
   baseSurface: (r) => baseModel?.surface(r) ?? 0,
   get aim() {
     return aim;

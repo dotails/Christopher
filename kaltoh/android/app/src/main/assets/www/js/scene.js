@@ -61,13 +61,16 @@ export function createScene(canvas) {
 
   const size = { width: 1, height: 1, dpr: 1 };
   const view = {
-    distance: 8, // from the eye to the pivot
+    distance: 8, // from the eye to the target
     zoom: 1,
     focus: { x: 0.5, y: 0.4 }, // where the target sits on screen (fractions of width, height)
     target: PIVOT.clone(),
+    // Turning the base over to read its underside brings the eye to it: k from 0 to 1, and the
+    // point to look at.
+    read: { k: 0, center: PIVOT.clone() },
   };
   // The player's eye relative to where it usually is (see head.js): angles off the screen's
-  // axis and relative distance. The window stays fixed, so moving the eye looks around inside.
+  // axis and relative distance.
   const eye = { x: 0, y: 0, distance: 1 };
 
   function layout(width, height, dpr) {
@@ -86,26 +89,34 @@ export function createScene(canvas) {
 
   // Elevation of the eye above the base's plane.
   const ELEVATION = THREE.MathUtils.degToRad(15);
+  // The screen is a pane of glass this far in front of what the eye looks at, so the kal-toh
+  // stands inside the phone, behind it. The glass stays put while the eye moves: lean in and the
+  // view through it widens, draw back and it narrows; move aside and you see around the base.
+  const GLASS = 1.25;
+  const target = new THREE.Vector3();
 
   function update() {
-    const d = view.distance * view.zoom;
-    camera.position.set(0, view.target.y + Math.sin(ELEVATION) * d, Math.cos(ELEVATION) * d);
-    camera.lookAt(view.target);
+    const k = view.read.k;
+    target.copy(view.target).lerp(view.read.center, k);
+    const d = view.distance * view.zoom * (1 - 0.3 * k);
+    const focusY = view.focus.y + (0.48 - view.focus.y) * k;
+    camera.position.set(target.x, target.y + Math.sin(ELEVATION) * d, target.z + Math.cos(ELEVATION) * d);
+    camera.lookAt(target);
     camera.updateMatrixWorld();
 
-    // An off-axis frustum through a fixed window at the target's depth: the eye may move,
-    // the window does not.
-    const D = d * eye.distance;
+    // An off-axis frustum through the fixed glass: W from the usual eye, D from the actual one.
+    const W = Math.max(0.6, d - GLASS);
+    const D = W * eye.distance;
     const ex = D * Math.tan(eye.x);
     const ey = D * Math.tan(eye.y);
     camera.matrixWorld.extractBasis(across, upward, backward);
-    camera.position.addScaledVector(across, ex).addScaledVector(upward, ey).addScaledVector(backward, D - d);
+    camera.position.addScaledVector(across, ex).addScaledVector(upward, ey).addScaledVector(backward, D - W);
     camera.updateMatrixWorld();
-    const half = d * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const half = W * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const width = half * camera.aspect;
     // Shift the window so the target sits at the chosen point of the screen.
     const shiftX = width * (1 - 2 * view.focus.x);
-    const shiftY = half * (2 * view.focus.y - 1);
+    const shiftY = half * (2 * focusY - 1);
     const n = camera.near / D;
     camera.projectionMatrix.makePerspective(
       (-width + shiftX - ex) * n, (width + shiftX - ex) * n, (half + shiftY - ey) * n, (-half + shiftY - ey) * n, camera.near, camera.far,

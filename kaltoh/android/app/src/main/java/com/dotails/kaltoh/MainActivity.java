@@ -52,13 +52,20 @@ public class MainActivity extends Activity implements SensorEventListener {
     // Linear acceleration (m/s^2) worth reporting; the page decides what counts as a shake.
     private static final float SHAKE_FLOOR = 6f;
     private static final long SHAKE_INTERVAL_MS = 33;
-    private static final long HEAD_INTERVAL_MS = 30;
+    private static final long HEAD_INTERVAL_MS = 15;
+    private static final long TILT_INTERVAL_MS = 15;
     private static final int REQUEST_CAMERA = 7;
 
     private WebView web;
     private SensorManager sensors;
     private Sensor motion;
+    private Sensor gyro;
     private boolean linearSensor;
+    // The phone's turning since it was last reported to the page (radians about its x and y axes).
+    private float turnX;
+    private float turnY;
+    private long lastGyroNanos;
+    private long lastTiltSent;
     private final float[] gravity = new float[3];
     private long lastShakeSample;
     private Vibrator vibrator;
@@ -115,6 +122,7 @@ public class MainActivity extends Activity implements SensorEventListener {
             motion = sensors.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
             linearSensor = motion != null;
             if (motion == null) motion = sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            gyro = sensors.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         }
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
@@ -210,6 +218,10 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     @Override
     public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+            onTurn(event);
+            return;
+        }
         float x = event.values[0];
         float y = event.values[1];
         float z = event.values[2];
@@ -228,6 +240,24 @@ public class MainActivity extends Activity implements SensorEventListener {
         if (pageReady && magnitude > SHAKE_FLOOR && now - lastShakeSample > SHAKE_INTERVAL_MS) {
             lastShakeSample = now;
             run(String.format(Locale.US, "window.kaltoh&&window.kaltoh.shake(%.2f)", magnitude));
+        }
+    }
+
+    // The gyroscope, while the hologram is on: the phone's turning reaches the view at once,
+    // without waiting for the camera to see the face move.
+    private void onTurn(SensorEvent event) {
+        if (lastGyroNanos != 0) {
+            float dt = Math.min(0.05f, Math.max(0f, (event.timestamp - lastGyroNanos) * 1e-9f));
+            turnX += event.values[0] * dt;
+            turnY += event.values[1] * dt;
+        }
+        lastGyroNanos = event.timestamp;
+        long now = SystemClock.uptimeMillis();
+        if (pageReady && now - lastTiltSent >= TILT_INTERVAL_MS) {
+            lastTiltSent = now;
+            run(String.format(Locale.US, "window.kaltoh&&window.kaltoh.tilt&&window.kaltoh.tilt(%.5f,%.5f)", turnX, turnY));
+            turnX = 0;
+            turnY = 0;
         }
     }
 
@@ -290,6 +320,12 @@ public class MainActivity extends Activity implements SensorEventListener {
             }
         }, displayDegrees());
         head.start();
+        if (sensors != null && gyro != null) {
+            lastGyroNanos = 0;
+            turnX = 0;
+            turnY = 0;
+            sensors.registerListener(this, gyro, SensorManager.SENSOR_DELAY_GAME);
+        }
     }
 
     private void stopHead() {
@@ -297,6 +333,7 @@ public class MainActivity extends Activity implements SensorEventListener {
             head.stop();
             head = null;
         }
+        if (sensors != null && gyro != null) sensors.unregisterListener(this, gyro);
     }
 
     private void headStatus(String status) {

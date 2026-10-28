@@ -34,7 +34,9 @@ final class HeadTracker implements Camera.FaceDetectionListener, Camera.PreviewC
     }
 
     private static final long HARDWARE_GRACE_MS = 2500;
-    private static final long SOFTWARE_INTERVAL_MS = 70;
+    // Look for the face in every frame the detector can keep up with: lag is what spoils the
+    // illusion. (Frames that arrive while it is busy are simply skipped.)
+    private static final long SOFTWARE_INTERVAL_MS = 0;
     private static final int TARGET_PIXELS = 320 * 240;
 
     private final Listener listener;
@@ -103,6 +105,9 @@ final class HeadTracker implements Camera.FaceDetectionListener, Camera.PreviewC
             Camera.Parameters params = camera.getParameters();
             Camera.Size size = smallPreview(params.getSupportedPreviewSizes());
             if (size != null) params.setPreviewSize(size.width, size.height);
+            // As many frames a second as the camera offers, so sightings are frequent and fresh.
+            int[] fastest = fastestRange(params.getSupportedPreviewFpsRange());
+            if (fastest != null) params.setPreviewFpsRange(fastest[0], fastest[1]);
             camera.setParameters(params);
             Camera.Size actual = camera.getParameters().getPreviewSize();
             previewWidth = actual.width;
@@ -167,6 +172,16 @@ final class HeadTracker implements Camera.FaceDetectionListener, Camera.PreviewC
         return best;
     }
 
+    // The preview frame-rate range with the highest ceiling (and, of those, the highest floor).
+    private static int[] fastestRange(List<int[]> ranges) {
+        if (ranges == null) return null;
+        int[] best = null;
+        for (int[] r : ranges) {
+            if (best == null || r[1] > best[1] || (r[1] == best[1] && r[0] > best[0])) best = r;
+        }
+        return best;
+    }
+
     // Some cameras claim face detection but never report; then look for faces ourselves.
     private void checkHardware() {
         if (camera == null || !hardware) return;
@@ -183,10 +198,10 @@ final class HeadTracker implements Camera.FaceDetectionListener, Camera.PreviewC
     }
 
     private void useSoftware() {
-        // Upright, greyscale, and small: about 160 pixels across.
+        // Upright, greyscale, and small: about 128 pixels across, quick to search.
         boolean turned = rotation % 180 != 0;
         int uprightWidth = turned ? previewHeight : previewWidth;
-        step = Math.max(1, uprightWidth / 160);
+        step = Math.max(1, uprightWidth / 128);
         int w = (uprightWidth / step) & ~1; // FaceDetector needs an even width
         int h = (turned ? previewWidth : previewHeight) / step;
         frame = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565);

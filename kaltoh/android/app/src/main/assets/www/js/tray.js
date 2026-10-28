@@ -80,6 +80,7 @@ export class Hand {
     this.goalB = new THREE.Vector3();
     this.up = new THREE.Vector3();
     this.glow = 0;
+    this.amber = 0; // it cannot rest where it is held
     this.flight = null;
   }
 
@@ -88,11 +89,13 @@ export class Hand {
     this.a.copy(this.tray.restA);
     this.b.copy(this.tray.restB);
     this.glow = 0;
+    this.amber = 0;
   }
 
   // Follow the fingers: rest exactly where it would be placed when the placement is good,
   // otherwise hang between the touched points (or the fingers) at the kal-toh's depth.
-  follow(f1, f2, { pose, touchA, touchB, anchor }) {
+  follow(f1, f2, { pose, touchA, touchB, anchor, refused = false }) {
+    this.amber = refused ? 0.7 : 0;
     if (pose) {
       this.goalA.copy(pose.a);
       this.goalB.copy(pose.b);
@@ -107,7 +110,7 @@ export class Hand {
     const middle = pa.add(pb).multiplyScalar(0.5);
     this.goalA.copy(middle).addScaledVector(dir, -ROD_LENGTH / 2);
     this.goalB.copy(middle).addScaledVector(dir, ROD_LENGTH / 2);
-    this.glow = touchA || touchB ? 0.35 : 0;
+    this.glow = !refused && (touchA || touchB) ? 0.35 : 0;
   }
 
   fly(fromA, fromB, toA, toB, duration, done) {
@@ -115,6 +118,8 @@ export class Hand {
   }
 
   returnToTray() {
+    this.glow = 0;
+    this.amber = 0;
     this.fly(this.a, this.b, this.tray.restA, this.tray.restB, 0.28, () => {
       this.holding = false;
     });
@@ -142,7 +147,8 @@ export class Hand {
   draw(pool, halos) {
     if (!this.holding && !this.flight) return;
     this.up.copy(this.stage.camera.position).sub(this.a).normalize();
-    pool.push(this.a, this.b, this.up, this.glow * 0.7, 0);
+    pool.push(this.a, this.b, this.up, this.glow * 0.7, this.amber * 0.6);
     if (this.glow > 0) halos.push(this.a, this.b, this.glow * 0.42, 0.07, 0);
+    else if (this.amber > 0) halos.push(this.a, this.b, this.amber * 0.3, 0.06, 1);
   }
 }
