@@ -242,6 +242,7 @@ function check(condition, message) {
     }, spot);
     await doubleTap(await touchSpot());
     await page.waitForFunction(() => window.__kaltoh.phase === 'testing', null, { timeout: 20000 });
+    const trayWhileSpinning = await page.evaluate(() => window.__kaltoh.tray.visible);
     let closest = Infinity;
     for (let i = 0; i < 12; i++) {
       closest = Math.min(closest, await page.evaluate(() => window.nearest(window.classicRods())));
@@ -249,6 +250,7 @@ function check(condition, message) {
     }
     await page.screenshot({ path: path.join(OUT, '0c-spin-test.png') });
     check(true, 'two taps on it test the spin');
+    check(trayWhileSpinning && await page.evaluate(() => window.__kaltoh.tray.visible), 'and the t\'an in the tray stays there while it spins');
     await waitFor(['play']);
     closest = Math.min(closest, await page.evaluate(() => window.nearest(window.classicRods())));
     check(closest > -0.002, `none of its t'an pass into the stone, at rest or spinning (closest ${closest.toFixed(3)})`);
@@ -388,6 +390,11 @@ function check(condition, message) {
     check(formsHeld.pose && formsHeld.glow > 0.9, 'carried over two tips, the t\'an shows where it will join them');
     await page.waitForFunction(() => window.__kaltoh.forms.game.history.length >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
     check((await formsState()).history[0] === 'harmony', 'true neighbours join');
+    await settle();
+    await doubleTap(await touchSpot());
+    await page.waitForFunction(() => window.__kaltoh.phase === 'testing', null, { timeout: 20000 });
+    check(await page.evaluate(() => window.__kaltoh.tray.visible), 'two taps test its spin, and the t\'an in the tray stays there while it spins');
+    await waitFor(['play']);
     formsJoin = await findFormsJoin('noise');
     check(formsJoin, 'a tip of the noise within reach can be found on screen');
     const noiseBefore = (await formsState()).noise;
@@ -621,6 +628,7 @@ function check(condition, message) {
     await sleep(1200);
     await page.screenshot({ path: path.join(OUT, '4-spin-test.png') });
     check((await state()).revealed, 'two taps on the t\'an test the spin, revealing the axis');
+    check(await page.evaluate(() => window.__kaltoh.phase === 'testing' && window.__kaltoh.tray.visible), 'and the t\'an in the tray stays there while it spins');
     await waitFor(['play']);
 
     // 4. Close a ring: by touch if one sits steadily under the fingers, else placed directly.

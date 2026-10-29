@@ -679,8 +679,8 @@ function spinTest(who) {
   if (!res.allowed) return;
   plays.push({ player: tester, mark: 'test' });
   phase = 'testing';
-  // The t'an stays in the tray, unless the test spends the turn.
-  if (game.settings.test === 'turn') tray.hide();
+  // The t'an stays in the tray while it spins (when the test spends the turn and the Vulcan plays
+  // next, it goes as the Vulcan begins).
   const perRod = new Map();
   for (const b of game.nest.bonds) {
     if (!b.alive) continue;
@@ -751,6 +751,7 @@ function think() {
 
 async function vulcanTurn() {
   phase = 'vulcan';
+  tray.hide();
   say(TEXT.vulcanThinks);
   thinking = true;
   const started = performance.now();
