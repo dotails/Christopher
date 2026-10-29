@@ -12,9 +12,9 @@
 // base is turned into the t'an they are bumped aside and drawn back into place.
 //
 // Level - its foot within ten degrees of facing straight down - the stone comes down to rest on the
-// floor, and the t'an with it; tipped further, toward the eye or away, it is lifted back to turn
-// freely about the pivot. It never passes into the floor: tipped a little as it rests, it rocks up
-// onto its edge.
+// floor, and the t'an with it, finishing the little turn that lays it flush; tipped further, toward
+// the eye or away, it is lifted back to turn freely about the pivot. It never passes into the floor:
+// tipped a little while a finger holds it, it rocks up onto its edge.
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT, SCALE, FLOOR } from './scene.js';
 
@@ -30,6 +30,8 @@ const BASE_RETURN = 0.6; // seconds for a base that gave way to come back
 const LEVEL = Math.cos((10 * Math.PI) / 180); // within ten degrees of upright, the stone rests on the floor
 const FALL = 9; // how fast it falls to the floor (world units/s^2)
 const LIFT = 45; // how firmly it is lifted back (1/s^2, critically damped)
+const FLUSH = 0.08; // seconds over which, let go near level, it turns to lie flush
+const Y = new THREE.Vector3(0, 1, 0);
 
 const v1 = new THREE.Vector3();
 const v2 = new THREE.Vector3();
@@ -212,7 +214,23 @@ export class Motion {
 
   // Level, the stone comes down to rest on the floor; tipped, it is lifted back. Never into it.
   ground(h) {
-    const level = v1.set(0, 1, 0).applyQuaternion(this.baseQ).y >= LEVEL;
+    const up = v1.set(0, 1, 0).applyQuaternion(this.baseQ);
+    const level = up.y >= LEVEL;
+    this.flushing = false;
+    if (level && !this.baseDragged && up.y < 1 - 1e-12) {
+      // Let go near level, it finishes the nearest turn that lays its foot flush on the floor.
+      const axis = v2.crossVectors(up, Y);
+      const s = axis.length();
+      if (s > 1e-12) {
+        // Eased over most of it, and the last hair's breadth all at once, so it lies exactly flush.
+        const angle = Math.atan2(s, up.y);
+        qStep.setFromAxisAngle(axis.multiplyScalar(1 / s), angle < 1e-4 ? angle : angle * (1 - Math.exp(-h / FLUSH)));
+        this.baseQ.premultiply(qStep).normalize();
+        // What turning it had about anything but the vertical, the floor takes.
+        this.baseW.set(0, this.baseW.y, 0);
+        this.flushing = angle >= 1e-4;
+      }
+    }
     const room = this.room();
     this.dropTarget = level ? room : 0;
     if (this.drop < this.dropTarget - 1e-6) {
@@ -246,7 +264,7 @@ export class Motion {
 
   // Still coming down to the floor, or going up from it.
   get grounding() {
-    return Math.abs(this.drop - this.dropTarget) > 1e-5 || Math.abs(this.dropV) > 1e-3;
+    return this.flushing || Math.abs(this.drop - this.dropTarget) > 1e-5 || Math.abs(this.dropV) > 1e-3;
   }
 
   update(dt) {
