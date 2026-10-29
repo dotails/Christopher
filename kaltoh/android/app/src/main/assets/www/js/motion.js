@@ -11,10 +11,13 @@
 // own momentum, or by the spin test) the base gives way just enough and comes back; when the
 // base is turned into the t'an they are bumped aside and drawn back into place.
 //
-// Level - its foot within ten degrees of facing straight down - the stone comes down to rest on the
-// floor, and the t'an with it, finishing the little turn that lays it flush; tipped further, toward
-// the eye or away, it is lifted back to turn freely about the pivot. It never passes into the floor:
-// tipped a little while a finger holds it, it rocks up onto its edge.
+// Let go level - its foot within ten degrees of facing straight down - the stone comes down to rest on
+// the floor, and the t'an with it: first it falls straight down until its lowest edge meets the
+// floor, then it tips over on that edge until its foot lies flush, each with a knock. Held, it never
+// comes down, only rises as it must: tipped further, toward the eye or away, it is lifted back to turn
+// freely about the pivot; tipped a little while it rests, it rocks up onto its edge, never into the
+// floor. Resting there, a t'an turned into it is lifted clear: the stone does not give way into the
+// floor.
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT, SCALE, FLOOR } from './scene.js';
 
@@ -30,8 +33,9 @@ const BASE_RETURN = 0.6; // seconds for a base that gave way to come back
 const LEVEL = Math.cos((10 * Math.PI) / 180); // within ten degrees of upright, the stone rests on the floor
 const FALL = 9; // how fast it falls to the floor (world units/s^2)
 const LIFT = 45; // how firmly it is lifted back (1/s^2, critically damped)
-const FLUSH = 0.08; // seconds over which, let go near level, it turns to lie flush
+const TIP = 7; // how fast, resting on its edge, it tips over to lie flush (rad/s^2)
 const Y = new THREE.Vector3(0, 1, 0);
+const upNow = new THREE.Vector3();
 
 const v1 = new THREE.Vector3();
 const v2 = new THREE.Vector3();
@@ -99,6 +103,7 @@ export class Motion {
     this.drop = 0;
     this.dropV = 0;
     this.dropTarget = 0;
+    this.tipW = 0; // how fast, on its edge, it is tipping over to lie flush
     this.landed = 0; // how hard it last came to rest on the floor (for its sound), until taken
     this.centre = PIVOT.clone(); // the pivot, as far down as the stone has come
     // Points round the stone's foot and its lip, about the pivot: its lowest point, however it is
@@ -212,40 +217,58 @@ export class Motion {
     return Math.max(0, PIVOT.y + lowest - FLOOR);
   }
 
-  // Level, the stone comes down to rest on the floor; tipped, it is lifted back. Never into it.
+  // Let go level, the stone comes down to the floor, then tips flush; held or tipped, it only rises.
   ground(h) {
-    const up = v1.set(0, 1, 0).applyQuaternion(this.baseQ);
+    const up = upNow.set(0, 1, 0).applyQuaternion(this.baseQ);
     const level = up.y >= LEVEL;
+    let room = this.room();
     this.flushing = false;
-    if (level && !this.baseDragged && up.y < 1 - 1e-12) {
-      // Let go near level, it finishes the nearest turn that lays its foot flush on the floor.
-      const axis = v2.crossVectors(up, Y);
-      const s = axis.length();
-      if (s > 1e-12) {
-        // Eased over most of it, and the last hair's breadth all at once, so it lies exactly flush.
-        const angle = Math.atan2(s, up.y);
-        qStep.setFromAxisAngle(axis.multiplyScalar(1 / s), angle < 1e-4 ? angle : angle * (1 - Math.exp(-h / FLUSH)));
-        this.baseQ.premultiply(qStep).normalize();
-        // What turning it had about anything but the vertical, the floor takes.
-        this.baseW.set(0, this.baseW.y, 0);
-        this.flushing = angle >= 1e-4;
+    if (this.baseDragged || !level) {
+      // Held, it never comes down: it only rises as it must (tipped past ten degrees, lifted back to
+      // turn freely; tipped a little, rocked up onto its edge).
+      this.dropTarget = level ? Math.min(this.drop, room) : 0;
+      this.tipW = 0;
+      if (this.drop > this.dropTarget) {
+        this.dropV += (LIFT * (this.dropTarget - this.drop) - 2 * Math.sqrt(LIFT) * this.dropV) * h;
+        this.drop += this.dropV * h;
+      } else {
+        this.dropV = 0;
       }
-    }
-    const room = this.room();
-    this.dropTarget = level ? room : 0;
-    if (this.drop < this.dropTarget - 1e-6) {
-      // Falling.
+    } else if (this.drop < room - 1e-6) {
+      // Let go, it falls straight down, until its lowest edge meets the floor.
+      this.dropTarget = room;
       this.dropV = Math.max(0, this.dropV) + FALL * h;
       this.drop += this.dropV * h;
-      if (this.drop >= this.dropTarget) {
+      if (this.drop >= room) {
         if (this.dropV > 0.5) this.landed = Math.max(this.landed, this.dropV);
-        this.drop = this.dropTarget;
+        this.drop = room;
         this.dropV = 0;
       }
     } else {
-      // Lifted, or rocked up onto its edge.
-      this.dropV += (LIFT * (this.dropTarget - this.drop) - 2 * Math.sqrt(LIFT) * this.dropV) * h;
-      this.drop += this.dropV * h;
+      // On its edge, it tips over onto its foot, faster as it goes, the edge kept on the floor; flush,
+      // it knocks down flat. What turning it had about anything but the vertical, the floor takes.
+      this.dropV = 0;
+      this.baseW.set(0, this.baseW.y, 0);
+      const axis = v2.crossVectors(up, Y);
+      const s = axis.length();
+      const angle = Math.atan2(s, up.y);
+      if (s > 1e-12 && angle > 1e-9) {
+        this.tipW = (this.tipW ?? 0) + TIP * h;
+        const turn = Math.min(angle, this.tipW * h);
+        qStep.setFromAxisAngle(axis.multiplyScalar(1 / s), turn);
+        this.baseQ.premultiply(qStep).normalize();
+        this.flushing = turn < angle;
+        if (!this.flushing) {
+          // Flush: down flat, the last of it all at once.
+          this.baseQ.premultiply(qStep.setFromUnitVectors(v3.set(0, 1, 0).applyQuaternion(this.baseQ), Y)).normalize();
+          const knock = this.tipW * this.base.radius;
+          if (knock > 0.3) this.landed = Math.max(this.landed, knock);
+          this.tipW = 0;
+        }
+        room = this.room();
+      }
+      this.drop = room;
+      this.dropTarget = room;
     }
     if (this.drop > room) {
       this.drop = room;
@@ -260,6 +283,11 @@ export class Motion {
       this.dropV = 0;
     }
     this.centre.copy(PIVOT).setY(PIVOT.y - this.drop);
+  }
+
+  // Resting on the floor (not held up above it).
+  get onFloor() {
+    return this.drop > 0.01 && this.drop >= this.room() - 1e-4;
   }
 
   // Still coming down to the floor, or going up from it.
@@ -408,7 +436,9 @@ export class Motion {
       at.applyQuaternion(this.baseQ).add(origin);
     }
     if (deepest <= 0 || onlyLook) return deepest;
-    if (this.mode !== 'held' && !this.baseDragged) {
+    // A turning assembly pushes the base aside - unless the base rests on the floor: then the t'an
+    // are lifted clear instead, the stone going nowhere.
+    if (this.mode !== 'held' && !this.baseDragged && !this.onFloor) {
       this.baseOffset.addScaledVector(normal, -deepest);
       return deepest;
     }

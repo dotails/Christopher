@@ -1,7 +1,8 @@
 // Checks how the stone comes to rest on the floor (motion.js): level, it rests there; tipped a
-// little while held it rocks up onto its edge, never into the floor, and let go it turns to lie
-// flush; tipped past ten degrees it lifts to turn freely about the pivot; brought near level again it
-// falls back, finishing the turn that lays it flush, with a knock.
+// little while held it rocks up onto its edge, never into the floor, and let go it tips over to lie
+// flush; tipped past ten degrees it lifts to turn freely about the pivot; held near level it does not
+// come down, and let go it falls straight down to its edge first, then tips flush, knocking each time.
+// Resting there, a t'an spun into it is lifted clear rather than pushing it into the floor.
 // Run: node kaltoh/tools/ground.test.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -69,15 +70,40 @@ tip(-25);
 motion.wake();
 run(1);
 ok(motion.drop < 0.01, 'toward the eye or away');
+// Brought back near level while held, it stays up; let go, it falls straight down to its edge,
+// then tips over on it to lie flush.
+motion.baseDragged = true;
 tip(7);
-motion.wake();
-let knock = 0;
-for (let t = 0; t < 1.5; t += 1 / 60) {
+run(1);
+ok(motion.drop < 0.01, 'held near level, it does not come down');
+motion.baseDragged = false;
+motion.landed = 0;
+const knocks = [];
+let tiltAtEdge = null;
+for (let t = 0; t < 2; t += 1 / 60) {
   motion.update(1 / 60);
-  knock = Math.max(knock, motion.landed);
+  if (motion.landed) {
+    knocks.push(motion.landed);
+    if (tiltAtEdge === null) tiltAtEdge = tilt();
+    motion.landed = 0;
+  }
 }
-ok(Math.abs(lowest() - FLOOR) < 1e-6 && knock > 1 && tilt() < 0.05,
-  `brought within ten degrees of level, it falls back to the floor, turned flush, with a knock (${knock.toFixed(1)} a second)`);
+ok(tiltAtEdge !== null && Math.abs(tiltAtEdge - 7) < 0.01, `let go, it falls straight down, unturned, until its edge meets the floor (${tiltAtEdge?.toFixed(2)} degrees)`);
+ok(Math.abs(lowest() - FLOOR) < 1e-6 && tilt() < 1e-6 && knocks.length === 2,
+  `then tips over on its edge to lie flush, knocking each time (${knocks.map((k) => k.toFixed(1)).join(', ')} a second)`);
+// Resting on the floor, a t'an spun into it lifts the t'an clear: the stone does not give way.
+motion.setRods([[new THREE.Vector3(-0.12, (base.surface(0) - PIVOT.y) / 1.5 - 0.04, 0), new THREE.Vector3(0.12, (base.surface(0) - PIVOT.y) / 1.5 - 0.04, 0)]]);
+motion.startSpin(new THREE.Vector3(0, 1, 0), 2, 1);
+let risen = 0;
+let gave = 0;
+for (let t = 0; t < 0.5; t += 1 / 60) {
+  motion.update(1 / 60);
+  risen = Math.max(risen, motion.pos.y);
+  gave = Math.max(gave, motion.baseOffset.length());
+}
+ok(risen > 0.02 && gave === 0 && Math.abs(lowest() - FLOOR) < 1e-6, `resting on the floor, the stone lifts a t'an spun into it (${risen.toFixed(3)}) and does not give way`);
+motion.setRods([]);
+run(2);
 // Its frame for other bodies comes down with it.
 const foot = motion.baseWorld(new THREE.Vector3(0, 0, 0), new THREE.Vector3());
 ok(Math.abs(foot.y - FLOOR) < 1e-6, 'and its foot is on the floor for what lies about it too');
