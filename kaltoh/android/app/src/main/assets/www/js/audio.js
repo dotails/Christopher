@@ -6,8 +6,8 @@ const BAR = [1, 2.756, 5.404, 8.933];
 const BAR_GAIN = [1, 0.45, 0.22, 0.1];
 // Just-intonation pentatonic: the simplest ratios, as a Vulcan instrument maker might choose.
 const SCALE = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2];
-// The recording, when there is one in the assets (null: none yet, and the music slider rests).
-const MUSIC = null;
+// The recording: ten minutes of ambience, faded in and out, so its loop is seamless.
+const MUSIC = 'assets/music.mp3';
 const MUSIC_FULL = 0.55; // the music's gain at full, beneath the t'an
 const SFX_FULL = 0.6;
 

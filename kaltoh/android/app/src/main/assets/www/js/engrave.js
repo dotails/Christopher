@@ -9,8 +9,8 @@
 // grooves - and the stone is turned by its rim (input.js).
 //
 // The medallion's frame is cut into the stone for good. Its words and glyphs are a second layer
-// whose depth the shader can scale (relief, darkened grooves and glow alike), so they can be
-// smoothed away and recut.
+// whose depth the shader can scale (relief and darkened grooves alike), so they can be smoothed
+// away and recut. All of it is engraved alike: dark grooves in the stone, without light of their own.
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT } from './scene.js';
 import { OPTIONS, TUNING, TUNE_PAGES, tuningText } from './settings.js';
@@ -259,18 +259,18 @@ export class Engraving {
     else this.drawMain();
   }
 
-  // Cut into a layer: the stone (a bright lower lip and a dark groove), the depth mask (for the
-  // relief), and the glow.
+  // Cut into a layer: the stone (a faint worn lip and a black groove) and the depth mask (for the
+  // relief). Frame, words and glyphs alike are engraved black; none of them carries light of its
+  // own (`lit`, from when they did, is let be).
   cut(draw, lit) {
-    const { color, mask, glow } = this.layer;
+    const { color, mask } = this.layer;
     const g = color.getContext('2d');
     g.save();
     g.translate(1.6, 1.6);
-    draw(g, 'rgba(255, 240, 230, 0.42)');
+    draw(g, 'rgba(255, 240, 230, 0.22)');
     g.restore();
-    draw(g, 'rgba(46, 20, 16, 0.84)');
+    draw(g, 'rgba(10, 6, 5, 0.9)');
     draw(mask.getContext('2d'), '#fff');
-    if (lit > 0) draw(glow.getContext('2d'), `rgba(255, 255, 255, ${lit})`);
   }
 
   // Paint laid into a shallow groove: its colour, flush in the stone, without the cut's lip or glow.
@@ -295,9 +295,10 @@ export class Engraving {
   }
 
   // A line of text, centred at (x, y), fitted into `max` pixels. `numerals` keeps it in Standard
-  // letters whatever the script (the Vulcan fonts have no digits).
-  line(id, text, x, y, { size = 32, script = false, max = 760, lit = 0.32, kind = 'line', key, numerals = false } = {}) {
-    const standard = this.standard || numerals;
+  // letters whatever the script (the Vulcan fonts have no digits), as does `always` (what must be
+  // read by everyone, Vulcan or not).
+  line(id, text, x, y, { size = 32, script = false, max = 760, lit = 0.32, kind = 'line', key, numerals = false, always = false } = {}) {
+    const standard = this.standard || numerals || always;
     const str = standard ? text.s : vulcanOnly(text.v);
     if (!str) return null;
     const family = standard ? STANDARD_FONT : script ? "'VulcanScript'" : "'ModernVulcan'";
@@ -325,7 +326,7 @@ export class Engraving {
   }
 
   // A glyph that acts when touched, with its name carved beneath.
-  glyph(name, x, y, label, { lit = 0.4, on = false } = {}) {
+  glyph(name, x, y, label, { lit = 0.4, on = false, standard = false } = {}) {
     const shape = GLYPHS[name];
     this.cut((g, color) => {
       g.save();
@@ -336,10 +337,17 @@ export class Engraving {
       g.lineCap = 'round';
       g.lineJoin = 'round';
       shape(g);
+      // On (the hologram following you, a new game waiting to begin): a ring cut round it.
+      if (on) {
+        g.lineWidth = 3;
+        g.beginPath();
+        g.arc(0, 0, 45, 0, Math.PI * 2);
+        g.stroke();
+      }
       g.restore();
-    }, on ? 0.95 : lit);
+    }, lit);
     this.regions.push({ kind: 'button', id: name, x: x - 52, y: y - 52, w: 104, h: 96 });
-    if (label) this.line(`g:${name}`, label, x, y + 62, { size: 22, max: 132, lit: 0.26 });
+    if (label) this.line(`g:${name}`, label, x, y + 62, { size: 22, max: 132, lit: 0.26, always: standard });
   }
 
   glyphRow(items, y) {
@@ -455,7 +463,8 @@ export class Engraving {
     const glyphs = [{ name: 'ways', label: TEXT.ways }];
     if (this.state.testAllowed) glyphs.push({ name: 'test', label: TEXT.test });
     glyphs.push({ name: 'lens', label: this.state.hologram ? TEXT.lensOn : TEXT.lensOff, on: this.state.hologram });
-    glyphs.push({ name: 'translate', label: TEXT.translateGlyph });
+    // Its name is carved in Standard in either script: it is how a reader of Standard finds it.
+    glyphs.push({ name: 'translate', label: TEXT.translateGlyph, standard: true });
     glyphs.push({ name: 'anew', label: TEXT.anew, on: this.state.pending });
     this.glyphRow(glyphs, GLYPHS_Y);
   }

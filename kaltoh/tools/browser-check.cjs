@@ -33,7 +33,7 @@ const OUT = path.resolve(process.argv[2] || 'kaltoh-check');
 const FACE = process.argv[3] ? path.resolve(process.argv[3]) : null;
 const TYPES = {
   '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.jpg': 'image/jpeg',
-  '.png': 'image/png', '.ttf': 'font/ttf', '.bin': 'application/octet-stream', '.wasm': 'application/wasm', '.task': 'application/octet-stream',
+  '.png': 'image/png', '.mp3': 'audio/mpeg', '.ttf': 'font/ttf', '.bin': 'application/octet-stream', '.wasm': 'application/wasm', '.task': 'application/octet-stream',
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -829,6 +829,17 @@ function check(condition, message) {
     const music = await page.evaluate(() => window.__kaltoh.settings.music);
     check(Math.abs(music - 0.2) < 0.06 && !differ(unslid.base, (await onBase()).base, 1e-6) && await carved('slider:sfx'),
       `drawing a finger along it sets the music's level (${Math.round(music * 100)}%), and turns nothing`);
+    // The music plays from the first touch; silenced, it pauses, and raised again it plays on.
+    const musicPlays = () => page.waitForFunction(() => {
+      const m = window.__kaltoh.sound.music;
+      return Boolean(m) && !m.paused && m.currentTime > 0;
+    }, null, { timeout: 20000 }).then(() => true, () => false);
+    check(await musicPlays(), 'the music plays');
+    await tap(await canvasPoint(knob.x0 - 8, knob.y0));
+    await sleep(400);
+    check(await page.evaluate(() => window.__kaltoh.settings.music === 0 && window.__kaltoh.sound.music.paused), 'silenced, it pauses');
+    await tap(await canvasPoint(knob.x0 + (knob.x1 - knob.x0) * 0.6, knob.y0));
+    check(await musicPlays(), 'and raised again, it plays on');
     for (let i = 0; i < 5 && await page.evaluate(() => window.__kaltoh.engraving.wayPage > 0); i++) {
       await tap(await where('prev', 'button'));
       await page.waitForFunction(() => window.__kaltoh.engraving.phase === 'smoothing', null, { timeout: 10000 }).catch(() => {});

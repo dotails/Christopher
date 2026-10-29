@@ -19,7 +19,10 @@ of steel *t'an* on a stone basin:
   ring. Overload the structure and pieces fall. Ring by ring, order comes out of the chaos.
 
 Nothing is written on the screen. The title, the instructions and every control are carved into
-the underside of the stone: tip the base over to read them, from whichever side you like.
+the underside of the stone: tip the base over to read them, from whichever side you like. All of
+it is engraved black, like the frame round it; only the rings round the players' marks are painted,
+each in its player's colour. Ten minutes of ambience loop quietly beneath the play, starting with
+your first touch.
 
 <p align="center">
   <img src="docs/jumble.png" width="19%" alt="The jumble of the original game">
@@ -37,6 +40,7 @@ the underside of the stone: tip the base over to read them, from whichever side 
 </p>
 <p align="center">
   <img src="docs/ways.png" width="19%" alt="The ways to play, with an arrow at the rim to turn the page">
+  <img src="docs/ways-sound.png" width="19%" alt="The ways' sliders for the music and the sound effects">
   <img src="docs/tuning.png" width="19%" alt="The hologram's tuning, carved">
 </p>
 
@@ -62,9 +66,9 @@ over an older one without uninstalling.
 | Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it slides across the glass under your finger, drawing in to the size it will be at the kal-toh as you raise it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Held so, the t'an lies between your fingers at its own length, and **where its ends are is where it lands**: spread your fingers wide of the pieces, out of your own way, and lay its ends on them - in the original game and many forms, on the tips you mean to join (each end picks the tip nearest it, which lights up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you move your head or draw the view nearer, and while the kal-toh spins. |
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read: the title, whose turn it is and the score, what just happened, and how to play. |
 | Play with others | Choose two to four players (or a Vulcan, in rings) in the ways to play. The light behind the kal-toh takes the colour of whoever's turn it is: red for the first player, a rich green for the second, then deep blue and gold. A finished game keeps its winner's colour. Under the base each seat is named (*Player 1*, *Player 2*, ... or *The Vulcan*) over its mark, which is ringed in paint of its colour, the mark filled for whose turn it is. Beneath is the score: in the original game and many forms, true joins of those tried (*7/9*); in rings, points. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop, a loop closed or a ring, a cross where t'an fell, a circle for a spin test. The rules page shows the marks. |
-| Translate | Everything is carved in Vulcan. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it: all of it is smoothed away to bare stone and cut again in Standard, as deep. Touch it again for Vulcan. Touching the carving anywhere else translates nothing. |
+| Translate | Everything is carved in Vulcan. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it (in Standard, whichever script the rest is in): all of it is smoothed away to bare stone and cut again in Standard, as deep. Touch it again for Vulcan. Touching the carving anywhere else translates nothing. |
 | Test the spin | **Tap the t'an twice**, or touch the spiral carved under the base. The kal-toh spins on its hidden axis: in the original game and many forms an unbalanced one wobbles; in rings, strained t'an glow amber. The t'an waiting in the tray stays there. |
-| Ways to play | Touch the circle carved under the base. The first way is the game itself. Touch a value to change it; some say beneath what they mean. Where there are more ways than fit, a large **arrow carved at the rim** turns the page, and one on the other side turns back. A change to the game waits for a new one: the carving says so and *begin anew* glows. Touch it to play that way. **Music** and **Sound effects** are sliders: touch along the groove, or draw a finger along it, from silent to full. The lens with rays there opens the hologram's tuning. |
+| Ways to play | Touch the circle carved under the base. The first way is the game itself. Touch a value to change it; some say beneath what they mean. Where there are more ways than fit, a large **arrow carved at the rim** turns the page, and one on the other side turns back. A change to the game waits for a new one: the carving says so and a ring is cut round *begin anew*. Touch it to play that way. **Music** and **Sound effects** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the music pauses). The lens with rays there opens the hologram's tuning. |
 | Begin anew | **Shake the phone for three seconds**, or touch *begin anew* under the base. |
 | Draw nearer | Pinch, anywhere. |
 | Hologram | Touch the lens carved under the base: beneath it is carved *Hologram on* or *Hologram off*. It is also the first row of the hologram's tuning. See below. |
@@ -310,7 +314,8 @@ instead.
     smooth away and recut, the ways to play and the hologram's tuning), `texts.js` (the words,
     in Vulcan and Standard), `settings.js`, `audio.js` (synthesized sound), `head.js` (the eye
     in millimetres: from irises to position, filtering and looking ahead), `tracker.js` and
-    `eyes-worker.js` (the camera and the face landmarker), `shake.js`, `main.js`.
+    `eyes-worker.js` (the camera and the face landmarker), `shake.js`, `main.js`. `audio.js` also
+    loops the music, through its own level, paused when silenced or out of sight.
   - `vendor/mediapipe/`: [MediaPipe](https://ai.google.dev/edge/mediapipe) Tasks Vision 0.10.21
     and its face landmarker model (Apache 2.0).
 - **`android/`**: a small Java shell (`MainActivity.java`, `HeadTracker.java`). It runs a full
@@ -385,8 +390,10 @@ area; press `R` to begin anew, `T` to test the spin, and use the mouse wheel to 
 
 - Kal-toh and *Star Trek* belong to Paramount; this is an unofficial fan project for personal use.
 - The Vulcan fonts (*Vulcan Script* for titles, *Modern Vulcan* for everything else), the stone
-  basin model (made with Meshy) and the mess-hall panorama were supplied for this project. Their
-  licences are not included; check them before distributing the app beyond personal use.
+  basin model (made with Meshy), the mess-hall panorama and the ambience
+  (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and faded in and
+  out) were supplied for this project. Their licences are not included; check them before
+  distributing the app beyond personal use.
 - three.js is MIT licensed (`android/app/src/main/assets/www/vendor/three.LICENSE`).
 - MediaPipe and its face landmarker model are Apache 2.0 licensed
   (`android/app/src/main/assets/www/vendor/mediapipe/LICENSE`).
