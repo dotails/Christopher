@@ -307,6 +307,14 @@ function check(condition, message) {
     const where = (id, kind) => page.evaluate(([id, kind]) => window.__kaltoh.engraving.screenOf(id, kind), [id, kind]);
     const carved = (id) => page.evaluate((id) => window.__kaltoh.engraving.regions.some((r) => r.id === id), id);
     const recut = () => page.waitForFunction(() => window.__kaltoh.engraving.phase === 'still', null, { timeout: 10000 });
+    // A new game begun, the base set level again (as a player would before playing): turned over
+    // and back by hand, it keeps a little of the tilt, and over two games that adds up.
+    const level = () => page.evaluate(() => {
+      const m = window.__kaltoh.motion;
+      m.baseQ.identity();
+      m.baseW.set(0, 0, 0);
+      m.resetPlace();
+    });
     const turnOver = async () => {
       await settle();
       await drag(await stoneSpot({ x: 206, y: 640 }), 0, -155);
@@ -330,6 +338,7 @@ function check(condition, message) {
     await drag(await stoneSpot({ x: 206, y: 420 }), 0, 155);
     await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1, null, { timeout: 30000 });
     await waitFor(['play']);
+    await level();
 
     // 0b. Many forms: a new form each game, its inner shell built loop by loop from a sample of its
     // pattern among noise; struts brace out from each loop closed, and the outer shell is built on them.
@@ -441,6 +450,7 @@ function check(condition, message) {
     await drag(await stoneSpot({ x: 206, y: 420 }), 0, 155);
     await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1, null, { timeout: 30000 });
     await waitFor(['play']);
+    await level();
     check(await page.evaluate(() => window.__kaltoh.falling.rods.length === 0), 'beginning anew plays the game of rings');
 
     let s = await state();

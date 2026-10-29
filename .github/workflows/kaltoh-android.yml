@@ -36,6 +36,7 @@ jobs:
           node kaltoh/tools/physics.test.mjs
           node kaltoh/tools/rules.test.mjs
           node kaltoh/tools/classic.test.mjs
+          node kaltoh/tools/forms.test.mjs
 
       - name: Build APK
         working-directory: kaltoh/android
