@@ -312,7 +312,8 @@ instead.
     stone or the floor, and staying until a new game), `tray.js`, `input.js`, `engrave.js`
     (everything written, carved into the stone's underside on a layer whose depth the shader can
     smooth away and recut, the ways to play and the hologram's tuning), `texts.js` (the words,
-    in Vulcan and Standard), `settings.js`, `audio.js` (synthesized sound), `head.js` (the eye
+    in Vulcan and Standard), `settings.js`, `audio.js` (synthesized sound: every contact as its materials would sound - thin light metal on
+    metal, rock on metal, rock on rock - each struck and drawn along), `head.js` (the eye
     in millimetres: from irises to position, filtering and looking ahead), `tracker.js` and
     `eyes-worker.js` (the camera and the face landmarker), `shake.js`, `main.js`. `audio.js` also
     loops the music, through its own level, paused when silenced or out of sight; on the phone the

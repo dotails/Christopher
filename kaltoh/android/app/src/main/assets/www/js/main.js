@@ -1157,6 +1157,16 @@ function step(dt) {
     motion.landed = 0;
   }
   if (motion.scrape > 0.25) sound.scrape(motion.scrape);
+  // Sliding contacts: fallen t'an along rock or one another, and the stone ground round on the floor.
+  const slid = falling.sliding;
+  if (slid.rock > 0.08) sound.slide('rockMetal', Math.min(1, slid.rock / 1.5));
+  if (slid.metal > 0.08) sound.slide('metal', Math.min(1, slid.metal / 1.5));
+  slid.rock = 0;
+  slid.metal = 0;
+  if (motion.drop > 0.3 && !motion.grounding) {
+    const rim = motion.baseW.length() * 0.95; // how fast the stone's rim goes round on the floor
+    if (rim > 0.1) sound.slide('rock', Math.min(1, rim / 2.5));
+  }
   falling.update(dt);
   tray.update(dt);
   if (input.mode === 'hold') input.aim();

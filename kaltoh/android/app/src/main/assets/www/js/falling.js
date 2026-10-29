@@ -43,6 +43,9 @@ export class Falling {
     this.rods = [];
     this.acc = 0;
     this.obstacles = []; // world segments of standing t'an: [{ a, b }] as arrays
+    // How fast fallen t'an slide this frame against rock (the stone, the floor) and against metal
+    // (one another), for their sound; main.js takes them each frame.
+    this.sliding = { rock: 0, metal: 0 };
   }
 
   get busy() {
@@ -132,11 +135,14 @@ export class Falling {
       r.a.add(tmp);
       r.b.sub(tmp);
     }
-    let impact = this.stone(r);
-    impact = Math.max(impact, this.glance(r));
-    impact = Math.max(impact, this.floor(r));
+    r.onStone = false;
+    const rock = Math.max(this.stone(r), this.floor(r));
+    const metal = this.glance(r);
+    const impact = Math.max(rock, metal);
     r.mid.addVectors(r.a, r.b).multiplyScalar(0.5);
     const speed = Math.max(r.a.distanceTo(r.pa), r.b.distanceTo(r.pb)) / STEP;
+    // Lying against the stone or the floor and still moving: sliding, rock on metal.
+    if ((r.onFloor || r.onStone) && speed > 0.08) this.sliding.rock = Math.max(this.sliding.rock, speed);
     r.still = speed < 0.05 ? r.still + STEP : Math.max(0, r.still - STEP * 0.5);
     if (r.onFloor) {
       // Lying on the floor it comes to rest on its broad face.
@@ -145,7 +151,7 @@ export class Falling {
     }
     if (impact > 0.4 && r.age - r.lastClink > 0.07) {
       r.lastClink = r.age;
-      this.sound?.clink(Math.min(1, impact / 3));
+      this.sound?.clink(Math.min(1, impact / 3), rock >= metal ? 'rock' : 'metal');
     }
   }
 
@@ -174,6 +180,7 @@ export class Falling {
     for (let pass = 0; pass < 3; pass++) {
       const hit = this.deepest(r);
       if (!hit) break;
+      r.onStone = true;
       const { s, depth } = hit;
       const n = out;
       // The ends' velocities, and the t'an's at the point of contact relative to the stone there.
@@ -280,6 +287,15 @@ export class Falling {
         const b = [o.b.x, o.b.y, o.b.z];
         const knock = push(r, o.asleep ? null : o, a, b);
         if (o.asleep && knock > 0.6) this.wake(o);
+        if (knock > 0) {
+          // Metal on metal: struck, or drawn along.
+          const speed = Math.max(r.a.distanceTo(r.pa), r.b.distanceTo(r.pb)) / STEP;
+          if (speed > 0.08) this.sliding.metal = Math.max(this.sliding.metal, speed);
+          if (knock > 0.8 && r.age - r.lastClink > 0.07) {
+            r.lastClink = r.age;
+            this.sound?.clink(Math.min(1, knock / 4), 'metal');
+          }
+        }
       }
     }
   }

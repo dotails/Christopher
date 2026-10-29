@@ -1,5 +1,9 @@
-// Sound, synthesized rather than recorded. A struck t'an rings with the partials of a free
-// metal bar (1 : 2.756 : 5.404 : 8.933); harmony answers in just intonation; discord beats.
+// Sound, synthesized rather than recorded. Every contact sounds as its materials would: a t'an is
+// thin, light metal - struck, a sharp click and the high partials of a free bar (1 : 2.756 : 5.404 :
+// 8.933) ringing out briefly; drawn along, a thin rough whine. The stone is rock: struck, a low
+// knock, the crack of the meeting and its grit; drawn along, a grinding. Each pairing - metal on
+// metal, rock on metal, rock on rock - has its hit and its slide. Harmony answers in just
+// intonation; discord beats.
 // Beneath it, music: a recording looping quietly (MUSIC), if there is one. Each has a level of its
 // own, from silent to full (the sliders carved under the base). On the phone the Android shell
 // plays the music, so other apps' sound plays on with it (a page's media would pause them); the
@@ -12,7 +16,7 @@ const BAR_GAIN = [1, 0.45, 0.22, 0.1];
 const SCALE = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2];
 // The recording: ten minutes of ambience, faded in and out, so its loop is seamless.
 const MUSIC = 'assets/music.mp3';
-const MUSIC_FULL = 0.55; // the music's gain at full, beneath the t'an
+const MUSIC_FULL = 0.825; // the music's gain at full, beneath the t'an
 const SFX_FULL = 0.6;
 
 export class Sound {
@@ -192,29 +196,126 @@ export class Sound {
     src.stop(t + duration + 0.05);
   }
 
+  // --- Contacts ------------------------------------------------------------------------------
+
+  // A burst of filtered noise: the raw stuff of clicks, knocks and grit.
+  burst(gain, decay, { type = 'bandpass', freq = 2000, q = 0.8, delay = 0, room = 0.15, attack = 0.001 } = {}) {
+    if (!this.ready) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime + delay;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const filter = ctx.createBiquadFilter();
+    filter.type = type;
+    filter.frequency.value = freq;
+    filter.Q.value = q;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(gain, t + attack);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+    src.connect(filter).connect(env).connect(this.master);
+    if (room > 0) {
+      const send = ctx.createGain();
+      send.gain.value = room;
+      env.connect(send).connect(this.room);
+    }
+    src.start(t, Math.random() * 0.9);
+    src.stop(t + attack + decay + 0.05);
+  }
+
+  // A crowd of contacts in one instant sounds as a few.
+  crowded() {
+    const now = this.ctx?.currentTime ?? 0;
+    this.recent = (this.recent ?? []).filter((t) => now - t < 0.05);
+    if (this.recent.length >= 6) return true;
+    this.recent.push(now);
+    return false;
+  }
+
+  // Thin light metal struck, a t'an: a bright click, then its own partials ringing briefly, each
+  // t'an a little different. Against metal it rings on and the other answers, a little lower;
+  // against rock it is damped at once, and the stone gives a short gritty knock.
+  metal(strength, against = 'metal') {
+    if (!this.ready || strength < 0.02 || this.crowded()) return;
+    const s = Math.min(1, strength);
+    const f0 = 2300 + Math.random() * 1500;
+    const ring = against === 'metal' ? 0.3 : 0.1;
+    this.burst(0.09 * s, 0.004, { type: 'highpass', freq: 5200, q: 0.7, room: 0.05 });
+    BAR.forEach((ratio, i) => {
+      if (f0 * ratio > 15000) return;
+      this.tone(f0 * ratio, 0.05 * s * BAR_GAIN[i], ring / (1 + i * 1.3), { attack: 0.0015, room: 0.18, detune: (Math.random() - 0.5) * 30 });
+    });
+    if (against === 'metal') {
+      const g0 = f0 * (0.8 + Math.random() * 0.15);
+      [1, 2.756].forEach((ratio, i) => this.tone(g0 * ratio, (0.025 * s) / (1 + i), ring * 0.8, { attack: 0.002, delay: 0.002, room: 0.18 }));
+    } else {
+      this.burst(0.08 * s, 0.035, { type: 'lowpass', freq: 1600, q: 0.5, room: 0.1 });
+    }
+  }
+
+  // Rock on rock, the stone set down on the floor: a low knock, the crack of the meeting, and grit
+  // scattering after it.
+  rock(strength) {
+    if (!this.ready || strength < 0.02) return;
+    const s = Math.min(1, strength);
+    this.tone(55 + Math.random() * 15, 0.3 * s, 0.22, { attack: 0.003, room: 0.25 });
+    this.tone(130 + Math.random() * 30, 0.12 * s, 0.12, { type: 'triangle', attack: 0.002, room: 0.2 });
+    this.burst(0.22 * s, 0.07, { type: 'lowpass', freq: 1400, q: 0.6, room: 0.2 });
+    this.burst(0.08 * s, 0.02, { type: 'bandpass', freq: 3200, q: 1.2, room: 0.05 });
+    for (let i = 0; i < 4; i++) this.burst(0.03 * s, 0.008, { type: 'bandpass', freq: 1500 + Math.random() * 2500, q: 2, delay: 0.02 + Math.random() * 0.1, room: 0.05 });
+  }
+
+  // Contacts drawn along, as grains overlapping while the sliding lasts (called again and again):
+  // 'metal', metal on metal - a thin bright whine, rough; 'rockMetal', rock on metal - grit, with
+  // a faint ring; 'rock', rock on rock - a low grinding. Speed 0..1.
+  slide(kind, speed) {
+    if (!this.ready || speed < 0.05) return;
+    const now = this.ctx.currentTime;
+    this.slides ??= {};
+    if (now - (this.slides[kind] ?? 0) < 0.07) return;
+    this.slides[kind] = now;
+    const s = Math.min(1, speed);
+    if (kind === 'metal') {
+      this.burst(0.03 * s, 0.09, { type: 'bandpass', freq: 3000 + Math.random() * 3000, q: 12, attack: 0.02, room: 0.15 });
+      this.burst(0.015 * s, 0.07, { type: 'bandpass', freq: 7000 + Math.random() * 3000, q: 8, attack: 0.02, room: 0.1 });
+    } else if (kind === 'rockMetal') {
+      this.burst(0.05 * s, 0.1, { type: 'bandpass', freq: 1200 + Math.random() * 1600, q: 0.9, attack: 0.02, room: 0.1 });
+      for (let i = 0; i < 3; i++) this.burst(0.03 * s, 0.006, { type: 'highpass', freq: 3000, q: 0.7, delay: Math.random() * 0.08, room: 0.02 });
+      this.tone(2500 + Math.random() * 1500, 0.008 * s, 0.08, { attack: 0.01, room: 0.1 });
+    } else {
+      this.burst(0.08 * s, 0.12, { type: 'lowpass', freq: 500 + 400 * s, q: 0.7, attack: 0.03, room: 0.15 });
+      for (let i = 0; i < 3; i++) this.burst(0.025 * s, 0.01, { type: 'bandpass', freq: 800 + Math.random() * 1500, q: 1.5, delay: Math.random() * 0.1, room: 0.05 });
+    }
+  }
+
+  // Taken up from the tray: the lightest touch of metal.
   lift() {
-    this.strike(2650, 0.05, 0.35);
+    this.metal(0.18, 'metal');
   }
 
   hover() {
     this.tone(3400, 0.018, 0.05, { room: 0 });
   }
 
+  // A t'an set in place meets two others: metal on metal, twice.
   place() {
-    this.strike(2250, 0.16, 0.7);
-    this.hiss(0.05, 0.03, { from: 6000, to: 6000, q: 2 });
+    this.metal(0.8, 'metal');
+    if (this.ready) setTimeout(() => this.metal(0.6, 'metal'), 18);
   }
 
-  // Inner t'an sliding home: a faint glassy note, gathered so a crowd of them stays soft.
+  // Inner t'an sliding home: metal drawn along metal, then the touch as each comes to rest,
+  // gathered so a crowd of them stays soft.
   settle(count) {
     const now = this.ctx?.currentTime ?? 0;
     if (now - (this.lastSettle ?? 0) < 0.09) return;
     this.lastSettle = now;
-    this.strike(2600 + Math.random() * 900, Math.min(0.05, 0.018 + count * 0.006), 0.45, 0, 0.5);
+    this.slide('metal', Math.min(0.5, 0.15 + count * 0.05));
+    this.metal(Math.min(0.35, 0.1 + count * 0.04), 'metal');
   }
 
-  clink(strength) {
-    this.strike(1500 + Math.random() * 1500, 0.04 + 0.1 * strength, 0.18 + 0.25 * strength, 0, 0.15);
+  // A t'an knocked against another (or `against` the stone).
+  clink(strength, against = 'metal') {
+    this.metal(0.2 + 0.8 * strength, against);
   }
 
   // Rises with the structure's harmony: progress is audible.
@@ -252,8 +353,9 @@ export class Sound {
     [0, 3, 5].forEach((step) => this.tone(root * SCALE[step] / 2, 0.06, 4.5, { attack: 0.6, delay: 0.3, room: 0.8 }));
   }
 
+  // Shaken, the t'an rattle against one another.
   rattle(strength) {
-    if (Math.random() < strength * 0.5) this.clink(strength * 0.6);
+    if (Math.random() < strength * 0.5) this.metal(strength * 0.45, 'metal');
   }
 
   // The spin test: a rising, then falling, breath of air.
@@ -262,23 +364,20 @@ export class Sound {
     this.hiss(0.05, duration, { from: 1800, to: 240, q: 1.2, delay: duration * 0.45 });
   }
 
-  // Stone on steel.
+  // The stone drawn along the t'an (or they along it): rock on metal.
   scrape(strength) {
-    const now = this.ctx?.currentTime ?? 0;
-    if (now - (this.lastScrape ?? 0) < 0.12) return;
-    this.lastScrape = now;
-    this.hiss(0.03 + 0.06 * strength, 0.12, { from: 1400, to: 700, q: 0.9 });
+    this.slide('rockMetal', strength);
   }
 
-  // Stone set down on stone: a low knock, and the grit of it.
+  // The stone set down on the floor: rock on rock.
   thud(strength) {
-    this.tone(62, 0.22 * strength, 0.45, { type: 'sine', attack: 0.004, room: 0.25 });
-    this.tone(118, 0.08 * strength, 0.22, { type: 'triangle', attack: 0.003, room: 0.2 });
-    this.hiss(0.05 * strength, 0.12, { from: 900, to: 300, q: 0.7 });
+    this.rock(strength);
   }
 
+  // Everything falls away: a rush of air, and t'an knocking against one another as they go (their
+  // landing is heard as they land).
   dissolve() {
     this.hiss(0.1, 1.2, { from: 4000, to: 400, q: 0.5 });
-    for (let i = 0; i < 9; i++) this.strike(1400 + Math.random() * 1800, 0.05, 0.3, 0.2 + Math.random() * 0.9, 0.2);
+    for (let i = 0; i < 7; i++) setTimeout(() => this.metal(0.3 + Math.random() * 0.4, 'metal'), 150 + Math.random() * 800);
   }
 }
