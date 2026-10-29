@@ -1,7 +1,7 @@
-// Drawing t'an: each is a scaled cube (12 triangles) of polished steel - a light, cool tint, its
-// faces flat mirrors, finely scratched with light grey hairlines that mark the metal without
-// bending what it reflects - all drawn as one instanced mesh. Glow (the blue of order, the amber
-// of strain) is added light per instance; soft additive halos give the glow its bloom.
+// Drawing t'an: each is a scaled cube (12 triangles) of polished metal, its faces flat mirrors
+// with a trace of aluminium's pale grey over what they reflect - all drawn as one instanced mesh.
+// Glow (the blue of order, the amber of strain) is added light per instance; soft additive halos
+// give the glow its bloom.
 import * as THREE from '../vendor/three.module.min.js';
 
 // In world units (the kal-toh is drawn at scene.SCALE): about the rules' contact distance.
@@ -16,90 +16,37 @@ const tmpZ = new THREE.Vector3();
 const tmpM = new THREE.Vector3();
 const basis = new THREE.Matrix4();
 
-// A unit box along z (length 1, cross-section 1 x 1), its faces flat, whose long faces are mapped
-// with u running down the length, so the scratches follow the t'an.
+// A unit box along z (length 1, cross-section 1 x 1), its faces flat.
 function rodGeometry() {
   const positions = [];
   const normals = [];
-  const uvs = [];
   const index = [];
-  // The scratch texture is a little longer than a t'an and spans each face once; each long face
-  // starts a different way along it, so no two show the same scratches.
-  const REPEAT = 0.7;
-  // One face: normal n, u running along uDir; v = n x u keeps every face wound outward.
-  const face = (n, uDir, uScale, vScale, uStart = 0) => {
+  // One face: normal n, its edges along uDir and v = n x u, which keeps every face wound outward.
+  const face = (n, uDir) => {
     const vDir = [n[1] * uDir[2] - n[2] * uDir[1], n[2] * uDir[0] - n[0] * uDir[2], n[0] * uDir[1] - n[1] * uDir[0]];
     const corner = [0, 1, 2].map((k) => 0.5 * n[k] - 0.5 * uDir[k] - 0.5 * vDir[k]);
     const base = positions.length / 3;
     for (const [u, v] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
       positions.push(corner[0] + uDir[0] * u + vDir[0] * v, corner[1] + uDir[1] * u + vDir[1] * v, corner[2] + uDir[2] * u + vDir[2] * v);
       normals.push(n[0], n[1], n[2]);
-      uvs.push(uStart + u * uScale, v * vScale);
     }
     index.push(base, base + 1, base + 2, base, base + 2, base + 3);
   };
-  // Long faces: u along the length.
-  [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]].forEach((n, i) => face(n, [0, 0, 1], REPEAT, 1, i * 0.29));
-  // End caps.
-  face([0, 0, 1], [1, 0, 0], 0.06, 0.06);
-  face([0, 0, -1], [1, 0, 0], 0.06, 0.06);
+  // Long faces, then the end caps.
+  for (const n of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]) face(n, [0, 0, 1]);
+  face([0, 0, 1], [1, 0, 0]);
+  face([0, 0, -1], [1, 0, 0]);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.setIndex(index);
   return g;
 }
 
-// The scratches: fine lines on a mask, white where the metal is scored - hairlines running down
-// the t'an from its polishing, a few lying across them at an angle from handling, and bare mirror
-// between them. Thirty-two texels across a face, a hairline one of them: on the phone about a
-// pixel wide, light grey, as a real scratch is. Being only a mask, they never bend the reflection.
-function scratchMap() {
-  const W = 512;
-  const H = 32;
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const g = canvas.getContext('2d');
-  g.fillStyle = '#000';
-  g.fillRect(0, 0, W, H);
-  g.lineCap = 'round';
-  let seed = 7;
-  const rand = () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 4294967296;
-  };
-  // A scratch from (x, y), `length` texels down the t'an and `rise` across; drawn again a
-  // texture's length either way, so those running off one end carry on at the other.
-  const scratch = (x, y, length, rise, width, strength) => {
-    g.strokeStyle = `rgba(255, 255, 255, ${strength})`;
-    g.lineWidth = width;
-    for (const dx of [-W, 0, W]) {
-      g.beginPath();
-      g.moveTo(x + dx, y);
-      g.lineTo(x + dx + length, y + rise);
-      g.stroke();
-    }
-  };
-  // Hairlines from the polishing: long, all but straight down the t'an.
-  for (let i = 0; i < 10; i++) {
-    const length = 60 + rand() ** 1.5 * 420;
-    scratch(rand() * W, rand() * H, length, (rand() - 0.5) * 0.012 * length, 0.8 + rand() * 0.4, 0.4 + rand() * 0.4);
-  }
-  // From handling: short, at an angle (a texel across is about a third as long as one along, so a
-  // rise of one in four is some forty degrees on the metal).
-  for (let i = 0; i < 7; i++) {
-    const length = 8 + rand() * 44;
-    scratch(rand() * W, rand() * H, length, (rand() - 0.5) * 0.5 * length, 0.8 + rand() * 0.3, 0.45 + rand() * 0.4);
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.anisotropy = 8;
-  return texture;
-}
+// A trace of aluminium's own pale grey laid over what the metal mirrors, so that where it reflects
+// the dark of the room it is still seen as metal.
+const ALUMINIUM = new THREE.Color(0xb8bec5);
+const TINT = 0.06;
 
 export function rodMaterial() {
   const material = new THREE.MeshPhysicalMaterial({
@@ -109,9 +56,6 @@ export function rodMaterial() {
     // out who is there.
     roughness: 0.035,
     envMapIntensity: 2,
-    // The scratches, light grey where they score it, whatever the metal mirrors there.
-    emissive: 0xb4b8bc,
-    emissiveMap: scratchMap(),
   });
   // The room is looked up as sharp as the metal is smooth: three.js never lets it be sharper than
   // its coarser 256-texel mip (fine for lights, but it blurs a mirror), so the reflection of the
@@ -123,6 +67,7 @@ export function rodMaterial() {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uBlue = { value: BLUE };
     shader.uniforms.uAmber = { value: AMBER };
+    shader.uniforms.uAluminium = { value: ALUMINIUM };
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec3 aGlow;\nattribute vec4 aTrimA;\nattribute vec4 aTrimB;\nvarying vec3 vGlow;')
       .replace(
@@ -139,16 +84,22 @@ vGlow = aGlow;
 #endif`,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform vec3 uBlue;\nuniform vec3 uAmber;\nvarying vec3 vGlow;')
+      .replace('#include <common>', '#include <common>\nuniform vec3 uBlue;\nuniform vec3 uAmber;\nuniform vec3 uAluminium;\nvarying vec3 vGlow;')
       .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\nfloat mirrorRoughness = min( roughnessFactor + geometryRoughness, 1.0 );')
       .replace('#include <lights_fragment_maps>', maps)
       .replace(
         '#include <emissivemap_fragment>',
-        // x: blue, y: amber, z: fade to darkness (a t'an dissolving away, its scratches with it)
-        '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= 1.0 - vGlow.z;\ntotalEmissiveRadiance += uBlue * vGlow.x * 0.42 + uAmber * vGlow.y * 0.5;\ndiffuseColor.rgb *= 1.0 - vGlow.z;',
+        // x: blue, y: amber, z: fade to darkness (a t'an dissolving away)
+        '#include <emissivemap_fragment>\ntotalEmissiveRadiance += uBlue * vGlow.x * 0.42 + uAmber * vGlow.y * 0.5;\ndiffuseColor.rgb *= 1.0 - vGlow.z;',
+      )
+      .replace(
+        '#include <opaque_fragment>',
+        // The aluminium's tint over what is mirrored and lit, the glow left as it is.
+        `outgoingLight = mix(outgoingLight - totalEmissiveRadiance, uAluminium * (1.0 - vGlow.z), ${TINT.toFixed(2)}) + totalEmissiveRadiance;
+#include <opaque_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => 'kaltoh-rod-v6';
+  material.customProgramCacheKey = () => 'kaltoh-rod-v7';
   return material;
 }
 

@@ -23,8 +23,9 @@ the underside of the stone: tip the base over to read them, from whichever side 
 it is engraved black, like the frame round it; only the rings round the players' marks are painted,
 each in its player's colour. Ten minutes of ambience loop quietly beneath the play, starting with
 your first touch; they play along with whatever else the phone is playing, never pausing it.
-The t'an are mirror-polished steel, finely scratched: a face turned toward you mirrors the mess
-hall behind you, where Tuvok sits at his table, and the waiting t'an in the tray is turned to him.
+The t'an are mirror-polished, with a touch of aluminium's grey: a face turned toward you mirrors
+the mess hall behind you, where Tuvok sits at his table, and the waiting t'an in the tray is
+turned to him.
 
 <p align="center">
   <img src="docs/jumble.png" width="19%" alt="The jumble of the original game">
@@ -307,10 +308,9 @@ instead.
     way: loops closing, struts growing out, noise falling away, the outer shell), `scene.js` (renderer, lights, mess-hall
     reflections - the room turned and tipped so that Tuvok, at his table, is what a face turned
     to the player mirrors - the stone, and the window the screen becomes), `motion.js` (base and assembly dynamics, and every t'an kept clear of
-    the stone along its length), `rodmesh.js` (polished steel t'an: flat mirror faces, nothing
-    bending what they reflect, the room looked up as sharp as the metal is smooth; finely
-    scratched, light grey hairlines drawn on a mask, mostly down the t'an and a few across at an
-    angle, about a pixel wide on the phone; where t'an meet at a junction their
+    the stone along its length), `rodmesh.js` (polished metal t'an: flat mirror faces, nothing
+    bending what they reflect, the room looked up as sharp as the metal is smooth, with a trace of
+    aluminium's pale grey laid over it; where t'an meet at a junction their
     ends are mitred in the shader, each corner cut back to the plane halving the angle to each
     other t'an there, so they meet the last millimetre to the last), `falling.js` (fallen t'an: tumbling, coming to rest on the
     stone or the floor, and staying until a new game), `tray.js`, `input.js`, `engrave.js`
