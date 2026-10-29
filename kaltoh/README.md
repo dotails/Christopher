@@ -57,17 +57,17 @@ over an older one without uninstalling.
 
 | To | Do |
 |---|---|
-| Turn the base | Drag the stone (a fingertip off its edge counts). Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. A drag on open space turns nothing, so a finger that only just misses the t'an at the foot of the screen sets nothing spinning. |
-| Turn the t'an | Drag anywhere within the t'an's outline, even between them. The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
-| Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it slides across the glass under your finger, drawing in to the size it will be at the kal-toh as you raise it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Move each finger onto a piece of the kal-toh: in the original game and many forms, onto the tips you mean to join (each finger picks the tip nearest it, which lights up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you move your head or draw the view nearer, and while the kal-toh spins. |
+| Turn the base | Drag the stone (a fingertip off its edge counts). Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. **Two fingers** on the stone turn it as you see it instead: twist them and it turns about your line of sight, the same way round; move them together and it tumbles along with them; spread or pinch them to draw nearer or further. A drag on open space turns nothing, so a finger that only just misses the t'an at the foot of the screen sets nothing spinning. With the base turned over, grab it by its rim, outside the carving's framing circle: within the circle the carving is for touching, and nothing turns. |
+| Turn the t'an | Drag anywhere within the t'an's outline, even between them (two fingers turn it as you see it, as for the stone). The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
+| Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it slides across the glass under your finger, drawing in to the size it will be at the kal-toh as you raise it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Held so, the t'an lies between your fingers at its own length, and **where its ends are is where it lands**: spread your fingers wide of the pieces, out of your own way, and lay its ends on them - in the original game and many forms, on the tips you mean to join (each end picks the tip nearest it, which lights up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you move your head or draw the view nearer, and while the kal-toh spins. |
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read: the title, whose turn it is and the score, what just happened, and how to play. |
 | Play with others | Choose two to four players (or a Vulcan, in rings) in the ways to play. The light behind the kal-toh takes the colour of whoever's turn it is: red for the first player, a rich green for the second, then deep blue and gold. A finished game keeps its winner's colour. Under the base each seat is named (*Player 1*, *Player 2*, ... or *The Vulcan*) over its mark, which is ringed in paint of its colour, the mark filled for whose turn it is. Beneath is the score: in the original game and many forms, true joins of those tried (*7/9*); in rings, points. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop, a loop closed or a ring, a cross where t'an fell, a circle for a spin test. The rules page shows the marks. |
-| Translate | Everything is carved in Vulcan. **Touch anywhere on the carving** but a glyph or a value: all of it is smoothed away to bare stone and cut again in Standard, as deep. Touch again for Vulcan. |
+| Translate | Everything is carved in Vulcan. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it: all of it is smoothed away to bare stone and cut again in Standard, as deep. Touch it again for Vulcan. Touching the carving anywhere else translates nothing. |
 | Test the spin | **Tap the t'an twice**, or touch the spiral carved under the base. The kal-toh spins on its hidden axis: in the original game and many forms an unbalanced one wobbles; in rings, strained t'an glow amber. The t'an waiting in the tray stays there. |
-| Ways to play | Touch the circle carved under the base. The first way is the game itself. Touch a value to change it; some say beneath what they mean. Where there are more ways than fit, a large **arrow carved at the rim** turns the page, and one on the other side turns back. A change to the game waits for a new one: the carving says so and *begin anew* glows. Touch it to play that way. The lens with rays there opens the hologram's tuning. |
+| Ways to play | Touch the circle carved under the base. The first way is the game itself. Touch a value to change it; some say beneath what they mean. Where there are more ways than fit, a large **arrow carved at the rim** turns the page, and one on the other side turns back. A change to the game waits for a new one: the carving says so and *begin anew* glows. Touch it to play that way. **Music** and **Sound effects** are sliders: touch along the groove, or draw a finger along it, from silent to full. The lens with rays there opens the hologram's tuning. |
 | Begin anew | **Shake the phone for three seconds**, or touch *begin anew* under the base. |
-| Draw nearer | Pinch. |
-| Hologram | Touch the lens carved under the base: beneath it is carved *Hologram on* or *Hologram off*. It is also the first row of the hologram's tuning, and a row of the ways to play. See below. |
+| Draw nearer | Pinch, anywhere. |
+| Hologram | Touch the lens carved under the base: beneath it is carved *Hologram on* or *Hologram off*. It is also the first row of the hologram's tuning. See below. |
 
 ### The kal-toh (the original game)
 
@@ -177,7 +177,7 @@ Opponent: a Vulcan *novice*, *adept* (default) or *master*, or nobody (pass and 
 four players). Other settings: the spin's strength (unknown by default), a drift, the axis hidden
 or shown, a light, medium or dense nest, the cost of testing, *foresight* (see the ring a held
 t'an would make, once the axis is known, always, or never), strain cues, *chains* (a ring earns
-another turn, as boxes do in dots and boxes), the supply of t'an, lives, sound, vibration, and
+another turn, as boxes do in dots and boxes), the supply of t'an, lives, music and sound levels, vibration, and
 whether the carving reads in Vulcan or Standard until touched.
 
 ### Strategy
@@ -202,9 +202,11 @@ it found it.
 ### Hologram view
 
 Turn on the hologram (the lens under the base, carved *Hologram off* until it is on) and allow the
-camera. The screen becomes a pane of glass with the kal-toh standing a few centimetres behind it.
-Move your head, or the phone, and you look around it. Lean in and the view through the glass
-widens; draw back and it narrows, as through a real window. Nothing from the camera is shown or
+camera. The kal-toh stands a few centimetres out of the screen, in front of the glass. Move your
+head, or the phone, and you look around it. Lean in and it grows, as anything held before you does;
+draw back and it shrinks. (Tuned to stand behind the screen instead, it is seen as through a window:
+leaning in widens the view through the glass and the kal-toh takes up less of it.) Nothing from the
+camera is shown or
 stored, and the camera is released whenever the game is out of sight. The illusion is strongest
 with one eye closed. While it starts, and while it looks for your face, the carving says so.
 
@@ -227,7 +229,13 @@ How it works, after the usual practice for head-coupled ("fish tank") perspectiv
   size (Kooima's generalised perspective projection).
 - **Steady and quick.** A one-euro filter steadies each axis without lagging fast moves. The eye is
   carried ahead along its motion by the camera's measured delay, so the view does not trail your
-  head.
+  head - but only once the head is truly moving: carried ahead, a still head's shimmer would only
+  grow. Shimmer smaller than a hair's breadth is let be, and the view glides from one sighting to
+  the next rather than stepping. The distance, the noisiest of all (a pixel of the eyes' spacing is
+  a centimetre at arm's length), is taken as the median of the last few sightings, steadied
+  without being hurried by its own jumps, and eased in over a moment; how far the head is turned,
+  which corrects it, is steadied too. Held still, the view does not shake, whatever the setting;
+  `tools/head.test.mjs` checks it against a shimmering face.
 - **Or your eyes.** You can choose to have the page follow your eyes instead (*It follows your:
   eyes* in the tuning). MediaPipe's face landmarker then finds both irises to a fraction of a pixel
   in a worker thread, on the GPU or the CPU, and their size gives the distance (an iris is 11.7 mm
@@ -243,12 +251,12 @@ screen and camera as measured and what finds your face.
 | Page | Value | What it does |
 |---|---|---|
 | What you see | Hologram | On or off. |
-| | How deep it stands behind the screen | From the glass to the kal-toh's centre, in cm. |
+| | Where it stands | Out of the screen (in front of the glass: the default, 4 cm), on the glass, or behind it, to the kal-toh's centre. |
 | | How big it looks | Its scale. |
 | | How far it turns as your head moves | 100% is true to life, as through a window. Less is calmer; more exaggerates. |
 | | How much it nears as you lean in | The same, for moving toward or away from the screen. |
 | How it follows you | Straight on is | Where you first held the phone (the default), or square to the screen. |
-| | Calm when you hold still | The one-euro filter's cutoff when still (Hz). Lower is calmer but slower to start. |
+| | Calm when you hold still | The one-euro filter's cutoff when still (Hz), from 0.1. Lower is calmer but slower to start. |
 | | Keeping up when you move fast | How much that cutoff rises with speed. Higher follows fast moves more closely. |
 | | Running ahead of the camera's delay | How far ahead the eye is carried (ms). *Auto* uses the measured delay. |
 | | Seen from | Between your eyes, or one eye (for viewing with the other closed). |
@@ -320,24 +328,28 @@ instead.
     that played within a t'an's reach, with the jumble lying as the game draws it and easing when
     stuck, every game can be finished, mistakes and all; and that past the balance limit a join
     that restores balance still holds.
+  - `head.test.mjs`: the hologram's head following, with a simulated face. Held still while its
+    eyes shimmer, the view barely moves, at any setting; swayed or leaned, it follows closely.
   - `forms.test.mjs`: many forms. Every solid (rods equal, loops flat and regular, junctions,
     rods and loops as a solid's), new games of them (the jumble keeps every t'an whole and every
     joint true, the sample in its true shape and place, noise, leaning struts), moves, loops
     holding and bracing outward, both shells completed, and that played within reach, easing
     when stuck, every game ends, mistakes and all.
   - `browser-check.cjs`: plays the real game in headless Chromium with simulated touch. First the
-    original game: the jumble grows, a t'an taken up by one finger and held by a second joins true
-    neighbours, tips too far apart for a t'an are refused, a false bond falls and shows where the
+    original game: the jumble grows, a t'an taken up by one finger and held by a second, its ends laid
+    on two tips, joins true neighbours, tips too far apart for a t'an are refused, a false bond falls and shows where the
     tip belonged, two taps test the spin, no t'an passes into the stone, and t'an meeting at a
     junction are mitred to touch. Then it changes the game in the carved ways to play and plays
     many forms: the sample and the noise, a true join, noise touched falling away, the inner form
     whole with struts at every junction and a longer t'an in the tray, a join on the struts' tips.
     Then, turning the ways' pages by the arrows at the rim, it plays rings. It covers
     placing, the Vulcan's reply, the spin test, a ring, and turning the base: the t'an lag, catch
-    up, then hold perfectly still; a drag on open space below the stone turns nothing. It turns
-    the t'an by their area and checks no t'an ever passes
-    into the stone. It turns the base over to read it (top up whichever way it was turned) and
-    touches the carving to translate it. It covers the carved ways to play and the hologram's
+    up, then hold perfectly still; a drag on open space below the stone turns nothing; two fingers
+    twisted on the stone turn it about the line of sight. It turns the t'an by their area and checks
+    no t'an ever passes
+    into the stone. It turns the base over to read it (top up whichever way it was turned); a drag
+    within the carving's circle turns nothing and a touch there does not translate it, but the
+    Starfleet delta does. It draws a finger along the music's slider. It covers the carved ways to play and the hologram's
     tuning, fallen t'an staying until a new game, and shaking to begin anew. It checks that the
     light behind turns green on the second player's turn, that each player's plays are kept for
     the carving, and that each seat is named. With a stand-in for the Android shell reporting a swaying face, it checks the
@@ -351,6 +363,7 @@ node kaltoh/tools/physics.test.mjs
 node kaltoh/tools/rules.test.mjs
 node kaltoh/tools/classic.test.mjs
 node kaltoh/tools/forms.test.mjs
+node kaltoh/tools/head.test.mjs
 node kaltoh/tools/browser-check.cjs out/   # needs Playwright with Chromium
 node kaltoh/tools/browser-check.cjs out/ face.y4m   # and the hologram, with a video of a face
 ```

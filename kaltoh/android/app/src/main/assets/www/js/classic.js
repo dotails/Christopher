@@ -635,7 +635,7 @@ export class ClassicGame {
       const { joined, discord } = game.stats[i];
       return { now: i === game.current && !game.complete, score: ofText(joined, joined + discord) };
     });
-    const lines = [CLASSIC.lift, CLASSIC.touch, CLASSIC.truth, CLASSIC.angles, CLASSIC.axis, CLASSIC.balance, CLASSIC.goal, TEXT.translate];
+    const lines = [CLASSIC.lift, CLASSIC.touch, CLASSIC.truth, CLASSIC.angles, CLASSIC.axis, CLASSIC.balance, CLASSIC.goal, TEXT.rim];
     this.ctx.engraving.set({ seats, lines, plays: this.plays, testAllowed: true });
   }
 

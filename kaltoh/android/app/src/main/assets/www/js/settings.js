@@ -64,10 +64,13 @@ export const OPTIONS = [
     choices: [[40, 'forty', '40'], [30, 'thirty', '30'], [60, 'sixty', '60'], [0, 'without end', 'Unlimited']],
   },
   { key: 'lives', v: 'lives', s: 'Lives, when surviving', when: (s) => rings(s) && s.mode === 'collapse', choices: [[3, 'three', '3'], [1, 'one', '1'], [5, 'five', '5']] },
-  { key: 'hologram', v: 'hologram', s: 'Hologram: the view follows you', choices: [[false, 'off', 'Off'], [true, 'on', 'On']] },
-  { key: 'sound', v: 'sound', s: 'Sound', choices: [[true, 'on', 'On'], [false, 'off', 'Off']] },
+  // The hologram is turned on and off by the lens under the base, and atop its tuning: not here.
+  { key: 'hologram', v: 'hologram', s: 'Hologram: the view follows you', when: () => false, choices: [[false, 'off', 'Off'], [true, 'on', 'On']] },
+  // Sliders: drawn along their groove under the base, from silent to full.
+  { key: 'music', v: 'music', s: 'Music', slider: true, value: 0.6 },
+  { key: 'sfx', v: 'the sound of the tan', s: 'Sound effects', slider: true, value: 0.8 },
   { key: 'haptics', v: 'touch', s: 'Vibration', choices: [[true, 'on', 'On'], [false, 'off', 'Off']] },
-  { key: 'language', v: 'script', s: 'Carving first reads in', choices: [['vulcan', 'vulcan', 'Vulcan (touch to translate)'], ['standard', 'standard', 'Standard (touch for Vulcan)']] },
+  { key: 'language', v: 'script', s: 'Carving first reads in', choices: [['vulcan', 'vulcan', 'Vulcan'], ['standard', 'standard', 'Standard']] },
 ];
 
 // Tuning for the hologram's window (see head.js and scene.js), on carved pages of their own. Each
@@ -82,15 +85,18 @@ export const TUNE_PAGES = [
 ];
 export const TUNING = [
   {
-    key: 'depth', page: 0, v: 'how deep it stands', s: 'How deep it stands behind the screen', steps: [0, 10, 20, 30, 40, 50, 60, 80, 100, 130, 160, 200], value: 40,
-    text: (v) => (v === 0 ? '0 cm: on the glass' : `${v / 10} cm`),
+    // In front of the glass it stands out of the screen, and grows as you draw near; behind it, it
+    // is seen through the screen as through a window.
+    key: 'depth', page: 0, v: 'where it stands', s: 'Where it stands: out of the screen, or behind it',
+    steps: [-100, -80, -60, -50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 60, 80, 100, 130, 160, 200], value: -40,
+    text: (v) => (v === 0 ? '0 cm: on the glass' : v < 0 ? `${-v / 10} cm out of the screen` : `${v / 10} cm behind the screen`),
   },
   { key: 'size', page: 0, v: 'how big it looks', s: 'How big it looks', steps: [0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.35, 1.5, 1.75], value: 1, text: percent },
   { key: 'shift', page: 0, v: 'turning as your head moves', s: 'How far it turns as your head moves', steps: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3], value: 1, text: asWindow },
   { key: 'lean', page: 0, v: 'nearing as you lean in', s: 'How much it nears as you lean in', steps: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], value: 1, text: asWindow },
   { key: 'origin', page: 1, v: 'straight on is', s: 'Straight on is', steps: ['rest', 'screen'], names: { rest: 'Where you first held it', screen: 'Square to the screen' }, value: 'rest' },
   {
-    key: 'steady', page: 1, v: 'calm when you are still', s: 'Calm when you hold still: lower is calmer', steps: [0.25, 0.4, 0.6, 0.9, 1.3, 2, 3, 5], value: 0.9,
+    key: 'steady', page: 1, v: 'calm when you are still', s: 'Calm when you hold still: lower is calmer', steps: [0.1, 0.15, 0.25, 0.4, 0.6, 0.9, 1.3, 2, 3, 5], value: 0.4,
     text: (v) => `${v} Hz`,
   },
   {
@@ -133,7 +139,14 @@ export function tuningText(t, value) {
   return t.text ? t.text(value) : String(value);
 }
 
-export const DEFAULT_SETTINGS = { ...Object.fromEntries(OPTIONS.map((o) => [o.key, o.choices[0][0]])), holo: { ...DEFAULT_TUNING } };
+// The hologram's tuning as it is now laid out: where it stands and how calm it is mean what they
+// did not before, so earlier choices of them give way to the new defaults.
+const HOLO_VERSION = 2;
+export const DEFAULT_SETTINGS = {
+  ...Object.fromEntries(OPTIONS.map((o) => [o.key, o.slider ? o.value : o.choices[0][0]])),
+  holo: { ...DEFAULT_TUNING },
+  holoVersion: HOLO_VERSION,
+};
 
 const KEY = 'kaltoh.settings.v2';
 
@@ -141,8 +154,17 @@ export function loadSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
     const out = { ...DEFAULT_SETTINGS, holo: { ...DEFAULT_TUNING } };
-    for (const o of OPTIONS) if (o.choices.some(([value]) => value === saved[o.key])) out[o.key] = saved[o.key];
+    for (const o of OPTIONS) {
+      const v = saved[o.key];
+      if (o.slider ? Number.isFinite(v) && v >= 0 && v <= 1 : o.choices.some(([value]) => value === v)) out[o.key] = v;
+    }
+    // Sound was once simply on or off.
+    if (saved.sound === false && !('sfx' in saved)) out.sfx = 0;
     for (const t of TUNING) if (t.steps.includes(saved.holo?.[t.key])) out.holo[t.key] = saved.holo[t.key];
+    if (saved.holoVersion !== HOLO_VERSION) {
+      out.holo.depth = DEFAULT_TUNING.depth;
+      out.holo.steady = DEFAULT_TUNING.steady;
+    }
     return out;
   } catch {
     return { ...DEFAULT_SETTINGS, holo: { ...DEFAULT_TUNING } };
@@ -159,7 +181,7 @@ export function saveSettings(settings) {
 
 // The settings a game was begun with, as one string: the ways shown that shape the game (not
 // the hologram, sound, vibration or script). A change shows as a different string.
-const UNSHAPING = new Set(['hologram', 'sound', 'haptics', 'language']);
+const UNSHAPING = new Set(['hologram', 'music', 'sfx', 'haptics', 'language']);
 export function shapeOf(settings) {
   return JSON.stringify(OPTIONS.filter((o) => !UNSHAPING.has(o.key) && (!o.when || o.when(settings))).map((o) => settings[o.key]));
 }

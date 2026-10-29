@@ -107,7 +107,7 @@ function check(condition, message) {
       let best = null;
       for (let y = 100; y < 860; y += 10) {
         for (let x = 20; x < 400; x += 10) {
-          if (!k.touchesBase(x, y) || k.touchesAssembly(x, y)) continue;
+          if (!k.touchesBase(x, y) || k.touchesAssembly(x, y) || k.engraving.covers(x, y)) continue;
           const d = Math.hypot(x - near.x, y - near.y);
           if (!best || d < best.d) best = { x, y, d };
         }
@@ -155,6 +155,23 @@ function check(condition, message) {
         }
         return worst;
       };
+      // Where two fingers go so that the t'an carried between them lays its ends on two points: on
+      // the line through them, spread wide of them (out of the way); and its ends as the game has
+      // them.
+      window.fingersFor = (a, b, spread = 45) => {
+        const [ea, eb] = k.rodEnds(a, b);
+        const L = Math.hypot(eb.x - ea.x, eb.y - ea.y);
+        const d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        const ux = (b.x - a.x) / d;
+        const uy = (b.y - a.y) / d;
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        const f1 = { x: mx - ux * (L / 2 + spread), y: my - uy * (L / 2 + spread) };
+        const f2 = { x: mx + ux * (L / 2 + spread), y: my + uy * (L / 2 + spread) };
+        const [e1, e2] = k.rodEnds(f1, f2);
+        const inside = (f) => f.x > 8 && f.x < k.stage.size.width - 8 && f.y > 60 && f.y < k.stage.size.height - 8;
+        return { f1, f2, e1: { x: e1.x, y: e1.y }, e2: { x: e2.x, y: e2.y }, onScreen: inside(f1) && inside(f2) };
+      };
       // Every t'an of the original game, its two shells and the struts between, as world ends.
       window.classicRods = () => {
         const s = k.classic.structure;
@@ -173,8 +190,8 @@ function check(condition, message) {
       'its jumble grows: twenty-nine t\'an twisted out of their order, ninety more tangled through them');
     check(await nothingWritten(), 'nothing is written on the screen');
     await page.screenshot({ path: path.join(OUT, '0-jumble.png') });
-    // Two tips to join, under two fingers (a finger touches a little below what it picks): true
-    // neighbours within a t'an's reach, false ones within reach, or a pair too far apart.
+    // Two tips to join, under the ends of the t'an carried between two fingers spread wide of them:
+    // true neighbours within a t'an's reach, false ones within reach, or a pair too far apart.
     async function findJoin(kind) {
       await settle();
       return page.evaluate(async (kind) => {
@@ -196,7 +213,10 @@ function check(condition, message) {
             const apart = c.apart(u, v);
             const within = apart >= near && apart <= far;
             const fits = kind === 'far' ? apart > far + 0.1 : within && K.judge(c.game, u, v).kind === kind;
-            if (fits) return { u, v, a: { x: a.x, y: a.y + 10 }, b: { x: b.x, y: b.y + 10 } };
+            if (!fits) continue;
+            const hold = window.fingersFor(a, b);
+            const lands = (e, tip) => [[0, 0], [-3, 0], [3, 0], [0, -3], [0, 3]].every(([dx, dy]) => k.pickRod(e.x + dx, e.y + dy)?.tip === tip);
+            if (hold.onScreen && lands(hold.e1, u) && lands(hold.e2, v)) return { u, v, ...hold };
           }
         }
         return null;
@@ -378,7 +398,10 @@ function check(condition, message) {
             const apart = f.apart(a, b);
             if (apart < F.REACH[0] || apart > F.REACH[1]) continue;
             const v = F.judge(f.game, a, b);
-            if (kind === 'noise' ? v.kind === 'discord' && v.noise >= 0 : v.kind === kind) return { a: { x: pa.x, y: pa.y + 10 }, b: { x: pb.x, y: pb.y + 10 } };
+            if (!(kind === 'noise' ? v.kind === 'discord' && v.noise >= 0 : v.kind === kind)) continue;
+            const hold = window.fingersFor(pa, pb);
+            const lands = (e, tip) => [[0, 0], [-3, 0], [3, 0], [0, -3], [0, 3]].every(([dx, dy]) => k.pickRod(e.x + dx, e.y + dy)?.tip === tip);
+            if (hold.onScreen && lands(hold.e1, a) && lands(hold.e2, b)) return hold;
           }
         }
         return null;
@@ -483,7 +506,7 @@ function check(condition, message) {
         const k = window.__kaltoh;
         const { game, R, AI } = k;
         const ids = [...k.display.keys()].filter((id) => game.nest.rods[id]?.alive);
-        const spots = [0.15, 0.35, 0.5, 0.65, 0.85];
+        const spots = [0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9];
         const eye = k.motion.toLocal(k.stage.camera.position, k.stage.camera.position.clone());
         let fallback = null;
         for (const ia of ids) {
@@ -495,18 +518,21 @@ function check(condition, message) {
                 const pb = k.rodScreen(ib, sb);
                 if (!pa || !pb || Math.hypot(pa.x - pb.x, pa.y - pb.y) < 50) continue;
                 if (pa.y < 120 || pb.y < 120 || pa.y > 560 || pb.y > 560) continue;
-                const ha = k.pickRod(pa.x, pa.y);
-                const hb = k.pickRod(pb.x, pb.y);
+                // The t'an carried between fingers spread wide of the two lays its ends on them.
+                const hold = window.fingersFor(pa, pb);
+                if (!hold.onScreen) continue;
+                const ha = k.pickRod(hold.e1.x, hold.e1.y);
+                const hb = k.pickRod(hold.e2.x, hold.e2.y);
                 if (!ha || !hb || ha.rod !== ia || hb.rod !== ib) continue;
                 const steady = (p, id) => [[-5, 0], [5, 0], [0, -5], [0, 5]].every(([dx, dy]) => k.pickRod(p.x + dx, p.y + dy)?.rod === id);
-                if (!steady(pa, ia) || !steady(pb, ib)) continue;
+                if (!steady(hold.e1, ia) || !steady(hold.e2, ib)) continue;
                 const pose = R.placement(game, ha, hb, [eye.x, eye.y, eye.z]);
                 if (!pose.ok) continue;
                 const ring = AI.ringFor(game, pose);
-                const move = { a: { x: pa.x, y: pa.y + 10 }, b: { x: pb.x, y: pb.y + 10 }, ring: ring?.k ?? 0 };
+                const move = { f1: hold.f1, f2: hold.f2, ring: ring?.k ?? 0 };
                 const sure = () => [[-3, 0], [3, 0], [0, -3], [0, 3]].every(([dx, dy]) => {
-                  const ja = k.pickRod(pa.x + dx, pa.y + dy);
-                  const jb = k.pickRod(pb.x + dx, pb.y + dy);
+                  const ja = k.pickRod(hold.e1.x + dx, hold.e1.y + dy);
+                  const jb = k.pickRod(hold.e2.x + dx, hold.e2.y + dy);
                   const p = ja && jb && R.placement(game, ja, jb, [eye.x, eye.y, eye.z]);
                   return p?.ok && AI.ringFor(game, p);
                 });
@@ -533,10 +559,10 @@ function check(condition, message) {
       check((await page.evaluate(() => window.__kaltoh.input.mode)) === 'hold', 'two fingers on the tray lift a t\'an');
       for (let i = 1; i <= 8; i++) {
         const t = i / 8;
-        f1.x += (move.a.x - f1.x) * t;
-        f1.y += (move.a.y - f1.y) * t;
-        f2.x += (move.b.x - f2.x) * t;
-        f2.y += (move.b.y - f2.y) * t;
+        f1.x += (move.f1.x - f1.x) * t;
+        f1.y += (move.f1.y - f1.y) * t;
+        f2.x += (move.f2.x - f2.x) * t;
+        f2.y += (move.f2.y - f2.y) * t;
         await touch('touchMove', [f1, f2]);
         await sleep(30);
       }
@@ -553,8 +579,9 @@ function check(condition, message) {
       return held;
     }
 
-    // Take up the t'an with one finger and carry it to the first piece; a second finger, put down
-    // on the other, takes hold of it too. Let go, it is placed.
+    // Take up the t'an with one finger and carry it near the first piece; a second finger, put down
+    // beyond the other, takes hold of it too, the t'an between them laying its ends on the two. Let
+    // go, it is placed.
     async function placeByOne(move, shot) {
       await page.waitForFunction(() => window.__kaltoh.tray.visible && window.__kaltoh.tray.arrive >= 1, null, { timeout: 30000 });
       const g = await page.evaluate(() => ({ y: window.__kaltoh.tray.y, w: window.__kaltoh.stage.size.width }));
@@ -564,8 +591,8 @@ function check(condition, message) {
       check(await page.evaluate(() => window.__kaltoh.input.mode === 'grab' && window.__kaltoh.hand.holding), 'one finger on the tray takes up the t\'an');
       const from = { ...f1 };
       for (let i = 1; i <= 8; i++) {
-        f1.x = from.x + ((move.a.x - from.x) * i) / 8;
-        f1.y = from.y + ((move.a.y - from.y) * i) / 8;
+        f1.x = from.x + ((move.f1.x - from.x) * i) / 8;
+        f1.y = from.y + ((move.f1.y - from.y) * i) / 8;
         await touch('touchMove', [f1]);
         await sleep(30);
       }
@@ -582,10 +609,10 @@ function check(condition, message) {
       }, f1);
       check(carried.off < 6, `it slides across the glass under the finger (${carried.off.toFixed(1)} px off)`);
       check(Math.abs(carried.length - carried.own) < 6, `drawing in to the size it will be at the kal-toh (${carried.length.toFixed(0)} px long)`);
-      const f2 = { id: 2, x: move.b.x, y: move.b.y };
+      const f2 = { id: 2, x: move.f2.x, y: move.f2.y };
       await touch('touchStart', [f1, f2]);
       await sleep(60);
-      check((await page.evaluate(() => window.__kaltoh.input.mode)) === 'hold', 'a second finger, put down on the other piece, takes hold of it too');
+      check((await page.evaluate(() => window.__kaltoh.input.mode)) === 'hold', 'a second finger, put down beyond the other end, takes hold of it too');
       await sleep(400);
       if (shot) await page.screenshot({ path: path.join(OUT, shot) });
       const held = await page.evaluate(() => {
@@ -685,6 +712,45 @@ function check(condition, message) {
     if (!settledIn || differ(rest1.rel, rest2.rel, 1e-9) || differ(rest1.pos, rest2.pos, 1e-9)) console.log('resting:', JSON.stringify(rest1), JSON.stringify(rest2));
     check(settledIn && !differ(rest1.rel, rest2.rel, 1e-9) && !differ(rest1.pos, rest2.pos, 1e-9), 'and, untouched, do not move on it at all');
     await page.screenshot({ path: path.join(OUT, '7-base-turned.png') });
+    // Two fingers on the stone turn it as the eye sees it: twisted, about the line of sight, the
+    // same way round.
+    const twist = async (degrees) => {
+      const a = { id: 1, ...(await stoneSpot({ x: 110, y: 560 })) };
+      const b = { id: 2, ...(await stoneSpot({ x: 300, y: 560 })) };
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const r = Math.hypot(b.x - a.x, b.y - a.y) / 2;
+      const a0 = Math.atan2(b.y - a.y, b.x - a.x);
+      await touch('touchStart', [a]);
+      await sleep(40);
+      await touch('touchStart', [a, b]);
+      await sleep(40);
+      for (let i = 1; i <= 10; i++) {
+        const t = a0 + (i / 10) * ((degrees * Math.PI) / 180);
+        a.x = mid.x - Math.cos(t) * r;
+        a.y = mid.y - Math.sin(t) * r;
+        b.x = mid.x + Math.cos(t) * r;
+        b.y = mid.y + Math.sin(t) * r;
+        await touch('touchMove', [a, b]);
+        await sleep(30);
+      }
+      await touch('touchEnd', [a]);
+      await touch('touchEnd', []);
+      await sleep(300);
+    };
+    const untwisted = await onBase();
+    await twist(40);
+    const twisted = await page.evaluate((q0) => {
+      const k = window.__kaltoh;
+      const d = k.motion.baseQ.clone().multiply(k.motion.baseQ.clone().fromArray(q0).invert());
+      const angle = 2 * Math.acos(Math.min(1, Math.abs(d.w)));
+      const s = Math.sqrt(Math.max(1e-12, 1 - d.w * d.w)) * Math.sign(d.w || 1);
+      const toward = k.stage.camera.position.clone().set(0, 0, 1).applyQuaternion(k.stage.camera.quaternion);
+      return { degrees: (angle * 180) / Math.PI, along: (d.x * toward.x + d.y * toward.y + d.z * toward.z) / s };
+    }, untwisted.base);
+    check(Math.abs(twisted.degrees - 40) < 4 && twisted.along < -0.97,
+      `two fingers twisted on the stone turn it about the line of sight, the same way round (${twisted.degrees.toFixed(0)} degrees)`);
+    await twist(-40);
+    await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 60000, polling: 100 });
 
     // 6. Drag on the t'an's area, between the t'an: the assembly turns on the base; the base does not.
     const between = await page.evaluate(() => {
@@ -710,16 +776,25 @@ function check(condition, message) {
     const glyphs = await where('ways', 'button');
     check(title.y < glyphs.y - 100 && Math.abs(title.x - glyphs.x) < 140, 'its carving reads with its top up');
     await page.screenshot({ path: path.join(OUT, '8-underside.png') });
-    // Touch the carving: all of it is smoothed away and cut again in Standard; again: Vulcan.
+    // Within the carving's framing circle, a drag turns nothing, and a touch does not translate it.
+    const flat = await onBase();
+    await drag(await where('title'), 120, 60);
+    await sleep(600);
+    check(!differ(flat.base, (await onBase()).base, 1e-6), 'a drag within the carving\'s circle turns nothing');
     await tap(await where('l0'));
+    await sleep(800);
+    check(await page.evaluate(() => !window.__kaltoh.engraving.standard && window.__kaltoh.engraving.phase === 'still'), 'nor does touching the carving translate it');
+    // The Starfleet delta among the glyphs: all of it is smoothed away and cut again in Standard;
+    // touched again, Vulcan.
+    await tap(await where('translate', 'button'));
     await page.waitForFunction(() => window.__kaltoh.engraving.depth.value < 0.5, null, { timeout: 10000, polling: 'raf' });
     await recut();
-    check(await page.evaluate(() => window.__kaltoh.engraving.standard), 'touching the carving smooths it away and cuts it again in Standard');
+    check(await page.evaluate(() => window.__kaltoh.engraving.standard), 'the Starfleet delta smooths the carving away and cuts it again in Standard');
     await sleep(300);
     await page.screenshot({ path: path.join(OUT, '9-translated.png') });
-    await tap(await where('l3'));
+    await tap(await where('translate', 'button'));
     await recut();
-    check(await page.evaluate(() => !window.__kaltoh.engraving.standard), 'touching it again returns all of it to Vulcan');
+    check(await page.evaluate(() => !window.__kaltoh.engraving.standard), 'touched again, it returns all of it to Vulcan');
 
     // 8. The carved ways to play, and the hologram's tuning: choose pass and play, begin anew.
     await tap(await where('ways', 'button'));
@@ -727,6 +802,38 @@ function check(condition, message) {
     await recut();
     await page.screenshot({ path: path.join(OUT, '10-ways.png') });
     check(true, 'the carved circle opens the ways to play');
+    // Drawn along, a slider sets its level, and turns nothing: the music, from where it is to a fifth.
+    // (The game of rings has more ways: its sliders are pages on.)
+    for (let i = 0; i < 5 && !(await carved('slider:music')) && await carved('more'); i++) {
+      await tap(await where('more', 'button'));
+      await page.waitForFunction((n) => window.__kaltoh.engraving.wayPage === n, i + 1, { timeout: 10000 });
+      await recut();
+    }
+    const knob = await page.evaluate(() => {
+      const r = window.__kaltoh.engraving.regions.find((x) => x.id === 'slider:music');
+      return r && { x0: r.x0, x1: r.x1, y0: r.y0, v: window.__kaltoh.settings.music };
+    });
+    check(knob, 'the music has a slider among the ways, and so do the sound effects');
+    const canvasPoint = (px, py) => page.evaluate(([px, py]) => {
+      const e = window.__kaltoh.engraving;
+      e.regions.push({ kind: 'probe', id: 'probe', x: px - 1, y: py - 1, w: 2, h: 2 });
+      const at = e.screenOf('probe');
+      e.regions.pop();
+      return at;
+    }, [px, py]);
+    const fromKnob = await canvasPoint(knob.x0 + (knob.x1 - knob.x0) * knob.v, knob.y0);
+    const toFifth = await canvasPoint(knob.x0 + (knob.x1 - knob.x0) * 0.2, knob.y0);
+    const unslid = await onBase();
+    await drag(fromKnob, toFifth.x - fromKnob.x, toFifth.y - fromKnob.y, 12);
+    await sleep(400);
+    const music = await page.evaluate(() => window.__kaltoh.settings.music);
+    check(Math.abs(music - 0.2) < 0.06 && !differ(unslid.base, (await onBase()).base, 1e-6) && await carved('slider:sfx'),
+      `drawing a finger along it sets the music's level (${Math.round(music * 100)}%), and turns nothing`);
+    for (let i = 0; i < 5 && await page.evaluate(() => window.__kaltoh.engraving.wayPage > 0); i++) {
+      await tap(await where('prev', 'button'));
+      await page.waitForFunction(() => window.__kaltoh.engraving.phase === 'smoothing', null, { timeout: 10000 }).catch(() => {});
+      await recut();
+    }
     await tap(await where('tune', 'button'));
     await page.waitForFunction(() => window.__kaltoh.engraving.page === 'tune', null, { timeout: 10000 });
     await recut();

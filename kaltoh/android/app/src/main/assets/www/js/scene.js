@@ -85,8 +85,9 @@ export function createScene(canvas) {
     read: { k: 0, center: PIVOT.clone() },
   };
   // The window (see head.js): the screen, at its true size in millimetres, is a pane of glass with
-  // the kal-toh's centre `optics.depth` mm behind it; the eye is where the player's is, in mm from
-  // the middle of the screen (z null: at rest, `optics.rest` mm away, or where the layout assumes).
+  // the kal-toh's centre `optics.depth` mm behind it (in front of it, standing out of the screen,
+  // when negative); the eye is where the player's is, in mm from the middle of the screen (z null:
+  // at rest, `optics.rest` mm away, or where the layout assumes).
   const screen = { width: 70, height: 150 };
   const optics = { depth: 40, size: 1, rest: null };
   const eye = { x: 0, y: 0, z: null };
@@ -145,7 +146,8 @@ export function createScene(canvas) {
     glass.half = half;
     const ex = s * eye.x;
     const ey = s * eye.y;
-    const D = s * Math.max(20, eye.z ?? rest);
+    // However near the eye comes, it stays clear of a kal-toh standing out of the screen.
+    const D = s * Math.max(20, 70 - depth, eye.z ?? rest);
     camera.position.copy(target)
       .addScaledVector(backward, s * depth + D)
       .addScaledVector(across, cx + ex)

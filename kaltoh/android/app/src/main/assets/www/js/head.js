@@ -12,7 +12,9 @@
 // player chooses, the page finds each iris itself instead (tracker.js, eyes-worker.js): an iris is
 // 11.7 mm across in nearly everyone. A one-euro filter steadies each axis without lagging fast
 // moves, and the eye is carried ahead along its motion by the camera's delay, so the view does not
-// trail the head.
+// trail the head - but only once the head is truly moving, since carried ahead a still head's
+// shimmer would only grow. What shimmer is left, smaller than a hair's breadth, is let be, and the
+// view glides between sightings rather than stepping.
 //
 // Where the player first settles is the centre for the tuning's gains, the distance the kal-toh
 // is framed for, and (unless the tuning says the middle of the screen) straight ahead. It does
@@ -24,6 +26,21 @@ const RAD = Math.PI / 180;
 const LOST = 600; // ms without a sighting before the view eases back to rest
 const NATIVE_LAG = 70; // ms: the rough Android trackers' sightings are about this old when they arrive
 const FACE_WIDTH = 150; // mm: the box round a face, when its eyes are not found
+// How fast (mm/s) the head must move before the eye is carried ahead along its motion: none below
+// the first, all of it from the second.
+const MOVING = { xy: [35, 160], z: [60, 300] };
+// Shimmer smaller than this (mm) is let be: the view moves only by what goes beyond it.
+const BAND = { xy: 1.4, z: 4 };
+const GLIDE = 0.05; // s: the view eases toward each new sighting over this ...
+const Z_GLIDE = 0.4; // ... and its distance, which no one changes quickly, over this
+const ramp = (v, [lo, hi]) => {
+  const t = clamp((Math.abs(v) - lo) / (hi - lo), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+const band = (held, value, width) => {
+  const d = value - held;
+  return Math.abs(d) <= width ? held : value - Math.sign(d) * width;
+};
 // What finds the face, as the tuning pages say it.
 const ENGINES = {
   mlkit: "the phone's face finder (ML Kit)",
@@ -90,9 +107,14 @@ export class Head {
   // Forget the centre: the next sightings set it afresh.
   recentre() {
     this.calibration = [];
+    this.distances = [];
+    this.yaw = null;
     this.rest = null; // { x, y, z } mm
     this.filters = { x: new OneEuro(), y: new OneEuro(), z: new OneEuro() };
     this.last = null; // { t: ms, x, y, z, vx, vy, vz } filtered, at the time of the frame
+    this.held = null; // where the eye is taken to be, shimmer let be
+    this.distances = []; // the last few distances seen, for their median
+    this.yaw = null; // how far the head is turned, steadied
     this.seenAt = -Infinity;
     this.nativeSize = null;
   }
@@ -139,8 +161,10 @@ export class Head {
   // (its middle and width), how far the head is turned aside (degrees), and the picture's age (ms).
   face(leftX, leftY, rightX, rightY, boxX, boxY, boxWidth, width, height, yaw, age) {
     const f = Math.max(width, height) / 2 / Math.tan((this.fovLong() / 2) * RAD);
-    // Turned aside, the eyes (and the face) look narrower than they are.
-    const turned = Math.cos(clamp(Math.abs(yaw) || 0, 0, 60) * RAD);
+    // Turned aside, the eyes (and the face) look narrower than they are. The turn is only roughly
+    // known from one picture to the next: steadied, so its shimmer does not become the distance's.
+    this.yaw = this.yaw === null ? yaw || 0 : this.yaw + ((yaw || 0) - this.yaw) * 0.15;
+    const turned = Math.cos(clamp(Math.abs(this.yaw), 0, 60) * RAD);
     let at;
     let z;
     if (Number.isFinite(leftX) && Number.isFinite(rightX)) {
@@ -187,12 +211,16 @@ export class Head {
     const { steady, quick } = this.tuning;
     const t = capture / 1000;
     const f = this.filters;
+    // The distance is the noisiest: the median of the last five first, so a stray one is let go.
+    this.distances.push(z);
+    if (this.distances.length > 5) this.distances.shift();
+    const zm = [...this.distances].sort((p, q) => p - q)[this.distances.length >> 1];
     this.last = {
       t: capture,
       x: f.x.filter(x, t, steady, quick),
       y: f.y.filter(y, t, steady, quick),
-      // Distance is the noisiest: steadied twice as much.
-      z: f.z.filter(z, t, steady / 2, quick),
+      // And then steadied, never hurried by its own jumps (they are mostly the eyes' shimmer).
+      z: f.z.filter(zm, t, steady, 0),
       vx: f.x.dx,
       vy: f.y.dx,
       vz: f.z.dx,
@@ -211,19 +239,29 @@ export class Head {
       return;
     }
     const { shift, lean, ahead } = this.tuning;
-    // Carried forward by the time the sighting has taken to reach the screen.
+    // Carried forward by the time the sighting has taken to reach the screen, as far as the head
+    // is truly moving.
     const lead = clamp(ahead === 'auto' ? now - this.last.t + 8 : ahead, 0, 160) / 1000;
     const p = this.last;
     const r = this.rest;
-    const x = p.x + p.vx * lead;
-    const y = p.y + p.vy * lead;
-    const z = p.z + p.vz * lead;
-    // Seen from where the eye truly is, or with where it first rested taken as straight ahead.
+    const across = lead * ramp(Math.hypot(p.vx, p.vy), MOVING.xy);
+    const x = p.x + p.vx * across;
+    const y = p.y + p.vy * across;
+    const z = p.z + p.vz * lead * ramp(p.vz, MOVING.z);
+    // Shimmer within a hair's breadth is let be.
+    const held = (this.held ??= { x, y, z });
+    held.x = band(held.x, x, BAND.xy);
+    held.y = band(held.y, y, BAND.xy);
+    held.z = band(held.z, z, BAND.z);
+    // Seen from where the eye truly is, or with where it first rested taken as straight ahead;
+    // eased toward it, so the view glides from one sighting to the next.
     const ox = this.tuning.origin === 'screen' ? r.x : 0;
     const oy = this.tuning.origin === 'screen' ? r.y : 0;
-    this.view.x = ox + (x - r.x) * shift;
-    this.view.y = oy + (y - r.y) * shift;
-    this.view.z = clamp(r.z + (z - r.z) * lean, 60, 2000);
+    const k = 1 - Math.exp(-dt / GLIDE);
+    const vz = this.view.z ?? r.z;
+    this.view.x += (ox + (held.x - r.x) * shift - this.view.x) * k;
+    this.view.y += (oy + (held.y - r.y) * shift - this.view.y) * k;
+    this.view.z = vz + (clamp(r.z + (held.z - r.z) * lean, 60, 2000) - vz) * (1 - Math.exp(-dt / Z_GLIDE));
   }
 
   // Whether the eyes have been seen lately (while on).

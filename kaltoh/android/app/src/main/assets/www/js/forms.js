@@ -484,7 +484,7 @@ export class FormsGame {
       const { joined, discord } = game.stats[i];
       return { now: i === game.current && !game.complete, score: ofText(joined, joined + discord) };
     });
-    const lines = [TEXT.lift, CLASSIC.touch, MANY.angles, MANY.corners, MANY.holds, MANY.outer, loopsText(F.progress(game)), TEXT.translate];
+    const lines = [TEXT.lift, CLASSIC.touch, MANY.angles, MANY.corners, MANY.holds, MANY.outer, loopsText(F.progress(game)), TEXT.rim];
     this.ctx.engraving.set({ seats, lines, plays: this.plays, testAllowed: true });
   }
 

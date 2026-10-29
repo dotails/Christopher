@@ -3,8 +3,10 @@
 // the glyphs that act - the ways to play, testing the spin, the hologram, beginning anew. Turn
 // the base over to read it: whichever way it is tipped, the carving is found with its top up.
 //
-// It is carved in Vulcan. A touch anywhere on it but a glyph or a value translates all of it:
-// the carving smooths away to bare stone, and the other script is cut in its place, as deep.
+// It is carved in Vulcan. The Starfleet delta among the glyphs translates all of it: the carving
+// smooths away to bare stone, and the other script is cut in its place, as deep. Within its
+// framing circle the carving is for touching - glyphs, values, and sliders drawn along their
+// grooves - and the stone is turned by its rim (input.js).
 //
 // The medallion's frame is cut into the stone for good. Its words and glyphs are a second layer
 // whose depth the shader can scale (relief, darkened grooves and glow alike), so they can be
@@ -174,6 +176,7 @@ export class Engraving {
   // recutting, and cut what has changed.
   update(camera, dt) {
     const { facing } = this.facing(camera);
+    this.facingNow = facing;
     if (facing < UNSEEN) this.seen = false;
     else if (!this.seen && facing > SEEN) {
       this.seen = true;
@@ -243,13 +246,17 @@ export class Engraving {
     gl.fillRect(0, 0, SIZE, SIZE);
     this.layer = this.carve;
     this.regions = [];
+    this.drawPage();
+    buildRelief(mask, glow, this.relief, false);
+    this.carveColor.needsUpdate = true;
+    this.carveRelief.needsUpdate = true;
+  }
+
+  drawPage() {
     if (this.page === 'ways') this.drawWays();
     else if (this.page === 'rules') this.drawRules();
     else if (this.page === 'tune') this.drawTune();
     else this.drawMain();
-    buildRelief(mask, glow, this.relief, false);
-    this.carveColor.needsUpdate = true;
-    this.carveRelief.needsUpdate = true;
   }
 
   // Cut into a layer: the stone (a bright lower lip and a dark groove), the depth mask (for the
@@ -343,6 +350,48 @@ export class Engraving {
     });
   }
 
+  // A slider: a groove from silent to full, a knob where the value is, and the value in numerals
+  // beyond. Touching anywhere along it, or drawing a finger along it, sets the value.
+  slider(key, x, y, width) {
+    const value = Math.max(0, Math.min(1, this.settings[key] ?? 0));
+    const x0 = x - width / 2;
+    const x1 = x + width / 2;
+    const at = x0 + (x1 - x0) * value;
+    this.cut((g, color) => {
+      g.strokeStyle = color;
+      g.lineCap = 'round';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(x0, y);
+      g.lineTo(x1, y);
+      g.stroke();
+      // Ticks at silent, half and full.
+      for (const t of [0, 0.5, 1]) {
+        g.beginPath();
+        g.moveTo(x0 + (x1 - x0) * t, y - 10);
+        g.lineTo(x0 + (x1 - x0) * t, y + 10);
+        g.stroke();
+      }
+    }, 0.3);
+    this.cut((g, color) => {
+      // The groove filled as far as the value, and the knob.
+      g.strokeStyle = color;
+      g.fillStyle = color;
+      g.lineCap = 'round';
+      g.lineWidth = 7;
+      g.beginPath();
+      g.moveTo(x0, y);
+      g.lineTo(at, y);
+      g.stroke();
+      g.beginPath();
+      g.arc(at, y, 14, 0, Math.PI * 2);
+      g.fill();
+    }, 0.75);
+    const text = `${Math.round(value * 100)}%`;
+    this.line(`slider:${key}:value`, { v: text, s: text }, x1 + 62, y, { size: 26, max: 90, lit: 0.5, numerals: true });
+    this.regions.push({ kind: 'slider', id: `slider:${key}`, key, x: x0 - 30, y: y - 34, w: x1 - x0 + 60, h: 68, x0, x1, y0: y });
+  }
+
   // Page marks: one dot for each page, the current one larger.
   dots(count, current, y) {
     for (let i = 0; i < count; i++) {
@@ -398,7 +447,7 @@ export class Engraving {
       if (named) this.playMarks(plays.filter((p) => p.player === i).map((p) => p.mark), x, y + 62, seat.now);
     });
     this.line('event', event, C, 352, { size: 38, max: 2 * chord(352) - 90, lit: 0.6 });
-    const lines = this.state.lines ?? [TEXT.lift, TEXT.touch, TEXT.ring, TEXT.hold, formText(this.settings.form), TEXT.turn, TEXT.shake, TEXT.translate];
+    const lines = this.state.lines ?? [TEXT.lift, TEXT.touch, TEXT.ring, TEXT.hold, formText(this.settings.form), TEXT.turn, TEXT.shake, TEXT.rim];
     lines.forEach((text, i) => {
       const y = 398 + i * 44;
       this.line(`l${i}`, text, C, y, { size: 30, max: 2 * chord(y) - 80 });
@@ -406,6 +455,7 @@ export class Engraving {
     const glyphs = [{ name: 'ways', label: TEXT.ways }];
     if (this.state.testAllowed) glyphs.push({ name: 'test', label: TEXT.test });
     glyphs.push({ name: 'lens', label: this.state.hologram ? TEXT.lensOn : TEXT.lensOff, on: this.state.hologram });
+    glyphs.push({ name: 'translate', label: TEXT.translateGlyph });
     glyphs.push({ name: 'anew', label: TEXT.anew, on: this.state.pending });
     this.glyphRow(glyphs, GLYPHS_Y);
   }
@@ -430,7 +480,7 @@ export class Engraving {
     const pages = [[]];
     let used = 0;
     for (const o of this.visibleOptions()) {
-      const h = o.choices.some((c) => c[3]) ? 106 : 80;
+      const h = o.slider ? 80 : o.choices.some((c) => c[3]) ? 106 : 80;
       if (used + h > PAGE_HEIGHT && pages[pages.length - 1].length) {
         pages.push([]);
         used = 0;
@@ -471,6 +521,13 @@ export class Engraving {
     let y = 228;
     for (const o of pages[this.wayPage]) {
       const max = Math.min(ROW_MAX, 2 * chord(y + 16) - 90);
+      if (o.slider) {
+        // Its name, and beneath it a groove to draw the finger along.
+        this.line(`row:${o.key}`, { v: o.v, s: o.s }, C, y, { size: 25, max, lit: 0.22 });
+        this.slider(o.key, C, y + 40, Math.min(420, max - 150));
+        y += 80;
+        continue;
+      }
       const choice = o.choices.find(([value]) => value === this.settings[o.key]) ?? o.choices[0];
       // The name of the way, its value beneath (touch to change), and what that means.
       this.line(`row:${o.key}`, { v: o.v, s: o.s }, C, y, { size: 25, max, lit: 0.22 });
@@ -564,8 +621,17 @@ export class Engraving {
   // New live figures on the tuning page: recut just their strip of the carving.
   setReadout(lines) {
     this.state.readout = lines;
-    if (this.page !== 'tune' || this.phase !== 'still' || this.dirty) return;
-    const { x, y, w, h } = READOUT;
+    if (this.page !== 'tune') return;
+    this.recutStrip(READOUT, () => this.drawReadout());
+  }
+
+  // Recut one strip of the carving as it now stands (by default, the page drawn again within it),
+  // quickly, without smoothing it away: live figures, a slider being drawn along.
+  recutStrip({ x, y, w, h }, draw = () => this.drawPage()) {
+    if (this.phase !== 'still' || this.dirty) {
+      this.dirty = true;
+      return;
+    }
     const { color, mask, glow } = this.carve;
     color.getContext('2d').clearRect(x, y, w, h);
     mask.getContext('2d').clearRect(x, y, w, h);
@@ -582,7 +648,7 @@ export class Engraving {
       c.rect(x, y, w, h);
       c.clip();
     }
-    this.drawReadout();
+    draw();
     for (const c of g) c.restore();
     this.regions = keep;
     buildRelief(mask, glow, this.relief, false, { x: x - 4, y: y - 4, w: w + 8, h: h + 8 });
@@ -603,30 +669,56 @@ export class Engraving {
 
   // --- Touch ---------------------------------------------------------------------------------
 
-  // A tap at CSS pixel (x, y). Returns true if it fell on the underside (and was used).
-  tap(x, y) {
+  // The point of the carving under CSS pixel (x, y), in canvas pixels, if the carving is what is
+  // seen there (in front of the stone, its face to the eye).
+  pointAt(x, y) {
     const { stage } = this;
     const ndc = new THREE.Vector2((x / stage.size.width) * 2 - 1, -(y / stage.size.height) * 2 + 1);
     this.raycaster.setFromCamera(ndc, stage.camera);
     const hit = this.raycaster.intersectObjects([this.baseMesh, this.mesh], false)[0];
-    if (!hit || !this.seen) return false;
-    if (hit.object !== this.mesh) {
-      // The stone around the medallion: its underside translates too, its sides and basin do not.
-      const local = stage.baseRoot.worldToLocal(hit.point.clone());
-      if (local.y > -PIVOT.y + 0.06) return false;
-      this.translate();
-      this.onAction?.('translate');
-      return true;
-    }
-    const px = hit.uv.x * SIZE;
-    const py = (1 - hit.uv.y) * SIZE;
-    // The most specific region under the finger.
-    const region = this.regions.filter((r) => r.kind !== 'line' && px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h)
-      .sort((a, b) => a.w * a.h - b.w * b.h)[0];
-    if (!region) {
-      this.translate();
-      this.onAction?.('translate');
-    } else if (region.kind === 'value') {
+    if (!hit || hit.object !== this.mesh) return null;
+    return { px: hit.uv.x * SIZE, py: (1 - hit.uv.y) * SIZE };
+  }
+
+  // Is a finger within the framing circle of a carving that faces the eye? There it touches the
+  // carving, and turns nothing.
+  covers(x, y) {
+    return this.seen && (this.facingNow ?? 0) > 0.25 && this.pointAt(x, y) !== null;
+  }
+
+  // The most specific region under a canvas point.
+  regionAt(px, py, kinds) {
+    return this.regions.filter((r) => kinds.includes(r.kind) && px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h)
+      .sort((a, b) => a.w * a.h - b.w * b.h)[0] ?? null;
+  }
+
+  // The slider under a finger, if any.
+  sliderAt(x, y) {
+    if (!this.covers(x, y) || this.phase === 'smoothing') return null;
+    const at = this.pointAt(x, y);
+    return at ? this.regionAt(at.px, at.py, ['slider']) : null;
+  }
+
+  // A finger on a slider: its value follows the finger along the groove.
+  slide(region, x, y) {
+    const at = this.pointAt(x, y);
+    if (!at) return;
+    const value = Math.round(Math.max(0, Math.min(1, (at.px - region.x0) / (region.x1 - region.x0))) * 100) / 100;
+    if (value === this.settings[region.key]) return;
+    this.settings[region.key] = value;
+    this.onOption?.(region.key, value);
+    this.recutStrip({ x: region.x - 10, y: region.y, w: region.w + 140, h: region.h });
+  }
+
+  // A tap at CSS pixel (x, y). Returns true if it fell on the carving (and was used).
+  tap(x, y) {
+    if (!this.seen) return false;
+    const at = this.pointAt(x, y);
+    if (!at) return false;
+    const { px, py } = at;
+    const region = this.regionAt(px, py, ['value', 'step', 'button', 'slider']);
+    if (!region) return true;
+    if (region.kind === 'value') {
       const option = OPTIONS.find((o) => o.key === region.key);
       const i = option.choices.findIndex(([value]) => value === this.settings[option.key]);
       const next = option.choices[(i + 1) % option.choices.length][0];
@@ -642,6 +734,8 @@ export class Engraving {
         this.dirty = true;
         this.onTune?.(t.key, next);
       }
+    } else if (region.kind === 'slider') {
+      this.slide(region, x, y);
     } else if (region.kind === 'button') {
       this.press(region.id);
     }
@@ -670,6 +764,10 @@ export class Engraving {
         this.page = to;
       });
       this.onAction?.('page', to);
+      return;
+    } else if (name === 'translate') {
+      this.translate();
+      this.onAction?.('translate');
       return;
     } else if (name === 'more' || name === 'prev') {
       const by = name === 'more' ? 1 : -1;
@@ -877,6 +975,25 @@ const GLYPHS = {
     g.stroke();
     g.beginPath();
     g.arc(0, 0, 4.5, 0, Math.PI * 2);
+    g.fill();
+  },
+  // Starfleet's delta: an arrowhead, its sides gently bowed, its foot cut back in an arc, and a
+  // star at its heart. It translates the carving.
+  translate(g) {
+    g.beginPath();
+    g.moveTo(0, -37);
+    g.quadraticCurveTo(12, -4, 25, 33);
+    g.quadraticCurveTo(0, 12, -25, 33);
+    g.quadraticCurveTo(-12, -4, 0, -37);
+    g.closePath();
+    g.stroke();
+    g.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const r = i % 2 ? 3.2 : 9;
+      const a = (i * Math.PI) / 4 - Math.PI / 2;
+      g.lineTo(Math.cos(a) * r, 6 + Math.sin(a) * r);
+    }
+    g.closePath();
     g.fill();
   },
 };

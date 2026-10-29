@@ -1,13 +1,37 @@
 // Sound, synthesized rather than recorded. A struck t'an rings with the partials of a free
 // metal bar (1 : 2.756 : 5.404 : 8.933); harmony answers in just intonation; discord beats.
+// Beneath it, music: a recording looping quietly (MUSIC), if there is one. Each has a level of its
+// own, from silent to full (the sliders carved under the base).
 const BAR = [1, 2.756, 5.404, 8.933];
 const BAR_GAIN = [1, 0.45, 0.22, 0.1];
 // Just-intonation pentatonic: the simplest ratios, as a Vulcan instrument maker might choose.
 const SCALE = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2];
+// The recording, when there is one in the assets (null: none yet, and the music slider rests).
+const MUSIC = null;
+const MUSIC_FULL = 0.55; // the music's gain at full, beneath the t'an
+const SFX_FULL = 0.6;
 
 export class Sound {
   constructor() {
     this.ctx = null;
+    this.sfx = 0.8;
+    this.musicLevel = 0.6;
+    this.music = null; // the recording, once there is a gesture to start it
+    this.musicGain = null;
+    this.musicMissing = false;
+    this.hidden = false;
+  }
+
+  // The levels of the music and of the sound effects, each from 0 (silent) to 1 (full).
+  setVolumes(music, sfx) {
+    this.musicLevel = music;
+    this.sfx = sfx;
+    if (this.master) this.master.gain.value = SFX_FULL * sfx;
+    this.applyMusic();
+  }
+
+  get muted() {
+    return this.sfx <= 0.001;
   }
 
   // Audio may only start from a user gesture.
@@ -18,7 +42,7 @@ export class Sound {
       const ctx = new AC();
       this.ctx = ctx;
       this.master = ctx.createGain();
-      this.master.gain.value = 0.6;
+      this.master.gain.value = SFX_FULL * this.sfx;
       const limiter = ctx.createDynamicsCompressor();
       limiter.threshold.value = -12;
       limiter.ratio.value = 4;
@@ -32,15 +56,58 @@ export class Sound {
       const data = this.noise.getChannelData(0);
       for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state === 'suspended' && !this.hidden) this.ctx.resume();
+    this.startMusic();
+  }
+
+  // The music begins with the first touch (a page may not play sound before one), fading in.
+  startMusic() {
+    if (!MUSIC) return;
+    if (!this.ctx || this.music || this.musicMissing) {
+      this.applyMusic();
+      return;
+    }
+    const el = new Audio(MUSIC);
+    el.loop = true;
+    el.preload = 'auto';
+    el.addEventListener('error', () => {
+      this.musicMissing = true;
+    });
+    try {
+      // Through the audio graph, so its level eases rather than jumps.
+      const source = this.ctx.createMediaElementSource(el);
+      this.musicGain = this.ctx.createGain();
+      this.musicGain.gain.value = 0;
+      source.connect(this.musicGain).connect(this.ctx.destination);
+    } catch {
+      this.musicGain = null;
+    }
+    this.music = el;
+    this.applyMusic();
+  }
+
+  // Play the music at its level, or pause it when silenced or out of sight.
+  applyMusic() {
+    const el = this.music;
+    if (!el || this.musicMissing) return;
+    const level = this.musicLevel * MUSIC_FULL;
+    const play = level > 0.001 && !this.hidden;
+    if (this.musicGain) this.musicGain.gain.setTargetAtTime(play ? level : 0, this.ctx.currentTime, 0.4);
+    else el.volume = Math.min(1, level);
+    if (play && el.paused) el.play().catch(() => {});
+    else if (!play && !el.paused) el.pause();
   }
 
   suspend() {
+    this.hidden = true;
+    this.music?.pause();
     this.ctx?.suspend();
   }
 
   resume() {
+    this.hidden = false;
     if (this.ctx?.state === 'suspended') this.ctx.resume();
+    this.applyMusic();
   }
 
   impulse(seconds) {

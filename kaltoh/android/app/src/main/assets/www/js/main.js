@@ -75,7 +75,7 @@ let completeGlow = 0;
 const haptic = (kind) => {
   if (settings.haptics) native.haptic(kind);
 };
-sound.muted = !settings.sound;
+sound.setVolumes(settings.music, settings.sfx);
 // What the kal-toh says goes into its stone.
 const say = (text) => engraving?.setEvent(text);
 
@@ -317,6 +317,20 @@ function stoneAt(x, y) {
   return baseRay.intersectObject(baseModel.mesh, false)[0] ?? null;
 }
 
+// The ends on screen of a t'an carried between two fingers: along them, centred between them,
+// its own length out at the kal-toh. Where its ends are is where it lands.
+function rodEnds(f1, f2) {
+  const anchor = stage.assemblyRoot.position;
+  const a = stage.fromScreen(f1.x, f1.y, anchor, new THREE.Vector3());
+  const b = stage.fromScreen(f2.x, f2.y, anchor, new THREE.Vector3());
+  const dir = b.clone().sub(a);
+  if (dir.lengthSq() < 1e-10) dir.set(1, 0, 0);
+  dir.normalize();
+  const mid = a.add(b).multiplyScalar(0.5);
+  const half = tray.length / 2;
+  return [stage.toScreen(mid.clone().addScaledVector(dir, -half)), stage.toScreen(mid.clone().addScaledVector(dir, half))];
+}
+
 // Is a finger on the stone, or within a fingertip of its edge? Only there does a drag turn it.
 const NEAR_STONE = [[0, 0], [18, 0], [-18, 0], [0, 18], [0, -18], [13, 13], [-13, 13], [13, -13], [-13, -13]];
 function touchesBase(x, y) {
@@ -458,8 +472,15 @@ const input = new Input(canvas, {
     return motion;
   },
   pickRod,
+  rodEnds,
   touchesAssembly,
   touchesBase,
+  // With the base turned over, the carving within its framing circle is for touching.
+  touchesCarving: (x, y) => Boolean(engraving?.covers(x, y)),
+  sliderAt: (x, y) => engraving?.sliderAt(x, y) ?? null,
+  onSlide(slider, x, y) {
+    engraving.slide(slider, x, y);
+  },
   canLift: () => (shaped() ? shaped().canLift() : phase === 'play' && humanTurn() && !hand.holding && !hand.flight),
   canSpin: () => (shaped()
     ? shaped().hasRods && !['intro', 'dissolving'].includes(shaped().phase)
@@ -936,12 +957,24 @@ function onEngravedTune(key) {
   }
 }
 
+const sliderTenths = {};
 function onEngravedOption(key, value) {
   saveSettings(settings);
-  engraving.set({ pending: shapeOf(settings) !== begunWith });
+  const pending = shapeOf(settings) !== begunWith;
+  if (pending !== Boolean(engraving.state.pending)) engraving.set({ pending });
   sound.wake();
+  if (key === 'music' || key === 'sfx') {
+    sound.setVolumes(settings.music, settings.sfx);
+    // Drawn along a slider, a tick at each tenth (and for the sound effects, a sound at its level).
+    const tenth = Math.round(value * 10);
+    if (tenth !== sliderTenths[key]) {
+      haptic('tick');
+      if (key === 'sfx') sound.hover();
+    }
+    sliderTenths[key] = tenth;
+    return;
+  }
   haptic('tick');
-  if (key === 'sound') sound.muted = !value;
   if (key === 'hologram') setHologram(value, false);
   if (key === 'strain') refreshStrain();
   if (key === 'language' && engraving.standard !== (value === 'standard')) engraving.translate();
@@ -1244,6 +1277,8 @@ window.__kaltoh = {
   requestSpinTest,
   touchesAssembly,
   touchesBase,
+  rodEnds,
+  sound,
   baseSurface: (r) => baseModel?.surface(r) ?? 0,
   get aim() {
     return aim;
