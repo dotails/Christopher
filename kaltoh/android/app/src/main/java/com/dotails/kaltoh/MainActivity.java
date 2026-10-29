@@ -6,6 +6,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -15,9 +16,13 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.AudioAttributes;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
@@ -55,6 +60,10 @@ import java.util.Locale;
  * (HeadTracker; never shown or kept), and tells the page the screen's true size and where the
  * camera sits, so the screen can be drawn as a window. The page can instead watch the camera for
  * the player's eyes itself, if they choose; then the shell grants it the camera.
+ *
+ * The game's music plays here rather than in the page: a page's media takes the phone's audio
+ * focus, which pauses whatever else is playing. This player never asks for it, so the music plays
+ * along with any other app's sound.
  */
 public class MainActivity extends Activity implements SensorEventListener {
     private static final String HOST = "appassets.androidplatform.net";
@@ -201,12 +210,14 @@ public class MainActivity extends Activity implements SensorEventListener {
             sensors.registerListener(this, motion, SensorManager.SENSOR_DELAY_GAME);
         }
         immerse();
+        resumeMusic();
         if (pageReady) run("window.kaltoh&&window.kaltoh.resume()");
         if (headWanted && cameraAllowed()) startHead();
     }
 
     @Override
     protected void onPause() {
+        pauseMusic();
         if (pageReady) run("window.kaltoh&&window.kaltoh.pause()");
         if (sensors != null) sensors.unregisterListener(this);
         stopHead(); // never hold the camera while the game is out of sight
@@ -217,6 +228,11 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     @Override
     protected void onDestroy() {
+        musicFade.removeCallbacksAndMessages(null);
+        if (music != null) {
+            music.release();
+            music = null;
+        }
         if (web != null) {
             web.destroy();
             web = null;
@@ -498,8 +514,77 @@ public class MainActivity extends Activity implements SensorEventListener {
         }
     }
 
+    // --- Music ----------------------------------------------------------------------------------
+
+    private MediaPlayer music;
+    private boolean musicReady;
+    private boolean musicAway; // the game is out of sight
+    private float musicLevel; // as the page asks, 0 to 1
+    private float musicNow; // as heard, easing toward it
+    private final Handler musicFade = new Handler(Looper.getMainLooper());
+    private final Runnable musicStep = this::stepMusic;
+
+    private void setMusic(float level) {
+        musicLevel = Math.max(0f, Math.min(1f, level));
+        if (musicLevel > 0 && music == null) openMusic();
+        musicFade.removeCallbacks(musicStep);
+        musicFade.post(musicStep);
+    }
+
+    // Never given audio focus (it is never asked for): other apps play on, and this mixes in.
+    private void openMusic() {
+        try (AssetFileDescriptor fd = getAssets().openFd("www/assets/music.mp3")) {
+            MediaPlayer player = new MediaPlayer();
+            player.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build());
+            player.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
+            player.setLooping(true);
+            player.setVolume(0f, 0f);
+            player.setOnPreparedListener(prepared -> {
+                musicReady = true;
+                musicFade.post(musicStep);
+            });
+            player.prepareAsync();
+            music = player;
+        } catch (IOException | RuntimeException failed) {
+            music = null; // without it the game is simply quieter
+        }
+    }
+
+    // Eased toward the level asked for (over a second or so), playing while above silence and
+    // paused once it reaches it.
+    private void stepMusic() {
+        if (music == null || !musicReady) return;
+        float target = musicAway ? 0f : musicLevel;
+        musicNow += (target - musicNow) * 0.1f;
+        if (Math.abs(target - musicNow) < 0.004f) musicNow = target;
+        music.setVolume(musicNow, musicNow);
+        if (musicNow > 0 && !music.isPlaying()) music.start();
+        if (musicNow == 0 && music.isPlaying()) music.pause();
+        if (musicNow != target) musicFade.postDelayed(musicStep, 30);
+    }
+
+    private void pauseMusic() {
+        musicAway = true;
+        musicFade.removeCallbacks(musicStep);
+        if (music != null && musicReady && music.isPlaying()) music.pause();
+        musicNow = 0;
+    }
+
+    private void resumeMusic() {
+        musicAway = false;
+        musicFade.post(musicStep);
+    }
+
     /** Called from the page as window.KalTohAndroid. */
     private final class Bridge {
+        @JavascriptInterface
+        public void music(float level) {
+            runOnUiThread(() -> setMusic(level));
+        }
+
         @JavascriptInterface
         public void haptic(String kind) {
             runOnUiThread(() -> buzz(kind));

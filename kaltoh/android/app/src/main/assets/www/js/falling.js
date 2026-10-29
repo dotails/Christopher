@@ -4,7 +4,7 @@
 // in its basin. Fallen t'an stay where they lie until a new game begins; then they fade away.
 import * as THREE from '../vendor/three.module.min.js';
 import * as G from './geom.js';
-import { PIVOT, FLOOR } from './scene.js';
+import { FLOOR } from './scene.js';
 import { ROD_WIDTH } from './rodmesh.js';
 
 const STEP = 1 / 120;
@@ -81,10 +81,12 @@ export class Falling {
   }
 
   update(dt) {
-    // While the stone or the t'an on it move, whatever lies on or near the stone must move too.
+    // While the stone or the t'an on it move, whatever lies on or near the stone must move too
+    // (and coming down to the floor, what lies there beside it).
     const stoneStill = this.motion.asleep;
+    const centre = this.motion.centre;
     for (const r of this.rods) {
-      if (r.asleep && !stoneStill && !r.onFloor && r.mid.distanceTo(PIVOT) < NEAR_STONE) this.wake(r);
+      if (r.asleep && !stoneStill && (!r.onFloor || this.motion.grounding) && r.mid.distanceTo(centre) < NEAR_STONE) this.wake(r);
     }
     this.prepareObstacles();
     this.acc = Math.min(this.acc + dt, 0.1);
@@ -105,7 +107,7 @@ export class Falling {
         if (r.leaving > LEAVE) this.rods.splice(i, 1);
         continue;
       }
-      if (!r.asleep && r.still > SETTLE && (r.onFloor || stoneStill || r.mid.distanceTo(PIVOT) >= NEAR_STONE)) this.sleep(r);
+      if (!r.asleep && r.still > SETTLE && (r.onFloor || stoneStill || r.mid.distanceTo(centre) >= NEAR_STONE)) this.sleep(r);
     }
   }
 
@@ -217,7 +219,14 @@ export class Falling {
       const slope = base.slope(rr);
       local.set(rr > 1e-6 ? (-slope * point.x) / rr : 0, 1, rr > 1e-6 ? (-slope * point.z) / rr : 0).normalize();
       let depth = (top - point.y) * local.y;
-      if (point.y + CLEAR < depth) {
+      if (m.drop > 0.01) {
+        // The stone down on the floor: what lies beneath its foot is squeezed out sideways.
+        const side = base.radius - rr + CLEAR;
+        if (point.y < 0.08 && side < depth && rr > 1e-6) {
+          depth = side;
+          local.set(point.x / rr, 0, point.z / rr);
+        }
+      } else if (point.y + CLEAR < depth) {
         depth = point.y + CLEAR;
         local.set(0, -1, 0);
       }

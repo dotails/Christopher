@@ -79,7 +79,8 @@ export function createScene(canvas) {
     distance: 8, // from the eye to the target
     zoom: 1,
     focus: { x: 0.5, y: 0.4 }, // where the target sits on screen (fractions of width, height)
-    target: PIVOT.clone(),
+    // The pivot as the stone rests on the floor, level (motion.js): tipped, it rises above it.
+    target: new THREE.Vector3(PIVOT.x, PIVOT.y + FLOOR, PIVOT.z),
     // Turning the base over to read its underside brings the eye to it: k from 0 to 1, and the
     // point to look at.
     read: { k: 0, center: PIVOT.clone() },

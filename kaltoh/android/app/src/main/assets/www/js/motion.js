@@ -10,8 +10,13 @@
 // The two never pass through each other. While the assembly is being turned (by hand, by its
 // own momentum, or by the spin test) the base gives way just enough and comes back; when the
 // base is turned into the t'an they are bumped aside and drawn back into place.
+//
+// Level - its foot within ten degrees of facing straight down - the stone comes down to rest on the
+// floor, and the t'an with it; tipped further, toward the eye or away, it is lifted back to turn
+// freely about the pivot. It never passes into the floor: tipped a little as it rests, it rocks up
+// onto its edge.
 import * as THREE from '../vendor/three.module.min.js';
-import { PIVOT, SCALE } from './scene.js';
+import { PIVOT, SCALE, FLOOR } from './scene.js';
 
 const STEP = 1 / 120;
 const BASE_GLIDE = 0.6; // seconds for a released base to slow ...
@@ -22,6 +27,9 @@ const HOME = 30; // how firmly it is drawn back to the pivot after a bump (1/s^2
 const CLEAR = 0.022; // how far a t'an's centre line stays from the stone: half its thickness and a hair
 const SAMPLE = 0.02; // a t'an is tested against the stone this often along its length (world units)
 const BASE_RETURN = 0.6; // seconds for a base that gave way to come back
+const LEVEL = Math.cos((10 * Math.PI) / 180); // within ten degrees of upright, the stone rests on the floor
+const FALL = 9; // how fast it falls to the floor (world units/s^2)
+const LIFT = 45; // how firmly it is lifted back (1/s^2, critically damped)
 
 const v1 = new THREE.Vector3();
 const v2 = new THREE.Vector3();
@@ -85,6 +93,22 @@ export class Motion {
     this.restingNormal = new THREE.Vector3();
     this.asleep = false;
     this.stillFor = 0;
+    // How far the stone (and the t'an on it) has come down toward the floor, and how fast.
+    this.drop = 0;
+    this.dropV = 0;
+    this.dropTarget = 0;
+    this.landed = 0; // how hard it last came to rest on the floor (for its sound), until taken
+    this.centre = PIVOT.clone(); // the pivot, as far down as the stone has come
+    // Points round the stone's foot and its lip, about the pivot: its lowest point, however it is
+    // turned, is among them.
+    this.hull = [];
+    for (let i = 0; i < 32; i++) {
+      const a = (i / 32) * Math.PI * 2;
+      for (const y of [0, base.top]) this.hull.push(new THREE.Vector3(Math.cos(a) * base.radius, y - PIVOT.y, Math.sin(a) * base.radius));
+    }
+    // It begins as it rests, level on the floor.
+    this.drop = this.dropTarget = this.room();
+    this.centre.setY(PIVOT.y - this.drop);
   }
 
   // The t'an (assembly-local ends, THREE.Vector3 pairs) that must stay clear of the stone.
@@ -172,11 +196,57 @@ export class Motion {
 
   // World transform of an assembly-local point.
   toWorld(p, out) {
-    return out.copy(p).multiplyScalar(SCALE).applyQuaternion(this.q).add(this.pos).add(PIVOT);
+    return out.copy(p).multiplyScalar(SCALE).applyQuaternion(this.q).add(this.pos).add(this.centre);
   }
 
   toLocal(world, out) {
-    return out.copy(world).sub(PIVOT).sub(this.pos).applyQuaternion(qInv.copy(this.q).invert()).divideScalar(SCALE);
+    return out.copy(world).sub(this.centre).sub(this.pos).applyQuaternion(qInv.copy(this.q).invert()).divideScalar(SCALE);
+  }
+
+  // How far the stone, turned as it is, could come down before its lowest point met the floor.
+  room() {
+    let lowest = Infinity;
+    for (const p of this.hull) lowest = Math.min(lowest, v1.copy(p).applyQuaternion(this.baseQ).y);
+    return Math.max(0, PIVOT.y + lowest - FLOOR);
+  }
+
+  // Level, the stone comes down to rest on the floor; tipped, it is lifted back. Never into it.
+  ground(h) {
+    const level = v1.set(0, 1, 0).applyQuaternion(this.baseQ).y >= LEVEL;
+    const room = this.room();
+    this.dropTarget = level ? room : 0;
+    if (this.drop < this.dropTarget - 1e-6) {
+      // Falling.
+      this.dropV = Math.max(0, this.dropV) + FALL * h;
+      this.drop += this.dropV * h;
+      if (this.drop >= this.dropTarget) {
+        if (this.dropV > 0.5) this.landed = Math.max(this.landed, this.dropV);
+        this.drop = this.dropTarget;
+        this.dropV = 0;
+      }
+    } else {
+      // Lifted, or rocked up onto its edge.
+      this.dropV += (LIFT * (this.dropTarget - this.drop) - 2 * Math.sqrt(LIFT) * this.dropV) * h;
+      this.drop += this.dropV * h;
+    }
+    if (this.drop > room) {
+      this.drop = room;
+      this.dropV = Math.min(0, this.dropV);
+    }
+    if (this.drop < 0) {
+      this.drop = 0;
+      this.dropV = Math.max(0, this.dropV);
+    }
+    if (Math.abs(this.drop - this.dropTarget) < 1e-5 && Math.abs(this.dropV) < 1e-3) {
+      this.drop = this.dropTarget;
+      this.dropV = 0;
+    }
+    this.centre.copy(PIVOT).setY(PIVOT.y - this.drop);
+  }
+
+  // Still coming down to the floor, or going up from it.
+  get grounding() {
+    return Math.abs(this.drop - this.dropTarget) > 1e-5 || Math.abs(this.dropV) > 1e-3;
   }
 
   update(dt) {
@@ -191,7 +261,7 @@ export class Motion {
   step(h) {
     // At rest, nothing moves at all - until a hand, the base, or the stone itself disturbs it.
     if (this.asleep) {
-      if (this.baseDragged || this.baseW.lengthSq() > 0 || this.mode !== 'held') this.asleep = false;
+      if (this.baseDragged || this.baseW.lengthSq() > 0 || this.mode !== 'held' || this.grounding) this.asleep = false;
       else if (this.collide(h, true) > 0.003) this.asleep = false;
       else return;
     }
@@ -205,6 +275,7 @@ export class Motion {
       else this.baseW.multiplyScalar(slower / speed);
       integrate(this.baseQ, this.baseW, h);
     }
+    this.ground(h);
 
     // The assembly's turning.
     if (this.mode === 'spin') {
@@ -258,7 +329,7 @@ export class Motion {
     this.collide(h);
 
     // Settled - in its place on a base at rest, hardly moving - it goes still entirely.
-    const settled = this.mode === 'held' && !this.baseDragged && this.baseW.lengthSq() === 0 &&
+    const settled = this.mode === 'held' && !this.baseDragged && this.baseW.lengthSq() === 0 && !this.grounding &&
       this.baseOffset.lengthSq() === 0 && this.vel.length() < 0.004 && this.w.length() < 0.004 &&
       rotationTo(this.q, qTarget.copy(this.baseQ).multiply(this.anchor), v1).length() < 0.001;
     this.stillFor = settled ? this.stillFor + h : 0;
@@ -285,7 +356,7 @@ export class Motion {
     const normal = contactNormal;
     const at = contactAt;
     qInv.copy(this.baseQ).invert();
-    const origin = v2.copy(PIVOT).add(this.baseOffset);
+    const origin = v2.copy(this.centre).add(this.baseOffset);
     const high = base.top + CLEAR;
     for (const [pa, pb] of this.rods) {
       // Into the base's own frame: foot at y = 0, axis along y.
@@ -328,14 +399,14 @@ export class Motion {
     // stone grips steel, so it does not slide about on the slope either.
     this.pos.addScaledVector(normal, deepest);
     this.resting = this.restingNormal.copy(normal);
-    const surfaceV = v1.copy(this.baseW).cross(v2.copy(at).sub(PIVOT).sub(this.baseOffset));
+    const surfaceV = v1.copy(this.baseW).cross(v2.copy(at).sub(this.centre).sub(this.baseOffset));
     const push = Math.min(3, Math.max(0, surfaceV.dot(normal) - this.vel.dot(normal)));
     this.vel.addScaledVector(normal, push);
     const along = v3.copy(this.vel).addScaledVector(normal, -this.vel.dot(normal));
     this.vel.addScaledVector(along, -0.9);
     const blow = Math.max(0, surfaceV.dot(normal));
     if (blow > 0.02) {
-      const arm = v3.copy(at).sub(PIVOT).sub(this.pos);
+      const arm = v3.copy(at).sub(this.centre).sub(this.pos);
       this.w.addScaledVector(arm.cross(normal), Math.min(blow, 2) * 0.35);
     }
     this.scrape = Math.max(this.scrape, Math.min(1, blow * 2));
@@ -362,9 +433,9 @@ export class Motion {
 
   // Apply to the scene graph.
   apply(stage) {
-    stage.baseRoot.position.copy(PIVOT).add(this.baseOffset);
+    stage.baseRoot.position.copy(this.centre).add(this.baseOffset);
     stage.baseRoot.quaternion.copy(this.baseQ);
-    stage.assemblyRoot.position.copy(PIVOT).add(this.pos);
+    stage.assemblyRoot.position.copy(this.centre).add(this.pos);
     stage.assemblyRoot.quaternion.copy(this.q);
     stage.baseRoot.updateMatrixWorld();
     stage.assemblyRoot.updateMatrixWorld();
@@ -372,7 +443,7 @@ export class Motion {
 
   // The base's frame for other bodies (falling t'an): world point to base-local and back.
   baseLocal(world, out) {
-    out.copy(world).sub(PIVOT).sub(this.baseOffset).applyQuaternion(qInv.copy(this.baseQ).invert());
+    out.copy(world).sub(this.centre).sub(this.baseOffset).applyQuaternion(qInv.copy(this.baseQ).invert());
     out.y += PIVOT.y;
     return out;
   }
@@ -380,11 +451,12 @@ export class Motion {
   baseWorld(local, out) {
     out.copy(local);
     out.y -= PIVOT.y;
-    return out.applyQuaternion(this.baseQ).add(PIVOT).add(this.baseOffset);
+    return out.applyQuaternion(this.baseQ).add(this.centre).add(this.baseOffset);
   }
 
   // Velocity of the stone at a world point.
   baseVelocity(world, out) {
-    return out.copy(this.baseW).cross(v1.copy(world).sub(PIVOT).sub(this.baseOffset));
+    // (Coming down or going up, it moves straight down or up as well.)
+    return out.copy(this.baseW).cross(v1.copy(world).sub(this.centre).sub(this.baseOffset)).add(v2.set(0, -this.dropV, 0));
   }
 }

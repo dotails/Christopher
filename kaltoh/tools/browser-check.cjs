@@ -880,22 +880,27 @@ function check(condition, message) {
     await drag(await stoneSpot({ x: 206, y: 420 }), 0, 155);
     await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1 && !window.__kaltoh.engraving.seen, null, { timeout: 30000 });
     await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
+    await level();
+    await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
+    check(await page.evaluate(() => window.__kaltoh.motion.drop > 0.5), 'level, the stone has come down to rest on the floor');
     await page.evaluate(() => {
       const k = window.__kaltoh;
       const V = k.stage.camera.position.constructor;
+      // Heights above the stone's foot, wherever it now rests.
+      const foot = -k.motion.drop;
       for (let i = 0; i < 3; i++) {
         // Across the lip, at the front of the basin.
         const angle = ((i - 1) * Math.PI) / 3;
-        const c = new V(Math.sin(angle) * 0.64, 0.9, Math.cos(angle) * 0.64);
+        const c = new V(Math.sin(angle) * 0.64, foot + 0.9, Math.cos(angle) * 0.64);
         const along = new V(Math.cos(angle), 0, -Math.sin(angle)).multiplyScalar(0.315);
         k.falling.spawn(c.clone().sub(along), c.clone().add(along), new V(0, -0.2, 0), { spin: 0.4 });
         // And in front of the stone, onto the floor.
-        const d = new V((i - 1) * 0.6, 1.0, 1.1);
+        const d = new V((i - 1) * 0.6, foot + 1.0, 1.1);
         k.falling.spawn(d.clone().add(new V(-0.3, 0, 0)), d.clone().add(new V(0.3, 0, 0)), new V(0, 0, 0.3));
       }
       // Two into the basin itself, beneath the kal-toh.
       for (const side of [-1, 1]) {
-        const c = new V(side * 0.36, 0.45, 0);
+        const c = new V(side * 0.36, foot + 0.45, 0);
         k.falling.spawn(c.clone().add(new V(0, 0, -0.315)), c.clone().add(new V(0, 0, 0.315)), new V(0, -0.1, 0), { spin: 0.2 });
       }
     });
@@ -903,7 +908,7 @@ function check(condition, message) {
     await sleep(2000);
     const fallen = await page.evaluate(() => ({
       count: window.__kaltoh.falling.rods.length,
-      onStone: window.__kaltoh.falling.rods.filter((r) => r.mid.y > 0.1).length,
+      onStone: window.__kaltoh.falling.rods.filter((r) => r.mid.y > 0.1 - window.__kaltoh.motion.drop).length,
     }));
     check(fallen.count >= 8, `fallen t'an come to rest and stay (${fallen.onStone} on the stone, ${fallen.count - fallen.onStone} on the floor)`);
     const lying = await page.evaluate(() => window.nearest(window.__kaltoh.falling.rods.map((r) => [r.a, r.b])));

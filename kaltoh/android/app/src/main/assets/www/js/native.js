@@ -24,6 +24,17 @@ export const native = {
       // Without the camera the view simply stays still.
     }
   },
+  // The shell plays the music itself, alongside other apps' sound (a page's would silence them).
+  get music() {
+    return typeof bridge?.music === 'function';
+  },
+  playMusic(level) {
+    try {
+      bridge?.music(level);
+    } catch {
+      // Without it, the game is simply quieter.
+    }
+  },
   haptic(kind) {
     try {
       bridge?.haptic(kind);

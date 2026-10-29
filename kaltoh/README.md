@@ -22,7 +22,7 @@ Nothing is written on the screen. The title, the instructions and every control 
 the underside of the stone: tip the base over to read them, from whichever side you like. All of
 it is engraved black, like the frame round it; only the rings round the players' marks are painted,
 each in its player's colour. Ten minutes of ambience loop quietly beneath the play, starting with
-your first touch.
+your first touch; they play along with whatever else the phone is playing, never pausing it.
 
 <p align="center">
   <img src="docs/jumble.png" width="19%" alt="The jumble of the original game">
@@ -61,7 +61,7 @@ over an older one without uninstalling.
 
 | To | Do |
 |---|---|
-| Turn the base | Drag the stone (a fingertip off its edge counts). Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. **Two fingers** on the stone turn it as you see it instead: twist them and it turns about your line of sight, the same way round; move them together and it tumbles along with them; spread or pinch them to draw nearer or further. A drag on open space turns nothing, so a finger that only just misses the t'an at the foot of the screen sets nothing spinning. With the base turned over, grab it by its rim, outside the carving's framing circle: within the circle the carving is for touching, and nothing turns. |
+| Turn the base | Drag the stone (a fingertip off its edge counts). Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. Level - its foot within ten degrees of facing straight down - it rests on the floor, and spins there like a turntable; tip it further, toward you or away, and it lifts to turn freely, and set it level again and it falls back to the floor with a knock (tipped a little as it rests, it rocks up onto its edge, never into the floor). **Two fingers** on the stone turn it as you see it instead: twist them and it turns about your line of sight, the same way round; move them together and it tumbles along with them; spread or pinch them to draw nearer or further. A drag on open space turns nothing, so a finger that only just misses the t'an at the foot of the screen sets nothing spinning. With the base turned over, grab it by its rim, outside the carving's framing circle: within the circle the carving is for touching, and nothing turns. |
 | Turn the t'an | Drag anywhere within the t'an's outline, even between them (two fingers turn it as you see it, as for the stone). The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
 | Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it slides across the glass under your finger, drawing in to the size it will be at the kal-toh as you raise it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Held so, the t'an lies between your fingers at its own length, and **where its ends are is where it lands**: spread your fingers wide of the pieces, out of your own way, and lay its ends on them - in the original game and many forms, on the tips you mean to join (each end picks the tip nearest it, which lights up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you move your head or draw the view nearer, and while the kal-toh spins. |
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read: the title, whose turn it is and the score, what just happened, and how to play. |
@@ -315,7 +315,9 @@ instead.
     in Vulcan and Standard), `settings.js`, `audio.js` (synthesized sound), `head.js` (the eye
     in millimetres: from irises to position, filtering and looking ahead), `tracker.js` and
     `eyes-worker.js` (the camera and the face landmarker), `shake.js`, `main.js`. `audio.js` also
-    loops the music, through its own level, paused when silenced or out of sight.
+    loops the music, through its own level, paused when silenced or out of sight; on the phone the
+    shell plays it (`MainActivity.java`, a media player that never asks for the audio focus, so other
+    apps' sound plays on).
   - `vendor/mediapipe/`: [MediaPipe](https://ai.google.dev/edge/mediapipe) Tasks Vision 0.10.21
     and its face landmarker model (Apache 2.0).
 - **`android/`**: a small Java shell (`MainActivity.java`, `HeadTracker.java`). It runs a full
@@ -335,6 +337,9 @@ instead.
     that restores balance still holds.
   - `head.test.mjs`: the hologram's head following, with a simulated face. Held still while its
     eyes shimmer, the view barely moves, at any setting; swayed or leaned, it follows closely.
+  - `ground.test.mjs`: the stone at rest on the floor when level, rocking up onto its edge (never
+    into the floor) when tipped a little, lifted to turn freely when tipped past ten degrees, and
+    falling back with a knock.
   - `forms.test.mjs`: many forms. Every solid (rods equal, loops flat and regular, junctions,
     rods and loops as a solid's), new games of them (the jumble keeps every t'an whole and every
     joint true, the sample in its true shape and place, noise, leaning struts), moves, loops
@@ -369,6 +374,7 @@ node kaltoh/tools/rules.test.mjs
 node kaltoh/tools/classic.test.mjs
 node kaltoh/tools/forms.test.mjs
 node kaltoh/tools/head.test.mjs
+node kaltoh/tools/ground.test.mjs
 node kaltoh/tools/browser-check.cjs out/   # needs Playwright with Chromium
 node kaltoh/tools/browser-check.cjs out/ face.y4m   # and the hologram, with a video of a face
 ```

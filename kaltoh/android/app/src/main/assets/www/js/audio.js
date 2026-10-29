@@ -1,7 +1,11 @@
 // Sound, synthesized rather than recorded. A struck t'an rings with the partials of a free
 // metal bar (1 : 2.756 : 5.404 : 8.933); harmony answers in just intonation; discord beats.
 // Beneath it, music: a recording looping quietly (MUSIC), if there is one. Each has a level of its
-// own, from silent to full (the sliders carved under the base).
+// own, from silent to full (the sliders carved under the base). On the phone the Android shell
+// plays the music, so other apps' sound plays on with it (a page's media would pause them); the
+// sound of the t'an is the page's own, which takes nothing from them either.
+import { native } from './native.js';
+
 const BAR = [1, 2.756, 5.404, 8.933];
 const BAR_GAIN = [1, 0.45, 0.22, 0.1];
 // Just-intonation pentatonic: the simplest ratios, as a Vulcan instrument maker might choose.
@@ -63,6 +67,11 @@ export class Sound {
   // The music begins with the first touch (a page may not play sound before one), fading in.
   startMusic() {
     if (!MUSIC) return;
+    if (native.music) {
+      this.shellMusic = true;
+      this.applyMusic();
+      return;
+    }
     if (!this.ctx || this.music || this.musicMissing) {
       this.applyMusic();
       return;
@@ -88,10 +97,14 @@ export class Sound {
 
   // Play the music at its level, or pause it when silenced or out of sight.
   applyMusic() {
-    const el = this.music;
-    if (!el || this.musicMissing) return;
     const level = this.musicLevel * MUSIC_FULL;
     const play = level > 0.001 && !this.hidden;
+    if (this.shellMusic) {
+      native.playMusic(play ? level : 0);
+      return;
+    }
+    const el = this.music;
+    if (!el || this.musicMissing) return;
     if (this.musicGain) this.musicGain.gain.setTargetAtTime(play ? level : 0, this.ctx.currentTime, 0.4);
     else el.volume = Math.min(1, level);
     if (play && el.paused) el.play().catch(() => {});
@@ -255,6 +268,13 @@ export class Sound {
     if (now - (this.lastScrape ?? 0) < 0.12) return;
     this.lastScrape = now;
     this.hiss(0.03 + 0.06 * strength, 0.12, { from: 1400, to: 700, q: 0.9 });
+  }
+
+  // Stone set down on stone: a low knock, and the grit of it.
+  thud(strength) {
+    this.tone(62, 0.22 * strength, 0.45, { type: 'sine', attack: 0.004, room: 0.25 });
+    this.tone(118, 0.08 * strength, 0.22, { type: 'triangle', attack: 0.003, room: 0.2 });
+    this.hiss(0.05 * strength, 0.12, { from: 900, to: 300, q: 0.7 });
   }
 
   dissolve() {

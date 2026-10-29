@@ -5,7 +5,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import * as G from './geom.js';
 import * as R from './rules.js';
 import * as AI from './ai.js';
-import { createScene, loadBase, loadEnvironment } from './scene.js';
+import { createScene, loadBase, loadEnvironment, FLOOR } from './scene.js';
 import { RodPool, Halos, Ghosts } from './rodmesh.js';
 import { Engraving } from './engrave.js';
 import { Motion } from './motion.js';
@@ -121,13 +121,14 @@ function layout() {
   stage.layout(w, h, dpr);
   stage.view.focus.y = 0.42;
   // The t'an to place lies at the foot of the screen, below the base as the view first frames it
-  // (not as it may be drawn nearer, or turned over to be read), and never off the screen.
+  // resting on the floor (not as it may be drawn nearer, or turned over to be read), and never off
+  // the screen.
   const { zoom } = stage.view;
   const reading = stage.view.read.k;
   stage.view.zoom = 1;
   stage.view.read.k = 0;
   stage.update();
-  const foot = stage.toScreen(new THREE.Vector3(0, 0, 0.9));
+  const foot = stage.toScreen(new THREE.Vector3(0, FLOOR, 0.9));
   stage.view.zoom = zoom;
   stage.view.read.k = reading;
   stage.update();
@@ -1149,6 +1150,12 @@ function step(dt) {
   else animate(dt);
   motion.update(dt);
   motion.apply(stage);
+  // Stone meeting the floor.
+  if (motion.landed) {
+    sound.thud(Math.min(1, motion.landed / 3));
+    haptic('place');
+    motion.landed = 0;
+  }
   if (motion.scrape > 0.25) sound.scrape(motion.scrape);
   falling.update(dt);
   tray.update(dt);
