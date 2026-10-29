@@ -6,7 +6,7 @@
 // kal-toh and is seen at its scale.
 import * as THREE from '../vendor/three.module.min.js';
 import { ROD_LENGTH as RULE_LENGTH } from './rules.js';
-import { SCALE } from './scene.js';
+import { SCALE, TUVOK } from './scene.js';
 
 // The rings game's t'an; the original kal-toh's are shorter (the game sets `length`).
 export const ROD_LENGTH = RULE_LENGTH * SCALE;
@@ -61,10 +61,10 @@ export class Tray {
     this.slide = (1 - ease(this.arrive)) * size.width * 0.9;
     this.ends(this.slide, 0, this.restA, this.restB);
     this.widthScale = glass.width / this.length;
-    // Lying on its edge to the eye, turning slowly so its faces catch the light in turn.
-    this.restUp.addVectors(this.restA, this.restB).multiplyScalar(-0.5).add(camera.position).normalize();
-    // Tipped up toward the ceiling lights, so its face catches them.
-    const roll = -0.6 + Math.sin(this.time * 0.6) * 0.18;
+    // Its broad face to the eye, tipped so that it mirrors Tuvok's face behind the player, rocking
+    // slowly so the reflection runs over him from brow to chin and back.
+    this.restUp.addVectors(this.restA, this.restB).multiplyScalar(-0.5).add(camera.position).normalize().add(TUVOK);
+    const roll = Math.sin(this.time * 0.6) * 0.05;
     const axis = new THREE.Vector3().subVectors(this.restB, this.restA).normalize();
     this.restUp.applyAxisAngle(axis, roll);
   }

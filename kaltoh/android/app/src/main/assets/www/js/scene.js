@@ -17,8 +17,19 @@ export const FLOOR = -0.62;
 // scene is framed for.
 export const FOV = 30;
 // The room is turned so that Tuvok, seated at the mess-hall table in the panorama, is behind the
-// player: what a face of a t'an turned toward the player reflects.
+// player, and tipped so that his face is what a face of a t'an turned square to the eye reflects:
+// the eye looks down on the kal-toh 15 degrees, so such a face looks up past the player's head, and
+// his face is 4 degrees below the panorama's horizon.
 const ENVIRONMENT_TURN = 3.69;
+const ENVIRONMENT_TIP = THREE.MathUtils.degToRad(-19);
+// The direction of his face, as the room is turned and tipped (it is at u 0.337, v 0.478 in the
+// panorama; three.js shows the panorama's direction e at environmentRotation applied to e).
+export const TUVOK = (() => {
+  const azimuth = (0.337 - 0.5) * 2 * Math.PI;
+  const elevation = (0.478 - 0.5) * Math.PI;
+  const e = new THREE.Vector3(Math.cos(azimuth) * Math.cos(elevation), Math.sin(elevation), Math.sin(azimuth) * Math.cos(elevation));
+  return e.applyEuler(new THREE.Euler(ENVIRONMENT_TIP, ENVIRONMENT_TURN, 0));
+})();
 const across = new THREE.Vector3();
 const upward = new THREE.Vector3();
 const backward = new THREE.Vector3();
@@ -241,7 +252,7 @@ export async function loadEnvironment(stage) {
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromEquirectangular(target.texture).texture;
-  scene.environmentRotation.set(0, ENVIRONMENT_TURN, 0);
+  scene.environmentRotation.set(ENVIRONMENT_TIP, ENVIRONMENT_TURN, 0);
   pmrem.dispose();
   target.dispose();
   photo.dispose();

@@ -1,7 +1,8 @@
 // Drawing t'an: each is a scaled cube (12 triangles) of polished steel - a light, cool tint, its
-// faces true mirrors, scored by scratches running mostly lengthwise that catch the light - all
-// drawn as one instanced mesh. Glow (the blue of order, the amber of strain) is added light per
-// instance; soft additive halos give the glow its bloom.
+// faces mirrors, gently domed so each shows the room the way a convex mirror does (smaller and
+// wider, but true to its shapes), scored by scratches running mostly lengthwise that catch the
+// light - all drawn as one instanced mesh. Glow (the blue of order, the amber of strain) is added
+// light per instance; soft additive halos give the glow its bloom.
 import * as THREE from '../vendor/three.module.min.js';
 
 // In world units (the kal-toh is drawn at scene.SCALE): about the rules' contact distance.
@@ -16,10 +17,10 @@ const tmpZ = new THREE.Vector3();
 const tmpM = new THREE.Vector3();
 const basis = new THREE.Matrix4();
 
-// How far each long face's normals turn toward its edges (world angle): the faces are drawn as if
-// gently crowned, so each one, like a polished pole, reflects a broad sweep of the room behind
-// the player rather than a single patch of it.
-const CROWN = Math.tan((22 * Math.PI) / 180);
+// How far each long face's normals turn toward its ends (the tangent of the angle): each face is
+// drawn as a shallow dome, curved alike along and across it, so it reflects a wider sweep of the
+// room behind the player than a flat face would, without stretching it one way more than the other.
+const DOME = Math.tan((25 * Math.PI) / 180);
 
 // A unit box along z (length 1, cross-section 1 x 1) whose long faces are mapped with u running
 // down the length, so the scratches follow the t'an.
@@ -31,29 +32,21 @@ function rodGeometry() {
   // The scratch texture repeats this often along one t'an, and once across each face, so its
   // texels come out about square on the metal.
   const REPEAT = 0.7;
-  // One face: normal n, u running along uDir; v = n x u keeps every face wound outward. Its normals
-  // turn by `crown` toward the edges across it (in the unit box, so as to come out right once it
-  // is scaled to the t'an's cross-section).
-  const face = (n, uDir, uScale, vScale, crown = 0) => {
+  // One face: normal n, u running along uDir; v = n x u keeps every face wound outward. The long
+  // faces are flat here: the shader domes them, since how far depends on each t'an's length.
+  const face = (n, uDir, uScale, vScale) => {
     const vDir = [n[1] * uDir[2] - n[2] * uDir[1], n[2] * uDir[0] - n[0] * uDir[2], n[0] * uDir[1] - n[1] * uDir[0]];
     const corner = [0, 1, 2].map((k) => 0.5 * n[k] - 0.5 * uDir[k] - 0.5 * vDir[k]);
     const base = positions.length / 3;
     for (const [u, v] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
       positions.push(corner[0] + uDir[0] * u + vDir[0] * v, corner[1] + uDir[1] * u + vDir[1] * v, corner[2] + uDir[2] * u + vDir[2] * v);
-      const turn = (2 * v - 1) * crown;
-      const m = [0, 1, 2].map((k) => n[k] + vDir[k] * turn);
-      const length = Math.hypot(...m);
-      normals.push(m[0] / length, m[1] / length, m[2] / length);
+      normals.push(n[0], n[1], n[2]);
       uvs.push(u * uScale, v * vScale);
     }
     index.push(base, base + 1, base + 2, base, base + 2, base + 3);
   };
-  // Long faces: u along the length. A face's normals are scaled with the box: across the narrow
-  // faces (normal along x, spanning the depth) the turn grows by width/depth, across the broad
-  // ones it shrinks by as much, so both come out at CROWN.
-  const aspect = ROD_WIDTH / ROD_DEPTH;
-  for (const n of [[1, 0, 0], [-1, 0, 0]]) face(n, [0, 0, 1], REPEAT, 1, CROWN / aspect);
-  for (const n of [[0, 1, 0], [0, -1, 0]]) face(n, [0, 0, 1], REPEAT, 1, CROWN * aspect);
+  // Long faces: u along the length.
+  for (const n of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]) face(n, [0, 0, 1], REPEAT, 1);
   // End caps.
   face([0, 0, 1], [1, 0, 0], 0.06, 0.06);
   face([0, 0, -1], [1, 0, 0], 0.06, 0.06);
@@ -82,16 +75,16 @@ function scratchMaps() {
     return seed / 4294967296;
   };
   const at = (x, y) => (((y % H) + H) % H) * W + (((x % W) + W) % W);
-  // Scratches: long, of varied depth and width, a few lying at a slight angle. Each is cut along
-  // its line with its depth shared between the two rows it passes between, so a leaning one runs
-  // smoothly rather than in steps.
-  for (let i = 0; i < 16; i++) {
-    const length = 60 + rand() ** 1.3 * 560;
+  // Scratches: long, of varied depth, a few lying at a slight angle; few enough that the metal
+  // between them is mirror enough to see the room in. A straight one is cut along one row; a
+  // leaning one has its depth shared between the two rows it passes between, so it runs smoothly
+  // rather than in steps.
+  for (let i = 0; i < 5; i++) {
+    const length = 60 + rand() ** 1.3 * 400;
     const x0 = rand() * W;
-    const y0 = rand() * H;
     const lean = rand() < 0.7 ? 0 : (rand() - 0.5) * 0.02;
+    const y0 = lean ? rand() * H : Math.floor(rand() * H);
     const depth = 0.8 + rand() * 0.7;
-    const wide = rand() < 0.3 ? 2 : 1;
     const grit = 0.32 + rand() * 0.32;
     for (let s = 0; s < length; s++) {
       const x = Math.floor(x0 + s);
@@ -99,23 +92,17 @@ function scratchMaps() {
       const row = Math.floor(y);
       const f = y - row;
       const cut = depth * Math.sin((s / length) * Math.PI) ** 0.4;
-      for (let k = 0; k < wide; k++) {
-        for (const [r, w] of [[row + k, 1 - f], [row + k + 1, f]]) {
-          height[at(x, r)] -= cut * w;
-          rough[at(x, r)] = Math.max(rough[at(x, r)], 0.035 + grit * w * (cut / depth));
-        }
+      for (const [r, w] of [[row, 1 - f], [row + 1, f]]) {
+        height[at(x, r)] -= cut * w;
+        rough[at(x, r)] = Math.max(rough[at(x, r)], 0.035 + grit * w * (cut / depth));
       }
     }
   }
-  // The slope across the t'an, from the depth on either side; and a faint polish grain, every
-  // row its own slight ridge along the length.
+  // The slope across the t'an, from the depth on either side: a scratch's walls glint, but only
+  // a little way off what the metal around them mirrors. Between the scratches the metal is left
+  // true, so the room is seen in it unrippled.
   for (let y = 0; y < H; y++) {
-    const ridge = (rand() - 0.5) * 0.06;
-    const haze = rand() * 0.01;
-    for (let x = 0; x < W; x++) {
-      tilt[at(x, y)] = (height[at(x, y - 1)] - height[at(x, y + 1)]) * 0.6 + ridge;
-      rough[at(x, y)] += haze;
-    }
+    for (let x = 0; x < W; x++) tilt[at(x, y)] = (height[at(x, y - 1)] - height[at(x, y + 1)]) * 0.15;
   }
   const make = (fill) => {
     const canvas = document.createElement('canvas');
@@ -158,18 +145,43 @@ export function rodMaterial() {
     // player is seen in the metal, clearly enough to make out who is there.
     roughness: 1,
     roughnessMap: roughness,
-    // A trace of the polishing's direction: highlights draw out a little down the t'an.
-    anisotropy: 0.12,
-    anisotropyRotation: 0,
     normalMap: normal,
     normalScale: new THREE.Vector2(0.9, 0.9),
-    envMapIntensity: 2.2,
+    envMapIntensity: 2,
   });
+  // The room is looked up as sharp as the metal is smooth: three.js never lets it be sharper than
+  // its coarser 256-texel mip (fine for lights, but it blurs a mirror), so the reflection of the
+  // room takes its roughness from the map alone (plus what the shape's own curving adds).
+  const maps = THREE.ShaderChunk.lights_fragment_maps.replace(
+    'getIBLRadiance( geometryViewDir, geometryNormal, material.roughness )',
+    'getIBLRadiance( geometryViewDir, geometryNormal, mirrorRoughness )',
+  );
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uBlue = { value: BLUE };
     shader.uniforms.uAmber = { value: AMBER };
+    shader.uniforms.uDome = { value: DOME };
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aGlow;\nattribute vec4 aTrimA;\nattribute vec4 aTrimB;\nvarying vec3 vGlow;')
+      .replace('#include <common>', '#include <common>\nattribute vec3 aGlow;\nattribute vec4 aTrimA;\nattribute vec4 aTrimB;\nvarying vec3 vGlow;\nuniform float uDome;')
+      .replace(
+        '#include <beginnormal_vertex>',
+        // Each long face domed: its normals turn toward its ends and its edges by as much for each
+        // unit of distance from its middle - uDome at the ends - whatever the t'an's length. In the
+        // unit box, as the instance's scaling will undo it (three.js divides a normal by the
+        // squared scale of each axis, then turns it with the instance).
+        `#include <beginnormal_vertex>
+#ifdef USE_INSTANCING
+if (abs(normal.z) < 0.5) {
+  vec3 s = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
+  bool onX = abs(normal.x) > 0.5;
+  float sa = max(onX ? s.x : s.y, 1e-6);
+  float sw = onX ? s.y : s.x;
+  float k = 2.0 * uDome / sa;
+  objectNormal.z += position.z * k * s.z;
+  float across = (onX ? position.y : position.x) * k * sw * sw / max(s.z, 1e-6);
+  if (onX) objectNormal.y += across; else objectNormal.x += across;
+}
+#endif`,
+      )
       .replace(
         '#include <begin_vertex>',
         // Each corner of each end moved along the t'an by its trim (world units; see mitreAtJunctions).
@@ -185,13 +197,15 @@ vGlow = aGlow;
       );
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nuniform vec3 uBlue;\nuniform vec3 uAmber;\nvarying vec3 vGlow;')
+      .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\nfloat mirrorRoughness = min( roughnessFactor + geometryRoughness, 1.0 );')
+      .replace('#include <lights_fragment_maps>', maps)
       .replace(
         '#include <emissivemap_fragment>',
         // x: blue, y: amber, z: fade to darkness (a t'an dissolving away)
         '#include <emissivemap_fragment>\ntotalEmissiveRadiance += uBlue * vGlow.x * 0.42 + uAmber * vGlow.y * 0.5;\ndiffuseColor.rgb *= 1.0 - vGlow.z;',
       );
   };
-  material.customProgramCacheKey = () => 'kaltoh-rod-v4';
+  material.customProgramCacheKey = () => 'kaltoh-rod-v5';
   return material;
 }
 
