@@ -948,11 +948,16 @@ function check(condition, message) {
     });
     await side.goto(`${base}?seed=7`);
     await side.waitForFunction(() => ['intro', 'play'].includes(window.__kaltoh?.phase), null, { timeout: 240000 });
+    // How the view is framed, with the base at rest (as fitZoom frames it, whether or not the base
+    // is turned over to be read).
     const framing = () => side.evaluate(async () => {
       const { TOP, TRAY_REACH } = { ...(await import('/js/table.js')), ...(await import('/js/tray.js')) };
       const k = window.__kaltoh;
       const s = k.stage;
       const v = s.view;
+      const reading = v.read.k;
+      v.read.k = 0;
+      s.update();
       const allows = (z) => {
         const keep = v.zoom;
         v.zoom = z;
@@ -965,12 +970,15 @@ function check(condition, message) {
       const foot = s.toScreen(new (s.camera.position.constructor)(0, -0.62, 0.9));
       // How much of the photograph's width shows across the screen, a fifth of the way down.
       const across = [0, s.size.width].map((x) => s.photographedAt(x, 0.2 * s.size.height).x);
-      return {
+      const framed = {
         room: v.room, zoom: v.zoom, range: v.zoomRange, framed: v.framed, span: k.tray.span,
         allows: allows(v.zoom) && allows(v.zoomRange[0]) && allows(v.zoomRange[1]),
         clear: foot.y < k.tray.y - TRAY_REACH - 16,
         across,
       };
+      v.read.k = reading;
+      s.update();
+      return framed;
     });
     // Two fingers on open space, drawn together or apart.
     const pinch = async (at, from, to) => {
