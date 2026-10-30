@@ -14,7 +14,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT } from './scene.js';
 import { OPTIONS } from './settings.js';
-import { TEXT, vulcanOnly, scoreText, formText, rulesText, seatText } from './texts.js';
+import { TEXT, vulcanOnly, rulesText, playerText } from './texts.js';
 
 const SIZE = 1024;
 const C = SIZE / 2;
@@ -130,7 +130,7 @@ export class Engraving {
     this.page = 'main';
     this.wayPage = 0;
     this.standard = settings.language === 'standard'; // which script is cut now
-    this.state = { game: null, event: TEXT.begin };
+    this.state = { event: TEXT.begin };
     this.regions = [];
     this.dirty = true;
     this.change = null; // what is to be cut once the carving has smoothed away
@@ -411,18 +411,18 @@ export class Engraving {
   }
 
   drawMain() {
-    const { game, event } = this.state;
+    const { event } = this.state;
     this.line('title', TEXT.title, C, 142, { size: 92, script: true, max: 480, lit: 0.55 });
-    // The players: a mark each (a diamond for a Vulcan), filled for whose turn it is, in a ring
-    // painted their colour, and a score. With others at the board, each seat is named over its
-    // mark and its plays are marked beneath.
-    const seats = this.state.seats ?? game?.players.map((p, i) => ({ vulcan: p.vulcan, now: i === game.current && !game.over, score: scoreText(game, p) })) ?? [];
+    // The players: a mark each, filled for whose turn it is, in a ring painted their colour, and a
+    // score. With others at the board, each seat is named over its mark and its plays are marked
+    // beneath.
+    const seats = this.state.seats ?? [];
     const plays = this.state.plays ?? [];
     const named = seats.length > 1;
     const y = named ? 226 : 200;
     seats.forEach((seat, i) => {
       const x = C + (i - (seats.length - 1) / 2) * 150;
-      if (named) this.line(`name${i}`, seatText(i, seat.vulcan), x, 190, { size: 27, max: 140, lit: seat.now ? 0.5 : 0.24 });
+      if (named) this.line(`name${i}`, playerText(i), x, 190, { size: 27, max: 140, lit: seat.now ? 0.5 : 0.24 });
       this.paint((g) => {
         g.strokeStyle = SEAT_PAINT[i % SEAT_PAINT.length];
         g.lineWidth = 6;
@@ -435,15 +435,7 @@ export class Engraving {
         g.strokeStyle = color;
         g.lineWidth = 3;
         g.beginPath();
-        if (seat.vulcan) {
-          g.moveTo(x, y - 11);
-          g.lineTo(x + 11, y);
-          g.lineTo(x, y + 11);
-          g.lineTo(x - 11, y);
-          g.closePath();
-        } else {
-          g.arc(x, y, 10, 0, Math.PI * 2);
-        }
+        g.arc(x, y, 10, 0, Math.PI * 2);
         if (seat.now) g.fill();
         else g.stroke();
       }, seat.now ? 0.95 : 0.3);
@@ -452,7 +444,7 @@ export class Engraving {
     });
     if (this.state.zen) this.zenProgress(this.state.zen);
     this.line('event', event, C, 352, { size: 38, max: 2 * chord(352) - 90, lit: 0.6 });
-    const lines = this.state.lines ?? [TEXT.lift, TEXT.touch, TEXT.ring, TEXT.hold, formText(this.settings.form), TEXT.turn, TEXT.shake, TEXT.rim];
+    const lines = this.state.lines ?? [];
     lines.forEach((text, i) => {
       const y = 398 + i * 44;
       this.line(`l${i}`, text, C, y, { size: 30, max: 2 * chord(y) - 80 });
@@ -587,7 +579,6 @@ export class Engraving {
     // What the marks beneath each seat mean (in zen, which has no seats, the marks of its progress;
     // nothing falls there).
     const legend = this.settings.way === 'zen' ? [['ring', TEXT.markForm], ['join', TEXT.markPlaced]]
-      : this.settings.way === 'rings' ? [['join', TEXT.markPlaced], ['ring', TEXT.markRing], ['fall', TEXT.markFell]]
       : [['join', TEXT.markJoined], ['ring', this.settings.way === 'forms' ? TEXT.markLoop : TEXT.markHoop], ['fall', TEXT.markFell]];
     legend.forEach(([mark, label], i) => {
       const x = C + (i - (legend.length - 1) / 2) * 168;
@@ -806,8 +797,9 @@ function buildRelief(mask, glow, out, full, rect = null) {
 }
 
 // The glyphs, drawn about their centre.
-// The marks of the plays under each seat: a dot for a true join (or a t'an placed), a ringed dot
-// for a ring or a great hoop, a cross where t'an fell.
+// The marks of the plays under each seat: a dot for a true join, a ringed dot for a great hoop or a
+// loop closed, a cross where t'an fell (and in zen's progress, a ringed dot for a form taken and a
+// dot for a t'an placed).
 const MARKS = {
   join(g, x, y, color) {
     g.fillStyle = color;

@@ -1,8 +1,8 @@
 // Zen: a calm way to play, alone. No opponent, no score, no hidden forces, no strain; nothing
 // falls. Pure logic: no rendering, no DOM, so it also runs under Node for tests.
 //
-// It begins as the nest of rings (rules.js): t'an gathered about a centre mass. A t'an laid across
-// any two pieces rests there, wherever they are touched - no reach, no harmony, no loop to close.
+// It begins as a splintering nest of t'an gathered about a centre mass (rules.js). A t'an laid
+// across any two pieces rests there, wherever they are touched - no reach, no harmony, no loop.
 // Every ten t'an placed, the whole assembly takes a form of many forms (forms-rules.js), at the
 // size and place many forms builds its outer shell: each t'an glides to a rod of the form, those
 // the form has no rod for fade away, and rods no t'an reaches are filled by new t'an. Five forms,
@@ -31,8 +31,7 @@ const d2 = (p, q) => (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 
 
 export function createGame(options = {}) {
   const seed = options.seed ?? (Math.random() * 2 ** 32) >>> 0;
-  // The nest a game of rings with this seed begins from.
-  const nest = R.createGame({ seed, opponent: 'none', players: 1 }).nest;
+  const { nest } = R.startingNest({ seed });
   const rods = nest.liveRods.map((r, i) => ({ id: i, a: [...r.a], b: [...r.b], kind: r.kind === 'core' ? 'core' : 'nest', edge: -1 }));
   return {
     seed,
@@ -59,9 +58,9 @@ export const rodOf = (state, id) => state.rods.find((r) => r.id === id) ?? null;
 export const formOf = (state) => (state.form ? buildForm(state.form) : null);
 
 // Where a t'an rests across two pieces, touched at hitA and hitB ({ rod, s }: a t'an and how far
-// along it): against each one's side, toward `toward` (the eye), as a t'an of rings rests (rules.js
-// placement), centred between them at its own length - or, the pieces being further apart than
-// that, just long enough to rest across both. Refused only when both ends are on one piece.
+// along it): against each one's side, toward `toward` (the eye), offset by its thickness square to
+// both, centred between them at its own length - or, the pieces being further apart than that,
+// just long enough to rest across both. Refused only when both ends are on one piece.
 export function placement(state, hitA, hitB, toward) {
   if (state.complete) return { ok: false, reason: 'complete' };
   if (!hitA || !hitB) return { ok: false, reason: 'none' };

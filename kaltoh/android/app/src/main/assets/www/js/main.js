@@ -1,24 +1,21 @@
-// Kal-toh: brings the rules, the stage, the hands and the Vulcan together. Nothing is drawn on
-// the screen but the kal-toh, its stone and the t'an in the tray: everything it says is carved
-// into the underside of the base (engrave.js).
+// Kal-toh: brings the ways to play, the stage and the hands together. Nothing is drawn on the
+// screen but the kal-toh, its stone and the t'an in the tray: everything it says is carved into
+// the underside of the base (engrave.js).
 import * as THREE from '../vendor/three.module.min.js';
-import * as G from './geom.js';
-import * as R from './rules.js';
-import * as AI from './ai.js';
 import { createScene, loadBase, loadEnvironment, FLOOR } from './scene.js';
 import { loadTable } from './table.js';
-import { RodPool, Halos, Ghosts } from './rodmesh.js';
+import { RodPool, Halos } from './rodmesh.js';
 import { Engraving } from './engrave.js';
 import { Motion } from './motion.js';
 import { Falling } from './falling.js';
-import { Tray, Hand, ROD_LENGTH as RINGS_ROD } from './tray.js';
+import { Tray, Hand } from './tray.js';
 import { ClassicGame } from './classic.js';
 import { FormsGame } from './forms.js';
 import { ZenGame } from './zen.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
-import { TEXT, ringText, fellText, playerText, completeText, winnerText, supplyText } from './texts.js';
-import { loadSettings, saveSettings, gameOptions, shapeOf } from './settings.js';
+import { TEXT } from './texts.js';
+import { loadSettings, saveSettings, shapeOf } from './settings.js';
 import { ShakeDetector } from './shake.js';
 import { native } from './native.js';
 
@@ -28,7 +25,6 @@ const stage = createScene(canvas);
 const pool = new RodPool(stage.scene, 640);
 const trayPool = new RodPool(stage.scene, 2, { onTop: true, dome: true });
 const halos = new Halos(stage.scene, 320);
-const ghosts = new Ghosts(stage.scene, 16);
 const sound = new Sound();
 const settings = loadSettings();
 const tray = new Tray(stage);
@@ -39,34 +35,20 @@ let baseModel = null;
 let table = null; // the table under the stone (table.js)
 let engraving = null;
 // The game being played: the original kal-toh (classic.js), many forms built from the inside out
-// (forms.js), zen, forms taken one after another (zen.js), or rings round the hidden spin (the
-// rest of this file). A change of game in the ways to play waits for the next one.
+// (forms.js), or zen, forms taken one after another (zen.js). A change of game in the ways to play
+// waits for the next one.
 let classic = null;
 let forms = null;
 let zen = null;
 let way = 'classic';
-// The game on the stone when it is a form to bring about (the original kal-toh, many forms, zen).
+// The game on the stone.
 const shaped = () => (way === 'classic' ? classic : way === 'forms' ? forms : way === 'zen' ? zen : null);
 let begunWith = ''; // the ways the game was begun with (settings.js shapeOf)
 
 const insets = { top: 0, bottom: 0 };
 const quality = { maxDpr: 2, time: 0, frames: 0 };
-let game = null;
-let phase = 'loading'; // loading | intro | play | resolving | vulcan | complete | over | dissolving
-let aimKey = '';
-let time = 0;
+let phase = 'loading'; // until the first game begins; then each game keeps its own
 let shaking = 0; // how far a shake to begin anew has gone (0..1)
-let thinking = false; // the Vulcan is considering
-
-// What is drawn of each t'an: its assembly-local ends (which lead or lag the rules' positions
-// while it slides), its face orientation, and its glow.
-const display = new Map();
-const collisionRods = [];
-let shownCount = 0; // t'an drawn last frame: when it changes, the assembly's shape has changed
-let strainOf = new Map();
-let plays = []; // the game of rings' plays, for the carving: { player, mark: join | ring | fall }
-let aim = null; // { pieces, pose, ring } while a t'an is held
-let completeGlow = 0;
 
 const haptic = (kind) => {
   if (settings.haptics) native.haptic(kind);
@@ -111,154 +93,9 @@ function layout() {
   tray.layout(Math.min(h - insets.bottom - 64, Math.max(foot.y + 110, h - insets.bottom - 88)));
 }
 
-// --- The display of the kal-toh ----------------------------------------------------------
-
-const v1 = new THREE.Vector3();
-const v2 = new THREE.Vector3();
-const v3 = new THREE.Vector3();
-const vUp = new THREE.Vector3();
-
-function hashUp(id, dir) {
-  const h = Math.sin(id * 12.9898) * 43758.5453;
-  const t = (h - Math.floor(h)) * Math.PI * 2;
-  const side = G.perpendicular(dir);
-  const other = G.cross(dir, side);
-  return G.add(G.scale(side, Math.cos(t)), G.scale(other, Math.sin(t)));
-}
-
-function entryFor(rod) {
-  let e = display.get(rod.id);
-  if (!e) {
-    e = { id: rod.id, a: new THREE.Vector3(...rod.a), b: new THREE.Vector3(...rod.b), up: new THREE.Vector3(), anim: null, flash: 0, wa: new THREE.Vector3(), wb: new THREE.Vector3() };
-    display.set(rod.id, e);
-  }
-  return e;
-}
-
-function orient(e, rod) {
-  const dir = G.normalize(G.sub(rod.b, rod.a));
-  const up = rod.ring >= 0 ? game.forces.axis : hashUp(rod.id, dir);
-  e.up.set(up[0], up[1], up[2]);
-}
-
-// Make the drawing agree with the rules (snapping, unless a slide is under way).
-function syncDisplay() {
-  const alive = new Set();
-  for (const rod of game.nest.liveRods) {
-    alive.add(rod.id);
-    const e = entryFor(rod);
-    if (!e.anim) {
-      e.a.set(...rod.a);
-      e.b.set(...rod.b);
-    }
-    orient(e, rod);
-  }
-  for (const id of [...display.keys()]) if (!alive.has(id)) display.delete(id);
-  motion.wake();
-}
-
-function refreshStrain() {
-  strainOf = settings.strain && game ? R.strain(game).perRod : new Map();
-}
-
-function localToWorld(p, out) {
-  return out.copy(p).applyMatrix4(stage.assemblyRoot.matrixWorld);
-}
-
-function arrToWorld(p, out) {
-  return out.set(p[0], p[1], p[2]).applyMatrix4(stage.assemblyRoot.matrixWorld);
-}
-
-function animate(dt) {
-  collisionRods.length = 0;
-  let reshaped = display.size !== shownCount;
-  shownCount = display.size;
-  for (const e of display.values()) {
-    e.flash = Math.max(0, e.flash - dt * 0.7);
-    if (e.anim) {
-      reshaped = true;
-      const an = e.anim;
-      an.t += dt;
-      const k = Math.min(1, Math.max(0, (an.t - an.delay) / an.duration));
-      const s = an.ease === 'drop' ? 1 - (1 - k) ** 3 : k * k * (3 - 2 * k);
-      e.a.lerpVectors(an.fromA, an.toA, s);
-      e.b.lerpVectors(an.fromB, an.toB, s);
-      if (k >= 1) {
-        e.anim = null;
-        an.done?.();
-      }
-      if (an.ease === 'drop' && k < 1) continue; // still flying in: not yet part of the body
-    }
-    collisionRods.push([e.a, e.b]);
-  }
-  motion.setRods(collisionRods);
-  // A changed shape may no longer rest where it did (or may rest on the stone now).
-  if (reshaped) motion.wake();
-}
-
-function drawAssembly() {
-  const q = stage.assemblyRoot.quaternion;
-  const obstacles = [];
-  const loopRods = new Set(aim?.ring?.places.map((p) => p.rod) ?? []);
-  for (const e of display.values()) {
-    const rod = game?.nest.rods[e.id];
-    localToWorld(e.a, e.wa);
-    localToWorld(e.b, e.wb);
-    vUp.copy(e.up).applyQuaternion(q);
-    // The blue of order is soft: a glow, never a glare. Nothing here moves a t'an.
-    let blue = e.flash * 0.6;
-    let amber = 0;
-    if (rod?.ring >= 0) blue = Math.max(blue, 0.3);
-    if (completeGlow > 0) blue = Math.max(blue, completeGlow * 0.42);
-    if (aim && (aim.pieces.includes(e.id))) blue = Math.max(blue, 0.6);
-    if (loopRods.has(e.id)) blue = Math.max(blue, 0.32);
-    // The Vulcan considering: its thought is a slow light in the centre mass.
-    if (thinking && rod?.kind === 'core') blue = Math.max(blue, 0.18 + 0.14 * Math.sin(time * 2.4));
-    // A gathering shake lights everything, the nearer to beginning anew the brighter.
-    if (shaking > 0.08) blue = Math.max(blue, shaking * 0.7);
-    const strain = strainOf.get(e.id) ?? 0;
-    if (strain > 0.72) amber = Math.min(1, (strain - 0.72) / 0.28) * 0.75;
-    pool.push(e.wa, e.wb, vUp, blue, amber);
-    if (blue > 0.05 || amber > 0.05) halos.push(e.wa, e.wb, Math.max(blue * 0.26, amber * 0.26), 0.06, amber > blue ? 1 : 0);
-    obstacles.push({ a: [e.wa.x, e.wa.y, e.wa.z], b: [e.wb.x, e.wb.y, e.wb.z] });
-  }
-  if (falling) falling.obstacles = obstacles;
-  // The ring a held t'an would make.
-  if (aim?.ring) {
-    const axis = v3.set(...game.forces.axis).applyQuaternion(q);
-    for (const p of aim.ring.places) ghosts.push(arrToWorld(p.a, v1).clone(), arrToWorld(p.b, v2).clone(), axis, 0.6 + 0.4 * Math.sin(time * 5));
-  }
-}
-
 // Picking: the t'an under a finger, and where along it.
-const rayTmp = new THREE.Ray();
 function pickRod(x, y, reach = 30) {
-  if (shaped()) return shaped().pick(x, y, reach);
-  if (!game) return null;
-  let best = null;
-  let front = Infinity;
-  const candidates = [];
-  for (const e of display.values()) {
-    if (e.anim || !game.nest.rods[e.id]?.alive) continue;
-    const sa = stage.toScreen(e.wa);
-    const sb = stage.toScreen(e.wb);
-    const d = segmentDistance(x, y, sa, sb);
-    if (d > reach) continue;
-    const depth = Math.min(sa.depth, sb.depth);
-    front = Math.min(front, depth);
-    candidates.push({ e, d, depth });
-  }
-  for (const c of candidates) {
-    const score = c.d + (c.depth - front) * 22;
-    if (!best || score < best.score) best = { ...c, score };
-  }
-  if (!best) return null;
-  stage.rayAt(x, y, rayTmp);
-  const o = [rayTmp.origin.x, rayTmp.origin.y, rayTmp.origin.z];
-  const u = [rayTmp.direction.x, rayTmp.direction.y, rayTmp.direction.z];
-  const hit = G.closestRaySeg(o, u, [best.e.wa.x, best.e.wa.y, best.e.wa.z], [best.e.wb.x, best.e.wb.y, best.e.wb.z]);
-  const s = Math.min(0.97, Math.max(0.03, hit.t));
-  return { rod: best.e.id, s, world: new THREE.Vector3(...hit.onSeg) };
+  return shaped()?.pick(x, y, reach) ?? null;
 }
 
 function segmentDistance(x, y, a, b) {
@@ -274,8 +111,7 @@ function segmentDistance(x, y, a, b) {
 const baseRay = new THREE.Raycaster();
 function touchesAssembly(x, y) {
   const points = [];
-  const rods = shaped() ? shaped().worldRods() : [...display.values()].filter((e) => !e.anim).map((e) => [e.wa, e.wb]);
-  for (const [a, b] of rods) {
+  for (const [a, b] of shaped()?.worldRods() ?? []) {
     for (const p of [a, b]) {
       const s = stage.toScreen(p);
       points.push([s.x, s.y]);
@@ -349,96 +185,18 @@ function insideHull(h, x, y, margin) {
 const seedParam = new URLSearchParams(location.search).get('seed');
 let nextSeed = seedParam === null ? undefined : Number(seedParam) >>> 0;
 
-function humanTurn() {
-  return game && !game.over && !game.players[game.current].vulcan;
-}
-
 function newGame() {
   way = settings.way;
   begunWith = shapeOf(settings);
   engraving.set({ pending: false });
-  display.clear();
   falling.clear();
   timers.length = 0;
-  completeGlow = 0;
-  aim = null;
-  if (shaped()) {
-    game = null;
-    refreshStrain();
-    phase = 'shaped';
-    shaped().newGame(nextSeed);
-    nextSeed = undefined;
-    return;
-  }
-  game = R.createGame({ ...gameOptions(settings), seed: nextSeed });
+  phase = 'shaped';
+  shaped().newGame(nextSeed);
   nextSeed = undefined;
-  plays = [];
-  tray.length = RINGS_ROD;
-  motion.resetPlace();
-  refreshStrain();
-  // The nest gathers: the centre mass first, then each t'an flies in along its line and sticks.
-  const rods = [...game.nest.liveRods].sort((p, q) => (p.kind === 'core' ? 0 : 1) - (q.kind === 'core' ? 0 : 1) || p.id - q.id);
-  const span = 2.4;
-  rods.forEach((rod, i) => {
-    const e = entryFor(rod);
-    orient(e, rod);
-    const mid = G.lerp(rod.a, rod.b, 0.5);
-    const out = G.normalize(G.length(mid) > 1e-3 ? mid : G.randomUnit(Math.random));
-    const from = G.scale(out, 2.6);
-    e.anim = {
-      fromA: new THREE.Vector3(...G.add(rod.a, from)), fromB: new THREE.Vector3(...G.add(rod.b, from)),
-      toA: new THREE.Vector3(...rod.a), toB: new THREE.Vector3(...rod.b),
-      t: 0, delay: (i / rods.length) * span, duration: 0.5, ease: 'drop',
-      done: () => {
-        if (i % 3 === 0) sound.clink(0.25);
-      },
-    };
-    e.a.copy(e.anim.fromA);
-    e.b.copy(e.anim.fromB);
-  });
-  phase = 'intro';
-  tray.hide();
-  engraving.set({ game, plays, seats: null, lines: null });
-  say(TEXT.begin);
-  after(span + 0.7, () => {
-    syncDisplay();
-    beginTurn();
-  });
-}
-
-function beginTurn() {
-  if (game.over) {
-    finishGame();
-    return;
-  }
-  engraving.set({ game });
-  if (game.players[game.current].vulcan) {
-    vulcanTurn();
-    return;
-  }
-  phase = 'play';
-  tray.refill();
-  const humans = game.players.filter((p) => !p.vulcan).length;
-  if (humans > 1) say(playerText(game.current));
-}
-
-function finishGame() {
-  phase = 'over';
-  tray.hide();
-  engraving.set({ game });
-  say(game.complete ? completeText(game) : game.supply <= 0 ? { v: `no tan remain ${winnerText(game).v}`, s: `No t'an remain. ${winnerText(game).s}` } : winnerText(game));
 }
 
 // --- Holding and placing ---------------------------------------------------------------------
-
-function eyeLocal() {
-  const p = motion.toLocal(stage.camera.position, new THREE.Vector3());
-  return [p.x, p.y, p.z];
-}
-
-function foresight() {
-  return settings.foresight === 'always' || (settings.foresight === 'known' && game.revealed);
-}
 
 const input = new Input(canvas, {
   stage,
@@ -456,10 +214,8 @@ const input = new Input(canvas, {
   onSlide(slider, x, y) {
     engraving.slide(slider, x, y);
   },
-  canLift: () => (shaped() ? shaped().canLift() : phase === 'play' && humanTurn() && !hand.holding && !hand.flight),
-  canSpin: () => (shaped()
-    ? shaped().hasRods && !['intro', 'dissolving'].includes(shaped().phase)
-    : display.size > 0 && phase !== 'intro' && phase !== 'dissolving'),
+  canLift: () => Boolean(shaped()?.canLift()),
+  canSpin: () => Boolean(shaped()?.hasRods) && !['intro', 'dissolving'].includes(shaped().phase),
   onLift(x, y) {
     sound.wake();
     hand.lift(x, y);
@@ -469,61 +225,13 @@ const input = new Input(canvas, {
   onCarry(x, y) {
     hand.carry(x, y);
   },
-  // While carried: blue where it would rest, amber where it cannot; the ring it would make, in
-  // ghostly light, if foresight allows.
+  // While carried: blue where it would rest, amber where it cannot.
   onAim([ta, tb], f1, f2) {
-    if (shaped()) {
-      shaped().aim([ta, tb], f1, f2);
-      return;
-    }
-    let pose = null;
-    let ring = null;
-    let refused = false;
-    if (ta && tb) {
-      const p = R.placement(game, ta, tb, eyeLocal());
-      if (p.ok) {
-        pose = p;
-        if (foresight()) ring = AI.ringFor(game, p);
-      } else {
-        refused = true;
-      }
-    }
-    aim = { pieces: [ta?.rod, tb?.rod].filter((x) => x !== undefined), pose, ring, refused };
-    hand.follow(f1, f2, {
-      pose: pose ? { a: arrToWorld(pose.a, new THREE.Vector3()), b: arrToWorld(pose.b, new THREE.Vector3()) } : null,
-      touchA: ta?.world ?? null,
-      touchB: tb?.world ?? null,
-      anchor: stage.assemblyRoot.position,
-      refused,
-    });
-    const key = `${ta?.rod}:${tb?.rod}:${Boolean(pose)}:${ring?.k ?? 0}`;
-    if (key !== aimKey) {
-      aimKey = key;
-      if (ta || tb) {
-        sound.hover();
-        haptic('tick');
-      }
-    }
+    shaped()?.aim([ta, tb], f1, f2);
   },
   // Let go: placed where it was shown, unless the touch was cancelled (the system took it).
   onRelease(targets, cancelled) {
-    if (shaped()) {
-      shaped().release(cancelled);
-      return;
-    }
-    const chosen = cancelled ? null : aim?.pose;
-    aim = null;
-    aimKey = '';
-    if (!chosen || phase !== 'play') {
-      hand.returnToTray();
-      return;
-    }
-    phase = 'resolving';
-    tray.hide();
-    hand.fly(hand.a, hand.b, arrToWorld(chosen.a, new THREE.Vector3()), arrToWorld(chosen.b, new THREE.Vector3()), 0.14, () => {
-      hand.holding = false;
-      commit(chosen);
-    });
+    shaped()?.release(cancelled);
   },
   onTap(x, y) {
     sound.wake();
@@ -535,223 +243,20 @@ const input = new Input(canvas, {
   },
 });
 
-// The way the hidden spin throws a t'an free: out from the axis, plus how the assembly was turning.
-function flingVelocity(e, strength = 1) {
-  const mid = v1.addVectors(e.a, e.b).multiplyScalar(0.5);
-  const axis = v2.set(...game.forces.axis);
-  const out = v3.copy(mid).addScaledVector(axis, -mid.dot(axis));
-  if (out.lengthSq() < 1e-6) out.set(Math.random() - 0.5, 0, Math.random() - 0.5);
-  out.normalize().applyQuaternion(stage.assemblyRoot.quaternion).multiplyScalar((0.5 + game.forces.spin * 0.7) * strength);
-  const world = localToWorld(mid, new THREE.Vector3());
-  const turning = motion.w.clone().cross(world.sub(stage.assemblyRoot.position));
-  return out.add(turning).add(new THREE.Vector3(0, 0.25, 0));
-}
-
-function release(id, options = {}) {
-  const e = display.get(id);
-  if (!e) return;
-  localToWorld(e.a, e.wa);
-  localToWorld(e.b, e.wb);
-  falling.spawn(e.wa.clone(), e.wb.clone(), options.velocity ?? flingVelocity(e, options.strength), options);
-  display.delete(id);
-}
-
-function commit(pose) {
-  sound.place();
-  haptic('place');
-  const result = R.play(game, pose);
-  const last = game.history[game.history.length - 1];
-  plays.push({ player: last.player, mark: last.ring ? 'ring' : last.lost > 0 ? 'fall' : 'join' });
-  const placed = game.nest.rods[result.rod];
-  const e = entryFor(placed);
-  orient(e, placed);
-  e.flash = 0.5;
-  let t = 0.15;
-  if (result.ring) {
-    const ringSet = new Set(result.ring.rods);
-    for (const m of result.moved) {
-      const me = display.get(m.rod) ?? entryFor(game.nest.rods[m.rod]);
-      me.anim = {
-        fromA: me.a.clone(), fromB: me.b.clone(),
-        toA: new THREE.Vector3(...m.to.a), toB: new THREE.Vector3(...m.to.b),
-        t: 0, delay: 0.12, duration: ringSet.has(m.rod) ? 0.95 : 0.8,
-      };
-      if (ringSet.has(m.rod)) me.flash = 1;
-    }
-    for (const id of result.ring.rods) {
-      const rod = game.nest.rods[id];
-      if (rod.alive) orient(display.get(id) ?? entryFor(rod), rod);
-    }
-    after(0.15, () => {
-      if (!result.ring.broken) {
-        const p = R.formProgress(game);
-        sound.harmony(Math.min(1, p.rings / Math.max(1, p.form.rings)));
-        haptic('harmony');
-      }
-    });
-    after(0.55, () => sound.hoop());
-    for (const id of result.knocked) after(0.5, () => release(id, { amber: 0.8, strength: 1.4 }));
-    // The chaos the ring shakes loose drifts away, lit by the same blue.
-    (result.shaken ?? []).forEach((id, i) => after(0.9 + i * 0.06, () => release(id, { blue: 0.6, strength: 0.6 })));
-    say(result.ring.broken ? TEXT.ringLost : ringText(result.ring.k));
-    t = 1.2;
-  }
-  const falls = result.fallen.filter((id) => !result.knocked.includes(id));
-  if (falls.length) {
-    after(t, () => {
-      sound.discord();
-      haptic('discord');
-      falls.forEach((id, i) => after(i * 0.05, () => release(id, { amber: 1 })));
-    });
-    if (!result.ring) say(fellText(result.lost));
-  } else if (!result.ring) {
-    say(TEXT.holds);
-  }
-  if (result.lifeLost) say(TEXT.lifeLost);
-  else if (result.quickened) say(TEXT.quickens);
-  const settle = t + (falls.length ? 0.6 + falls.length * 0.05 : 0.25);
-  after(settle, () => {
-    syncDisplay();
-    refreshStrain();
-    engraving.set({ game, plays });
-    if (result.complete) {
-      celebrate(result);
-      return;
-    }
-    if (Number.isFinite(game.supply) && game.supply > 0 && game.supply <= 5) say(supplyText(game.supply));
-    beginTurn();
-  });
-}
-
-function celebrate(result) {
-  phase = 'complete';
-  tray.hide();
-  (result.shed ?? []).forEach((id, i) => after(0.2 + i * 0.03, () => release(id, { blue: 0.8, strength: 0.5 })));
-  after(0.9, () => {
-    completeGlow = 1;
-    sound.complete();
-    haptic('complete');
-  });
-  game.over = true;
-  engraving.set({ game });
-  say(completeText(game));
-}
-
-// --- The Vulcan ---------------------------------------------------------------------------
-
-let worker = null;
-let requestId = 0;
-function think() {
-  const level = game.settings.opponent;
-  const seed = (game.seed + game.turns * 7919) >>> 0;
-  const data = R.serializeGame(game);
-  return new Promise((resolve) => {
-    const fallback = () => {
-      const local = AI.chooseMove(R.restoreGame(JSON.parse(JSON.stringify(data))), { level, rng: G.mulberry32(seed), revealed: game.revealed });
-      resolve(local ? { pose: local.pose } : null);
-    };
-    try {
-      worker ??= new Worker('js/ai-worker.js', { type: 'module' });
-    } catch {
-      fallback();
-      return;
-    }
-    const id = ++requestId;
-    const w = worker;
-    let settled = false;
-    const finish = (choice, failed) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      w.removeEventListener('message', onMessage);
-      w.removeEventListener('error', onError);
-      if (failed) fallback();
-      else resolve(choice);
-    };
-    const onMessage = (e) => {
-      if (e.data.id !== id) return;
-      if (e.data.error) console.error(e.data.error);
-      finish(e.data.choice, Boolean(e.data.error));
-    };
-    // A worker that cannot load (or never answers) must not stall the game: think here instead.
-    const onError = (e) => {
-      console.error('Vulcan worker failed', e.message ?? e);
-      worker = null;
-      finish(null, true);
-    };
-    const timer = setTimeout(() => finish(null, true), 30000);
-    w.addEventListener('message', onMessage);
-    w.addEventListener('error', onError);
-    w.postMessage({ id, game: data, level, seed });
-  });
-}
-
-async function vulcanTurn() {
-  phase = 'vulcan';
-  tray.hide();
-  say(TEXT.vulcanThinks);
-  thinking = true;
-  const started = performance.now();
-  const forGame = game;
-  const choice = await think();
-  const wait = Math.max(0, 1.3 - (performance.now() - started) / 1000);
-  after(wait, () => {
-    if (game !== forGame || phase !== 'vulcan') return;
-    thinking = false;
-    if (!choice) {
-      game.over = true;
-      finishGame();
-    } else {
-      // The Vulcan's t'an descends from above and comes to rest.
-      const toA = arrToWorld(choice.pose.a, new THREE.Vector3());
-      const toB = arrToWorld(choice.pose.b, new THREE.Vector3());
-      const lift = new THREE.Vector3(0.4, 1.8, 0.6);
-      hand.holding = false;
-      hand.glow = 0.4;
-      hand.scale = hand.scaleGoal = 1;
-      hand.a.copy(toA).add(lift);
-      hand.b.copy(toB).add(lift);
-      phase = 'resolving';
-      hand.fly(hand.a, hand.b, toA, toB, 0.75, () => {
-        hand.glow = 0;
-        commit(choice.pose);
-      });
-    }
-  });
-}
-
 // --- Beginning anew --------------------------------------------------------------------------
 
 // Whether the game in play is falling away, a new one on its way.
 function dissolving() {
-  return shaped() ? shaped().phase === 'dissolving' : phase === 'dissolving';
+  return shaped()?.phase === 'dissolving';
 }
 
 function restart() {
   if (phase === 'loading' || dissolving()) return;
-  if (shaped()) {
-    hand.holding = false;
-    hand.flight = null;
-    tray.hide();
-    timers.length = 0;
-    shaped().dissolve();
-    sound.dissolve();
-    haptic('restart');
-    after(1.6, newGame);
-    return;
-  }
-  phase = 'dissolving';
   hand.holding = false;
   hand.flight = null;
-  aim = null;
-  thinking = false;
   tray.hide();
   timers.length = 0;
-  completeGlow = 0;
-  for (const id of [...display.keys()]) {
-    const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.6, Math.random() - 0.5).multiplyScalar(1.4);
-    release(id, { velocity: v, blue: 0.7, spin: 2 });
-  }
+  shaped().dissolve();
   sound.dissolve();
   haptic('restart');
   after(1.6, newGame);
@@ -792,7 +297,6 @@ function onEngravedOption(key, value) {
     return;
   }
   haptic('tick');
-  if (key === 'strain') refreshStrain();
   if (key === 'language' && engraving.standard !== (value === 'standard')) engraving.translate();
 }
 
@@ -872,12 +376,10 @@ function frame(now) {
 }
 
 function step(dt) {
-  time += dt;
   tickTimers(dt);
   readingView(dt);
   stage.update();
-  if (shaped()) shaped().update(dt);
-  else animate(dt);
+  shaped().update(dt);
   motion.update(dt);
   motion.apply(stage);
   // Stone meeting the floor.
@@ -907,16 +409,13 @@ function step(dt) {
   pool.begin();
   trayPool.begin();
   halos.begin();
-  ghosts.begin();
-  if (shaped()) falling.obstacles = shaped().draw(pool, halos, shaking);
-  else drawAssembly();
+  falling.obstacles = shaped().draw(pool, halos, shaking);
   falling.draw(pool, halos);
   tray.draw(trayPool, hand);
   hand.draw(pool, halos, trayPool);
   pool.end();
   trayPool.end();
   halos.end();
-  ghosts.end();
   table?.reflect([stage.sky, trayPool.mesh]);
   stage.renderer.render(stage.scene, stage.camera);
   adapt(dt);
@@ -971,13 +470,10 @@ start().catch((err) => {
 
 // For automated tests and curious developers.
 window.__kaltoh = {
-  R,
-  AI,
   stage,
   hand,
   tray,
   input,
-  display,
   get motion() {
     return motion;
   },
@@ -987,8 +483,9 @@ window.__kaltoh = {
   get table() {
     return table;
   },
+  // The rules' state of the game being played.
   get game() {
-    return game;
+    return shaped()?.game ?? null;
   },
   get phase() {
     return shaped()?.phase ?? phase;
@@ -1010,13 +507,7 @@ window.__kaltoh = {
     nextSeed = v >>> 0;
   },
   restart,
-  commit,
   pickRod,
-  rodScreen(id, s = 0.5) {
-    const e = display.get(id);
-    if (!e) return null;
-    return stage.toScreen(new THREE.Vector3().lerpVectors(e.wa, e.wb, s));
-  },
   set timeScale(s) {
     timeScale = s;
   },
@@ -1029,8 +520,5 @@ window.__kaltoh = {
   rodEnds,
   sound,
   baseSurface: (r) => baseModel?.surface(r) ?? 0,
-  get aim() {
-    return aim;
-  },
   shake,
 };

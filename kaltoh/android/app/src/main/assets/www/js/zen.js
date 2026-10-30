@@ -1,5 +1,5 @@
-// Zen (zen-rules.js), played on the stone: a calm way to play, alone. The nest gathers about its
-// centre mass as the nest of rings does; a t'an laid across any two pieces rests there; and every
+// Zen (zen-rules.js), played on the stone: a calm way to play, alone. A splintering nest gathers
+// about its centre mass, t'an by t'an; a t'an laid across any two pieces rests there; and every
 // ten, the whole assembly takes a form of many forms. Each t'an glides to a rod of it, in a wave
 // outward from the junction nearest the eye; those the form has no rod for fade away into light,
 // and new ones settle into the rods none reached. Five forms on, each richer than the last, it is
@@ -17,7 +17,7 @@ import { SCALE } from './scene.js';
 import { mitreAtJunctions } from './rodmesh.js';
 import { TEXT, ZEN, zenFormText, zenPlacedText, zenBecomesText, zenWholeText } from './texts.js';
 
-const GATHER = 2.4; // seconds over which the nest gathers, t'an by t'an (as the nest of rings did)
+const GATHER = 2.4; // seconds over which the nest gathers, t'an by t'an
 const GLIDE = 1.5; // seconds a t'an takes to glide to its rod of a new form
 const WAVE = 0.11; // each junction's t'an set off this long after the one before, outward from the first
 const FADE = 1.2; // seconds a t'an the form has no rod for takes to fade away
@@ -35,8 +35,8 @@ function envelope(t) {
 }
 
 // A t'an of the nest, or one placed, lies with its broad face turned at random about its length,
-// the same each time it is drawn (as main.js turned the t'an of rings). A t'an of a form turns its
-// face out from the centre, as many forms' do.
+// the same each time it is drawn. A t'an of a form turns its face out from the centre, as many
+// forms' do.
 function hashUp(id, dir) {
   const h = Math.sin(id * 12.9898) * 43758.5453;
   const t = (h - Math.floor(h)) * Math.PI * 2;
@@ -303,7 +303,7 @@ export class ZenGame {
   }
 
   // The t'an under a finger, and where along it: of those near it on screen, the nearest (among
-  // close ones, the nearer the eye wins), as in rings.
+  // close ones, the nearer the eye wins).
   pick(x, y, reach = 30) {
     const { stage } = this.ctx;
     const m = stage.assemblyRoot.matrixWorld;

@@ -279,44 +279,6 @@ export class RodPool {
   }
 }
 
-// Ghosts: where t'an would go - the ring a loop would become - drawn as faint blue light.
-export class Ghosts {
-  constructor(scene, capacity = 16) {
-    this.capacity = capacity;
-    const material = new THREE.MeshBasicMaterial({
-      color: BLUE,
-      transparent: true,
-      opacity: 0.3,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, capacity);
-    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.mesh.frustumCulled = false;
-    this.mesh.count = 0;
-    this.mesh.renderOrder = 9;
-    scene.add(this.mesh);
-    this.matrix = new THREE.Matrix4();
-  }
-
-  begin() {
-    this.mesh.count = 0;
-  }
-
-  push(a, b, up, opacity = 1) {
-    const i = this.mesh.count;
-    if (i >= this.capacity) return;
-    rodMatrix(a, b, up, 1.15, this.matrix);
-    this.mesh.setMatrixAt(i, this.matrix);
-    this.mesh.material.opacity = 0.32 * opacity;
-    this.mesh.count = i + 1;
-  }
-
-  end() {
-    this.mesh.instanceMatrix.needsUpdate = true;
-  }
-}
-
 // Additive halos: a camera-facing ribbon along each glowing segment.
 export class Halos {
   constructor(scene, capacity = 256) {

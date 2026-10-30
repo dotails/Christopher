@@ -1,13 +1,15 @@
-// Checks zen (zen-rules.js): it begins as the nest of rings, a t'an rests across any two pieces,
-// every ten placed the assembly takes the next form - each t'an to a rod of it, the rest fading,
-// new ones filling what none reached - and after five forms, each richer than the last, it is
-// fully formed.
+// Checks zen (zen-rules.js): it begins as a seed's nest (rules.js), a t'an rests across any two
+// pieces, every ten placed the assembly takes the next form - each t'an to a rod of it, the rest
+// fading, new ones filling what none reached - and after five forms, each richer than the last, it
+// is fully formed. And the ways to play (settings.js): the kal-toh, many forms and zen, where the
+// way of rings once was.
 // Run: node kaltoh/tools/zen.test.mjs
 import assert from 'node:assert/strict';
 import * as G from '../android/app/src/main/assets/www/js/geom.js';
 import * as R from '../android/app/src/main/assets/www/js/rules.js';
 import * as Z from '../android/app/src/main/assets/www/js/zen-rules.js';
 import { buildForm, FORM_KEYS } from '../android/app/src/main/assets/www/js/forms-rules.js';
+import { OPTIONS, loadSettings } from '../android/app/src/main/assets/www/js/settings.js';
 
 let checks = 0;
 const ok = (cond, msg) => {
@@ -27,13 +29,28 @@ const eye = [0, 0.4, 3];
   ok(Z.PER_FORM === 10, 'ten t\'an placed bring each form');
 }
 
-// --- A new game: the nest of rings ----------------------------------------------------------------
+// --- The ways to play: the kal-toh first, many forms, zen -----------------------------------------
+{
+  const saved = new Map();
+  globalThis.localStorage = { getItem: (k) => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, String(v)) };
+  const ways = OPTIONS.find((o) => o.key === 'way').choices.map(([value]) => value);
+  ok(JSON.stringify(ways) === JSON.stringify(['classic', 'forms', 'zen']) && loadSettings().way === 'classic', `the ways: ${ways.join(', ')}, the kal-toh first`);
+  saved.set('kaltoh.settings.v2', JSON.stringify({ way: 'rings', opponent: 'adept', players: 2, music: 0.4 }));
+  const old = loadSettings();
+  ok(old.way === 'classic' && old.players === 2 && old.music === 0.4 && !('opponent' in old), 'saved settings that chose rings fall back to the kal-toh, the rest kept');
+  saved.set('kaltoh.settings.v2', JSON.stringify({ way: 'zen' }));
+  const zen = loadSettings();
+  ok(zen.way === 'zen' && OPTIONS.filter((o) => !o.slider && (!o.when || o.when(zen))).every((o) => ['way', 'haptics', 'language'].includes(o.key)),
+    'zen is played alone: of the ways that shape a game, only the game itself is shown');
+  delete globalThis.localStorage;
+}
+
+// --- A new game: the nest ---------------------------------------------------------------------------
 for (const seed of [3, 7]) {
   const g = Z.createGame({ seed });
-  const rings = R.createGame({ seed, opponent: 'none', players: 1 });
-  const live = rings.nest.liveRods;
+  const live = R.startingNest({ seed }).nest.liveRods;
   ok(g.rods.length === live.length && g.rods.every((r, i) => G.dist(r.a, live[i].a) < 1e-12 && G.dist(r.b, live[i].b) < 1e-12),
-    `seed ${seed}: it begins as the nest a game of rings begins from (${g.rods.length} t'an)`);
+    `seed ${seed}: it begins as the seed's nest (${g.rods.length} t'an)`);
   ok(g.rods.some((r) => r.kind === 'core') && new Set(g.rods.map((r) => r.id)).size === g.rods.length, `seed ${seed}: about a centre mass, every t'an its own`);
   ok(g.stage === 0 && !g.form && g.placed === 0 && !g.complete && g.length === R.ROD_LENGTH, `seed ${seed}: no form yet, its t'an the nest's own length`);
 }
