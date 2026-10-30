@@ -30,17 +30,12 @@ export const TEXT = {
   holds: { v: 'it holds', s: 'It holds' },
   ringLost: { v: 'the ring could not hold', s: 'The ring could not hold' },
   vulcanThinks: { v: 'the vulcan considers', s: 'The Vulcan considers' },
-  vulcanTests: { v: 'the vulcan tests the spin', s: 'The Vulcan tested the spin' },
   yourTurn: { v: 'your turn', s: 'Your turn' },
-  testing: { v: 'it spins on its hidden axis', s: 'It spun on its hidden axis' },
-  testNotNow: { v: 'not now', s: 'Not now' },
-  testOff: { v: 'testing is not allowed', s: 'Testing the spin is not allowed' },
   lifeLost: { v: 'a life is lost', s: 'A life is lost' },
   quickens: { v: 'the spin quickens', s: 'The spin quickens' },
   applied: { v: 'a new game begins', s: 'A new game begins' },
   // Glyph labels.
   ways: { v: 'ways', s: 'Ways to play' },
-  test: { v: 'spin', s: 'Test the spin' },
   anew: { v: 'anew', s: 'Begin anew' },
   rules: { v: 'rules', s: 'Rules' },
   back: { v: 'return', s: 'Return' },
@@ -54,7 +49,6 @@ export const TEXT = {
   markRing: { v: 'a ring', s: 'a ring' },
   markLoop: { v: 'a loop', s: 'a loop' },
   markFell: { v: 'fell', s: 'fell' },
-  markTested: { v: 'tested', s: 'tested' },
 };
 
 export const ringText = (k) => ({ v: `a ring of ${spell(k)}`, s: `A ring of ${k}` });
@@ -123,7 +117,7 @@ export const CLASSIC = {
   touch: { v: 'lay its ends on two tips a tan apart', s: "Lay its ends on two tips about a t'an apart to join them" },
   truth: { v: 'true neighbours bring order', s: 'True neighbours bring order; false bonds fall' },
   angles: { v: 'read the angles of each joint', s: 'Joints keep true angles: 60° a triangle, 108° a pentagon' },
-  axis: { v: 'it spins on a hidden axis', s: 'It spins on a hidden axis: two taps on it test the spin' },
+  axis: { v: 'it spins on a hidden axis', s: 'It spins on a hidden axis' },
   balance: { v: 'build evenly round the axis', s: "Build evenly round the axis, or the spin flings t'an away" },
   goal: { v: 'complete the sphere', s: "Complete the sphere: sixty t'an round two shells" },
   aimSame: { v: 'choose two different tips', s: 'Choose two different tips' },
@@ -137,8 +131,6 @@ export const CLASSIC = {
   shaken: { v: 'discord a tan is shaken loose', s: "Discord: a t'an is shaken loose. Where it belongs glows" },
   flung: { v: 'the spin flings it away', s: 'Unbalanced. The spin flings it away.' },
   wobble: { v: 'it wobbles', s: 'It wobbles. Restore its balance.' },
-  steady: { v: 'it spins true', s: 'It spins true: balanced about its axis' },
-  testing: { v: 'it spins on its hidden axis', s: 'It spins on its hidden axis' },
 };
 
 const CLASSIC_RULES = [
@@ -150,7 +142,7 @@ const CLASSIC_RULES = [
   { v: 'a false bond fails and shakes one loose', s: 'a false bond fails and shakes one loose.' },
   { v: 'it spins on a hidden axis', s: 'It spins on a hidden axis: build evenly' },
   { v: 'build evenly or the spin flings tan away', s: "round it, or the spin flings t'an away." },
-  { v: 'two taps test the spin a wobble warns', s: 'Two taps test the spin; a wobble warns.' },
+  { v: 'a wobble warns of imbalance', s: 'A wobble warns of imbalance.' },
   { v: 'sixty tan complete the sphere', s: "Sixty t'an complete the sphere." },
 ];
 

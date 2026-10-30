@@ -9,7 +9,7 @@ self.onmessage = (e) => {
     const game = restoreGame(data);
     const rng = G.mulberry32(seed);
     const choice = chooseMove(game, { level, rng, revealed: game.revealed });
-    self.postMessage({ id, choice: choice ? { test: Boolean(choice.test), pose: choice.pose ?? null } : null });
+    self.postMessage({ id, choice: choice ? { pose: choice.pose } : null });
   } catch (err) {
     self.postMessage({ id, error: String(err?.stack ?? err) });
   }

@@ -2,14 +2,14 @@
 // First the original kal-toh, the way to play on first opening: the jumble grows, a t'an taken up
 // by one finger and then held by a second joins two true neighbours, tips too far apart for a t'an
 // are refused, a false bond falls
-// (the first tip's true neighbours glowing), two taps test the spin, nothing passes into the
+// (the first tip's true neighbours glowing), nothing passes into the
 // stone, and t'an meeting at a junction are mitred to touch. Then, through the carved ways to play,
 // many forms: a new form's jumble with a sample of its loops true and noise among it, a true join,
 // noise touched falling away, the inner form whole with struts at every junction and a longer t'an
 // in the tray, and a join on the struts' tips. Then (turning the ways' pages by the arrows at the
 // rim) the game of rings: a two-finger lift and placement, the Vulcan's reply (whose turn it is
 // told only under the board, the scene's light the same for both; the plays carved under the
-// seats), a spin test, a ring,
+// seats), a ring,
 // a drag on open space turning nothing, turning the base by the stone (the t'an lag, catch up, and
 // then hold perfectly still on it), spinning the
 // t'an by dragging their area, t'an never passing into the stone, turning the base over to read
@@ -88,7 +88,7 @@ function check(condition, message) {
     const waitFor = (names, timeout = 240000) => page.waitForFunction((n) => n.includes(window.__kaltoh?.phase), names, { timeout });
     const state = () => page.evaluate(() => {
       const k = window.__kaltoh;
-      return { phase: k.phase, moves: k.game.moves, rings: k.game.rings.filter((r) => !r.broken).length, current: k.game.current, revealed: k.game.revealed, rods: k.display.size };
+      return { phase: k.phase, moves: k.game.moves, rings: k.game.rings.filter((r) => !r.broken).length, current: k.game.current, rods: k.display.size };
     });
     // The assembly's orientation on the base, and its place.
     const onBase = () => page.evaluate(() => {
@@ -114,7 +114,7 @@ function check(condition, message) {
     await page.addInitScript(() => {
       if (!sessionStorage.getItem('kaltoh.check')) {
         sessionStorage.setItem('kaltoh.check', '1');
-        localStorage.setItem('kaltoh.settings.v2', JSON.stringify({ opponent: 'adept', foresight: 'always', test: 'free' }));
+        localStorage.setItem('kaltoh.settings.v2', JSON.stringify({ opponent: 'adept', foresight: 'always' }));
       }
     });
     await page.goto(`${base}?seed=7`);
@@ -253,35 +253,8 @@ function check(condition, message) {
     check(true, 'and its t\'an falls away');
     await waitFor(['play']);
     await settle();
-    const touchSpot = () => page.evaluate(() => {
-      const k = window.__kaltoh;
-      for (let y = 220; y < 480; y += 12) for (let x = 110; x < 310; x += 12) if (k.touchesAssembly(x, y)) return { x, y };
-      return null;
-    });
-    // Two taps in quick succession. (Dispatched together in the page: under software rendering
-    // each touch sent from outside arrives a frame late, too slow to count as a double tap.)
-    const doubleTap = (spot) => page.evaluate(({ x, y }) => {
-      const canvas = document.getElementById('view');
-      for (let i = 0; i < 2; i++) {
-        for (const type of ['pointerdown', 'pointerup']) {
-          canvas.dispatchEvent(new PointerEvent(type, { pointerId: 40 + i, clientX: x, clientY: y, bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true }));
-        }
-      }
-    }, spot);
-    await doubleTap(await touchSpot());
-    await page.waitForFunction(() => window.__kaltoh.phase === 'testing', null, { timeout: 20000 });
-    const trayWhileSpinning = await page.evaluate(() => window.__kaltoh.tray.visible);
-    let closest = Infinity;
-    for (let i = 0; i < 12; i++) {
-      closest = Math.min(closest, await page.evaluate(() => window.nearest(window.classicRods())));
-      await sleep(150);
-    }
-    await page.screenshot({ path: path.join(OUT, '0c-spin-test.png') });
-    check(true, 'two taps on it test the spin');
-    check(trayWhileSpinning && await page.evaluate(() => window.__kaltoh.tray.visible), 'and the t\'an in the tray stays there while it spins');
-    await waitFor(['play']);
-    closest = Math.min(closest, await page.evaluate(() => window.nearest(window.classicRods())));
-    check(closest > -0.002, `none of its t'an pass into the stone, at rest or spinning (closest ${closest.toFixed(3)})`);
+    const closest = await page.evaluate(() => window.nearest(window.classicRods()));
+    check(closest > -0.002, `none of its t'an pass into the stone (closest ${closest.toFixed(3)})`);
     // Where the jumble's t'an meet at a junction their ends are mitred: each corner of an end lies on
     // its own side of the plane halving the angle to every other t'an there, and rests against one.
     const junctions = await page.evaluate(async () => {
@@ -421,11 +394,6 @@ function check(condition, message) {
     check(formsHeld.pose && formsHeld.glow > 0.9, 'carried over two tips, the t\'an shows where it will join them');
     await page.waitForFunction(() => window.__kaltoh.forms.game.history.length >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
     check((await formsState()).history[0] === 'harmony', 'true neighbours join');
-    await settle();
-    await doubleTap(await touchSpot());
-    await page.waitForFunction(() => window.__kaltoh.phase === 'testing', null, { timeout: 20000 });
-    check(await page.evaluate(() => window.__kaltoh.tray.visible), 'two taps test its spin, and the t\'an in the tray stays there while it spins');
-    await waitFor(['play']);
     formsJoin = await findFormsJoin('noise');
     check(formsJoin, 'a tip of the noise within reach can be found on screen');
     const noiseBefore = (await formsState()).noise;
@@ -606,16 +574,25 @@ function check(condition, message) {
       }
       await sleep(600);
       if (shot) await page.screenshot({ path: path.join(OUT, shot.replace('.png', '-one.png')) });
-      // The point it was touched at stays under the finger; carried up from the tray, it draws in to
+      // It dangles from the finger, swinging: one end at the finger, the rest hanging down the screen
+      // below it (watched for a second, through its swing); carried up from the tray, it draws in to
       // the size it will be at the kal-toh.
-      const carried = await page.evaluate((f) => {
-        const k = window.__kaltoh;
-        const a = k.stage.toScreen(k.hand.a);
-        const b = k.stage.toScreen(k.hand.b);
-        const t = k.hand.carried.along;
-        return { off: Math.hypot(a.x + (b.x - a.x) * t - f.x, a.y + (b.y - a.y) * t - f.y), length: Math.hypot(b.x - a.x, b.y - a.y), own: k.hand.atKaltoh() };
-      }, f1);
-      check(carried.off < 6, `it slides across the glass under the finger (${carried.off.toFixed(1)} px off)`);
+      let carried = null;
+      for (let i = 0; i < 10; i++) {
+        const now = await page.evaluate((f) => {
+          const k = window.__kaltoh;
+          const a = k.stage.toScreen(k.hand.a);
+          const b = k.stage.toScreen(k.hand.b);
+          const near = Math.hypot(a.x - f.x, a.y - f.y) < Math.hypot(b.x - f.x, b.y - f.y);
+          const [top, low] = near ? [a, b] : [b, a];
+          const length = Math.hypot(b.x - a.x, b.y - a.y);
+          return { off: Math.hypot(top.x - f.x, top.y - f.y), drop: (low.y - f.y) / length, length, own: k.hand.atKaltoh() };
+        }, f1);
+        carried = carried ? { ...now, off: Math.max(carried.off, now.off), drop: Math.max(carried.drop, now.drop) } : now;
+        await sleep(100);
+      }
+      check(carried.off < 0.12 * carried.length + 4 && carried.drop > 0.85,
+        `it dangles from the finger (its end ${carried.off.toFixed(1)} px from it, hanging down ${(carried.drop * 100).toFixed(0)}% of its length)`);
       check(Math.abs(carried.length - carried.own) < 6, `drawing in to the size it will be at the kal-toh (${carried.length.toFixed(0)} px long)`);
       const f2 = { id: 2, x: move.f2.x, y: move.f2.y };
       await touch('touchStart', [f1, f2]);
@@ -652,26 +629,14 @@ function check(condition, message) {
     // 2. The Vulcan replies.
     await page.waitForFunction(() => window.__kaltoh.phase === 'play' && window.__kaltoh.game.current === 0, null, { timeout: 240000 });
     s = await state();
-    check(s.moves >= 2 || s.revealed, `the Vulcan takes its turn (${s.moves} moves)`);
+    check(s.moves >= 2, `the Vulcan takes its turn (${s.moves} moves)`);
     check(await sceneLight() === lightBefore, 'and so on the first player\'s');
     const carvedPlays = await page.evaluate(() => (window.__kaltoh.engraving.state.plays ?? []).map((p) => p.player));
     check(carvedPlays.includes(0) && carvedPlays.includes(1), `each player's plays are kept for the carving under their seat (${carvedPlays.length})`);
     check(await carved('name0') && await carved('name1'), 'and each seat is named over its mark');
     await page.screenshot({ path: path.join(OUT, '3-after-vulcan.png') });
 
-    // 3. Two quick taps on the t'an test the spin (free in this game).
-    await settle();
-    const spot = await touchSpot();
-    check(spot, 'the t\'an have an area to touch');
-    await doubleTap(spot);
-    await page.waitForFunction(() => window.__kaltoh.phase === 'testing', null, { timeout: 20000 });
-    await sleep(1200);
-    await page.screenshot({ path: path.join(OUT, '4-spin-test.png') });
-    check((await state()).revealed, 'two taps on the t\'an test the spin, revealing the axis');
-    check(await page.evaluate(() => window.__kaltoh.phase === 'testing' && window.__kaltoh.tray.visible), 'and the t\'an in the tray stays there while it spins');
-    await waitFor(['play']);
-
-    // 4. Close a ring: by touch if one sits steadily under the fingers, else placed directly.
+    // 3. Close a ring: by touch if one sits steadily under the fingers, else placed directly.
     let ringMove = null;
     for (let look = 0; look < 3 && !ringMove; look++) {
       ringMove = await findMove(true);
@@ -694,7 +659,7 @@ function check(condition, message) {
     check(true, 'closing a loop around the axis makes a ring');
     await page.waitForFunction(() => ['play', 'over', 'complete'].includes(window.__kaltoh.phase) && window.__kaltoh.game.current === 0, null, { timeout: 240000 });
 
-    // 5. A drag on open space below the stone, where a finger reaching for the tray might land, turns
+    // 4. A drag on open space below the stone, where a finger reaching for the tray might land, turns
     // nothing. One on the stone turns it: the t'an lag, catch up, then hold perfectly still on it.
     await settle();
     const start = await onBase();
@@ -765,7 +730,7 @@ function check(condition, message) {
     await twist(-40);
     await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 60000, polling: 100 });
 
-    // 6. Drag on the t'an's area, between the t'an: the assembly turns on the base; the base does not.
+    // 5. Drag on the t'an's area, between the t'an: the assembly turns on the base; the base does not.
     const between = await page.evaluate(() => {
       const k = window.__kaltoh;
       for (let y = 220; y < 480; y += 8) for (let x = 110; x < 310; x += 8) if (k.touchesAssembly(x, y) && !k.pickRod(x, y, 10)) return { x, y };
@@ -781,7 +746,7 @@ function check(condition, message) {
     const clearance = await page.evaluate(() => window.nearest([...window.__kaltoh.display.values()].map((e) => [e.wa, e.wb])));
     check(clearance > -0.002, `the t'an never pass into the stone (closest ${clearance.toFixed(3)})`);
 
-    // 7. Turn the base over: its underside comes to the eye to be read, top up whichever way the
+    // 6. Turn the base over: its underside comes to the eye to be read, top up whichever way the
     // base had been turned before.
     await turnOver();
     check(true, 'turned over, the base brings its carved underside to the eye');
@@ -809,7 +774,7 @@ function check(condition, message) {
     await recut();
     check(await page.evaluate(() => !window.__kaltoh.engraving.standard), 'touched again, it returns all of it to Vulcan');
 
-    // 8. The carved ways to play: choose pass and play, begin anew.
+    // 7. The carved ways to play: choose pass and play, begin anew.
     await tap(await where('ways', 'button'));
     await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
     await recut();
@@ -868,7 +833,7 @@ function check(condition, message) {
     await waitFor(['play']);
     check(await page.evaluate(() => window.__kaltoh.game.players.every((p) => !p.vulcan)), 'a new game begins with the new ways');
 
-    // 9. Fallen t'an lie where they fell until a new game: some on the stone's lip, some on the
+    // 8. Fallen t'an lie where they fell until a new game: some on the stone's lip, some on the
     // floor in front of it - and none in the stone.
     await drag(await stoneSpot({ x: 206, y: 420 }), 0, 155);
     await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1 && !window.__kaltoh.engraving.seen, null, { timeout: 30000 });
@@ -908,7 +873,7 @@ function check(condition, message) {
     check(fallen.onStone > 0 && lying > -0.002, `nor do they pass into the stone (closest ${lying.toFixed(3)})`);
     await page.screenshot({ path: path.join(OUT, '10c-fallen.png') });
 
-    // 10. Shake for three seconds to begin anew; what had fallen goes with the old game.
+    // 9. Shake for three seconds to begin anew; what had fallen goes with the old game.
     await pace();
     const seedBefore = await page.evaluate(() => window.__kaltoh.game.seed);
     for (let i = 0; i < 400; i++) {

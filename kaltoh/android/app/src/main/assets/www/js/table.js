@@ -17,8 +17,9 @@ export const TOP = { half: 0.95 * SCALE, corner: 0.3 * SCALE };
 
 // The mirror in the top: everything drawn again from the eye turned over in the plane of the top
 // (the view reflected, and the image flipped left to right so that faces still face the same way
-// and three.js culls and lights them as it should), into a target half the screen's size whose
-// smaller mipmaps soften it as a satin finish would.
+// and three.js culls and lights them as it should), into a target the screen's own size, its
+// edges smoothed by multisampling, read a little way into its mipmaps so that it is softened just
+// a touch, as a satin finish softens it.
 const FLIP = new THREE.Matrix4().set(1, 0, 0, 0, 0, -1, 0, 2 * FLOOR, 0, 0, 1, 0, 0, 0, 0, 1);
 const MIRROR_X = new THREE.Matrix4().makeScale(-1, 1, 1);
 
@@ -64,6 +65,7 @@ export async function loadTable(stage) {
   const target = new THREE.WebGLRenderTarget(1, 1, {
     generateMipmaps: true,
     minFilter: THREE.LinearMipmapLinearFilter,
+    samples: 4,
   });
   const screen = new THREE.Vector2(1, 1);
   black.anisotropy = Math.min(8, stage.renderer.capabilities.getMaxAnisotropy());
@@ -94,12 +96,12 @@ export async function loadTable(stage) {
   float up = inverseTransformDirection(normal, viewMatrix).y;
   float onTop = smoothstep(0.9, 0.97, up) * (1.0 - smoothstep(0.08, 0.2, abs(vHeight - uTop)));
   vec2 st = gl_FragCoord.xy / uScreen;
-  vec4 seen = textureLod(tMirror, vec2(1.0 - st.x, st.y), 1.8);
+  vec4 seen = textureLod(tMirror, vec2(1.0 - st.x, st.y), 0.6);
   radiance = mix(radiance, seen.rgb / max(seen.a, 1e-3), clamp(seen.a, 0.0, 1.0) * onTop);
 }`,
       );
   };
-  material.customProgramCacheKey = () => 'kaltoh-table-v3';
+  material.customProgramCacheKey = () => 'kaltoh-table-v4';
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.scale.setScalar(SCALE);
@@ -123,8 +125,8 @@ export async function loadTable(stage) {
     const { renderer, scene, camera } = stage;
     if (!table.mirror) return;
     renderer.getDrawingBufferSize(screen);
-    const w = Math.max(1, Math.round(screen.x / 2));
-    const h = Math.max(1, Math.round(screen.y / 2));
+    const w = Math.max(1, Math.round(screen.x));
+    const h = Math.max(1, Math.round(screen.y));
     if (target.width !== w || target.height !== h) target.setSize(w, h);
     eye.matrixWorld.multiplyMatrices(FLIP, camera.matrixWorld);
     eye.matrixWorldInverse.copy(eye.matrixWorld).invert();

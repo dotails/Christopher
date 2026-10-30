@@ -1,9 +1,9 @@
 // The tray at the foot of the screen where the next t'an lies, and the hand that carries it.
 // The resting t'an lies on the glass itself (scene.js), so it keeps its place and size on the
 // screen however the view draws near, and it is drawn over everything else; it is large enough
-// there for two fingers. Taken up by one finger it slides across the glass, drawing in
-// to the size it will be at the kal-toh as the finger rises; held by two, it travels out to the
-// kal-toh and is seen at its scale.
+// there for two fingers. Taken up by one finger it dangles from it, swinging on the glass, so it
+// is plain a second finger is wanted, drawing in to the size it will be at the kal-toh as the
+// finger rises; held by two, it travels out to the kal-toh and is seen at its scale.
 import * as THREE from '../vendor/three.module.min.js';
 import { ROD_LENGTH as RULE_LENGTH } from './rules.js';
 import { SCALE, TUVOK } from './scene.js';
@@ -14,6 +14,9 @@ export const ROD_LENGTH = RULE_LENGTH * SCALE;
 const ease = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 const clamp01 = (t) => Math.min(1, Math.max(0, t));
 const RAISE = 160; // px a finger carries the t'an up from the tray for it to draw in to its own size
+const DROOP = 3600; // how hard a t'an hanging from one finger is pulled down the screen (px/s^2)
+const SWAY = 1.4; // how fast its swinging dies away (per second)
+const SLIP = 0.22; // how long it takes to slip through the finger to hang by its end (s)
 const right = new THREE.Vector3();
 const side = new THREE.Vector3();
 
@@ -112,8 +115,17 @@ export class Hand {
     this.scale = this.scaleGoal = this.tray.widthScale;
     // Where along it the finger took it (0 at one end, 1 at the other), and how far off its line.
     const left = width / 4 + this.tray.slide;
-    this.carried = { along: x === undefined ? 0.5 : clamp01((x - left) / (width / 2)), off: y === undefined ? 0 : this.tray.y - y, x: x ?? width / 2, y: y ?? this.tray.y };
-    this.carried.y0 = this.carried.y;
+    const along = x === undefined ? 0.5 : clamp01((x - left) / (width / 2));
+    const fx = x ?? width / 2;
+    const fy = y ?? this.tray.y;
+    // It hangs from the end nearer the finger: `byB` if that is its end b. `above` is how much of it
+    // lies past the finger on that side (slipping to nothing), and `low` is its far end, a weight
+    // on a thread swinging under the finger, starting where it lay.
+    const byB = along > 0.5;
+    const above = byB ? 1 - along : along;
+    const reach = (width / 2) * (1 - above);
+    this.carried = { x: fx, y: fy, y0: fy, byB, above, low: new THREE.Vector2(fx + (byB ? -reach : reach), fy), lowBefore: null };
+    this.carried.lowBefore = this.carried.low.clone();
     this.glow = 0;
     this.amber = 0;
   }
@@ -189,16 +201,30 @@ export class Hand {
     }
     if (!this.holding) return;
     if (this.carried) {
-      // On the glass under the finger; raised from the tray, it draws in to the size it will be at
-      // the kal-toh (and from the tray's breadth to its own), onto the finger's line.
+      // On the glass, hanging from the finger: its far end swings under the finger, pulled down
+      // the screen and dragged along as the finger moves, the t'an slipping through the finger to
+      // hang by its end. Raised from the tray, it draws in to the size it will be at the kal-toh
+      // (and from the tray's breadth to its own).
       const { size, glass } = this.stage;
       const c = this.carried;
       const s = ease(clamp01((c.y0 - c.y) / RAISE));
       const length = size.width / 2 + (this.atKaltoh() - size.width / 2) * s;
-      const x = c.x - c.along * length;
-      const y = c.y + c.off * (1 - s);
-      this.stage.onGlass(x, y, this.goalA);
-      this.stage.onGlass(x + length, y, this.goalB);
+      c.above *= Math.exp(-dt / SLIP);
+      const step = Math.min(dt, 1 / 30);
+      const vx = (c.low.x - c.lowBefore.x) * Math.exp(-SWAY * step);
+      const vy = (c.low.y - c.lowBefore.y) * Math.exp(-SWAY * step);
+      c.lowBefore.copy(c.low);
+      c.low.x += vx;
+      c.low.y += vy + DROOP * step * step;
+      const hang = Math.hypot(c.low.x - c.x, c.low.y - c.y) || 1;
+      const reach = length * (1 - c.above);
+      const dx = (c.low.x - c.x) / hang;
+      const dy = (c.low.y - c.y) / hang;
+      c.low.set(c.x + dx * reach, c.y + dy * reach);
+      const top = length * c.above;
+      const ends = c.byB ? [this.goalB, this.goalA] : [this.goalA, this.goalB];
+      this.stage.onGlass(c.x - dx * top, c.y - dy * top, ends[0]);
+      this.stage.onGlass(c.low.x, c.low.y, ends[1]);
       this.scaleGoal = ((length * glass.width) / (size.width * this.tray.length)) * (2 - s);
     }
     const k = 1 - Math.exp(-dt / 0.045);

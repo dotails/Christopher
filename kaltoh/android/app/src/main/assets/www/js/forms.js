@@ -6,8 +6,7 @@
 // As in the original game (classic.js), a small position-based solver keeps every t'an rigid while
 // each tip is drawn toward where it rests as far as its junction has found its order. It is all in
 // the assembly's own units (scene.js SCALE): it rests in the motion model like any kal-toh, keeps
-// its place on the base, is kept clear of the stone, and is still unless touched. Its hidden spin
-// shows itself only when tested (two taps): an unbalanced kal-toh wobbles.
+// its place on the base, is kept clear of the stone, and is still unless touched.
 import * as THREE from '../vendor/three.module.min.js';
 import * as F from './forms-rules.js';
 import { PIVOT, SCALE } from './scene.js';
@@ -437,11 +436,11 @@ export class FormsGame {
     this.structure = new Structure(ctx.stage, this.floor);
     this.structure.onDrop = (a, b, velocity, options) => ctx.falling.spawn(a, b, velocity ?? new THREE.Vector3(), options);
     this.game = null;
-    this.phase = 'loading'; // intro | play | resolving | testing | complete | dissolving
+    this.phase = 'loading'; // intro | play | resolving | complete | dissolving
     this.rods = [];
     this.aimed = null; // { u, v, pose } while a t'an is carried
     this.aimKey = '';
-    this.plays = []; // for the carving: { player, mark: join | ring | fall | test }
+    this.plays = []; // for the carving: { player, mark: join | ring | fall }
     this.sinceEase = 0;
     this.easing = false; // the jumble is easing toward its order (no true join was within reach)
   }
@@ -485,7 +484,7 @@ export class FormsGame {
       return { now: i === game.current && !game.complete, score: ofText(joined, joined + discord) };
     });
     const lines = [TEXT.lift, CLASSIC.touch, MANY.angles, MANY.corners, MANY.holds, MANY.outer, loopsText(F.progress(game)), TEXT.rim];
-    this.ctx.engraving.set({ seats, lines, plays: this.plays, testAllowed: true });
+    this.ctx.engraving.set({ seats, lines, plays: this.plays });
   }
 
   update(dt) {
@@ -761,39 +760,6 @@ export class FormsGame {
     });
     this.carve();
     say(manyCompleteText(this.game, this.form));
-  }
-
-  // The spin test, always allowed: it turns on its hidden axis, and if its t'an are not evenly
-  // spread about that axis it wobbles as it turns - more, the further from balance.
-  spinTest() {
-    const { motion, sound, haptic, say, after } = this.ctx;
-    if (this.phase !== 'play' && this.phase !== 'complete') return false;
-    const wobble = F.wobble(this.game);
-    const axis = new THREE.Vector3().fromArray(this.game.axis);
-    let spinAxis = axis;
-    if (wobble.amount > 0.02) {
-      // Spun about an axis leaning toward its heavy side, the hidden axis circles as it turns.
-      const toward = new THREE.Vector3().fromArray(wobble.direction);
-      const lean = new THREE.Vector3().crossVectors(axis, toward);
-      if (lean.lengthSq() > 1e-8) spinAxis = axis.clone().applyAxisAngle(lean.normalize(), Math.min(0.4, wobble.amount * 0.22));
-    }
-    const duration = 3.2;
-    const wasPlaying = this.phase === 'play';
-    if (wasPlaying) {
-      this.plays.push({ player: this.game.current, mark: 'test' });
-      this.carve();
-    }
-    // The t'an stays in the tray, waiting (it cannot be lifted while the kal-toh spins).
-    this.phase = 'testing';
-    motion.startSpin(spinAxis, 6, duration);
-    sound.spin(duration);
-    haptic('lift');
-    say(CLASSIC.testing);
-    after(duration + 0.2, () => {
-      say(wobble.amount > 0.25 ? CLASSIC.wobble : CLASSIC.steady);
-      this.phase = wasPlaying ? 'play' : 'complete';
-    });
-    return true;
   }
 
   // Begin anew: everything falls away.

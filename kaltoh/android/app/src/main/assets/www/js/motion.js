@@ -8,8 +8,8 @@
 // instead; flung, it coasts to rest and stays where it stops.
 //
 // The two never pass through each other. While the assembly is being turned (by hand, by its
-// own momentum, or by the spin test) the base gives way just enough and comes back; when the
-// base is turned into the t'an they are bumped aside and drawn back into place.
+// own momentum, or spun) the base gives way just enough and comes back; when the base is turned
+// into the t'an they are bumped aside and drawn back into place.
 //
 // Let go level - its foot within ten degrees of facing straight down - the stone comes down to rest on
 // the floor, and the t'an with it: first it falls straight down until its lowest edge meets the
@@ -90,7 +90,7 @@ export class Motion {
     this.anchor = new THREE.Quaternion(); // its place on the base: orientation relative to the stone
     this.mode = 'held'; // held | drag | coast | spin
     this.baseDragged = false;
-    this.spin = null; // { axis (assembly-local), rate, time, duration } during a spin test
+    this.spin = null; // { axis (assembly-local), rate, time, duration } while it is spun
     this.rods = []; // assembly-local ends [a, b] of the t'an, kept clear of the stone
     this.acc = 0;
     this.scrape = 0; // how hard the stone met the t'an lately (for sound)
@@ -169,7 +169,7 @@ export class Motion {
     }
   }
 
-  // The spin test: the assembly turns about the hidden axis (assembly-local) and comes to rest.
+  // Spun: the assembly turns about an axis (assembly-local) and comes to rest.
   startSpin(axis, rate = 7, duration = 3.2) {
     this.asleep = false;
     this.spin = { axis: axis.clone().normalize(), rate, time: 0, duration };

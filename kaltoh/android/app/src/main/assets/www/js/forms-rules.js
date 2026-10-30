@@ -627,7 +627,7 @@ export function rods(state) {
   return out;
 }
 
-// Wobble as the spin test shows it: how far its rods lie off balance about the hidden axis.
+// Wobble: how far its rods lie off balance about the hidden axis.
 export function wobble(state) {
   let b = [0, 0, 0];
   for (const e of state.presentIn.keys()) b = add(b, state.midIn[e]);

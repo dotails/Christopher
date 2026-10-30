@@ -1,7 +1,7 @@
 // Nothing is written on the screen. Everything the kal-toh says is carved into the underside of
 // its stone base, in a medallion: its name, the players, what last happened, how to play, and
-// the glyphs that act - the ways to play, testing the spin, beginning anew. Turn the base over to
-// read it: whichever way it is tipped, the carving is found with its top up.
+// the glyphs that act - the ways to play, beginning anew. Turn the base over to read it:
+// whichever way it is tipped, the carving is found with its top up.
 //
 // It is carved in Vulcan. The Starfleet delta among the glyphs translates all of it: the carving
 // smooths away to bare stone, and the other script is cut in its place, as deep. Within its
@@ -130,7 +130,7 @@ export class Engraving {
     this.page = 'main';
     this.wayPage = 0;
     this.standard = settings.language === 'standard'; // which script is cut now
-    this.state = { game: null, event: TEXT.begin, testAllowed: true };
+    this.state = { game: null, event: TEXT.begin };
     this.regions = [];
     this.dirty = true;
     this.change = null; // what is to be cut once the carving has smoothed away
@@ -456,12 +456,12 @@ export class Engraving {
       const y = 398 + i * 44;
       this.line(`l${i}`, text, C, y, { size: 30, max: 2 * chord(y) - 80 });
     });
-    const glyphs = [{ name: 'ways', label: TEXT.ways }];
-    if (this.state.testAllowed) glyphs.push({ name: 'test', label: TEXT.test });
-    // Its name is carved in Standard in either script: it is how a reader of Standard finds it.
-    glyphs.push({ name: 'translate', label: TEXT.translateGlyph, standard: true });
-    glyphs.push({ name: 'anew', label: TEXT.anew, on: this.state.pending });
-    this.glyphRow(glyphs, GLYPHS_Y);
+    this.glyphRow([
+      { name: 'ways', label: TEXT.ways },
+      // Its name is carved in Standard in either script: it is how a reader of Standard finds it.
+      { name: 'translate', label: TEXT.translateGlyph, standard: true },
+      { name: 'anew', label: TEXT.anew, on: this.state.pending },
+    ], GLYPHS_Y);
   }
 
   // A player's plays, in order, as small marks beneath their seat (see MARKS): rows of seven, the
@@ -558,9 +558,9 @@ export class Engraving {
     // What the marks beneath each seat mean.
     const legend = this.settings.way === 'rings' ? [['join', TEXT.markPlaced], ['ring', TEXT.markRing]]
       : [['join', TEXT.markJoined], ['ring', this.settings.way === 'forms' ? TEXT.markLoop : TEXT.markHoop]];
-    legend.push(['fall', TEXT.markFell], ['test', TEXT.markTested]);
+    legend.push(['fall', TEXT.markFell]);
     legend.forEach(([mark, label], i) => {
-      const x = C + (i - 1.5) * 168;
+      const x = C + (i - (legend.length - 1) / 2) * 168;
       this.cut((g, color) => MARKS[mark](g, x - 52, 690, color), 0.6);
       this.line(`legend${i}`, label, x + 8, 690, { size: 24, max: 104, lit: 0.36 });
     });
@@ -777,7 +777,7 @@ function buildRelief(mask, glow, out, full, rect = null) {
 
 // The glyphs, drawn about their centre.
 // The marks of the plays under each seat: a dot for a true join (or a t'an placed), a ringed dot
-// for a ring or a great hoop, a cross where t'an fell, a circle for a spin test.
+// for a ring or a great hoop, a cross where t'an fell.
 const MARKS = {
   join(g, x, y, color) {
     g.fillStyle = color;
@@ -807,13 +807,6 @@ const MARKS = {
     g.lineTo(x - 5, y + 5);
     g.stroke();
   },
-  test(g, x, y, color) {
-    g.strokeStyle = color;
-    g.lineWidth = 2.2;
-    g.beginPath();
-    g.arc(x, y, 5.2, 0, Math.PI * 2);
-    g.stroke();
-  },
 };
 
 const GLYPHS = {
@@ -824,17 +817,6 @@ const GLYPHS = {
     g.beginPath();
     g.arc(0, 0, 10, 0, Math.PI * 2);
     g.stroke();
-  },
-  test(g) {
-    g.beginPath();
-    g.arc(0, 0, 29, Math.PI * 0.35, Math.PI * 2.05);
-    g.stroke();
-    g.beginPath();
-    g.arc(0, 0, 15, Math.PI * 1.35, Math.PI * 3.05);
-    g.stroke();
-    g.beginPath();
-    g.arc(0, 0, 4.5, 0, Math.PI * 2);
-    g.fill();
   },
   anew(g) {
     g.beginPath();

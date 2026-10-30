@@ -50,7 +50,7 @@ let begunWith = ''; // the ways the game was begun with (settings.js shapeOf)
 const insets = { top: 0, bottom: 0 };
 const quality = { maxDpr: 2, time: 0, frames: 0 };
 let game = null;
-let phase = 'loading'; // loading | intro | play | resolving | vulcan | testing | complete | over | dissolving
+let phase = 'loading'; // loading | intro | play | resolving | vulcan | complete | over | dissolving
 let aimKey = '';
 let time = 0;
 let shaking = 0; // how far a shake to begin anew has gone (0..1)
@@ -62,8 +62,7 @@ const display = new Map();
 const collisionRods = [];
 let shownCount = 0; // t'an drawn last frame: when it changes, the assembly's shape has changed
 let strainOf = new Map();
-let testGlow = null; // per-rod strain shown while the spin test turns
-let plays = []; // the game of rings' plays, for the carving: { player, mark: join | ring | fall | test }
+let plays = []; // the game of rings' plays, for the carving: { player, mark: join | ring | fall }
 let aim = null; // { pieces, pose, ring } while a t'an is held
 let completeGlow = 0;
 
@@ -215,9 +214,8 @@ function drawAssembly() {
     if (thinking && rod?.kind === 'core') blue = Math.max(blue, 0.18 + 0.14 * Math.sin(time * 2.4));
     // A gathering shake lights everything, the nearer to beginning anew the brighter.
     if (shaking > 0.08) blue = Math.max(blue, shaking * 0.7);
-    const strain = testGlow ? (testGlow.get(e.id) ?? 0) : (strainOf.get(e.id) ?? 0);
-    const show = testGlow ? 0.35 : 0.72;
-    if (strain > show) amber = Math.min(1, (strain - show) / (1 - show)) * 0.75;
+    const strain = strainOf.get(e.id) ?? 0;
+    if (strain > 0.72) amber = Math.min(1, (strain - 0.72) / 0.28) * 0.75;
     pool.push(e.wa, e.wb, vUp, blue, amber);
     if (blue > 0.05 || amber > 0.05) halos.push(e.wa, e.wb, Math.max(blue * 0.26, amber * 0.26), 0.06, amber > blue ? 1 : 0);
     obstacles.push({ a: [e.wa.x, e.wa.y, e.wa.z], b: [e.wb.x, e.wb.y, e.wb.z] });
@@ -361,7 +359,6 @@ function newGame() {
   falling.clear();
   timers.length = 0;
   completeGlow = 0;
-  testGlow = null;
   aim = null;
   if (shaped()) {
     game = null;
@@ -399,7 +396,7 @@ function newGame() {
   });
   phase = 'intro';
   tray.hide();
-  engraving.set({ game, plays, seats: null, lines: null, testAllowed: game.settings.test !== 'off' });
+  engraving.set({ game, plays, seats: null, lines: null });
   say(TEXT.begin);
   after(span + 0.7, () => {
     syncDisplay();
@@ -526,24 +523,15 @@ const input = new Input(canvas, {
       commit(chosen);
     });
   },
-  onTap(x, y, where, at) {
+  onTap(x, y) {
     sound.wake();
-    // A tap on the carving reads or acts on it; two quick taps on the t'an test the spin.
-    if (engraving?.tap(x, y)) return;
-    const now = at ?? performance.now();
-    if (where === 'assembly' && now - lastTap < 500) {
-      lastTap = 0;
-      requestSpinTest();
-      return;
-    }
-    lastTap = where === 'assembly' ? now : 0;
+    // A tap on the carving reads or acts on it.
+    engraving?.tap(x, y);
   },
   onGrab() {
     sound.wake();
   },
 });
-
-let lastTap = 0;
 
 // The way the hidden spin throws a t'an free: out from the axis, plus how the assembly was turning.
 function flingVelocity(e, strength = 1) {
@@ -647,56 +635,6 @@ function celebrate(result) {
   say(completeText(game));
 }
 
-// --- The spin test --------------------------------------------------------------------------
-
-// A player asks to watch it spin: allowed on their own turn, with nothing in hand.
-function requestSpinTest() {
-  if (shaped()) {
-    if (!shaped().spinTest()) say(TEXT.testNotNow);
-    return;
-  }
-  if (game.settings.test === 'off') {
-    say(TEXT.testOff);
-    return;
-  }
-  if (phase !== 'play' || !humanTurn() || hand.holding) {
-    say(TEXT.testNotNow);
-    return;
-  }
-  spinTest('player');
-}
-
-function spinTest(who) {
-  if (game.settings.test === 'off') {
-    say(TEXT.testOff);
-    return;
-  }
-  const tester = game.current;
-  const res = R.spinTest(game);
-  if (!res.allowed) return;
-  plays.push({ player: tester, mark: 'test' });
-  phase = 'testing';
-  // The t'an stays in the tray while it spins (when the test spends the turn and the Vulcan plays
-  // next, it goes as the Vulcan begins).
-  const perRod = new Map();
-  for (const b of game.nest.bonds) {
-    if (!b.alive) continue;
-    const u = res.analysis.util.get(b.id) ?? 0;
-    for (const id of [b.r1, b.r2]) if (id >= 0) perRod.set(id, Math.max(perRod.get(id) ?? 0, u));
-  }
-  testGlow = perRod;
-  const duration = 3.4;
-  motion.startSpin(new THREE.Vector3(...game.forces.axis), 4 + game.forces.spin * 3, duration);
-  sound.spin(duration);
-  haptic('lift');
-  say(who === 'vulcan' ? TEXT.vulcanTests : TEXT.testing);
-  after(duration + 0.3, () => {
-    testGlow = null;
-    engraving.set({ game });
-    beginTurn();
-  });
-}
-
 // --- The Vulcan ---------------------------------------------------------------------------
 
 let worker = null;
@@ -708,7 +646,7 @@ function think() {
   return new Promise((resolve) => {
     const fallback = () => {
       const local = AI.chooseMove(R.restoreGame(JSON.parse(JSON.stringify(data))), { level, rng: G.mulberry32(seed), revealed: game.revealed });
-      resolve(local ? { test: Boolean(local.test), pose: local.pose ?? null } : null);
+      resolve(local ? { pose: local.pose } : null);
     };
     try {
       worker ??= new Worker('js/ai-worker.js', { type: 'module' });
@@ -761,8 +699,6 @@ async function vulcanTurn() {
     if (!choice) {
       game.over = true;
       finishGame();
-    } else if (choice.test) {
-      spinTest('vulcan');
     } else {
       // The Vulcan's t'an descends from above and comes to rest.
       const toA = arrToWorld(choice.pose.a, new THREE.Vector3());
@@ -829,8 +765,6 @@ function onEngravedAction(name, to) {
     sound.hover();
     // Back from the ways with changes that wait for a new game: say so.
     if (to === 'main' && engraving.state.pending) say(TEXT.pending);
-  } else if (name === 'test') {
-    requestSpinTest();
   } else if (name === 'anew') {
     engraving.show('main');
     say(TEXT.applied);
@@ -889,7 +823,6 @@ window.addEventListener('resize', layout);
 window.addEventListener('pointerdown', () => sound.wake(), { capture: true });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') restart();
-  if (e.key === 't' || e.key === 'T') requestSpinTest();
 });
 document.addEventListener('visibilitychange', () => (document.hidden ? sound.suspend() : sound.resume()));
 canvas.addEventListener('webglcontextlost', (e) => {
@@ -1072,7 +1005,6 @@ window.__kaltoh = {
   },
   restart,
   commit,
-  spinTest,
   pickRod,
   rodScreen(id, s = 0.5) {
     const e = display.get(id);
@@ -1086,7 +1018,6 @@ window.__kaltoh = {
     return engraving;
   },
   settings,
-  requestSpinTest,
   touchesAssembly,
   touchesBase,
   rodEnds,

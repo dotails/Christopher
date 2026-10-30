@@ -14,9 +14,10 @@ const BAR = [1, 2.756, 5.404, 8.933];
 const BAR_GAIN = [1, 0.45, 0.22, 0.1];
 // Just-intonation pentatonic: the simplest ratios, as a Vulcan instrument maker might choose.
 const SCALE = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2];
-// The recording: ten minutes of ambience, faded in and out, so its loop is seamless.
+// The recording: ten minutes of ambience, faded in and out, so its loop is seamless (made some
+// 4.5 dB louder than it was given, its peaks held under a limiter).
 const MUSIC = 'assets/music.mp3';
-const MUSIC_FULL = 0.825; // the music's gain at full, beneath the t'an
+const MUSIC_FULL = 1; // the music's gain at full: as loud as the player can play it
 const SFX_FULL = 0.6;
 
 export class Sound {
@@ -356,12 +357,6 @@ export class Sound {
   // Shaken, the t'an rattle against one another.
   rattle(strength) {
     if (Math.random() < strength * 0.5) this.metal(strength * 0.45, 'metal');
-  }
-
-  // The spin test: a rising, then falling, breath of air.
-  spin(duration) {
-    this.hiss(0.07, duration * 0.5, { from: 300, to: 1800, q: 1.2 });
-    this.hiss(0.05, duration, { from: 1800, to: 240, q: 1.2, delay: duration * 0.45 });
   }
 
   // The stone drawn along the t'an (or they along it): rock on metal.
