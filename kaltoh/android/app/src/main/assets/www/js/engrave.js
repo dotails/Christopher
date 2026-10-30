@@ -41,6 +41,19 @@ const GUTTER = 16; // either side of the centre line: a way's name ends, its val
 const MORE_Y = 236; // the first row on a page of further ways (only if they do not all fit)
 const RELIEF = 1.4; // the normal maps' strength at full depth
 const FAINT = 0.75; // how deep a faint line is cut
+// Golic Vulcan's marks, which the Vulcan fonts do not carry, cut by hand among its letters: the
+// stroke (pakh, -) a short bar across the letters' middle, joining a word's roots; the double
+// stroke (--) a longer one, standing for a colon; the half-stop (') a short upright at their top,
+// setting a prefix apart. Each its width, its length, and where it sits (from the letters' middle
+// line: 'middle' of each font is not quite the middle of its letters), as fractions of the letters'
+// size.
+const STROKES = {
+  '-': { width: 0.42, length: 0.28 },
+  '\u2013': { width: 0.86, length: 0.66 },
+  "'": { width: 0.24, length: 0.22 },
+};
+const LETTERS_MIDDLE = { ModernVulcan: -0.07, VulcanScript: -0.13 };
+const LETTERS_TOP = { ModernVulcan: -0.42, VulcanScript: -0.5 };
 const SMOOTH = 0.32; // seconds for the carving to smooth away ...
 const RECUT = 0.42; // ... and to be cut again
 // How squarely the underside must face the eye to count as seen (and so be set upright).
@@ -327,15 +340,18 @@ export class Engraving {
     const standard = this.standard || numerals || always;
     let str = standard ? text.s : vulcanOnly(text.v);
     if (!str) return null;
-    const family = standard ? STANDARD_FONT : script ? "'VulcanScript'" : "'ModernVulcan'";
+    const face = script ? 'VulcanScript' : 'ModernVulcan';
+    const family = standard ? STANDARD_FONT : `'${face}'`;
     let px = standard ? size * (script ? 0.55 : caps ? 0.7 : 0.82) : size;
     const spacing = standard && caps ? 0.16 : 0; // between the letters, of their size
     if (spacing) str = str.toUpperCase();
+    // Vulcan: runs of letters, and between them its marks, cut by hand.
+    const runs = standard ? [str] : str.split(/(['\-\u2013])/).filter(Boolean);
     const g = this.layer.color.getContext('2d');
     const measure = () => {
       g.font = `400 ${px}px ${family}`;
       g.letterSpacing = `${px * spacing}px`;
-      return g.measureText(str).width;
+      return runs.reduce((sum, run) => sum + (STROKES[run] ? STROKES[run].width * px : g.measureText(run).width), 0);
     };
     let w = measure();
     if (w > max) {
@@ -353,7 +369,25 @@ export class Engraving {
       c.textBaseline = 'middle';
       c.textAlign = 'left';
       c.fillStyle = color;
-      c.fillText(str, x0, y);
+      let at = x0;
+      for (const run of runs) {
+        const mark = STROKES[run];
+        if (!mark) {
+          c.fillText(run, at, y);
+          at += c.measureText(run).width;
+          continue;
+        }
+        const thick = px * 0.075;
+        const mid = at + (mark.width * px) / 2;
+        const [bx, by, bw, bh] = run === "'"
+          ? [mid - thick / 2, y + LETTERS_TOP[face] * px, thick, mark.length * px]
+          : [mid - (mark.length * px) / 2, y + LETTERS_MIDDLE[face] * px - thick / 2, mark.length * px, thick];
+        c.beginPath();
+        if (c.roundRect) c.roundRect(bx, by, bw, bh, thick / 2);
+        else c.rect(bx, by, bw, bh);
+        c.fill();
+        at += mark.width * px;
+      }
       c.letterSpacing = '0px';
     }, lit, faint ? FAINT : 1);
     const h = Math.max(px * 1.5, 44);

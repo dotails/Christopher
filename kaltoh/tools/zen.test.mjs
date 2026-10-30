@@ -175,7 +175,8 @@ for (const seed of [1, 7, 42]) {
   ok(p.complete && p.stage === 5 && p.forms === 5, `seed ${seed}: its progress says so`);
 }
 {
-  // How far it has come, in words under what just happened (texts.js); the Vulcan letters only.
+  // How far it has come, in words under what just happened (texts.js); the Vulcan only what can be
+  // carved: letters, and the stroke, double stroke and half-stop.
   const g = Z.createGame({ seed: 2 });
   const rng = G.mulberry32(8);
   const said = [zenStatusText(Z.progress(g)).s];
@@ -185,7 +186,7 @@ for (const seed of [1, 7, 42]) {
   said.push(zenStatusText(Z.progress(g)).s);
   ok(JSON.stringify(said) === JSON.stringify(["No form yet: 0 of 10 t'an toward the first", "Form 1 of 5: 3 of 10 t'an toward the next", 'All 5 forms taken: fully formed']),
     `its progress in words (${said.join(' / ')})`);
-  ok([0, 13, 50].every((n) => /^[a-z ]+$/.test(zenStatusText({ stage: Math.floor(n / 10), forms: 5, placed: n % 10, per: 10, complete: n === 50 }).v)), 'carved in Vulcan, letters only');
+  ok([0, 13, 50].every((n) => /^[a-z '-]+$/.test(zenStatusText({ stage: Math.floor(n / 10), forms: 5, placed: n % 10, per: 10, complete: n === 50 }).v)), 'carved in Vulcan, as it can be cut');
 }
 {
   // The same placements, the same forms the same way up.

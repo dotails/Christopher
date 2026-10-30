@@ -78,7 +78,10 @@ function rings(n, twist) {
   return out;
 }
 
-const NUMBER = { 4: ['square', 'square'], 5: ['pentagonal', 'pentagonal'], 6: ['hexagonal', 'hexagonal'], 7: ['heptagonal', 'heptagonal'], 8: ['octagonal', 'octagonal'] };
+// Each form's name, in Vulcan (Golic Vulcan, see docs/vulcan.md) and in Standard. A solid is named
+// by its faces, as the Vulcan dictionaries name keh-muk, the tetrahedron, and sheh-muk, the cube;
+// cut at its corners, snem- (removed), as they name snem-sheh-muk, the truncated cube.
+const NUMBER = { 4: ['keh-vlaik', 'square'], 5: ['kau-vlaik', 'pentagonal'], 6: ['sheh-vlaik', 'hexagonal'], 7: ['steh-vlaik', 'heptagonal'], 8: ['oh-vlaik', 'octagonal'] };
 
 // The forms a game may hide, by family: each family is as likely as the other two together, and a
 // form as likely as the others of its family.
@@ -86,20 +89,20 @@ export const FAMILIES = [
   {
     weight: 2,
     forms: [
-      { key: 'tetra', v: 'truncated tetrahedron', s: 'truncated tetrahedron', points: () => arrangements([3, 1, 1], true) },
-      { key: 'cubocta', v: 'cuboctahedron', s: 'cuboctahedron', points: () => arrangements([1, 1, 0]) },
-      { key: 'octa', v: 'truncated octahedron', s: 'truncated octahedron', points: () => arrangements([0, 1, 2]) },
-      { key: 'cube', v: 'truncated cube', s: 'truncated cube', points: () => arrangements([SQ2 - 1, 1, 1]) },
-      { key: 'rhombi', v: 'rhombicuboctahedron', s: 'rhombicuboctahedron', points: () => arrangements([1, 1, 1 + SQ2]) },
+      { key: 'tetra', v: 'snem-keh-muk', s: 'truncated tetrahedron', points: () => arrangements([3, 1, 1], true) },
+      { key: 'cubocta', v: 'leh-keh-muk', s: 'cuboctahedron', points: () => arrangements([1, 1, 0]) },
+      { key: 'octa', v: 'snem-oh-muk', s: 'truncated octahedron', points: () => arrangements([0, 1, 2]) },
+      { key: 'cube', v: 'snem-sheh-muk', s: 'truncated cube', points: () => arrangements([SQ2 - 1, 1, 1]) },
+      { key: 'rhombi', v: 'dah-leh sheh-muk', s: 'rhombicuboctahedron', points: () => arrangements([1, 1, 1 + SQ2]) },
     ],
   },
   {
     weight: 1,
-    forms: [5, 6, 7, 8].map((n) => ({ key: `prism${n}`, v: `${NUMBER[n][0]} prism`, s: `${NUMBER[n][1]} prism`, points: () => rings(n, false) })),
+    forms: [5, 6, 7, 8].map((n) => ({ key: `prism${n}`, v: `${NUMBER[n][0]} takurek`, s: `${NUMBER[n][1]} prism`, points: () => rings(n, false) })),
   },
   {
     weight: 1,
-    forms: [4, 5, 6, 7, 8].map((n) => ({ key: `anti${n}`, v: `${NUMBER[n][0]} antiprism`, s: `${NUMBER[n][1]} antiprism`, points: () => rings(n, true) })),
+    forms: [4, 5, 6, 7, 8].map((n) => ({ key: `anti${n}`, v: `${NUMBER[n][0]} tehn-takurek`, s: `${NUMBER[n][1]} antiprism`, points: () => rings(n, true) })),
   },
 ];
 export const FORM_KEYS = FAMILIES.flatMap((f) => f.forms.map((form) => form.key));

@@ -1,30 +1,31 @@
 // The ways to play, and how the game presents itself. Remembered between sessions.
-// Each label is a pair: v, what is written in Vulcan (letters only - the Vulcan fonts carry no
-// digits or punctuation), and s, its Federation Standard translation.
+// Each label is a pair: v, what is carved in Vulcan (Golic Vulcan, as in texts.js), and s, its
+// Federation Standard translation.
 
 // The game comes first; what follows depends on it. A choice may carry a line saying what it means.
 export const OPTIONS = [
   {
-    key: 'way', v: 'the game', s: 'The game',
+    key: 'way', v: 'zhagra', s: 'The game',
     choices: [
-      ['classic', 'the kal toh', 'The kal-toh', { v: 'join true neighbours until the jumble is a sphere', s: 'Join true neighbours until the jumble becomes the sphere' }],
-      ['forms', 'many forms', 'Many forms', { v: 'a new form each game built from within', s: 'A new form each game: find its loops, build it from the inside out' }],
-      ['zen', 'stillness', 'Zen', { v: 'lay tan across any two and let it take form', s: "Alone and calm: lay t'an across any two; every ten, a new form" }],
+      ['classic', 'kal-toh', 'The kal-toh', { v: "tera'uh yeht-behsular -- shetau nezhak ek'kal", s: 'Join true neighbours until the jumble becomes the sphere' }],
+      ['forms', 'wehk-shid', 'Many forms', { v: "uzh-shid svi'tik zhagra -- tal'uh pakuvlar t'ish-veh", s: 'A new form each game: find its loops, build it from the inside out' }],
+      // Zen: kohlan, meditation.
+      ['zen', 'kohlan', 'Zen', { v: "sa'awek heh hayal -- kanok leh t'an - uzh-shid", s: "Alone and calm: lay t'an across any two; every ten, a new form" }],
     ],
   },
   {
     // Zen is played alone.
-    key: 'players', v: 'minds at the board', s: 'Players taking turns', when: (s) => s.way !== 'zen',
-    choices: [[1, 'one', '1'], [2, 'two', '2'], [3, 'three', '3'], [4, 'four', '4']],
+    key: 'players', v: 'mavausular', s: 'Players taking turns', when: (s) => s.way !== 'zen',
+    choices: [[1, 'wuh', '1'], [2, 'dah', '2'], [3, 'reh', '3'], [4, 'keh', '4']],
     value: 2, // at first: two, passing and playing
   },
   // Sliders: drawn along their groove under the base, from silent to full.
   // The mess hall around the stone: its hum, its air, the voices in it.
-  { key: 'music', v: 'the room', s: 'Room', slider: true, value: 1 },
-  { key: 'sfx', v: 'the sound of the tan', s: 'Sound effects', slider: true, value: 0.8 },
+  { key: 'music', v: 'tvihal', s: 'Room', slider: true, value: 1 },
+  { key: 'sfx', v: 'ralash-daya', s: 'Sound effects', slider: true, value: 0.8 },
   // The voice guiding the play aloud, for every way; silent, it guides no more.
-  { key: 'voice', v: 'the guiding voice', s: 'Voice', slider: true, value: 1 },
-  { key: 'haptics', v: 'touch', s: 'Vibration', choices: [[true, 'on', 'On'], [false, 'off', 'Off']] },
+  { key: 'voice', v: 'spes', s: 'Voice', slider: true, value: 1 },
+  { key: 'haptics', v: 'bluhmbaya', s: 'Vibration', choices: [[true, 'torupik', 'On'], [false, 'yukupik', 'Off']] },
 ];
 
 // Each option's first value (or the one it names), and the script the carving under the base reads
