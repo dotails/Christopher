@@ -2,7 +2,7 @@
 
 > "Kal-toh is to chess as chess is to tic-tac-toe."
 
-A playable take on the Vulcan game of *Star Trek: Voyager*, as an Android app, with three games
+A playable take on the Vulcan game of *Star Trek: Voyager*, as an Android app, with four games
 of steel *t'an* on a stone basin:
 
 - **The kal-toh**, the way to play at first. A jagged jumble of t'an rests over the basin. Join
@@ -17,6 +17,9 @@ of steel *t'an* on a stone basin:
 - **Rings.** A splintering nest of t'an hangs over the basin, gathered about a centre mass and
   held by a field that spins on a hidden axis. Close a loop around that axis and it becomes a
   ring. Overload the structure and pieces fall. Ring by ring, order comes out of the chaos.
+- **Zen.** Alone and calm: no opponent, no score, and nothing falls. From the same nest, lay t'an
+  across any two pieces you like. Every ten, the whole assembly glides into a form of many forms,
+  each richer than the last; after the fifth it is fully formed.
 
 Nothing is written on the screen. The title, the instructions and every control are carved into
 the underside of the stone: tip the base over to read them, from whichever side you like. All of
@@ -71,7 +74,7 @@ over an older one without uninstalling.
 |---|---|
 | Turn the base | Drag the stone (a fingertip off its edge counts). Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. Level - its foot within ten degrees of facing straight down - it rests on the floor, and spins there like a turntable; tip it further, toward you or away, and it lifts to turn freely. It never comes down while you hold it: let it go within ten degrees of level and it falls straight down until its lowest edge meets the floor, then tips over on that edge until it lies flush, with a knock each time (held tipped a little as it rests, it rocks up onto its edge, never into the floor). Resting there, the t'an turned into it ride up over it rather than pushing it into the floor. **Two fingers** on the stone turn it as you see it instead: twist them and it turns about your line of sight, the same way round; move them together and it tumbles along with them; spread or pinch them to draw nearer, or back again as far as the view was first framed. A drag on open space turns nothing, so a finger that only just misses the t'an at the foot of the screen sets nothing spinning. With the base turned over, grab it by its rim, outside the carving's framing circle: within the circle the carving is for touching, and nothing turns. |
 | Turn the t'an | Drag anywhere within the t'an's outline, even between them (two fingers turn it as you see it, as for the stone). The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
-| Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it dangles from your finger, swinging as you move, drawing in to the size it will be at the kal-toh as you raise it - one finger is not enough to lay it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Held so, the t'an lies between your fingers at its own length, and **where its ends are is where it lands**: spread your fingers wide of the pieces, out of your own way, and lay its ends on them - in the original game and many forms, on the tips you mean to join (each end picks the tip nearest it, which lights up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you draw the view nearer. |
+| Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it dangles from your finger, swinging as you move, drawing in to the size it will be at the kal-toh as you raise it - one finger is not enough to lay it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Held so, the t'an lies between your fingers at its own length, and **where its ends are is where it lands**: spread your fingers wide of the pieces, out of your own way, and lay its ends on them - in the original game and many forms, on the tips you mean to join (each end picks the tip nearest it, which lights up); in rings and Zen, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you draw the view nearer. |
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read: the title, whose turn it is and the score, what just happened, and how to play. |
 | Play with others | Choose two to four players (or a Vulcan, in rings) in the ways to play. Whose turn it is is told under the base, and only there: each seat is named (*Player 1*, *Player 2*, ... or *The Vulcan*) over its mark, which is ringed in paint of its colour (red for the first player, a rich green for the second, then deep blue and gold), the mark filled for whose turn it is. Beneath is the score: in the original game and many forms, true joins of those tried (*7/9*); in rings, points. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop, a loop closed or a ring, a cross where t'an fell. The rules page shows the marks. |
 | Translate | Everything is carved in Vulcan. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it (in Standard, whichever script the rest is in): all of it is smoothed away to bare stone and cut again in Standard, as deep. Touch it again for Vulcan. Touching the carving anywhere else translates nothing. |
@@ -187,6 +190,32 @@ t'an would make, once the axis is known, always, or never), strain cues, *chains
 another turn, as boxes do in dots and boxes), the supply of t'an, lives, music and sound levels, vibration, and
 whether the carving reads in Vulcan or Standard until touched.
 
+### Zen
+
+- **Alone, and calm.** No opponent, no score, no hidden forces and no strain: nothing falls.
+- **The nest.** It begins as the nest of rings does: t'an dropped toward a centre mass, each
+  coming to rest against two others.
+- **A move** lays a t'an across any two pieces, anywhere along them: hold it so that its ends lie
+  on two different t'an, and it rests there, against the side of each, at its own length (or,
+  the pieces being further apart than that, just long enough to rest across both). Nothing else
+  is asked: no reach, no true neighbours, no loop to close. Its ends on one piece only, it goes
+  back to the tray.
+- **Forms.** Every ten t'an placed, the whole assembly takes a form of many forms, at the size and
+  in the place many forms builds its outer shell. In a wave outward from the junction nearest
+  you, each t'an glides to a rod of the form, swinging out a little on its way: the form is
+  turned whichever of many ways asks least travel of the t'an, and its rods are matched to the
+  t'an so that all together go least far. T'an the form has no rod for fade away into light; if
+  the form needs more, new t'an settle into place from just beyond it. A breath of air rises as
+  they go and a chord swells beneath it, and the new form rings, a wave of light running across
+  it, when every t'an is home. Then lay t'an across its pieces in turn: ten more bring the next.
+- **Five forms**, each with more rods than the last: the truncated tetrahedron (18), the
+  cuboctahedron (24), the octagonal antiprism (32), the truncated octahedron (36) and the
+  rhombicuboctahedron (48). After the fifth it is fully formed: it glows, and the carving says so.
+  Shake, or touch *begin anew*, for another.
+- Under the base, where the other ways name their seats, its progress: a ringed dot for each form
+  taken (of five) and a dot for each t'an placed toward the next (of ten); and in words beneath,
+  which form it is and how many t'an it has of the ten.
+
 ### Strategy
 
 In the original game, read the angles: a 60° joint is a triangle waiting to be closed, a 108°
@@ -205,6 +234,9 @@ is a ring for your opponent, so build toward rings only where you can finish the
 out from the centre mass, or hanging long chains, risks a collapse that costs you points or a
 life. In *collapse* the spin keeps rising, so every move must leave the structure stronger than
 it found it.
+
+In Zen there is nothing to win and nothing to lose. Lay t'an where they please you: whatever you
+build is gathered into the next form.
 
 ## How it is made
 
@@ -228,12 +260,19 @@ it found it.
       closest pairs, loops walked round each junction's neighbours in turn), the jumble (a
       spanning tree holding the sample's loops, every other joint twisted), the noise, the leaning
       struts, the two shells, harmony, discord and easing.
+    - `zen-rules.js`: Zen. The nest of rings, a t'an resting across any two pieces, and every ten
+      placed the next of five forms: the form tried turned many ways, its rods matched to the t'an
+      so that together they travel least (squared, so paths seldom cross: the Hungarian method),
+      the t'an left over fading, new ones filling the rods none reached.
     - `ai.js`, `ai-worker.js`: the Vulcan. It tries moves on copies of the game, looks a reply
       ahead, and builds arcs round the axis. It knows the axis only once it has been revealed.
   - The view: `classic.js` (the original game on the stone: the jumble's skeleton kept rigid by a
     small position-based solver as each junction finds its order, the inner shell settling into
     place, joining and the end), `forms.js` (many forms on the stone, in the same
-    way: loops closing, struts growing out, noise falling away, the outer shell), `scene.js` (renderer, lights, the mess hall -
+    way: loops closing, struts growing out, noise falling away, the outer shell), `zen.js` (Zen on
+    the stone: the nest gathering, t'an laid across any two pieces, and each form taken in a wave of
+    gliding t'an, those it has no rod for fading into light, new ones settling in, its sound made of
+    the synthesizer's own voices), `scene.js` (renderer, lights, the mess hall -
     sharp in the metal, turned so that Tuvok, at his table, is behind the player; out of focus
     beyond the kal-toh, shown eight times smaller than the window would show it, so much of the
     room is on the screen, and framed so the bar where Picard sits stands up to the right, clear of
@@ -278,6 +317,11 @@ it found it.
     joint true, the sample in its true shape and place, noise, leaning struts), moves, loops
     holding and bracing outward, both shells completed, and that played within reach, easing
     when stuck, every game ends, mistakes and all.
+  - `zen.test.mjs`: Zen. It begins as the nest of rings; a t'an rests across any two pieces, near
+    or far, against both; ten placed bring a form, every t'an along its own rod of it or faded away,
+    new ones where the form needs more; five forms, each with more rods than the last, and then it
+    is fully formed; and t'an are matched to rods with the least travel there is (against every
+    matching of small cases).
   - `browser-check.cjs`: plays the real game in headless Chromium with simulated touch. First the
     original game: the jumble grows, a t'an taken up by one finger and held by a second, its ends laid
     on two tips, joins true neighbours, tips too far apart for a t'an are refused, a false bond falls and shows where the
@@ -297,7 +341,10 @@ it found it.
     floor, mirroring what stands on it (and then puts the table out of sight: drawing its metal
     makes the software renderer several times slower), that whose
     turn it is is told only under the board (the scene's light the same on each player's turn),
-    that each player's plays are kept for the carving, and that each seat is named.
+    that each player's plays are kept for the carving, and that each seat is named. Last it plays
+    Zen: the nest, a t'an laid across two pieces by touch, the forms taken one after another (the
+    rest of the t'an laid through the game's own hand), fully formed and glowing with the carving
+    saying so, and shaking to begin it anew.
   - `convert_base.py`, `convert_table.py`, `make_icon.py`: asset and icon generators (the table at its
     full detail, 154,670 triangles; on the phone that is nothing, and its rounded edges need them).
 
@@ -306,6 +353,7 @@ node kaltoh/tools/physics.test.mjs
 node kaltoh/tools/rules.test.mjs
 node kaltoh/tools/classic.test.mjs
 node kaltoh/tools/forms.test.mjs
+node kaltoh/tools/zen.test.mjs
 node kaltoh/tools/ground.test.mjs
 node kaltoh/tools/browser-check.cjs out/   # needs Playwright with Chromium
 ```

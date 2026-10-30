@@ -14,6 +14,7 @@ import { Falling } from './falling.js';
 import { Tray, Hand, ROD_LENGTH as RINGS_ROD } from './tray.js';
 import { ClassicGame } from './classic.js';
 import { FormsGame } from './forms.js';
+import { ZenGame } from './zen.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { TEXT, ringText, fellText, playerText, completeText, winnerText, supplyText } from './texts.js';
@@ -38,13 +39,14 @@ let baseModel = null;
 let table = null; // the table under the stone (table.js)
 let engraving = null;
 // The game being played: the original kal-toh (classic.js), many forms built from the inside out
-// (forms.js), or rings round the hidden spin (the rest of this file). A change of game in the ways
-// to play waits for the next one.
+// (forms.js), zen, forms taken one after another (zen.js), or rings round the hidden spin (the
+// rest of this file). A change of game in the ways to play waits for the next one.
 let classic = null;
 let forms = null;
+let zen = null;
 let way = 'classic';
-// The game on the stone when it is a form to bring about (the original kal-toh, or many forms).
-const shaped = () => (way === 'classic' ? classic : way === 'forms' ? forms : null);
+// The game on the stone when it is a form to bring about (the original kal-toh, many forms, zen).
+const shaped = () => (way === 'classic' ? classic : way === 'forms' ? forms : way === 'zen' ? zen : null);
 let begunWith = ''; // the ways the game was begun with (settings.js shapeOf)
 
 const insets = { top: 0, bottom: 0 };
@@ -946,6 +948,7 @@ async function start() {
   };
   classic = new ClassicGame(shapeContext);
   forms = new FormsGame(shapeContext);
+  zen = new ZenGame(shapeContext);
   engraving = new Engraving(stage, {
     settings,
     stone: base.mesh.material.map?.image,
@@ -995,6 +998,9 @@ window.__kaltoh = {
   },
   get forms() {
     return forms;
+  },
+  get zen() {
+    return zen;
   },
   get way() {
     return way;

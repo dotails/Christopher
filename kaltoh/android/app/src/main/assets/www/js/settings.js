@@ -11,6 +11,7 @@ export const OPTIONS = [
       ['classic', 'the kal toh', 'The kal-toh', { v: 'join true neighbours until the jumble is a sphere', s: 'Join true neighbours until the jumble becomes the sphere' }],
       ['forms', 'many forms', 'Many forms', { v: 'a new form each game built from within', s: 'A new form each game: find its loops, build it from the inside out' }],
       ['rings', 'rings', 'Rings', { v: 'close loops round the hidden spin', s: 'Close loops round the hidden spin to build a shape of rings' }],
+      ['zen', 'stillness', 'Zen', { v: 'lay tan across any two and let it take form', s: "Alone and calm: lay t'an across any two; every ten, a new form" }],
     ],
   },
   {
@@ -23,7 +24,8 @@ export const OPTIONS = [
     ],
   },
   {
-    key: 'players', v: 'minds at the board', s: 'Players taking turns', when: (s) => s.way !== 'rings' || s.opponent === 'none',
+    // Zen is played alone.
+    key: 'players', v: 'minds at the board', s: 'Players taking turns', when: (s) => s.way !== 'zen' && (s.way !== 'rings' || s.opponent === 'none'),
     choices: [[1, 'one', '1'], [2, 'two', '2'], [3, 'three', '3'], [4, 'four', '4']],
   },
   {

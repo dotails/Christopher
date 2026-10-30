@@ -450,6 +450,7 @@ export class Engraving {
       this.line(`seat${i}`, seat.score, x, y + 34, { size: 30, max: 140, lit: seat.now ? 0.6 : 0.28 });
       if (named) this.playMarks(plays.filter((p) => p.player === i).map((p) => p.mark), x, y + 62, seat.now);
     });
+    if (this.state.zen) this.zenProgress(this.state.zen);
     this.line('event', event, C, 352, { size: 38, max: 2 * chord(352) - 90, lit: 0.6 });
     const lines = this.state.lines ?? [TEXT.lift, TEXT.touch, TEXT.ring, TEXT.hold, formText(this.settings.form), TEXT.turn, TEXT.shake, TEXT.rim];
     lines.forEach((text, i) => {
@@ -472,6 +473,34 @@ export class Engraving {
       const my = y + Math.floor(i / 7) * 18;
       this.cut((g, color) => MARKS[mark]?.(g, mx, my, color), now ? 0.75 : 0.4);
     });
+  }
+
+  // Zen keeps no seats: where they would be, its progress. A ringed dot for each of its forms taken
+  // (a bare ring for each still to come), and beneath, a dot for each t'an placed toward the next.
+  zenProgress({ forms, taken, placed, per, complete }) {
+    const row = (count, done, y, gap, size, mark) => {
+      for (let i = 0; i < count; i++) {
+        const x = C + (i - (count - 1) / 2) * gap;
+        const on = i < done;
+        this.cut((g, color) => {
+          g.save();
+          g.translate(x, y);
+          g.scale(size, size);
+          if (on) {
+            MARKS[mark](g, 0, 0, color);
+          } else {
+            g.strokeStyle = color;
+            g.lineWidth = 1.4;
+            g.beginPath();
+            g.arc(0, 0, mark === 'ring' ? 7 : 4.6, 0, Math.PI * 2);
+            g.stroke();
+          }
+          g.restore();
+        }, on ? 0.8 : 0.3);
+      }
+    };
+    row(forms, taken, 210, 50, 2.1, 'ring');
+    if (!complete) row(per, placed, 262, 27, 1.3, 'join');
   }
 
   visibleOptions() {
@@ -555,10 +584,11 @@ export class Engraving {
       const y = 214 + i * 46;
       this.line(`r${i}`, text, C, y, { size: 28, max: 2 * chord(y) - 80 });
     });
-    // What the marks beneath each seat mean.
-    const legend = this.settings.way === 'rings' ? [['join', TEXT.markPlaced], ['ring', TEXT.markRing]]
-      : [['join', TEXT.markJoined], ['ring', this.settings.way === 'forms' ? TEXT.markLoop : TEXT.markHoop]];
-    legend.push(['fall', TEXT.markFell]);
+    // What the marks beneath each seat mean (in zen, which has no seats, the marks of its progress;
+    // nothing falls there).
+    const legend = this.settings.way === 'zen' ? [['ring', TEXT.markForm], ['join', TEXT.markPlaced]]
+      : this.settings.way === 'rings' ? [['join', TEXT.markPlaced], ['ring', TEXT.markRing], ['fall', TEXT.markFell]]
+      : [['join', TEXT.markJoined], ['ring', this.settings.way === 'forms' ? TEXT.markLoop : TEXT.markHoop], ['fall', TEXT.markFell]];
     legend.forEach(([mark, label], i) => {
       const x = C + (i - (legend.length - 1) / 2) * 168;
       this.cut((g, color) => MARKS[mark](g, x - 52, 690, color), 0.6);

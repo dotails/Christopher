@@ -37,6 +37,7 @@ jobs:
           node kaltoh/tools/rules.test.mjs
           node kaltoh/tools/classic.test.mjs
           node kaltoh/tools/forms.test.mjs
+          node kaltoh/tools/zen.test.mjs
           node kaltoh/tools/ground.test.mjs
 
       - name: Build APK

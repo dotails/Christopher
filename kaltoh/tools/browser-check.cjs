@@ -547,7 +547,7 @@ function check(condition, message) {
       const held = await page.evaluate(() => {
         const k = window.__kaltoh;
         const a = k.aim;
-        return { pose: k.way === 'rings' ? Boolean(a?.pose) : Boolean((k.way === 'classic' ? k.classic : k.forms).aimed), ring: a?.ring?.k ?? 0, glow: k.hand.glow };
+        return { pose: k.way === 'rings' ? Boolean(a?.pose) : Boolean(k[k.way].aimed), ring: a?.ring?.k ?? 0, glow: k.hand.glow };
       });
       await touch('touchEnd', [f2]);
       await sleep(30);
@@ -602,7 +602,7 @@ function check(condition, message) {
       if (shot) await page.screenshot({ path: path.join(OUT, shot) });
       const held = await page.evaluate(() => {
         const k = window.__kaltoh;
-        return { pose: k.way === 'rings' ? Boolean(k.aim?.pose) : Boolean((k.way === 'classic' ? k.classic : k.forms).aimed), glow: k.hand.glow };
+        return { pose: k.way === 'rings' ? Boolean(k.aim?.pose) : Boolean(k[k.way].aimed), glow: k.hand.glow };
       });
       await touch('touchEnd', [f1]);
       await sleep(30);
@@ -889,6 +889,129 @@ function check(condition, message) {
     await page.waitForFunction(() => window.__kaltoh.falling.rods.length === 0, null, { timeout: 30000 });
     check(true, 'and the fallen t\'an fade with the old game');
     await page.screenshot({ path: path.join(OUT, '11-anew.png') });
+
+    // 10. Zen, alone and calm: it begins as the nest of rings; a t'an laid across any two pieces
+    // rests there; every ten placed, the whole assembly takes the next of five forms, each with more
+    // rods than the last; then it is fully formed, and glows, and the carving says so. Nothing falls.
+    await turnOver();
+    await tap(await where('ways', 'button'));
+    // (Cutting a page can take a software renderer many seconds.)
+    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 60000 });
+    await recut();
+    for (let i = 0; i < 4 && (await page.evaluate(() => window.__kaltoh.settings.way)) !== 'zen'; i++) {
+      await tap(await where('row:way', 'value'));
+      await sleep(500);
+    }
+    check(await page.evaluate(() => window.__kaltoh.settings.way === 'zen' && window.__kaltoh.engraving.state.pending), 'touching the game again chooses zen');
+    check(!(await carved('row:players')) && !(await carved('more')), 'zen is played alone: no players to choose, and its ways fit on one page');
+    await page.evaluate(() => {
+      window.__kaltoh.seed = 7;
+    });
+    await tap(await where('anew', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.way === 'zen', null, { timeout: 30000 });
+    await page.evaluate(() => window.__kaltoh.engraving.show('main'));
+    await drag(await stoneSpot({ x: 206, y: 420 }), 0, 155);
+    await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1, null, { timeout: 30000 });
+    await waitFor(['play']);
+    await level();
+    const zenState = () => page.evaluate(() => {
+      const k = window.__kaltoh;
+      const g = k.zen.game;
+      return { stage: g.stage, form: g.form, placed: g.placed, total: g.total, rods: g.rods.length, views: k.zen.views.size, complete: g.complete, length: g.length, tray: k.tray.length, carved: k.engraving.state.zen, shape: k.engraving.state.shape };
+    });
+    let zen = await zenState();
+    check(zen.stage === 0 && zen.rods >= 40 && zen.views === zen.rods && zen.carved?.taken === 0 && zen.shape?.s === 'The nest',
+      `zen: the nest gathers about its centre mass (${zen.rods} t'an), and the carving has it so`);
+    await page.screenshot({ path: path.join(OUT, '12-zen-nest.png') });
+    // Two pieces under the ends of the t'an carried between two fingers, steadily.
+    const zenMove = async () => {
+      await settle();
+      return page.evaluate(() => {
+        const k = window.__kaltoh;
+        const m = k.stage.assemblyRoot.matrixWorld;
+        const at = (v, s) => k.stage.toScreen(v.a.clone().lerp(v.b, s).applyMatrix4(m));
+        const steady = (p, id) => [[0, 0], [-4, 0], [4, 0], [0, -4], [0, 4]].every(([dx, dy]) => k.pickRod(p.x + dx, p.y + dy)?.rod === id);
+        const views = [...k.zen.views.values()];
+        for (const va of views) {
+          for (const vb of views) {
+            if (va.id >= vb.id) continue;
+            for (const [sa, sb] of [[0.5, 0.5], [0.3, 0.7], [0.7, 0.3], [0.3, 0.3], [0.7, 0.7]]) {
+              const pa = at(va, sa);
+              const pb = at(vb, sb);
+              if (Math.hypot(pa.x - pb.x, pa.y - pb.y) < 50 || [pa, pb].some((p) => p.y < 120 || p.y > 560)) continue;
+              const hold = window.fingersFor(pa, pb);
+              if (hold.onScreen && steady(hold.e1, va.id) && steady(hold.e2, vb.id)) return { ...hold, pieces: [va.id, vb.id] };
+            }
+          }
+        }
+        return null;
+      });
+    };
+    const across = await zenMove();
+    check(across, 'two pieces under the ends of a held t\'an can be found on screen');
+    const zenHeld = await place(across, '12b-zen-holding.png');
+    check(zenHeld.pose && zenHeld.glow > 0.9, 'carried with its ends on any two pieces, the t\'an shows where it will rest across them, glowing blue');
+    await page.waitForFunction(() => window.__kaltoh.zen.game.total === 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
+    zen = await zenState();
+    check(zen.rods === zen.views && zen.placed === 1 && zen.carved?.placed === 1, 'letting go, it rests across them: one of ten toward the next form, the carving says');
+    // The rest laid through the game's own hand, as if by touch (fifty placed by touch would take
+    // too long here): each across two pieces chosen at random.
+    const layOne = () => page.evaluate(async () => {
+      const Z = await import('/js/zen-rules.js');
+      const G = await import('/js/geom.js');
+      const k = window.__kaltoh;
+      const g = k.zen.game;
+      const rng = (window.zenRng ??= G.mulberry32(5));
+      const eye = k.motion.toLocal(k.stage.camera.position, k.stage.camera.position.clone());
+      for (let tries = 0; tries < 400; tries++) {
+        const a = g.rods[Math.floor(rng() * g.rods.length)];
+        const b = g.rods[Math.floor(rng() * g.rods.length)];
+        if (a.id === b.id) continue;
+        const pose = Z.placement(g, { rod: a.id, s: 0.2 + rng() * 0.6 }, { rod: b.id, s: 0.2 + rng() * 0.6 }, [eye.x, eye.y, eye.z]);
+        if (pose.ok && pose.length < g.length * 1.6) return Boolean(k.zen.commit(pose).transform);
+      }
+      return null;
+    });
+    const zenEdges = (form) => page.evaluate(async (form) => (await import('/js/forms-rules.js')).buildForm(form).edges.length, form);
+    let taken = 0;
+    const rodsOfForms = [];
+    for (let i = 0; i < 60 && !(await zenState()).complete; i++) {
+      await waitFor(['play']);
+      const transformed = await layOne();
+      if (transformed === null) check(false, 'a placement across two pieces can be laid');
+      if (!transformed) continue;
+      taken += 1;
+      if (taken === 1) {
+        await page.waitForFunction(() => [...window.__kaltoh.zen.views.values()].some((v) => v.anim?.kind === 'glide' && v.anim.t > v.anim.delay + 0.4), null, { timeout: 60000 });
+        await page.screenshot({ path: path.join(OUT, '12c-zen-taking-form.png') });
+      }
+      await waitFor(['play', 'complete']);
+      zen = await zenState();
+      const edges = await zenEdges(zen.form);
+      rodsOfForms.push(edges);
+      check(zen.stage === taken && zen.rods === edges && zen.views === edges && zen.placed === 0 && zen.carved?.taken === taken && (zen.complete || Math.abs(zen.tray - zen.length * 1.5) < 1e-9),
+        `ten more placed, it takes form ${taken} of five: the ${zen.shape?.s}, its ${edges} rods each a t'an${zen.complete ? '' : ', and the tray brings one of their length'}`);
+      if (taken === 1) await page.screenshot({ path: path.join(OUT, '12d-zen-form.png') });
+    }
+    check(taken === 5 && zen.complete && rodsOfForms.every((n, i) => i === 0 || n > rodsOfForms[i - 1]), `five forms taken, each with more rods than the last (${rodsOfForms.join(', ')})`);
+    await page.waitForFunction(() => window.__kaltoh.zen.glow > 0.99, null, { timeout: 60000 });
+    const zenWhole = await page.evaluate(() => ({ visible: window.__kaltoh.tray.visible, event: window.__kaltoh.engraving.state.event, carved: window.__kaltoh.engraving.state.zen, fell: window.__kaltoh.falling.rods.length }));
+    check(zenWhole.carved?.complete && !zenWhole.visible && /fully formed/i.test(zenWhole.event.s), `it is fully formed, and glows; the carving says so (${zenWhole.event.s})`);
+    check(zenWhole.fell === 0, 'and nothing fell');
+    await page.screenshot({ path: path.join(OUT, '12e-zen-whole.png') });
+    // Shaken, it begins anew from the nest.
+    const zenSeed = await page.evaluate(() => window.__kaltoh.zen.game.seed);
+    for (let i = 0; i < 400; i++) {
+      const phase = await page.evaluate(() => {
+        window.kaltoh.shake(20);
+        return window.__kaltoh.phase;
+      });
+      if (phase !== 'complete') break;
+      await sleep(60);
+    }
+    await page.waitForFunction((seed) => window.__kaltoh.zen.game.seed !== seed && window.__kaltoh.phase === 'play', zenSeed, { timeout: 240000 });
+    zen = await zenState();
+    check(zen.stage === 0 && zen.total === 0 && zen.views === zen.rods, 'shaking begins zen anew, from the nest');
     check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors.join(' | ')}` : ''}`);
   } finally {
     await browser.close();

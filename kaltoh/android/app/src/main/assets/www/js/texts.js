@@ -49,6 +49,7 @@ export const TEXT = {
   markRing: { v: 'a ring', s: 'a ring' },
   markLoop: { v: 'a loop', s: 'a loop' },
   markFell: { v: 'fell', s: 'fell' },
+  markForm: { v: 'a form', s: 'a form' },
 };
 
 export const ringText = (k) => ({ v: `a ring of ${spell(k)}`, s: `A ring of ${k}` });
@@ -93,6 +94,7 @@ export function winnerText(game, v = '', s = '') {
 }
 
 export function rulesText(settings) {
+  if (settings.way === 'zen') return ZEN_RULES;
   if (settings.way === 'forms') return MANY_RULES;
   if (settings.way !== 'rings') return CLASSIC_RULES;
   const form = FORMS[settings.form] ?? FORMS.globe;
@@ -205,6 +207,46 @@ export function manyCompleteText(game, form) {
   const moves = st.joined + st.discord;
   return { v: `${name.v} in ${spell(moves)} moves`, s: `${name.s}, in ${moves} moves` };
 }
+
+// Zen's words (zen.js).
+export const ZEN = {
+  begin: { v: 'be still lay tan where you will', s: "Be still. Lay t'an where you will" },
+  nest: { v: 'the nest', s: 'The nest' },
+  touch: { v: 'lay its ends on any two tan', s: "Lay its ends on any two t'an: it rests across them" },
+  every: { v: 'every ten tan it takes a new form', s: "Every ten t'an placed, it takes a new form" },
+  richer: { v: 'five forms each richer than the last', s: 'Five forms, each richer than the last' },
+  rests: { v: 'it rests across them', s: 'It rests across them' },
+  oneMore: { v: 'one more and it takes a new form', s: "One more t'an, and it takes a new form" },
+  gathers: { v: 'it gathers itself into a new form', s: 'It gathers itself into a new form' },
+  aimSame: { v: 'lay its ends on two different tan', s: "Lay its ends on two different t'an" },
+};
+
+// Which of its forms it has taken (form: forms-rules.js buildForm's, or null for the nest).
+export function zenFormText(p, form) {
+  if (p.complete) return zenWholeText(form);
+  if (!form) return { v: `the nest none of ${spell(p.forms)} forms yet`, s: `The nest: none of the ${p.forms} forms yet` };
+  return { v: `form ${spell(p.stage)} of ${spell(p.forms)} the ${form.v}`, s: `Form ${p.stage} of ${p.forms}: the ${form.s}` };
+}
+
+export const zenPlacedText = (p) => ({
+  v: `${spell(p.placed)} of ${spell(p.per)} tan toward the next form`,
+  s: `${p.placed} of ${p.per} t'an toward the next form`,
+});
+export const zenBecomesText = (form) => ({ v: `it becomes the ${form.v}`, s: `It becomes the ${form.s}` });
+export const zenWholeText = (form) => ({ v: `fully formed the ${form.v}`, s: `Fully formed: the ${form.s}` });
+
+const ZEN_RULES = [
+  { v: 'one mind alone no score and no spin', s: 'One mind alone: no score, no spin;' },
+  { v: 'nothing strains and nothing falls', s: 'nothing strains and nothing falls.' },
+  { v: 'it begins as a nest of tan', s: "It begins as a nest of t'an" },
+  { v: 'gathered about a centre mass', s: 'gathered about a centre mass.' },
+  { v: 'lay a tan across any two others', s: "Lay a t'an across any two others:" },
+  { v: 'it rests wherever its ends lie', s: 'it rests wherever its ends lie.' },
+  { v: 'every ten tan it takes a new form', s: "Every ten t'an, it takes a new form;" },
+  { v: 'what the form needs not fades away', s: 'what the form needs not fades away.' },
+  { v: 'five forms each richer than the last', s: 'Five forms, each richer than the last,' },
+  { v: 'and it is fully formed', s: 'and it is fully formed.' },
+];
 
 export function classicCompleteText(game) {
   if (game.players > 1) {
