@@ -34,13 +34,13 @@ through the room. Held upright, the galley stands far back, from the pass-throug
 on the right, its ceiling's lights overhead; turned sideways, either way, it comes close, its
 counters filling the wider screen from side to side (the photograph's own left side, not the galley
 as it is, cut away, is never seen). Pinch to draw nearer or back: never so far, either way, that
-you would see past the photograph. The table's satin top mirrors the room softly, at half strength,
-with the stone and the t'an standing on it. The galley lights them too, a photograph of it from
-nearer its counters stretched all round the table and kept dim on the table and the stone, while
-the t'an mirror it brightly, like polished aluminium, its ceiling's lights glinting on them. The
-waiting t'an in the tray, its faces gently domed, holds Tuvok at his table behind you - his whole
-panorama, so it keeps him as it dangles from your finger - and its faces turned away catch the
-galley ahead.
+you would see past the photograph. The table's satin top mirrors the room softly, the stone and the
+t'an standing on it at half strength and the galley's ceiling lights faintly. The galley lights
+them too, the same photograph stretched all round the table, mirrored behind you: softly on the
+table and the stone, their shadows light and soft, while the t'an mirror it brightly, like polished
+aluminium, its ceiling's lights glinting on them. The waiting t'an in the tray, its faces gently
+domed, holds Tuvok at his table behind you - his whole panorama, so it keeps him as it dangles from
+your finger - and its faces turned away catch the galley ahead.
 
 <p align="center">
   <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table in the mess hall, the galley far beyond it from the block to the door, its ceiling's lights overhead, the stone and t'an mirrored in the table's top">
@@ -231,14 +231,14 @@ build is gathered into the next form.
     the stone: the nest gathering, t'an laid across any two pieces, and each form taken in a wave of
     gliding t'an, those it has no rod for fading into light, new ones settling in, its sound made of
     the synthesizer's own voices), `scene.js` (renderer, lights, the mess hall - the light everything
-    is lit by and the metal mirrors, a photograph of the galley from near its counters stretched
+    is lit by and the metal mirrors, the galley's photograph seen beyond the kal-toh stretched
     twice round the table (ahead as taken, behind mirrored, so its edges meet), dimmed, its
-    ceiling's lights lifted above white,
+    ceiling's lights lifted above white, the key light's shadows light and soft,
     each material taking it at its own strength (given it as its own: three.js lights what takes
     only the scene's environment at the scene's strength); the waiting t'an, and the one dangling
     from a finger, mirroring Tuvok, his old panorama whole in place of the galley behind the player;
-    and the room the table stands in: another photograph of the galley, from well back in it, its
-    left side (not the galley as it is) cut away, measured by its lines
+    and the room the table stands in: a photograph of the galley, from well back in it, its left
+    side (not the galley as it is) cut away, measured by its lines
     (`tools/measure_room.py`: where the floor's, the counters' and the ceiling's lines meet, the
     room's three directions, and from them its lens and how it was held, 1.4 degrees down and 17.2
     to the right of the room's length, from an eye 1.28 counters high, and where the counter, the
@@ -258,7 +258,8 @@ build is gathered into the next form.
     table under the stone, its top at the floor, its near edge out of sight: satin silver (black
     where the model is) mirroring the mess hall at half strength, and the
     stone and t'an on it drawn a second time each frame, the eye turned over in the plane of the
-    top, without shadows, at the screen's own resolution and multisampled, softened only a touch), `motion.js` (base and assembly dynamics, and every t'an kept clear of
+    top, and the galley faintly, from where it stands nearest, its ceiling's lights overhead,
+    without shadows, at the screen's own resolution and multisampled, softened only a touch), `motion.js` (base and assembly dynamics, and every t'an kept clear of
     the stone along its length), `rodmesh.js` (polished metal t'an: flat mirror faces, nothing
     bending what they reflect, the room looked up as sharp as the metal is smooth and as bright as
     polished aluminium, with a trace of aluminium's pale grey laid over it; only the waiting t'an's faces are domed, a little, so that
@@ -385,12 +386,11 @@ wider than tall to see it held sideways.
 
 - Kal-toh and *Star Trek* belong to Paramount; this is an unofficial fan project for personal use.
 - The Vulcan fonts (*Vulcan Script* for titles, *Modern Vulcan* for everything else), the stone
-  basin and pedestal table models (made with Meshy), the mess-hall pictures (the galley from near
-  its counters, `assets/room.jpg`, and from further back, `assets/galley.jpg`, and the panorama
-  with Tuvok at his table, `assets/tuvok.jpg`) and the ambience
-  (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and faded in and
-  out; made louder here) were supplied for this project. Their licences are not included; check
-  them before distributing the app beyond personal use.
+  basin and pedestal table models (made with Meshy), the mess-hall pictures (the galley,
+  `assets/galley.jpg`, and the panorama with Tuvok at his table, `assets/tuvok.jpg`) and the
+  ambience (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and
+  faded in and out; made louder here) were supplied for this project. Their licences are not
+  included; check them before distributing the app beyond personal use.
 - The guide's voice is *Sky* (`af_sky`) of Kokoro-82M by hexgrad (Apache 2.0), run with
   kokoro-onnx (MIT).
 - three.js is MIT licensed (`android/app/src/main/assets/www/vendor/three.LICENSE`).

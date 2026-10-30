@@ -490,7 +490,7 @@ function step(dt) {
   pool.end();
   trayPool.end();
   halos.end();
-  table?.reflect([stage.sky, trayPool.mesh]);
+  table?.reflect([trayPool.mesh]);
   stage.renderer.render(stage.scene, stage.camera);
   adapt(dt);
 }

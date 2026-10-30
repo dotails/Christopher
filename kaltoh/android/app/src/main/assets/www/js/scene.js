@@ -49,7 +49,8 @@ export function createScene(canvas) {
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 40);
 
   // Key light: warm, high front-left. It draws the long specular streaks down the brushed t'an
-  // and casts their shadows into the basin.
+  // and casts their shadows into the basin, light and soft: the galley's light all round fills
+  // them.
   const key = new THREE.DirectionalLight(0xfff1e0, 3.2);
   key.position.set(-2.4, 5.6, 3.6);
   key.castShadow = true;
@@ -57,7 +58,8 @@ export function createScene(canvas) {
   Object.assign(key.shadow.camera, { left: -2.3, right: 2.3, top: 2.4, bottom: -2.4, near: 2, far: 13 }); // the floor in front too
   key.shadow.bias = -0.0004;
   key.shadow.normalBias = 0.01;
-  key.shadow.radius = 3;
+  key.shadow.radius = 8;
+  key.shadow.intensity = 0.5;
   key.target.position.copy(PIVOT).setY(0.6);
   scene.add(key, key.target);
   // A warm rim from below and behind, as from the mess hall's lights beyond; and a cool fill.
@@ -331,27 +333,27 @@ export function createScene(canvas) {
   return { renderer, scene, camera, key, rim, ambient, baseRoot, assemblyRoot, size, view, screen, optics, eye, glass, layout, update, toScreen, fromScreen, onGlass, rayAt, fitZoom, pastPhotograph, photographAllows, placeRoom, photographedAt };
 }
 
-// The light the stone and the table are lit by, and what the metal mirrors: the galley itself, a
-// photograph taken nearer its counters (assets/room.jpg), stretched twice round the table - ahead
-// as it was taken, behind mirrored, so that its edges meet - and from its floor to its ceiling.
-// (The galley seen beyond the kal-toh is another, from further back: makeRoom.) It is of low
-// dynamic range, so it is dimmed, and only its ceiling's lights are lifted above white before
-// filtering: the table and the stone take it quietly, and the t'an, mirroring it as bright as
-// polished aluminium (rodmesh.js), catch real highlights. The t'an waiting in the tray, and
-// dangling from a finger, mirror Tuvok, at his table behind the player: behind them, his
-// panorama, whole, in place of the galley's mirrored half, which meets it at the sides
+// The light the stone and the table are lit by, and what the metal mirrors: the galley itself, the
+// photograph seen beyond the kal-toh (makeRoom), stretched twice round the table - ahead as it was
+// taken, behind mirrored, so that its edges meet - and from its floor to its ceiling, its lights
+// overhead. It is of low dynamic range, so it is dimmed, and only its ceiling's lights are lifted
+// above white before filtering: the table and the stone take it softly, and the t'an, mirroring
+// it as bright as polished aluminium (rodmesh.js), catch real highlights. The t'an waiting in the
+// tray, and dangling from a finger, mirror Tuvok, at his table behind the player: behind them,
+// his panorama, whole, in place of the galley's mirrored half, which meets it at the sides
 // (stage.tuvokEnvironment); their faces turned away still catch the galley ahead.
 const LIGHT = { level: 0.3, lift: 8, tuvok: 0.6 };
 export async function loadEnvironment(stage) {
   const { renderer, scene } = stage;
-  const [galley, light, tuvok] = await Promise.all(['galley', 'room', 'tuvok'].map((name) => loadTexture(`assets/${name}.jpg`, true)));
+  const [galley, tuvok] = await Promise.all([loadTexture('assets/galley.jpg', true), loadTexture('assets/tuvok.jpg', true)]);
+  // The room first: it sets how the photograph is sampled before it is first drawn from.
   stage.sky = makeRoom(galley);
   scene.add(stage.sky);
   tuvok.wrapS = THREE.RepeatWrapping; // turned, the panorama goes round
   const pmrem = new THREE.PMREMGenerator(renderer);
   const lifter = new THREE.ShaderMaterial({
     uniforms: {
-      map: { value: light },
+      map: { value: galley },
       tuvok: { value: tuvok },
       turn: { value: TUVOK_AT.u - 0.75 },
       withTuvok: { value: 0 },
@@ -400,7 +402,6 @@ export async function loadEnvironment(stage) {
   stage.skyEnvironment = scene.environment;
   stage.tuvokEnvironment = lit(true);
   pmrem.dispose();
-  light.dispose();
   tuvok.dispose();
   lifter.dispose();
 }
@@ -514,6 +515,9 @@ function makeRoom(texture) {
     uniforms: {
       map: { value: texture },
       level: { value: GALLEY.level },
+      // Drawn as itself (1, opaque); or into the table's mirror, at the strength the top mirrors it
+      // and leaving the top its own light (table.js).
+      drawn: { value: new THREE.Vector2(1, 1) },
       // Past the photograph's edges: how many pixels past for each halving of its sharpness, how dim
       // it grows far past, and over how many pixels.
       fill: { value: new THREE.Vector3(40, 0.6, 1500) },
@@ -538,6 +542,7 @@ function makeRoom(texture) {
     fragmentShader: /* glsl */ `
       uniform sampler2D map;
       uniform float level;
+      uniform vec2 drawn;
       uniform vec3 fill;
       uniform vec2 size;
       uniform vec2 centre;
@@ -573,7 +578,7 @@ function makeRoom(texture) {
         float blur = min(log2(1.0 + beyond / fill.x), 9.0);
         vec3 seen = texture2D(map, vec2(at.x / size.x, 1.0 - at.y / size.y), blur).rgb;
         seen *= mix(1.0, fill.y, smoothstep(0.0, fill.z, beyond));
-        gl_FragColor = vec4(seen * level, 1.0);
+        gl_FragColor = vec4(seen * level * drawn.x, drawn.y);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,

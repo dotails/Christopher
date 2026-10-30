@@ -3,9 +3,10 @@
 // groove down its middle runs across the view. Plain silver, but black where the model is (its
 // texture's light grey patches looked speckled, so only its black parts are kept: table.jpg is
 // their mask). Its satin metal mirrors the mess hall about it (stage.skyEnvironment, the light the
-// scene is lit by); and in its top, the stone and the t'an on it - drawn a second time each frame as
-// the top would show them, a little softened. It mirrors both at half their strength, so the
-// table stays quiet under the bright t'an.
+// scene is lit by); and in its top, the stone and the t'an on it, and faintly the galley beyond -
+// drawn a second time each frame as the top would show them, a little softened. It mirrors what
+// stands on it at half its strength, and the galley at a fifth, so the table stays quiet under the
+// bright t'an.
 import * as THREE from '../vendor/three.module.min.js';
 import { FLOOR } from './scene.js';
 
@@ -23,8 +24,9 @@ export const TOP = { half: 0.95 * SCALE, corner: 0.3 * SCALE };
 // a touch, as a satin finish softens it.
 const FLIP = new THREE.Matrix4().set(1, 0, 0, 0, 0, -1, 0, 2 * FLOOR, 0, 0, 1, 0, 0, 0, 0, 1);
 const MIRROR_X = new THREE.Matrix4().makeScale(-1, 1, 1);
-// How strongly the top mirrors the room and what stands on it.
+// How strongly the top mirrors the room and what stands on it, and the galley beyond.
 const REFLECTS = 0.5;
+const BACKGROUND = 0.2;
 
 export async function loadTable(stage) {
   const [bin, black] = await Promise.all([
@@ -92,19 +94,21 @@ export async function loadTable(stage) {
       .replace('#include <common>', '#include <common>\nuniform sampler2D tMirror;\nuniform vec2 uScreen;\nuniform float uTop;\nvarying float vHeight;')
       .replace(
         '#include <lights_fragment_maps>',
-        // Where the top faces up, what stands on it is mirrored over the room it mirrors (the
-        // mirror's image is flipped left to right; its alpha is where something was drawn).
+        // Where the top faces up, what stands on it is mirrored over the room it mirrors, and the
+        // galley beyond faintly over the top's own light (the mirror's image is flipped left to
+        // right; its alpha is where something stood, the galley drawn about it at the strength the
+        // top mirrors it, and transparent).
         `#include <lights_fragment_maps>
 {
   float up = inverseTransformDirection(normal, viewMatrix).y;
   float onTop = smoothstep(0.9, 0.97, up) * (1.0 - smoothstep(0.08, 0.2, abs(vHeight - uTop)));
   vec2 st = gl_FragCoord.xy / uScreen;
   vec4 seen = textureLod(tMirror, vec2(1.0 - st.x, st.y), 0.6);
-  radiance = mix(radiance, ${REFLECTS.toFixed(2)} * seen.rgb / max(seen.a, 1e-3), clamp(seen.a, 0.0, 1.0) * onTop);
+  radiance = radiance * (1.0 - clamp(seen.a, 0.0, 1.0) * onTop) + onTop * ${REFLECTS.toFixed(2)} * seen.rgb;
 }`,
       );
   };
-  material.customProgramCacheKey = () => 'kaltoh-table-v5';
+  material.customProgramCacheKey = () => 'kaltoh-table-v6';
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.scale.setScalar(SCALE);
@@ -119,11 +123,13 @@ export async function loadTable(stage) {
   const clear = new THREE.Color();
   const table = { mesh, mirror: true, reflect };
 
-  // Draw what the top mirrors, before the scene itself; `hidden`: what the mirror does not show
-  // (the room, which the table mirrors by its own lights, and the t'an on the glass). It is drawn
-  // without shadows: softened in the mirror they are not missed, and some phones' drivers, given
-  // the shadow map of the frame before, drew the stone black in it every other frame. Before the
-  // scene has first been drawn the mirror is only cleared.
+  // Draw what the top mirrors, before the scene itself; `hidden`: what the mirror does not show (the
+  // t'an on the glass). The galley is drawn into it faintly, and transparent, from where it stands
+  // nearest (however far off it is seen, it is its ceiling's lights overhead the top mirrors, not
+  // the sky past the photograph's top). It is drawn without
+  // shadows: softened in the mirror they are not missed, and some phones' drivers, given the
+  // shadow map of the frame before, drew the stone black in it every other frame. Before the scene
+  // has first been drawn the mirror is only cleared.
   function reflect(hidden) {
     const { renderer, scene, camera } = stage;
     if (!table.mirror) return;
@@ -138,6 +144,9 @@ export async function loadTable(stage) {
     const shown = hidden.map((o) => o.visible);
     mesh.visible = false;
     for (const o of hidden) o.visible = false;
+    const drawn = stage.sky?.material.uniforms.drawn.value;
+    drawn?.set(BACKGROUND / REFLECTS, 0);
+    stage.placeRoom(0);
     renderer.shadowMap.enabled = false;
     renderer.getClearColor(clear);
     const alpha = renderer.getClearAlpha();
@@ -149,6 +158,8 @@ export async function loadTable(stage) {
     renderer.setRenderTarget(before);
     renderer.setClearColor(clear, alpha);
     renderer.shadowMap.enabled = true;
+    drawn?.set(1, 1);
+    stage.placeRoom(stage.view.room);
     hidden.forEach((o, i) => (o.visible = shown[i]));
     mesh.visible = true;
   }
