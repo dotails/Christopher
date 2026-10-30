@@ -27,10 +27,9 @@ the mess hall loop beneath the play - the warp core's hum, the air, the crew's v
 under them - starting with your first touch; they play along with whatever else the phone is playing, never
 pausing it. A voice guides you through your first game, and each way to play the first time you
 play it, answering what you do, until you turn it down under the stone.
-The stone stands on a silver pedestal table in Voyager's mess hall: beyond it, out of focus
-and seen small and wide, the bar where Picard sits stands up to the right, and the table's satin
-top mirrors the room softly,
-with the stone and the t'an standing on it. The t'an are mirror-polished, with a touch of
+The stone stands on a silver pedestal table in Voyager's mess hall: beyond it stands the galley,
+sharp, its counters just above the table's far edge and its ceiling's light panels overhead, and
+the table's satin top mirrors the room softly, with the stone and the t'an standing on it. The t'an are mirror-polished, with a touch of
 aluminium's grey: a face turned toward you mirrors the mess hall behind you, where Tuvok sits at
 his table, and the waiting t'an in the tray, its faces gently domed, holds his face.
 
@@ -220,11 +219,11 @@ build is gathered into the next form.
     the stone: the nest gathering, t'an laid across any two pieces, and each form taken in a wave of
     gliding t'an, those it has no rod for fading into light, new ones settling in, its sound made of
     the synthesizer's own voices), `scene.js` (renderer, lights, the mess hall -
-    sharp in the metal, turned so that Tuvok, at his table, is behind the player; out of focus
-    beyond the kal-toh, shown eight times smaller than the window would show it, so much of the
-    room is on the screen, and framed so the bar where Picard sits stands up to the right, clear of
-    the kal-toh; drawn nearer, it grows as a room whose far wall stands some way beyond the table
-    would - the stone, and the window the screen becomes), `table.js` (the pedestal
+    sharp in the metal, turned so that Tuvok, at his table, is behind the player; beyond the
+    kal-toh, the galley, a photograph seen as a camera would see it, its counters standing just
+    above the table's far edge, as large as fits a phone held upright (a wider screen sees more of
+    it); drawn nearer, it grows as a room some way beyond the table would - the stone, and the
+    window the screen becomes), `table.js` (the pedestal
     table under the stone, its top at the floor, its near edge out of sight: satin silver (black
     where the model is) mirroring the blurred room, and the
     stone and t'an on it drawn a second time each frame, the eye turned over in the plane of the
@@ -342,7 +341,7 @@ area; press `R` to begin anew, and use the mouse wheel to draw nearer.
 - Kal-toh and *Star Trek* belong to Paramount; this is an unofficial fan project for personal use.
 - The Vulcan fonts (*Vulcan Script* for titles, *Modern Vulcan* for everything else), the stone
   basin and pedestal table models (made with Meshy), the mess-hall panorama (and its blurred copy,
-  `assets/sky.jpg`) and the ambience
+  `assets/sky.jpg`), the galley (`assets/room.jpg`) and the ambience
   (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and faded in and
   out; made louder here) were supplied for this project. Their licences are not included; check
   them before distributing the app beyond personal use.

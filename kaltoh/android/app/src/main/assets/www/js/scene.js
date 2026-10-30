@@ -30,8 +30,6 @@ function roomward(u, v) {
 // The direction of his face (three.js shows the panorama's direction e at the room's turn applied
 // to e).
 export const TUVOK = roomward(0.337, 0.478);
-// The bar, where Picard sits: the glowing panel behind it.
-const BAR = roomward(0.83, 0.525);
 const across = new THREE.Vector3();
 const upward = new THREE.Vector3();
 const backward = new THREE.Vector3();
@@ -214,13 +212,16 @@ export function createScene(canvas) {
 
 // What the metal reflects: a panorama of a starship mess hall. The photograph is low dynamic
 // range, so its light panels and glowing tables are lifted far above white before filtering;
-// polished t'an then catch real highlights instead of a flat grey. Beyond the kal-toh the same room
-// is seen out of focus (the player's own blurred copy of it, turned the same way, so what the
-// metal mirrors agrees with what is behind it); and that blurred room is what the table's satin
-// metal mirrors (stage.skyEnvironment).
+// polished t'an then catch real highlights instead of a flat grey. The table's satin metal mirrors
+// the player's own blurred copy of it, turned the same way (stage.skyEnvironment). Beyond the
+// kal-toh stands the galley, sharp (makeRoom).
 export async function loadEnvironment(stage) {
   const { renderer, scene } = stage;
-  const [photo, blurred] = await Promise.all([loadTexture('assets/env.jpg', true), loadTexture('assets/sky.jpg', true)]);
+  const [photo, blurred, galley] = await Promise.all([
+    loadTexture('assets/env.jpg', true),
+    loadTexture('assets/sky.jpg', true),
+    loadTexture('assets/room.jpg', true),
+  ]);
   const target = new THREE.WebGLRenderTarget(2048, 1024, {
     type: THREE.HalfFloatType,
     generateMipmaps: true,
@@ -255,7 +256,7 @@ export async function loadEnvironment(stage) {
   scene.environmentRotation.copy(ROOM);
   blurred.mapping = THREE.EquirectangularReflectionMapping;
   stage.skyEnvironment = pmrem.fromEquirectangular(blurred).texture;
-  stage.sky = makeSky(blurred, stage.view);
+  stage.sky = makeRoom(galley, stage.view);
   scene.add(stage.sky);
   pmrem.dispose();
   target.dispose();
@@ -264,55 +265,51 @@ export async function loadEnvironment(stage) {
   lift.material.dispose();
 }
 
-// The room beyond the kal-toh, at any distance: a box about the eye, drawn first and behind
-// everything. It is shown small - the panorama's turning and tilting from the eye's line of sight
-// taken WIDE times over - so that much of the room is on the screen and little enlarged, and
-// framed so that the bar where Picard sits stands up and to the right, clear of the kal-toh (BAR
-// at AT of the way from the screen's middle to its right and top edges). It is a real room, though,
-// not a picture on the glass: drawn nearer to the kal-toh, or back from it, the eye nears or leaves
-// its far wall too, FAR beyond the kal-toh, and the room grows or shrinks about the line of sight
-// as that wall would.
-const WIDE = 8;
-const AT = new THREE.Vector2(0.48, 0.45);
+// The room beyond the kal-toh: the galley, a photograph seen across the mess hall from where the
+// player sits, drawn first and behind everything, on a box about the eye. It is seen as a camera
+// would see it - straight lines straight - with its counters standing just above the table's far
+// edge and its ceiling's light panels at the top of the screen (the counter top, ROOM_AT, RISE above
+// the line of sight), as large as fits a phone held upright (a wider screen sees more of it, the
+// whole of its width at most). It is a real room, though, not a picture on the glass: drawn nearer
+// to the kal-toh, or back from it, the eye nears or leaves the galley too, FAR beyond the kal-toh,
+// and the room grows or shrinks about the line of sight as it would.
+const ROOM_SIZE = new THREE.Vector2(2400, 1792); // the photograph, in pixels
+const ROOM_AT = new THREE.Vector2(1260, 800);
+const RISE = Math.tan(THREE.MathUtils.degToRad(5));
+const ROOM_SCALE = 4130; // its pixels to a unit across the screen's plane, a unit before the eye, at rest
+const ROOM_MARGIN = 30; // pixels of it kept beyond the screen's sides
 const FAR = 14;
-const forward = new THREE.Vector3();
-function makeSky(texture, view) {
-  const turn = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(ROOM)).transpose();
+function makeRoom(texture, view) {
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   const material = new THREE.ShaderMaterial({
     uniforms: {
       map: { value: texture },
-      turn: { value: turn },
-      level: { value: 0.75 },
-      wide: { value: WIDE },
-      sight: { value: new THREE.Vector2() }, // the line of sight: its heading and elevation
-      shown: { value: new THREE.Vector2() }, // what is shown along it
+      level: { value: 0.8 },
+      size: { value: ROOM_SIZE },
+      scale: { value: ROOM_SCALE }, // the photograph's pixels to a unit of the screen's tangent, now
+      at: { value: new THREE.Vector2() }, // its pixel on the line of sight
     },
     vertexShader: /* glsl */ `
       varying vec3 vSeen;
       void main() {
-        vSeen = position;
+        // The box is about the eye: its points, turned as the eye looks, are directions from it.
+        vSeen = mat3(modelViewMatrix) * position;
         vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         gl_Position = p.xyww;
       }`,
     fragmentShader: /* glsl */ `
-      #include <common>
       uniform sampler2D map;
-      uniform mat3 turn;
       uniform float level;
-      uniform float wide;
-      uniform vec2 sight;
-      uniform vec2 shown;
+      uniform vec2 size;
+      uniform float scale;
+      uniform vec2 at;
       varying vec3 vSeen;
       void main() {
-        vec3 ray = normalize(vSeen);
-        float heading = atan(ray.x, -ray.z);
-        float elevation = asin(clamp(ray.y, -1.0, 1.0));
-        float turned = heading - sight.x;
-        turned -= 2.0 * PI * floor((turned + PI) / (2.0 * PI));
-        heading = shown.x + wide * turned;
-        elevation = clamp(shown.y + wide * (elevation - sight.y), -0.5 * PI, 0.5 * PI);
-        vec3 look = turn * vec3(sin(heading) * cos(elevation), sin(elevation), -cos(heading) * cos(elevation));
-        gl_FragColor = vec4(texture2D(map, equirectUv(look)).rgb * level, 1.0);
+        // Where this ray meets the screen's plane, a unit in front of the eye.
+        vec2 plane = vSeen.xy / max(-vSeen.z, 1e-4);
+        vec2 px = at + scale * vec2(plane.x, -plane.y);
+        gl_FragColor = vec4(texture2D(map, vec2(px.x / size.x, 1.0 - px.y / size.y)).rgb * level, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
@@ -320,28 +317,22 @@ function makeSky(texture, view) {
     depthTest: false,
     depthWrite: false,
   });
-  const barHeading = Math.atan2(BAR.x, -BAR.z);
-  const barElevation = Math.asin(BAR.y);
-  const sky = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
-  sky.frustumCulled = false;
-  sky.renderOrder = -100;
-  sky.onBeforeRender = (renderer, scene, camera) => {
-    sky.position.setFromMatrixPosition(camera.matrixWorld);
-    sky.updateMatrixWorld();
-    // The line of sight is the camera's own (it never turns with the eye, only moves), and the
-    // screen spans FOV about it, at rest.
-    forward.setFromMatrixColumn(camera.matrixWorld, 2).negate().normalize();
-    const heading = Math.atan2(forward.x, -forward.z);
-    const elevation = Math.asin(forward.y);
-    const halfHigh = THREE.MathUtils.degToRad(FOV / 2);
-    const halfWide = Math.atan(Math.tan(halfHigh) * camera.aspect);
-    material.uniforms.sight.value.set(heading, elevation);
-    material.uniforms.shown.value.set(barHeading - WIDE * AT.x * halfWide, barElevation - WIDE * AT.y * halfHigh);
-    // How much nearer the far wall is than as first framed.
+  const room = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
+  room.frustumCulled = false;
+  room.renderOrder = -100;
+  room.onBeforeRender = (renderer, scene, camera) => {
+    room.position.setFromMatrixPosition(camera.matrixWorld);
+    room.updateMatrixWorld();
+    // As large as fits a phone held upright, and never so large a wider screen sees past its sides.
+    const halfHigh = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
+    const halfWide = halfHigh * camera.aspect;
+    const fit = Math.min(ROOM_SCALE, (Math.min(ROOM_AT.x, ROOM_SIZE.x - ROOM_AT.x) - ROOM_MARGIN) / halfWide);
+    // How much nearer the galley is than as first framed.
     const near = view.distance * view.zoom * (1 - 0.3 * view.read.k);
-    material.uniforms.wide.value = (WIDE * (FAR + near)) / (FAR + view.distance);
+    material.uniforms.scale.value = fit * ((FAR + view.distance) / (FAR + near));
+    material.uniforms.at.value.set(ROOM_AT.x, ROOM_AT.y + fit * RISE);
   };
-  return sky;
+  return room;
 }
 
 // The stone basin, from the compact mesh written by tools/convert_base.py. Returns the mesh and
