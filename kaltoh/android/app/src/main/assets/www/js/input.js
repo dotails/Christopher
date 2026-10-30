@@ -13,17 +13,18 @@
 import * as THREE from '../vendor/three.module.min.js';
 
 const GRAB_MARGIN = 16; // a finger that only just misses the tray's t'an still takes it up
-const TURN_RATE = 1.2; // half-turns per screen width
+const TURN_RATE = 1.2; // half-turns per the screen's breadth (its shorter side, however it is held)
 const TAP_SLOP = 10;
 const TAP_TIME = 600; // a touch held still no longer than this is a tap
-const ZOOM = [0.45, 1]; // drawn near, or back no further than first framed: the table's edge stays out of sight
 
 const axis = new THREE.Vector3();
 const right = new THREE.Vector3();
 const upward = new THREE.Vector3();
 const toward = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
-const clampZoom = (z) => Math.min(ZOOM[1], Math.max(ZOOM[0], z));
+const breadth = (stage) => Math.min(stage.size.width, stage.size.height);
+// Drawn near or back as far as the view allows (scene.js fitZoom: never beyond the photograph of the room).
+const clampZoom = (view, z) => Math.min(view.zoomRange[1], Math.max(view.zoomRange[0], z));
 
 export class Input {
   constructor(canvas, ctx) {
@@ -48,7 +49,7 @@ export class Input {
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       const v = this.ctx.stage.view;
-      v.zoom = clampZoom(v.zoom * Math.exp(e.deltaY * 0.001));
+      v.zoom = clampZoom(v, v.zoom * Math.exp(e.deltaY * 0.001));
     }, opts);
   }
 
@@ -150,7 +151,7 @@ export class Input {
       const [a, b] = this.ids.map((id) => this.pointers.get(id));
       if (a && b) {
         const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-        stage.view.zoom = clampZoom(this.pinch.zoom0 * (this.pinch.d0 / d));
+        stage.view.zoom = clampZoom(stage.view, this.pinch.zoom0 * (this.pinch.d0 / d));
       }
     } else if (this.mode === 'hold' && this.ids.includes(p.id)) {
       this.aim();
@@ -211,7 +212,7 @@ export class Input {
     if (len < 0.01) return null;
     right.set(1, 0, 0).applyQuaternion(stage.camera.quaternion);
     axis.copy(UP).multiplyScalar(dx).addScaledVector(right, dy).normalize();
-    return { axis, angle: (len / stage.size.width) * Math.PI * TURN_RATE };
+    return { axis, angle: (len / breadth(stage)) * Math.PI * TURN_RATE };
   }
 
   // Two fingers turn what they hold as the eye sees it: twisting them turns it about the line of
@@ -242,10 +243,10 @@ export class Input {
     const len = Math.hypot(dx, dy);
     if (len > 0.01) {
       axis.copy(upward).multiplyScalar(dx).addScaledVector(right, dy).normalize();
-      turn(two.what, axis, (len / stage.size.width) * Math.PI * TURN_RATE);
+      turn(two.what, axis, (len / breadth(stage)) * Math.PI * TURN_RATE);
     }
     const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-    stage.view.zoom = clampZoom(two.zoom0 * (two.d0 / d));
+    stage.view.zoom = clampZoom(stage.view, two.zoom0 * (two.d0 / d));
   }
 
   // Carried by two fingers, the t'an lies between them at its own length: where its ends are is

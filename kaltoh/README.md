@@ -28,18 +28,24 @@ under them - starting with your first touch; they play along with whatever else 
 pausing it. A voice guides you through your first game, and each way to play the first time you
 play it, answering what you do, until you turn it down under the stone.
 The stone stands on a silver pedestal table in Voyager's mess hall, seen from a seat at it: the
-table stands on the galley's own floor, its edges along the floor's lines, the galley's counters
-across the room before you, and drawing nearer moves you through the room. The table's satin top
-mirrors the room softly, with the stone and the t'an standing on it. The mess hall lights them: the
-dining room behind you, the galley before you. The t'an are mirror-polished, with a touch of
-aluminium's grey: a face turned toward you mirrors the dining room behind you; and the waiting t'an
-in the tray, its faces gently domed, holds Tuvok's face, at his table behind you.
+galley before you, its floor's lines running with the table's edges, and drawing nearer moves you
+through the room. Held upright, the galley stands back, whole up to its ceiling's lights; turned
+sideways, either way, it comes nearer, until its photograph fills the wider screen. Pinch to draw
+nearer or back: never so far, either way, that you would see past the photograph's edges. The
+table's satin top mirrors the room softly, with the stone and the t'an standing on it. The galley
+lights them too, its photograph stretched all round the table and kept dim, so the t'an stand out
+against the room, its ceiling's lights glinting on them. The t'an are mirror-polished, with a touch
+of aluminium's grey; the waiting t'an in the tray, its faces gently domed, holds Tuvok at his table
+behind you along the face it turns to you, and its other faces catch the galley ahead.
 
 <p align="center">
-  <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table, standing on the galley's floor in the mess hall, the stone and t'an mirrored in the table's top">
+  <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table in the mess hall, the galley beyond it whole up to its ceiling's lights, the stone and t'an mirrored in the table's top">
 </p>
 <p align="center">
-  <img src="docs/jumble.png" width="19%" alt="The jumble of the original game">
+  <img src="docs/sideways.png" width="62%" alt="Held sideways: the galley nearer, its photograph filling the wide screen behind the kal-toh on its table">
+</p>
+<p align="center">
+  <img src="docs/jumble.png" width="19%" alt="The jumble of the original game, drawn near">
   <img src="docs/sphere.png" width="19%" alt="The completed kal-toh, spinning on its axis">
   <img src="docs/forms.png" width="19%" alt="Many forms: a new form's jumble, a sample of its loops closed, noise among it">
   <img src="docs/forms-whole.png" width="19%" alt="Many forms: the inner form whole, struts bracing out from every junction">
@@ -74,7 +80,7 @@ over an older one without uninstalling.
 
 | To | Do |
 |---|---|
-| Turn the base | Drag the stone (a fingertip off its edge counts). Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. Level - its foot within twenty degrees of facing straight down - it rests on the floor, and spins there like a turntable; tip it further, toward you or away, and it lifts to turn freely. It never comes down while you hold it: let it go within twenty degrees of level and it falls straight down until its lowest edge meets the floor, then tips over on that edge until it lies flush, with a knock each time (held tipped a little as it rests, it rocks up onto its edge, never into the floor). Resting there, the t'an turned into it ride up over it rather than pushing it into the floor. **Two fingers** on the stone turn it as you see it instead: twist them and it turns about your line of sight, the same way round; move them together and it tumbles along with them; spread or pinch them to draw nearer, or back again as far as the view was first framed. A drag on open space turns nothing, so a finger that only just misses the t'an at the foot of the screen sets nothing spinning. With the base turned over, grab it by its rim, outside the carving's framing circle: within the circle the carving is for touching, and nothing turns. |
+| Turn the base | Drag the stone (a fingertip off its edge counts). Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. Level - its foot within twenty degrees of facing straight down - it rests on the floor, and spins there like a turntable; tip it further, toward you or away, and it lifts to turn freely. It never comes down while you hold it: let it go within twenty degrees of level and it falls straight down until its lowest edge meets the floor, then tips over on that edge until it lies flush, with a knock each time (held tipped a little as it rests, it rocks up onto its edge, never into the floor). Resting there, the t'an turned into it ride up over it rather than pushing it into the floor. **Two fingers** on the stone turn it as you see it instead: twist them and it turns about your line of sight, the same way round; move them together and it tumbles along with them; spread or pinch them (or two fingers on open space) to draw nearer or back, never so far either way that the room shows past the edges of its photograph. A drag on open space turns nothing, so a finger that only just misses the t'an at the foot of the screen sets nothing spinning. With the base turned over, grab it by its rim, outside the carving's framing circle: within the circle the carving is for touching, and nothing turns. |
 | Turn the t'an | Drag anywhere within the t'an's outline, even between them (two fingers turn it as you see it, as for the stone). The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
 | Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it dangles from your finger, swinging as you move, about as large as it lay in the tray - one finger is not enough to lay it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Held so, the t'an lies between your fingers at its own length, and **where its ends are is where it lands**: spread your fingers wide of the pieces, out of your own way, and lay its ends on them - in the original game and many forms, on the tips you mean to join (each end picks the tip nearest it, which lights up); in zen, anywhere on two different pieces. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you draw the view nearer. |
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read. It is all on one face: the title, and beneath it the shape the game builds (in the original game *two concentric icosidodecahedra*; in many forms, this game's form; in zen, the form it has taken); whose turn it is and the score (in zen, its progress); what just happened (in many forms, and how many loops are closed; in zen, how far it has come); then, under a carved rule, the ways to play, the room, the sound, the voice and vibration; and three glyphs at the foot: *Rules*, *Translate* and *Shake*. *Rules* turns to the rules of the chosen game, short, and the marks under the seats; *Return* comes back. |
@@ -221,16 +227,22 @@ build is gathered into the next form.
     the stone: the nest gathering, t'an laid across any two pieces, and each form taken in a wave of
     gliding t'an, those it has no rod for fading into light, new ones settling in, its sound made of
     the synthesizer's own voices), `scene.js` (renderer, lights, the mess hall - the light everything
-    is lit by and the metal mirrors, a panorama made of the dining room behind and the galley ahead
-    (`tools/make_environment.py`), the waiting t'an alone mirroring Tuvok, his patch of the old
-    panorama set into it where he sat; and the room the table stands in: the galley's photograph,
+    is lit by and the metal mirrors, the galley's photograph stretched twice round the table (ahead
+    as taken, behind mirrored, so its edges meet), dimmed, its ceiling's lights lifted above white;
+    the waiting t'an alone mirroring Tuvok, his strip of the old panorama set in behind the player,
+    wide enough to fill its domed face end to end; and the room the table stands in: the galley's photograph,
     measured by its lines (`tools/measure_room.py`: where the floor's, the counters' and the
     ceiling's lines meet, the room's three directions, and from them its lens and how it was held,
     4.7 degrees down and 19.6 to the right of the room's length, from an eye 1.18 counters high),
-    projected from where it was taken onto the room's own floor - level with the table's foot - and
-    the counters' and walls' fronts, the room laid along the table, so each ray from the eye takes
-    the photograph's colour where it meets the room, and drawing nearer moves the eye through it -
-    the stone, and the window the screen becomes), `table.js` (the pedestal
+    projected from where it was taken onto the room's own floor and the counters' and walls' fronts,
+    the room laid along the table, so each ray from the eye takes the photograph's colour where it
+    meets the room, and drawing nearer moves the eye through it; set lower than the table's foot and
+    moved, never turned, so its lines still meet the table's: as far off as the screen allows, the
+    galley whole on a tall one, nearer on a wide one until the photograph fills it, and the view
+    drawn no nearer or further than shows only the photograph, found by casting rays across the
+    screen as the shader does, past the table's top; past the photograph's edges, where a screen
+    cannot help but see past them, its edge goes on out of focus - the stone, and the window the
+    screen becomes, framed afresh as the screen is turned), `table.js` (the pedestal
     table under the stone, its top at the floor, its near edge out of sight: satin silver (black
     where the model is) mirroring the mess hall, and the
     stone and t'an on it drawn a second time each frame, the eye turned over in the plane of the
@@ -309,14 +321,17 @@ build is gathered into the next form.
     (Standard at first, Vulcan then), and the script is remembered for next time. The rules glyph
     turns to the rules, and *Return* comes back. It draws a finger along the room's slider, sets the
     voice's level on its own slider, and changes the ways on the face for a new game. It covers
-    fallen t'an staying until a new game, and shaking to begin anew. It checks that the stone stands on the table, its top at the
+    fallen t'an staying until a new game, and shaking to begin anew. Held sideways and back, the
+    room comes nearer to fill the wide screen and stands back again, the view is framed afresh, and
+    pinched it goes no nearer or further than shows only the photograph; the stone stands clear of
+    the tray, and turned over its carving is all on the screen. It checks that the stone stands on the table, its top at the
     floor, mirroring what stands on it (and then puts the table out of sight: drawing its metal
     makes the software renderer several times slower).
   - `convert_base.py`, `convert_table.py`, `make_icon.py`: asset and icon generators (the table at its
     full detail, 154,670 triangles; on the phone that is nothing, and its rounded edges need them).
   - `measure_room.py`: measures the galley's photograph by its lines, for `scene.js`'s room.
-    `make_environment.py`: makes the mess hall's light (`assets/room-env.jpg`) from the dining room
-    and the galley, and cuts Tuvok's patch (`assets/tuvok.jpg`) from the old panorama.
+    `cut_tuvok.py`: cuts Tuvok's strip (`assets/tuvok.jpg`) from the old panorama, wide enough for
+    the waiting t'an's domed face.
   - `make_voice.py`: renders the guide's lines with Kokoro (kokoro-onnx, the Sky voice) into
     `assets/voice/`, each brought to -14 LUFS so it is clear over the room's sound; unchanged
     lines are kept.
@@ -350,15 +365,15 @@ cd kaltoh/android
 
 To try the game in a desktop browser, serve `android/app/src/main/assets/www/` with any static
 web server and open `index.html`. Drag with the mouse to turn the base, or the t'an by their
-area; press `R` to begin anew, and use the mouse wheel to draw nearer.
+area; press `R` to begin anew, use the mouse wheel to draw nearer or back, and make the window
+wider than tall to see it held sideways.
 
 ## Credits and notes
 
 - Kal-toh and *Star Trek* belong to Paramount; this is an unofficial fan project for personal use.
 - The Vulcan fonts (*Vulcan Script* for titles, *Modern Vulcan* for everything else), the stone
   basin and pedestal table models (made with Meshy), the mess-hall pictures (the galley,
-  `assets/room.jpg`; the dining room, within `assets/room-env.jpg`; and Tuvok's patch of a
-  panorama, `assets/tuvok.jpg`) and the ambience
+  `assets/room.jpg`, and Tuvok's strip of a panorama, `assets/tuvok.jpg`) and the ambience
   (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and faded in and
   out; made louder here) were supplied for this project. Their licences are not included; check
   them before distributing the app beyond personal use.

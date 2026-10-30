@@ -2,13 +2,13 @@
 // screen but the kal-toh, its stone and the t'an in the tray: everything it says is carved into
 // the underside of the base (engrave.js).
 import * as THREE from '../vendor/three.module.min.js';
-import { createScene, loadBase, loadEnvironment, FLOOR } from './scene.js';
-import { loadTable } from './table.js';
+import { createScene, loadBase, loadEnvironment, FLOOR, PIVOT } from './scene.js';
+import { loadTable, TOP } from './table.js';
 import { RodPool, Halos } from './rodmesh.js';
 import { Engraving } from './engrave.js';
 import { Motion } from './motion.js';
 import { Falling } from './falling.js';
-import { Tray, Hand } from './tray.js';
+import { Tray, Hand, TRAY_REACH } from './tray.js';
 import { ClassicGame } from './classic.js';
 import { FormsGame } from './forms.js';
 import { ZenGame } from './zen.js';
@@ -78,6 +78,9 @@ function tickTimers(dt) {
 
 // --- Layout ------------------------------------------------------------------------------
 
+let wide = null; // whether the screen was wider than tall, as last laid out
+// The top of the kal-toh as it stands finished on the stone at rest, with a little to spare.
+const KALTOH_TOP = new THREE.Vector3(0, PIVOT.y + FLOOR + 0.9, 0);
 function layout() {
   const dpr = Math.min(window.devicePixelRatio || 1, quality.maxDpr);
   const w = window.innerWidth;
@@ -86,17 +89,33 @@ function layout() {
   stage.view.focus.y = 0.42;
   // The t'an to place lies at the foot of the screen, below the base as the view first frames it
   // resting on the floor (not as it may be drawn nearer, or turned over to be read), and never off
-  // the screen.
+  // the screen; where the screen is too short for both (a phone held sideways), the base is set
+  // higher, clear of where a finger takes up the t'an. And how near and how far back the view may
+  // be drawn on this screen (fitZoom): turned between portrait and landscape, it is framed afresh.
   const { zoom } = stage.view;
   const reading = stage.view.read.k;
-  stage.view.zoom = 1;
-  stage.view.read.k = 0;
-  stage.update();
-  const foot = stage.toScreen(new THREE.Vector3(0, FLOOR, 0.9));
-  stage.view.zoom = zoom;
+  let trayY = 0;
+  for (let i = 0; i < 4; i++) {
+    stage.fitZoom(TOP);
+    stage.view.zoom = stage.view.framed;
+    stage.view.read.k = 0;
+    stage.update();
+    const foot = stage.toScreen(new THREE.Vector3(0, FLOOR, 0.9));
+    const crown = stage.toScreen(KALTOH_TOP);
+    trayY = Math.min(h - insets.bottom - 64, Math.max(foot.y + 110, h - insets.bottom - 88));
+    const short = foot.y - (trayY - TRAY_REACH - 24);
+    if (short <= 0) break;
+    // Raised as far as the kal-toh's top allows; beyond that, drawn smaller (at most by half).
+    const raise = Math.min(short, Math.max(0, crown.y - insets.top - 8));
+    const tall = foot.y - crown.y;
+    stage.view.focus.y -= raise / h;
+    if (raise < short) stage.view.distance *= tall / Math.max(tall - (short - raise), tall / 2);
+  }
+  stage.view.zoom = wide !== null && wide !== w > h ? stage.view.framed : Math.min(stage.view.zoomRange[1], Math.max(stage.view.zoomRange[0], zoom));
+  wide = w > h;
   stage.view.read.k = reading;
   stage.update();
-  tray.layout(Math.min(h - insets.bottom - 64, Math.max(foot.y + 110, h - insets.bottom - 88)));
+  tray.layout(trayY);
 }
 
 // Picking: the t'an under a finger, and where along it.

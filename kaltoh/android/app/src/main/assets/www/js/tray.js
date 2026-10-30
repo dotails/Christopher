@@ -18,6 +18,9 @@ const DROOP = 3600; // how hard a t'an hanging from one finger is pulled down th
 const SWAY = 1.4; // how fast its swinging dies away (per second)
 const SLIP = 0.22; // how long it takes to slip through the finger to hang by its end (s)
 const HELD_SMALLER = 0.1; // how much smaller it hangs, raised from the tray, than it lay there
+// How far above the resting t'an (px) a finger still takes it up (and as far again as the margin
+// it is given: input.js).
+export const TRAY_REACH = 56;
 
 export class Tray {
   constructor(stage) {
@@ -38,11 +41,18 @@ export class Tray {
     this.y = y;
   }
 
+  // How long the resting t'an lies on the screen (px): half the screen's breadth, its shorter side,
+  // however the screen is held.
+  get span() {
+    const { width, height } = this.stage.size;
+    return Math.min(width, height) / 2;
+  }
+
   // Screen rectangle that counts as touching the tray (widened by `margin` px).
   contains(x, y, margin = 0) {
     const w = this.stage.size.width;
     return this.visible && this.arrive > 0.6 &&
-      Math.abs(x - w / 2) < w * 0.4 + margin && y > this.y - 56 - margin && y < this.y + 50 + margin;
+      Math.abs(x - w / 2) < this.span * 0.8 + margin && y > this.y - TRAY_REACH - margin && y < this.y + 50 + margin;
   }
 
   // A new t'an slides in (one already waiting stays where it is).
@@ -62,7 +72,7 @@ export class Tray {
     const { camera, size, glass } = this.stage;
     this.slide = (1 - ease(this.arrive)) * size.width * 0.9;
     this.ends(this.slide, 0, this.restA, this.restB);
-    this.widthScale = glass.width / this.length;
+    this.widthScale = (glass.width * 2 * this.span) / (size.width * this.length);
     // Its broad face to the eye, tipped so that it mirrors Tuvok's face behind the player, rocking
     // slowly so the reflection runs over him from brow to chin and back.
     this.restUp.addVectors(this.restA, this.restB).multiplyScalar(-0.5).add(camera.position).normalize().add(TUVOK);
@@ -71,10 +81,10 @@ export class Tray {
     this.restUp.applyAxisAngle(axis, roll);
   }
 
-  // The resting t'an's ends on the glass (half the screen's width long), moved (dx, dy) px across it.
+  // The resting t'an's ends on the glass (its span long), moved (dx, dy) px across it.
   ends(dx, dy, outA, outB) {
     const { size } = this.stage;
-    const half = size.width * 0.25;
+    const half = this.span / 2;
     this.stage.onGlass(size.width / 2 - half + dx, this.y + dy, outA);
     this.stage.onGlass(size.width / 2 + half + dx, this.y + dy, outB);
   }
@@ -108,13 +118,14 @@ export class Hand {
   // Taken up from the tray, by a finger at (x, y).
   lift(x, y) {
     const { width } = this.stage.size;
+    const { span } = this.tray;
     this.holding = true;
     this.a.copy(this.tray.restA);
     this.b.copy(this.tray.restB);
     this.scale = this.scaleGoal = this.tray.widthScale;
     // Where along it the finger took it (0 at one end, 1 at the other), and how far off its line.
-    const left = width / 4 + this.tray.slide;
-    const along = x === undefined ? 0.5 : clamp01((x - left) / (width / 2));
+    const left = (width - span) / 2 + this.tray.slide;
+    const along = x === undefined ? 0.5 : clamp01((x - left) / span);
     const fx = x ?? width / 2;
     const fy = y ?? this.tray.y;
     // It hangs from the end nearer the finger: `byB` if that is its end b. `above` is how much of it
@@ -122,7 +133,7 @@ export class Hand {
     // on a thread swinging under the finger, starting where it lay.
     const byB = along > 0.5;
     const above = byB ? 1 - along : along;
-    const reach = (width / 2) * (1 - above);
+    const reach = span * (1 - above);
     this.carried = { x: fx, y: fy, y0: fy, byB, above, low: new THREE.Vector2(fx + (byB ? -reach : reach), fy), lowBefore: null };
     this.carried.lowBefore = this.carried.low.clone();
     this.glow = 0;
@@ -195,10 +206,9 @@ export class Hand {
       // On the glass, hanging from the finger: its far end swings under the finger, pulled down
       // the screen and dragged along as the finger moves, the t'an slipping through the finger to
       // hang by its end. As large as it lay in the tray, a shade smaller once raised from it.
-      const { size } = this.stage;
       const c = this.carried;
       const s = ease(clamp01((c.y0 - c.y) / RAISE));
-      const length = (size.width / 2) * (1 - HELD_SMALLER * s);
+      const length = this.tray.span * (1 - HELD_SMALLER * s);
       c.above *= Math.exp(-dt / SLIP);
       const step = Math.min(dt, 1 / 30);
       const vx = (c.low.x - c.lowBefore.x) * Math.exp(-SWAY * step);

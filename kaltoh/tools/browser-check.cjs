@@ -16,8 +16,11 @@
 // way it was turned, the carving reads with its top up), touching the carving to translate all of
 // it (Standard at first; remembered for next time), the rules a glyph away and back, the ways on
 // the face (the room's and the voice's sliders, a value touched, Shake to begin anew), fallen t'an
-// lying where they fell until a new game, and shaking to begin anew. Nothing may be written on the
-// screen itself. Screenshots land in the directory given as the first argument.
+// lying where they fell until a new game, and shaking to begin anew. Held sideways and back: the
+// room drawn nearer to fill the wide screen, the view framed afresh and pinched no nearer or further
+// than its photograph allows, the stone clear of the tray, and its carving all on the screen.
+// Nothing may be written on the screen itself. Screenshots land in the directory given as the
+// first argument.
 //
 // Run: node kaltoh/tools/browser-check.cjs [out-dir]
 // Needs Playwright with Chromium (NODE_PATH or a global install).
@@ -919,6 +922,111 @@ function check(condition, message) {
     await page.waitForFunction(() => window.__kaltoh.falling.rods.length === 0, null, { timeout: 30000 });
     check(true, 'and the fallen t\'an fade with the old game');
     await page.screenshot({ path: path.join(OUT, '11-anew.png') });
+
+    // Held sideways and back. On the tall screen the room stands far off, the galley whole to its
+    // ceiling's lights; on the wide one it comes nearer, until its photograph fills the screen. The
+    // view is framed afresh each way round, and however it is pinched it never shows the room
+    // beyond the photograph; the tray's t'an is as long either way, the stone stands clear of where
+    // a finger takes it up, and turned over, the stone's carving is all on the screen.
+    const turned = await browser.newContext({ viewport: { width: 412, height: 892 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+    await turned.addInitScript(() => localStorage.setItem('kaltoh.guide.v1', '[]'));
+    const side = await turned.newPage();
+    side.on('pageerror', (e) => errors.push(e.message));
+    const sideTouch = await turned.newCDPSession(side);
+    const fingers = (type, points) => sideTouch.send('Input.dispatchTouchEvent', {
+      type, touchPoints: points.map((p) => ({ x: p.x, y: p.y, id: p.id, radiusX: 8, radiusY: 8, force: 1 })),
+    });
+    await side.goto(`${base}?seed=7`);
+    await side.waitForFunction(() => ['intro', 'play'].includes(window.__kaltoh?.phase), null, { timeout: 240000 });
+    const framing = () => side.evaluate(async () => {
+      const { TOP, TRAY_REACH } = { ...(await import('/js/table.js')), ...(await import('/js/tray.js')) };
+      const k = window.__kaltoh;
+      const s = k.stage;
+      const v = s.view;
+      const covers = (z) => {
+        const keep = v.zoom;
+        v.zoom = z;
+        s.update();
+        const all = s.photographCovers(TOP);
+        v.zoom = keep;
+        s.update();
+        return all;
+      };
+      const foot = s.toScreen(new (s.camera.position.constructor)(0, -0.62, 0.9));
+      return {
+        room: v.room, zoom: v.zoom, range: v.zoomRange, framed: v.framed, span: k.tray.span,
+        covers: covers(v.zoom) && covers(v.zoomRange[0]) && covers(v.zoomRange[1]),
+        clear: foot.y < k.tray.y - TRAY_REACH - 16,
+      };
+    });
+    // Two fingers on open space, drawn together or apart.
+    const pinch = async (at, from, to) => {
+      const a = { id: 1, x: at.x - from / 2, y: at.y };
+      const b = { id: 2, x: at.x + from / 2, y: at.y };
+      await fingers('touchStart', [a]);
+      await sleep(40);
+      await fingers('touchStart', [a, b]);
+      for (let i = 1; i <= 8; i++) {
+        const d = from + ((to - from) * i) / 8;
+        a.x = at.x - d / 2;
+        b.x = at.x + d / 2;
+        await fingers('touchMove', [a, b]);
+        await sleep(30);
+      }
+      await fingers('touchEnd', [a]);
+      await fingers('touchEnd', []);
+      await sleep(300);
+    };
+    const upright = await framing();
+    check(upright.room === 1 && upright.zoom === upright.framed && upright.covers && upright.clear,
+      `upright, the room stands far off, the galley whole, and the view shows only its photograph, from as near as it may be drawn to as far back (zoom ${upright.range.map((z) => z.toFixed(2)).join(' to ')})`);
+    await pinch({ x: 206, y: 120 }, 60, 260);
+    const nearest = await side.evaluate(() => window.__kaltoh.stage.view.zoom);
+    await pinch({ x: 206, y: 120 }, 260, 20);
+    const furthest = await side.evaluate(() => window.__kaltoh.stage.view.zoom);
+    check(Math.abs(nearest - upright.range[0]) < 1e-6 && Math.abs(furthest - upright.range[1]) < 1e-6,
+      'pinched, the view is drawn near and back again, no nearer and no further than the photograph allows');
+    await side.setViewportSize({ width: 892, height: 412 });
+    await side.waitForFunction(() => window.__kaltoh.stage.size.width === 892, null, { timeout: 30000 });
+    await sleep(800);
+    const sideways = await framing();
+    check(sideways.room < 1 && sideways.zoom === sideways.framed && sideways.covers && sideways.clear && sideways.span === upright.span,
+      `held sideways, the room comes nearer (${sideways.room.toFixed(2)}), the view is framed afresh and shows only the photograph however pinched, the tray's t'an as long, the stone clear of it`);
+    await side.screenshot({ path: path.join(OUT, '12-sideways.png') });
+    const sideSpot = await side.evaluate(() => {
+      const k = window.__kaltoh;
+      let best = null;
+      for (let y = 10; y < innerHeight - 10; y += 8) {
+        for (let x = 10; x < innerWidth - 10; x += 8) {
+          if (!k.touchesBase(x, y) || k.touchesAssembly(x, y) || k.engraving.covers(x, y) || k.tray.contains(x, y, 16)) continue;
+          const d = Math.hypot(x - innerWidth / 2, y - innerHeight * 0.7);
+          if (!best || d < best.d) best = { x, y, d };
+        }
+      }
+      return best;
+    });
+    const f = { id: 3, x: sideSpot.x, y: sideSpot.y };
+    await fingers('touchStart', [f]);
+    for (let i = 0; i < 10; i++) {
+      f.y -= 15;
+      await fingers('touchMove', [f]);
+      await sleep(30);
+    }
+    await fingers('touchEnd', []);
+    await side.waitForFunction(() => window.__kaltoh.stage.view.read.k > 0.9, null, { timeout: 30000 });
+    await side.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
+    const carvedSideways = await side.evaluate(() => ['title', 'translate', 'anew', 'row:way', 'slider:voice'].every((id) => {
+      const p = window.__kaltoh.engraving.screenOf(id);
+      return p && p.x > 0 && p.x < innerWidth && p.y > 0 && p.y < innerHeight;
+    }));
+    check(carvedSideways, 'turned over sideways by the same drag as upright, its carving is all on the screen');
+    await side.screenshot({ path: path.join(OUT, '13-sideways-underside.png') });
+    await side.setViewportSize({ width: 412, height: 892 });
+    await side.waitForFunction(() => window.__kaltoh.stage.size.width === 412, null, { timeout: 30000 });
+    await sleep(800);
+    const back = await framing();
+    check(back.room === 1 && back.zoom === back.framed, 'and upright again, the room stands far off again, framed afresh');
+    await turned.close();
 
     // Never guided before (nothing remembered), the very first game is zen's, the guide welcoming.
     const fresh = await browser.newContext({ viewport: { width: 412, height: 892 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });

@@ -1,6 +1,6 @@
-// The stage: renderer, lights, the mess hall all round (out of focus beyond the kal-toh, sharp in
-// its metal), the stone base, and a camera framed through the screen as through a window, the
-// kal-toh standing a little out of it.
+// The stage: renderer, lights, the mess hall all round (the galley beyond the kal-toh, and its
+// light in the metal), the stone base, and a camera framed through the screen as through a window,
+// the kal-toh standing a little out of it.
 //
 // World units are the base model's own: its foot rests at y = 0 and it is about 1.9 across.
 // The sphere the kal-toh becomes is centred PIVOT above the foot; the base turns about that
@@ -18,18 +18,18 @@ export const FLOOR = -0.62;
 // The layout's vertical field of view (degrees): the screen subtends this from the distance the
 // scene is framed for.
 export const FOV = 30;
-// Tuvok, at his mess-hall table in the old panorama (of which only his patch is kept, for the t'an
-// waiting in the tray): it was turned so that he sat behind the player.
-const ROOM = new THREE.Euler(0, 3.69, 0);
-// A direction in the panorama (u along it, v up it), as the room is turned.
-function roomward(u, v) {
+// Tuvok at his mess-hall table, a strip of the old panorama (assets/tuvok.jpg, tools/cut_tuvok.py)
+// set into the light behind the player for the t'an waiting in the tray: where its middle lies in
+// the light (u round it, v up it), and how much of it the strip covers, at the panorama's own scale.
+const TUVOK_STRIP = { u: 0.75, v: 0.4785, width: 900 / 2048, height: 300 / 1024 };
+// The direction of a point of a panorama (u round it, v up it), as three.js reads one (equirectUv).
+function panoramaward(u, v) {
   const azimuth = (u - 0.5) * 2 * Math.PI;
   const elevation = (v - 0.5) * Math.PI;
-  return new THREE.Vector3(Math.cos(azimuth) * Math.cos(elevation), Math.sin(elevation), Math.sin(azimuth) * Math.cos(elevation)).applyEuler(ROOM);
+  return new THREE.Vector3(Math.cos(azimuth) * Math.cos(elevation), Math.sin(elevation), Math.sin(azimuth) * Math.cos(elevation));
 }
-// The direction of his face (three.js shows the panorama's direction e at the room's turn applied
-// to e).
-export const TUVOK = roomward(0.337, 0.478);
+// The direction of his face: straight behind the player.
+export const TUVOK = panoramaward(TUVOK_STRIP.u, TUVOK_STRIP.v);
 const across = new THREE.Vector3();
 const upward = new THREE.Vector3();
 const backward = new THREE.Vector3();
@@ -82,7 +82,10 @@ export function createScene(canvas) {
   const size = { width: 1, height: 1, dpr: 1 };
   const view = {
     distance: 8, // from the eye to the target
-    zoom: 1,
+    zoom: 1, // the distance drawn nearer (less than 1) or further back (more), as the fingers pinch
+    zoomRange: [0.45, 1], // how near, and how far back (fitZoom)
+    framed: 1, // the zoom the view is first framed at (fitZoom)
+    room: 1, // how far off the room stands, from 0 (near) to 1 (far: fitZoom)
     focus: { x: 0.5, y: 0.4 }, // where the target sits on screen (fractions of width, height)
     // The pivot as the stone rests on the floor, level (motion.js): tipped, it rises above it.
     target: new THREE.Vector3(PIVOT.x, PIVOT.y + FLOOR, PIVOT.z),
@@ -207,35 +210,136 @@ export function createScene(canvas) {
     return ray.intersectPlane(plane, out) ?? out.copy(anchor);
   }
 
-  return { renderer, scene, camera, key, rim, ambient, baseRoot, assemblyRoot, size, view, screen, optics, eye, glass, layout, update, toScreen, fromScreen, onGlass, rayAt };
+  // Where the room stands, how near the view may be drawn and how far back: never so that the room
+  // is seen beyond the photograph's edges, around the table's top `top` (table.js TOP: a rounded
+  // square level with FLOOR about the stone's axis), looked for all across the screen with the base
+  // at rest. The room as far off as the view as laid out (zoom 1) sees only the photograph, or as
+  // near as it comes; the view first framed as laid out, or, if that still shows beyond the
+  // photograph, as far back as shows none of it.
+  const ZOOM = [0.45, 1.6]; // the nearest and the furthest ever
+  const probe = new THREE.Ray();
+  const seen = new THREE.Vector2();
+  // Whether all the room seen is within the photograph; `beyond`, if given, gathers where on the
+  // screen it is not (and what of the photograph is seen there).
+  function photographCovers(top, beyond = null) {
+    const inner = top.half - top.corner;
+    for (let j = 0; j <= 24; j++) {
+      for (let i = 0; i <= 12; i++) {
+        const { origin: o, direction: d } = rayAt((i / 12) * size.width, (j / 24) * size.height, probe);
+        if (d.y < 0) {
+          const t = (FLOOR - o.y) / d.y;
+          const x = Math.max(Math.abs(o.x + d.x * t) - inner, 0);
+          const z = Math.max(Math.abs(o.z + d.z * t) - inner, 0);
+          if (x * x + z * z <= top.corner * top.corner) continue; // the table's top, not the room
+        }
+        photographed(o, d, seen);
+        if (seen.x >= 0 && seen.x <= 1 && seen.y >= 0 && seen.y <= 1) continue;
+        if (!beyond) return false;
+        beyond.push({ x: i / 12, y: j / 24, u: seen.x, v: seen.y });
+      }
+    }
+    return !beyond?.length;
+  }
+  function fitZoom(top) {
+    const { zoom } = view;
+    const reading = view.read.k;
+    view.read.k = 0;
+    const covers = (z) => {
+      view.zoom = z;
+      update();
+      return photographCovers(top);
+    };
+    // Between a zoom that shows only the photograph and one that does not, where it begins to.
+    const edge = (inside, beyond) => {
+      for (let i = 0; i < 7; i++) {
+        const z = (inside + beyond) / 2;
+        if (covers(z)) inside = z;
+        else beyond = z;
+      }
+      return inside;
+    };
+    const fills = (away) => {
+      placeRoom(away);
+      return covers(1);
+    };
+    let away = 1;
+    if (!fills(1)) {
+      let short = 1;
+      away = 0;
+      if (fills(0)) {
+        for (let i = 0; i < 6; i++) {
+          const s = (away + short) / 2;
+          if (fills(s)) away = s;
+          else short = s;
+        }
+      }
+      placeRoom(away);
+    }
+    view.room = away;
+    let framed = 1;
+    while (framed > ZOOM[0] && !covers(framed)) framed = Math.max(ZOOM[0], framed - 0.05);
+    if (!covers(framed)) {
+      // Nowhere does it show only the photograph: as near or far as ever.
+      framed = 1;
+      view.zoomRange = [ZOOM[0], 1];
+    } else {
+      let far;
+      if (framed < 1) far = framed = edge(framed, framed + 0.05);
+      else far = covers(ZOOM[1]) ? ZOOM[1] : edge(1, ZOOM[1]);
+      view.zoomRange = [covers(ZOOM[0]) ? ZOOM[0] : edge(framed, ZOOM[0]), far];
+    }
+    view.framed = framed;
+    view.zoom = Math.min(view.zoomRange[1], Math.max(view.zoomRange[0], zoom));
+    view.read.k = reading;
+    update();
+  }
+
+  return { renderer, scene, camera, key, rim, ambient, baseRoot, assemblyRoot, size, view, screen, optics, eye, glass, layout, update, toScreen, fromScreen, onGlass, rayAt, fitZoom, photographCovers };
 }
 
-// The light the stone and the table are lit by, and what the metal mirrors: the mess hall about
-// the table (room-env.jpg, tools/make_environment.py) - the dining room behind the player, the
-// galley before them, the rest of it filled from their edges. The photographs are of low dynamic
-// range, so their light panels are lifted far above white before filtering; polished t'an then
-// catch real highlights instead of a flat grey. The t'an waiting in the tray alone mirrors Tuvok,
-// at his table behind the player: a patch of the old panorama set into the same light where he
-// sat (stage.tuvokEnvironment). Beyond the kal-toh stands the galley (makeRoom).
-const TUVOK_PATCH = { x: 1385, y: 390 }; // where it lies in the 2048 x 1024 light (the old panorama, turned as the room is)
+// The light the stone and the table are lit by, and what the metal mirrors: the galley itself, its
+// photograph stretched twice round the table - ahead as it was taken, behind mirrored, so that its
+// edges meet - and from its floor to its ceiling. The photograph is of low dynamic range, so it is
+// dimmed, and only its ceiling's lights are lifted above white before filtering: polished t'an catch
+// real highlights, and stand clear of the bright room behind them. The t'an waiting in the tray
+// alone mirrors Tuvok, at his table behind the player: his strip of the old panorama set into the
+// same light, as bright as the panorama was (stage.tuvokEnvironment). Beyond the kal-toh stands the
+// galley (makeRoom).
+const LIGHT = { level: 0.3, lift: 8 };
 export async function loadEnvironment(stage) {
   const { renderer, scene } = stage;
-  const [light, tuvok, galley] = await Promise.all([
-    loadTexture('assets/room-env.jpg', true),
-    loadImage('assets/tuvok.jpg'),
-    loadTexture('assets/room.jpg', true),
-  ]);
+  const [galley, tuvok] = await Promise.all([loadTexture('assets/room.jpg', true), loadTexture('assets/tuvok.jpg', true)]);
+  // The room first: it sets how the photograph is sampled before it is first drawn from.
+  stage.sky = makeRoom(galley);
+  scene.add(stage.sky);
   const pmrem = new THREE.PMREMGenerator(renderer);
+  const s = TUVOK_STRIP;
   const lifter = new THREE.ShaderMaterial({
-    uniforms: { map: { value: null } },
+    uniforms: {
+      map: { value: galley },
+      tuvok: { value: tuvok },
+      strip: { value: new THREE.Vector4(s.u - s.width / 2, s.v - s.height / 2, s.width, s.height) },
+      withTuvok: { value: 0 },
+    },
     vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
     fragmentShader: /* glsl */ `
       uniform sampler2D map;
+      uniform sampler2D tuvok;
+      uniform vec4 strip;
+      uniform float withTuvok;
       varying vec2 vUv;
-      void main() {
-        vec3 c = texture2D(map, vUv).rgb;
+      vec3 lifted(vec3 c, float level) {
         float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
-        gl_FragColor = vec4(c * (1.3 + 16.0 * smoothstep(0.42, 0.95, luma)), 1.0);
+        return c * (level + ${LIGHT.lift.toFixed(1)} * smoothstep(0.6, 0.95, luma));
+      }
+      void main() {
+        // Round the panorama: the photograph ahead (u = 0.25, toward -z), then mirrored behind.
+        float u = 2.0 * vUv.x;
+        vec3 c = lifted(texture2D(map, vec2(u < 1.0 ? u : 2.0 - u, vUv.y)).rgb, ${LIGHT.level.toFixed(2)});
+        vec2 q = (vUv - strip.xy) / strip.zw;
+        vec2 edge = smoothstep(0.0, 0.12, q) * smoothstep(0.0, 0.12, 1.0 - q);
+        c = mix(c, lifted(texture2D(tuvok, clamp(q, 0.0, 1.0)).rgb, 1.3), withTuvok * edge.x * edge.y);
+        gl_FragColor = vec4(c, 1.0);
       }`,
     depthTest: false,
     depthWrite: false,
@@ -243,10 +347,10 @@ export async function loadEnvironment(stage) {
   const flat = new THREE.Scene();
   flat.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), lifter));
   const flatEye = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  // A panorama, its lights lifted, filtered for every roughness.
-  const lit = (texture) => {
+  // The panorama, Tuvok in it or not, filtered for every roughness.
+  const lit = (withTuvok) => {
     const target = new THREE.WebGLRenderTarget(2048, 1024, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
-    lifter.uniforms.map.value = texture;
+    lifter.uniforms.withTuvok.value = withTuvok ? 1 : 0;
     renderer.setRenderTarget(target);
     renderer.render(flat, flatEye);
     renderer.setRenderTarget(null);
@@ -255,57 +359,24 @@ export async function loadEnvironment(stage) {
     target.dispose();
     return filtered;
   };
-  scene.environment = lit(light);
+  scene.environment = lit(false);
   stage.skyEnvironment = scene.environment;
-  // The same light, Tuvok set into it, its edges feathered away.
-  const canvas = document.createElement('canvas');
-  canvas.width = 2048;
-  canvas.height = 1024;
-  const g = canvas.getContext('2d');
-  g.drawImage(light.image, 0, 0, 2048, 1024);
-  const patch = document.createElement('canvas');
-  patch.width = tuvok.width;
-  patch.height = tuvok.height;
-  const p = patch.getContext('2d');
-  p.drawImage(tuvok, 0, 0);
-  p.globalCompositeOperation = 'destination-in';
-  const fade = p.createRadialGradient(tuvok.width / 2, tuvok.height / 2, Math.min(tuvok.width, tuvok.height) * 0.3, tuvok.width / 2, tuvok.height / 2, Math.min(tuvok.width, tuvok.height) * 0.5);
-  fade.addColorStop(0, 'rgba(0,0,0,1)');
-  fade.addColorStop(1, 'rgba(0,0,0,0)');
-  p.fillStyle = fade;
-  p.fillRect(0, 0, tuvok.width, tuvok.height);
-  g.drawImage(patch, TUVOK_PATCH.x, TUVOK_PATCH.y);
-  const withTuvok = new THREE.CanvasTexture(canvas);
-  withTuvok.colorSpace = THREE.SRGBColorSpace;
-  stage.tuvokEnvironment = lit(withTuvok);
-  withTuvok.dispose();
-  stage.sky = makeRoom(galley);
-  scene.add(stage.sky);
+  stage.tuvokEnvironment = lit(true);
   pmrem.dispose();
-  light.dispose();
+  tuvok.dispose();
   lifter.dispose();
 }
 
-function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = url;
-  });
-}
-
 // The room the table stands in: the galley, a photograph, projected from where it was taken onto
-// the room's own floor and walls, so the table stands on its floor. The photograph was measured by
-// its lines (the floor's, the counters', the ceiling's: tools/measure_room.py): where they meet, the
-// room's three directions, and from them its lens and how it was held - looking 4.7 degrees down
-// and 19.6 degrees to the right of the room's length, from an eye 1.18 counters high - and where its
-// counters stand. The room is laid out by those measures in the world: its floor level with the
-// table's foot, its length along the table's, so the table's edges run with the floor's lines; and
-// the photograph's camera stands where it stood, forward of the table, at the player's eye height.
-// Each ray from the eye finds what it meets (the floor, the right counter's front, the wall of the
-// pass-through block and of the galley behind the counter, or the corridor beyond) and takes the
-// photograph's colour there. Drawn nearer, the eye moves through the room, as it would.
+// the room's own floor and walls. The photograph was measured by its lines (the floor's, the
+// counters', the ceiling's: tools/measure_room.py): where they meet, the room's three directions,
+// and from them its lens and how it was held - looking 4.7 degrees down and 19.6 degrees to the
+// right of the room's length, from an eye 1.18 counters high - and where its counters stand. The
+// room is laid out by those measures in the world, its length along the table's, so the table's
+// edges run with the floor's lines. Each ray from the eye finds what it meets (the floor, the right
+// counter's front, the wall of the pass-through block and of the galley behind the counter, or the
+// corridor beyond) and takes the photograph's colour there. Drawn nearer, the eye moves through the
+// room, as it would.
 const GALLEY = {
   size: new THREE.Vector2(2400, 1792), // pixels
   focal: 1906.3, // pixels
@@ -323,38 +394,89 @@ const GALLEY = {
   counterFrom: 1.48,
   counterTop: 0.847,
 };
-// The table's foot, where the floor is (the table's top is at FLOOR, 1.7182 of its model's units
-// above its foot, scaled 3.7 times: table.js).
-const FLOOR_LEVEL = FLOOR - 1.7182 * 3.7;
-// In the world: the photograph's camera, its height above the floor (the player's own eye's, as
-// the view is laid out), and where it stands: across, to the left of the table's middle, and
-// beyond the table, toward the galley.
-const ROOM_EYE = new THREE.Vector3(-15, FLOOR_LEVEL + 9.15, -10.7);
+// Where the room stands: moved, never turned, so its lines still run to the table's own vanishing
+// points. Set well below the table's foot and far off, it shows the galley whole, up to its
+// ceiling's lights, as the photograph does - on a tall screen. A wide screen needs more of the
+// photograph across it than that leaves: the room is drawn nearer, the photograph's camera behind
+// the player, and less of it shows above the counters. Each screen has it as far off as still
+// fills it (fitZoom), between NEAR and FAR: how far below the table's foot its floor is, how far
+// beyond the table's middle its camera stands, and how far to the left. (Where the table's foot
+// meets the floor is never seen: the table's top hides the floor about it.)
+const NEAR = { below: 3, ahead: -14.3, left: 22 };
+const FAR = { below: 10, ahead: 45.7, left: 15 };
+// The table's foot (its top is at FLOOR, 1.7182 of its model's units above its foot, scaled 3.7
+// times: table.js), and the photograph camera's height above the room's floor.
+const FOOT = FLOOR - 1.7182 * 3.7;
+const ROOM_HEIGHT = 9.15;
+// From the world's directions to the photograph camera's (x right, y down, z ahead).
+const TO_PHOTO = new THREE.Matrix3().set(
+  GALLEY.across.x, GALLEY.up.x, -GALLEY.ahead.x,
+  GALLEY.across.y, GALLEY.up.y, -GALLEY.ahead.y,
+  GALLEY.across.z, GALLEY.up.z, -GALLEY.ahead.z,
+);
+// The room as placed (placeRoom): its floor's height; the photograph's camera; the world's z of
+// the right counter's front, the block's and the wall behind, and the corridor's end; where across
+// the block begins and the right counter begins, and the counters' tops; and the shader's uniforms.
+const room = { floor: 0, eye: new THREE.Vector3(), fronts: new THREE.Vector3(), bounds: new THREE.Vector3(), uniforms: null };
+// s from 0, as near as it stands, to 1, as far.
+function placeRoom(s) {
+  const at = (key) => NEAR[key] + (FAR[key] - NEAR[key]) * s;
+  room.floor = FOOT - at('below');
+  room.eye.set(-at('left'), room.floor + ROOM_HEIGHT, -at('ahead'));
+  room.fronts.set(
+    room.eye.z - GALLEY.rightFront * ROOM_HEIGHT,
+    room.eye.z - GALLEY.blockFront * ROOM_HEIGHT,
+    room.eye.z - GALLEY.corridor * ROOM_HEIGHT,
+  );
+  room.bounds.set(
+    room.eye.x + GALLEY.blockFrom * ROOM_HEIGHT,
+    room.eye.x + GALLEY.counterFrom * ROOM_HEIGHT,
+    room.floor + GALLEY.counterTop * ROOM_HEIGHT,
+  );
+  if (room.uniforms) room.uniforms.floorY.value = room.floor;
+}
+placeRoom(1);
+
+// Where in the photograph the room is seen along a ray from `o` in direction `d`, as the room's
+// shader finds it: (0, 0) at its lower left, (1, 1) at its upper right; beyond its edges outside
+// that, and (-1, -1) for what its camera never saw at all.
+const met = new THREE.Vector3();
+function photographed(o, d, out) {
+  const { fronts, bounds } = room;
+  let t = Infinity;
+  if (d.y < 0) t = (room.floor - o.y) / d.y;
+  if (d.z < 0) {
+    let wall = (fronts.z - o.z) / d.z; // the corridor's end, unless something nearer
+    const block = (fronts.y - o.z) / d.z;
+    if (o.x + d.x * block >= bounds.x) wall = block;
+    const counter = (fronts.x - o.z) / d.z;
+    if (o.x + d.x * counter >= bounds.y && o.y + d.y * counter < bounds.z) wall = counter;
+    t = Math.min(t, wall);
+  }
+  if (!Number.isFinite(t)) return out.set(-1, -1);
+  met.copy(d).multiplyScalar(t).add(o).sub(room.eye).applyMatrix3(TO_PHOTO);
+  if (met.z < 1e-3) return out.set(-1, -1);
+  return out.set(0.5 + (GALLEY.focal * met.x) / (met.z * GALLEY.size.x), 0.5 - (GALLEY.focal * met.y) / (met.z * GALLEY.size.y));
+}
+
 function makeRoom(texture) {
   texture.generateMipmaps = true;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
-  // What lies beyond the photograph's edges (the floor nearer the table than its camera saw, say)
-  // continues it, mirrored.
+  // Blurred past its edges, the photograph is read in mirror there (so its edge is not mixed with
+  // the opposite one); the view is drawn no nearer or further than shows only the photograph, where
+  // the screen allows it (fitZoom).
   texture.wrapS = texture.wrapT = THREE.MirroredRepeatWrapping;
-  const h = ROOM_EYE.y - FLOOR_LEVEL;
-  const toPhoto = new THREE.Matrix3().set(
-    GALLEY.across.x, GALLEY.up.x, -GALLEY.ahead.x,
-    GALLEY.across.y, GALLEY.up.y, -GALLEY.ahead.y,
-    GALLEY.across.z, GALLEY.up.z, -GALLEY.ahead.z,
-  );
   const material = new THREE.ShaderMaterial({
     uniforms: {
       map: { value: texture },
       level: { value: 0.8 },
       size: { value: GALLEY.size },
       focal: { value: GALLEY.focal },
-      eye: { value: ROOM_EYE },
-      toPhoto: { value: toPhoto },
-      floorY: { value: FLOOR_LEVEL },
-      // The world's z of the right counter's front, the block's and the wall behind, the corridor's end.
-      fronts: { value: new THREE.Vector3(ROOM_EYE.z - GALLEY.rightFront * h, ROOM_EYE.z - GALLEY.blockFront * h, ROOM_EYE.z - GALLEY.corridor * h) },
-      // Where across the block begins and the right counter begins, and the counters' tops (world).
-      bounds: { value: new THREE.Vector3(ROOM_EYE.x + GALLEY.blockFrom * h, ROOM_EYE.x + GALLEY.counterFrom * h, FLOOR_LEVEL + GALLEY.counterTop * h) },
+      eye: { value: room.eye },
+      toPhoto: { value: TO_PHOTO },
+      floorY: { value: room.floor },
+      fronts: { value: room.fronts },
+      bounds: { value: room.bounds },
     },
     vertexShader: /* glsl */ `
       varying vec3 vRay;
@@ -364,6 +486,7 @@ function makeRoom(texture) {
         vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         gl_Position = p.xyww;
       }`,
+    // As photographed() finds it.
     fragmentShader: /* glsl */ `
       uniform sampler2D map;
       uniform float level;
@@ -391,8 +514,12 @@ function makeRoom(texture) {
         }
         vec3 c = toPhoto * (o + d * t - eye);
         vec2 px = 0.5 * size + focal * c.xy / max(c.z, 1e-3);
-        vec2 uv = vec2(px.x / size.x, 1.0 - px.y / size.y);
-        gl_FragColor = vec4(texture2D(map, uv).rgb * level, 1.0);
+        // Past the photograph's edges (a wide screen's sides, or what its camera never saw), its edge
+        // goes on, the further past it the further out of focus.
+        vec2 inside = clamp(px, vec2(0.5), size - 0.5);
+        float blur = min(log2(1.0 + length(px - inside) / 6.0), 9.0);
+        vec2 uv = vec2(inside.x / size.x, 1.0 - inside.y / size.y);
+        gl_FragColor = vec4(texture2D(map, uv, blur).rgb * level, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
@@ -400,14 +527,15 @@ function makeRoom(texture) {
     depthTest: false,
     depthWrite: false,
   });
-  const room = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
-  room.frustumCulled = false;
-  room.renderOrder = -100;
-  room.onBeforeRender = (renderer, scene, camera) => {
-    room.position.setFromMatrixPosition(camera.matrixWorld);
-    room.updateMatrixWorld();
+  room.uniforms = material.uniforms;
+  const box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
+  box.frustumCulled = false;
+  box.renderOrder = -100;
+  box.onBeforeRender = (renderer, scene, camera) => {
+    box.position.setFromMatrixPosition(camera.matrixWorld);
+    box.updateMatrixWorld();
   };
-  return room;
+  return box;
 }
 
 // The stone basin, from the compact mesh written by tools/convert_base.py. Returns the mesh and
