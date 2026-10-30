@@ -1,5 +1,6 @@
-// The stage: renderer, lights, the mess-hall reflections, the stone base, and a camera that
-// stays put while the player's eye may move - the screen is a window into the phone.
+// The stage: renderer, lights, the mess hall all round (out of focus beyond the kal-toh, sharp in
+// its metal), the stone base, and a camera that stays put while the player's eye may move - the
+// screen is a window into the phone.
 //
 // World units are the base model's own: its foot rests at y = 0 and it is about 1.9 across.
 // The sphere the kal-toh becomes is centred PIVOT above the foot; the base turns about that
@@ -10,25 +11,23 @@ export const PIVOT = new THREE.Vector3(0, 0.95, 0);
 // The rules measure the kal-toh in their own units (a t'an is 0.42 long); on the stone it is
 // drawn half again as large, so the finished form overhangs the basin's recess as it should.
 export const SCALE = 1.5;
-// The floor beneath, where fallen t'an come to rest: just below anything the stone or the t'an
-// on it can reach as they turn about the pivot, so what lies there is never disturbed by them.
+// The floor beneath - the top of the table the stone stands on (table.js) - where fallen t'an come
+// to rest: just below anything the stone or the t'an on it can reach as they turn about the pivot,
+// so what lies there is never disturbed by them.
 export const FLOOR = -0.62;
 // The layout's vertical field of view (degrees): the screen subtends this from the distance the
 // scene is framed for.
 export const FOV = 30;
 // The room is turned so that Tuvok, seated at the mess-hall table in the panorama, is behind the
-// player, and tipped so that his face is what a face of a t'an turned square to the eye reflects:
-// the eye looks down on the kal-toh 15 degrees, so such a face looks up past the player's head, and
-// his face is 4 degrees below the panorama's horizon.
-const ENVIRONMENT_TURN = 3.69;
-const ENVIRONMENT_TIP = THREE.MathUtils.degToRad(-19);
-// The direction of his face, as the room is turned and tipped (it is at u 0.337, v 0.478 in the
-// panorama; three.js shows the panorama's direction e at environmentRotation applied to e).
+// player: seen in the metal, never beyond the kal-toh.
+const ROOM = new THREE.Euler(0, 3.69, 0);
+// The direction of his face, as the room is turned (it is at u 0.337, v 0.478 in the panorama;
+// three.js shows the panorama's direction e at the room's turn applied to e).
 export const TUVOK = (() => {
   const azimuth = (0.337 - 0.5) * 2 * Math.PI;
   const elevation = (0.478 - 0.5) * Math.PI;
   const e = new THREE.Vector3(Math.cos(azimuth) * Math.cos(elevation), Math.sin(elevation), Math.sin(azimuth) * Math.cos(elevation));
-  return e.applyEuler(new THREE.Euler(ENVIRONMENT_TIP, ENVIRONMENT_TURN, 0));
+  return e.applyEuler(ROOM);
 })();
 const across = new THREE.Vector3();
 const upward = new THREE.Vector3();
@@ -68,12 +67,6 @@ export function createScene(canvas) {
   scene.add(fill);
   const ambient = new THREE.HemisphereLight(0x3a3e48, 0x2a0a08, 0.55);
   scene.add(ambient);
-  // The floor itself is not seen, only the shadows that fall on it.
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.ShadowMaterial({ opacity: 0.4 }));
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = FLOOR;
-  floor.receiveShadow = true;
-  scene.add(floor);
 
   // The base turns about the pivot; the base mesh hangs below it so its foot meets the floor.
   const baseRoot = new THREE.Group();
@@ -217,10 +210,13 @@ export function createScene(canvas) {
 
 // What the metal reflects: a panorama of a starship mess hall. The photograph is low dynamic
 // range, so its light panels and glowing tables are lifted far above white before filtering;
-// polished t'an then catch real highlights instead of a flat grey.
+// polished t'an then catch real highlights instead of a flat grey. Beyond the kal-toh the same room
+// is seen out of focus (the player's own blurred copy of it, turned the same way, so what the
+// metal mirrors agrees with what is behind it); and that blurred room is what the table's satin
+// metal mirrors (stage.skyEnvironment).
 export async function loadEnvironment(stage) {
   const { renderer, scene } = stage;
-  const photo = await loadTexture('assets/env.jpg', true);
+  const [photo, blurred] = await Promise.all([loadTexture('assets/env.jpg', true), loadTexture('assets/sky.jpg', true)]);
   const target = new THREE.WebGLRenderTarget(2048, 1024, {
     type: THREE.HalfFloatType,
     generateMipmaps: true,
@@ -252,12 +248,56 @@ export async function loadEnvironment(stage) {
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromEquirectangular(target.texture).texture;
-  scene.environmentRotation.set(ENVIRONMENT_TIP, ENVIRONMENT_TURN, 0);
+  scene.environmentRotation.copy(ROOM);
+  blurred.mapping = THREE.EquirectangularReflectionMapping;
+  stage.skyEnvironment = pmrem.fromEquirectangular(blurred).texture;
+  stage.sky = makeSky(blurred);
+  scene.add(stage.sky);
   pmrem.dispose();
   target.dispose();
   photo.dispose();
   lift.geometry.dispose();
   lift.material.dispose();
+}
+
+// The room beyond the kal-toh, at any distance: a box about the eye, drawn first and behind
+// everything, each pixel looking out into the panorama the way the room is turned. Its tint takes
+// the colour of whoever's turn it is, with others at the board (main.js).
+function makeSky(texture) {
+  const turn = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(ROOM)).transpose();
+  const material = new THREE.ShaderMaterial({
+    uniforms: { map: { value: texture }, turn: { value: turn }, tint: { value: new THREE.Color(1, 1, 1) }, level: { value: 0.75 } },
+    vertexShader: /* glsl */ `
+      uniform mat3 turn;
+      varying vec3 vLook;
+      void main() {
+        vLook = turn * position;
+        vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_Position = p.xyww;
+      }`,
+    fragmentShader: /* glsl */ `
+      #include <common>
+      uniform sampler2D map;
+      uniform vec3 tint;
+      uniform float level;
+      varying vec3 vLook;
+      void main() {
+        gl_FragColor = vec4(texture2D(map, equirectUv(normalize(vLook))).rgb * tint * level, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+    side: THREE.BackSide,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const sky = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
+  sky.frustumCulled = false;
+  sky.renderOrder = -100;
+  sky.onBeforeRender = (renderer, scene, camera) => {
+    sky.position.setFromMatrixPosition(camera.matrixWorld);
+    sky.updateMatrixWorld();
+  };
+  return sky;
 }
 
 // The stone basin, from the compact mesh written by tools/convert_base.py. Returns the mesh and

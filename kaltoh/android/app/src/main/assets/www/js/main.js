@@ -6,6 +6,7 @@ import * as G from './geom.js';
 import * as R from './rules.js';
 import * as AI from './ai.js';
 import { createScene, loadBase, loadEnvironment, FLOOR } from './scene.js';
+import { loadTable } from './table.js';
 import { RodPool, Halos, Ghosts } from './rodmesh.js';
 import { Engraving } from './engrave.js';
 import { Motion } from './motion.js';
@@ -26,7 +27,7 @@ const canvas = document.getElementById('view');
 const stage = createScene(canvas);
 // The kal-toh, the t'an fallen from it (kept until a new game), the one in the tray and in hand.
 const pool = new RodPool(stage.scene, 640);
-const trayPool = new RodPool(stage.scene, 2, { onTop: true });
+const trayPool = new RodPool(stage.scene, 2, { onTop: true, dome: true });
 const halos = new Halos(stage.scene, 320);
 const ghosts = new Ghosts(stage.scene, 16);
 const sound = new Sound();
@@ -41,6 +42,7 @@ const tracker = new Tracker({
 let motion = null;
 let falling = null;
 let baseModel = null;
+let table = null; // the table under the stone (table.js)
 let engraving = null;
 // The game being played: the original kal-toh (classic.js), many forms built from the inside out
 // (forms.js), or rings round the hidden spin (the rest of this file). A change of game in the ways
@@ -1106,15 +1108,16 @@ function frame(now) {
   }
 }
 
-// With others at the board, the light behind the kal-toh takes the colour of whoever's turn it is
-// (index.html), and so does the rim light from behind: red, then green, blue and gold. Alone, red.
-// A finished game keeps its winner's.
+// With others at the board, the room beyond the kal-toh is washed with the colour of whoever's turn
+// it is, and so is the rim light from behind: red, then green, blue and gold. Alone, the room is
+// as it is and the rim red. A finished game keeps its winner's.
 const SEAT_LIGHT = [
-  { rim: new THREE.Color(0xff5a4a), ground: new THREE.Color(0x2a0a08) },
-  { rim: new THREE.Color(0x46ff86), ground: new THREE.Color(0x082a12) },
-  { rim: new THREE.Color(0x4f8dff), ground: new THREE.Color(0x08142c) },
-  { rim: new THREE.Color(0xffc74a), ground: new THREE.Color(0x2a2008) },
+  { rim: new THREE.Color(0xff5a4a), ground: new THREE.Color(0x2a0a08), sky: new THREE.Color(0xffa69c) },
+  { rim: new THREE.Color(0x46ff86), ground: new THREE.Color(0x082a12), sky: new THREE.Color(0x9cffb8) },
+  { rim: new THREE.Color(0x4f8dff), ground: new THREE.Color(0x08142c), sky: new THREE.Color(0xa4bcff) },
+  { rim: new THREE.Color(0xffc74a), ground: new THREE.Color(0x2a2008), sky: new THREE.Color(0xffdc9c) },
 ];
+const PLAIN_SKY = new THREE.Color(1, 1, 1);
 const tints = [...document.querySelectorAll('.tint')];
 let shownSeat = 0;
 
@@ -1128,6 +1131,10 @@ function seatNow() {
   return game.over && game.winner >= 0 ? game.winner : game.current;
 }
 
+function together() {
+  return shaped() ? (shaped().game?.players ?? 1) > 1 : (game?.players.length ?? 1) > 1;
+}
+
 function colourSeat(dt) {
   const seat = seatNow() % SEAT_LIGHT.length;
   if (seat !== shownSeat) {
@@ -1137,6 +1144,7 @@ function colourSeat(dt) {
   const k = 1 - Math.exp(-dt / 0.45);
   stage.rim.color.lerp(SEAT_LIGHT[seat].rim, k);
   stage.ambient.groundColor.lerp(SEAT_LIGHT[seat].ground, k);
+  stage.sky?.material.uniforms.tint.value.lerp(together() ? SEAT_LIGHT[seat].sky : PLAIN_SKY, k);
 }
 
 function step(dt) {
@@ -1187,6 +1195,7 @@ function step(dt) {
   trayPool.end();
   halos.end();
   ghosts.end();
+  table?.reflect([stage.sky, trayPool.mesh]);
   stage.renderer.render(stage.scene, stage.camera);
   adapt(dt);
 }
@@ -1204,8 +1213,9 @@ async function start() {
     document.fonts.load('21px ModernVulcan'),
     document.fonts.load('30px VulcanScript'),
   ]).catch(() => {});
-  const [base] = await Promise.all([loadBase(stage), loadEnvironment(stage)]);
+  const [base, laid] = await Promise.all([loadBase(stage), loadEnvironment(stage).then(() => loadTable(stage))]);
   baseModel = base;
+  table = laid;
   motion = new Motion(base);
   falling = new Falling(motion, base, sound);
   const shapeContext = {
@@ -1252,6 +1262,9 @@ window.__kaltoh = {
   },
   get falling() {
     return falling;
+  },
+  get table() {
+    return table;
   },
   get game() {
     return game;

@@ -1,5 +1,7 @@
 // Drawing t'an: each is a scaled cube (12 triangles) of polished metal, its faces flat mirrors
 // with a trace of aluminium's pale grey over what they reflect - all drawn as one instanced mesh.
+// Only the t'an waiting in the tray has its faces gently domed, so that it shows the room behind
+// the player whole enough to make out Tuvok.
 // Glow (the blue of order, the amber of strain) is added light per instance; soft additive halos
 // give the glow its bloom.
 import * as THREE from '../vendor/three.module.min.js';
@@ -48,7 +50,11 @@ function rodGeometry() {
 const ALUMINIUM = new THREE.Color(0xb8bec5);
 const TINT = 0.06;
 
-export function rodMaterial() {
+// How far a domed face's normals turn toward its ends (the tangent of the angle): it reflects a
+// wider sweep of the room than a flat face could, curved alike along and across it.
+const DOME = Math.tan((25 * Math.PI) / 180);
+
+export function rodMaterial({ dome = false } = {}) {
   const material = new THREE.MeshPhysicalMaterial({
     color: 0xe8ebf0,
     metalness: 1,
@@ -68,8 +74,29 @@ export function rodMaterial() {
     shader.uniforms.uBlue = { value: BLUE };
     shader.uniforms.uAmber = { value: AMBER };
     shader.uniforms.uAluminium = { value: ALUMINIUM };
+    shader.uniforms.uDome = { value: dome ? DOME : 0 };
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aGlow;\nattribute vec4 aTrimA;\nattribute vec4 aTrimB;\nvarying vec3 vGlow;')
+      .replace('#include <common>', '#include <common>\nattribute vec3 aGlow;\nattribute vec4 aTrimA;\nattribute vec4 aTrimB;\nvarying vec3 vGlow;\nuniform float uDome;')
+      .replace(
+        '#include <beginnormal_vertex>',
+        // A domed long face: its normals turn toward its ends and its edges by as much for each
+        // unit of distance from its middle - uDome at the ends - whatever the t'an's length. In the
+        // unit box, as the instance's scaling will undo it (three.js divides a normal by the
+        // squared scale of each axis, then turns it with the instance).
+        `#include <beginnormal_vertex>
+#ifdef USE_INSTANCING
+if (uDome > 0.0 && abs(normal.z) < 0.5) {
+  vec3 s = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
+  bool onX = abs(normal.x) > 0.5;
+  float sa = max(onX ? s.x : s.y, 1e-6);
+  float sw = onX ? s.y : s.x;
+  float k = 2.0 * uDome / sa;
+  objectNormal.z += position.z * k * s.z;
+  float across = (onX ? position.y : position.x) * k * sw * sw / max(s.z, 1e-6);
+  if (onX) objectNormal.y += across; else objectNormal.x += across;
+}
+#endif`,
+      )
       .replace(
         '#include <begin_vertex>',
         // Each corner of each end moved along the t'an by its trim (world units; see mitreAtJunctions).
@@ -99,7 +126,7 @@ vGlow = aGlow;
 #include <opaque_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => 'kaltoh-rod-v7';
+  material.customProgramCacheKey = () => (dome ? 'kaltoh-rod-v8-dome' : 'kaltoh-rod-v8');
   return material;
 }
 
@@ -194,7 +221,8 @@ export function rodMatrix(a, b, up, widthScale, out) {
 
 export class RodPool {
   // onTop: drawn over everything else, untouched by shadow (the tray's t'an, on the glass).
-  constructor(scene, capacity = 256, { onTop = false } = {}) {
+  // dome: its t'an's faces domed (rodMaterial), as the one waiting in the tray is.
+  constructor(scene, capacity = 256, { onTop = false, dome = false } = {}) {
     this.capacity = capacity;
     const geometry = rodGeometry();
     this.glow = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
@@ -207,7 +235,7 @@ export class RodPool {
     this.trimB.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('aTrimA', this.trimA);
     geometry.setAttribute('aTrimB', this.trimB);
-    this.mesh = new THREE.InstancedMesh(geometry, rodMaterial(), capacity);
+    this.mesh = new THREE.InstancedMesh(geometry, rodMaterial({ dome }), capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.castShadow = !onTop;
     this.mesh.receiveShadow = !onTop;

@@ -5,6 +5,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import * as G from './geom.js';
 import { FLOOR } from './scene.js';
+import { TOP } from './table.js';
 import { ROD_WIDTH } from './rodmesh.js';
 
 const STEP = 1 / 120;
@@ -34,6 +35,12 @@ const previous = new THREE.Vector3();
 const mid = new THREE.Vector3();
 const flat = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
+
+// Whether a point lies over the table's top (a square with rounded corners about the stone's axis).
+function onTable(p) {
+  const inner = TOP.half - TOP.corner;
+  return Math.hypot(Math.max(0, Math.abs(p.x) - inner), Math.max(0, Math.abs(p.z) - inner)) < TOP.corner;
+}
 
 export class Falling {
   constructor(motion, base, sound) {
@@ -110,6 +117,11 @@ export class Falling {
         if (r.leaving > LEAVE) this.rods.splice(i, 1);
         continue;
       }
+      // Fallen from the table, out of sight.
+      if (r.mid.y < FLOOR - 8) {
+        this.rods.splice(i, 1);
+        continue;
+      }
       if (!r.asleep && r.still > SETTLE && (r.onFloor || stoneStill || r.mid.distanceTo(centre) >= NEAR_STONE)) this.sleep(r);
     }
   }
@@ -155,13 +167,15 @@ export class Falling {
     }
   }
 
-  // The floor: lifted out of it, with a little bounce and a good deal of friction.
+  // The floor - the table's top - lifted out of it, with a little bounce and a good deal of
+  // friction. Off its edge there is nothing: an end out there falls on, and so the t'an tips over
+  // the edge and away.
   floor(r) {
     let impact = 0;
     r.onFloor = false;
     for (const [x, p] of [[r.a, r.pa], [r.b, r.pb]]) {
       const depth = FLOOR + LIE - x.y;
-      if (depth <= 0) continue;
+      if (depth <= 0 || depth > 0.2 || !onTable(x)) continue;
       r.onFloor = true;
       const vy = (x.y - p.y) / STEP;
       x.y += depth;

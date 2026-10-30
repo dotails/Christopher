@@ -23,10 +23,16 @@ the underside of the stone: tip the base over to read them, from whichever side 
 it is engraved black, like the frame round it; only the rings round the players' marks are painted,
 each in its player's colour. Ten minutes of ambience loop quietly beneath the play, starting with
 your first touch; they play along with whatever else the phone is playing, never pausing it.
-The t'an are mirror-polished, with a touch of aluminium's grey: a face turned toward you mirrors
-the mess hall behind you, where Tuvok sits at his table, and the waiting t'an in the tray is
-turned to him.
+The stone stands on a silver pedestal table in Voyager's mess hall: the room is seen out of focus
+beyond it, and the table's satin top mirrors it softly, with the stone and the t'an standing on
+it. The t'an are mirror-polished, with a touch of aluminium's grey: a face turned toward you
+mirrors the mess hall behind you, where Tuvok sits at his table, and the waiting t'an in the tray,
+its faces gently domed, holds his face. With others at the board, the room takes the colour of
+whoever's turn it is.
 
+<p align="center">
+  <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table in the mess hall, the stone and t'an mirrored in the table's top">
+</p>
 <p align="center">
   <img src="docs/jumble.png" width="19%" alt="The jumble of the original game">
   <img src="docs/sphere.png" width="19%" alt="The completed kal-toh, spinning on its axis">
@@ -305,15 +311,19 @@ instead.
   - The view: `classic.js` (the original game on the stone: the jumble's skeleton kept rigid by a
     small position-based solver as each junction finds its order, the inner shell settling into
     place, joining, the spin test and the end), `forms.js` (many forms on the stone, in the same
-    way: loops closing, struts growing out, noise falling away, the outer shell), `scene.js` (renderer, lights, mess-hall
-    reflections - the room turned and tipped so that Tuvok, at his table, is what a face turned
-    to the player mirrors - the stone, and the window the screen becomes), `motion.js` (base and assembly dynamics, and every t'an kept clear of
+    way: loops closing, struts growing out, noise falling away, the outer shell), `scene.js` (renderer, lights, the mess hall -
+    sharp in the metal, out of focus beyond the kal-toh, turned so that Tuvok, at his table, is
+    behind the player - the stone, and the window the screen becomes), `table.js` (the pedestal
+    table under the stone, its top at the floor: satin metal mirroring the blurred room, and the
+    stone and t'an on it drawn a second time each frame, the eye turned over in the plane of the
+    top, softened in the mirror's smaller mipmaps), `motion.js` (base and assembly dynamics, and every t'an kept clear of
     the stone along its length), `rodmesh.js` (polished metal t'an: flat mirror faces, nothing
     bending what they reflect, the room looked up as sharp as the metal is smooth, with a trace of
-    aluminium's pale grey laid over it; where t'an meet at a junction their
+    aluminium's pale grey laid over it; only the waiting t'an's faces are domed, a little, so that
+    it shows Tuvok whole enough to know; where t'an meet at a junction their
     ends are mitred in the shader, each corner cut back to the plane halving the angle to each
     other t'an there, so they meet the last millimetre to the last), `falling.js` (fallen t'an: tumbling, coming to rest on the
-    stone or the floor, and staying until a new game), `tray.js`, `input.js`, `engrave.js`
+    stone or the table, or tipping off its edge and away, and staying until a new game), `tray.js`, `input.js`, `engrave.js`
     (everything written, carved into the stone's underside on a layer whose depth the shader can
     smooth away and recut, the ways to play and the hologram's tuning), `texts.js` (the words,
     in Vulcan and Standard), `settings.js`, `audio.js` (synthesized sound: every contact as its materials would sound - thin light metal on
@@ -372,7 +382,8 @@ instead.
     view follows the head as on the phone, and that the t'an at the foot of the screen stays put
     as the head moves and the view draws near. Given a Y4M video of a face as a second argument, Chromium fakes the
     front camera with it, and the page's own eye finder is checked too.
-  - `convert_base.py`, `make_icon.py`: asset and icon generators.
+  - `convert_base.py`, `convert_table.py`, `make_icon.py`: asset and icon generators (the table at its
+    full detail, 154,670 triangles; on the phone that is nothing, and its rounded edges need them).
 
 ```sh
 node kaltoh/tools/physics.test.mjs
@@ -402,7 +413,8 @@ area; press `R` to begin anew, `T` to test the spin, and use the mouse wheel to 
 
 - Kal-toh and *Star Trek* belong to Paramount; this is an unofficial fan project for personal use.
 - The Vulcan fonts (*Vulcan Script* for titles, *Modern Vulcan* for everything else), the stone
-  basin model (made with Meshy), the mess-hall panorama and the ambience
+  basin and pedestal table models (made with Meshy), the mess-hall panorama (and its blurred copy,
+  `assets/sky.jpg`) and the ambience
   (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and faded in and
   out) were supplied for this project. Their licences are not included; check them before
   distributing the app beyond personal use.
