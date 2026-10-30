@@ -112,6 +112,9 @@ function check(condition, message) {
       return [s.rim.color.getHex(), s.ambient.groundColor.getHex(), document.querySelectorAll('.tint').length].join();
     });
 
+    // Met before, the guide lets the game begin as it would (the original kal-toh): a first meeting
+    // begins in zen, checked at the end.
+    await page.addInitScript(() => localStorage.setItem('kaltoh.guide.v1', localStorage.getItem('kaltoh.guide.v1') ?? '[]'));
     await page.goto(`${base}?seed=7`);
     await waitFor(['intro', 'play']);
     // The stone stands on the table, in the mess hall: the table's top at the floor, the stone and
@@ -231,6 +234,7 @@ function check(condition, message) {
     check(joining.pose && joining.glow > 0.9, 'carried over two tips, the t\'an shows where it will join them, glowing blue');
     await page.waitForFunction(() => window.__kaltoh.classic.game.history.length >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
     check(await page.evaluate(() => window.__kaltoh.classic.game.history[0].kind === 'harmony'), 'joining true neighbours brings harmony');
+    check(await page.evaluate(() => window.__kaltoh.guide.placements === 1 && window.__kaltoh.guide.way === 'classic'), 'the guide is told of the t\'an placed, and of the way played');
     join = await findJoin('far');
     check(join, 'two tips too far apart for one t\'an can be found on screen');
     const reaching = await place(join);
@@ -915,6 +919,17 @@ function check(condition, message) {
     await page.waitForFunction(() => window.__kaltoh.falling.rods.length === 0, null, { timeout: 30000 });
     check(true, 'and the fallen t\'an fade with the old game');
     await page.screenshot({ path: path.join(OUT, '11-anew.png') });
+
+    // Never guided before (nothing remembered), the very first game is zen's, the guide welcoming.
+    const fresh = await browser.newContext({ viewport: { width: 412, height: 892 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+    const first = await fresh.newPage();
+    first.on('pageerror', (e) => errors.push(e.message));
+    await first.goto(`${base}?seed=7`);
+    await first.waitForFunction(() => ['intro', 'play'].includes(window.__kaltoh?.phase), null, { timeout: 240000 });
+    check(await first.evaluate(() => window.__kaltoh.way === 'zen' && window.__kaltoh.settings.way === 'zen' && !window.__kaltoh.guide.fresh
+      && window.__kaltoh.guide.queue.concat(window.__kaltoh.guide.talking ? [{ key: 'welcome' }] : []).some((q) => q.key === 'welcome' || q.key === 'startZen')),
+    'never guided before, the first game is zen\'s, and the guide is to welcome the player');
+    await fresh.close();
 
     check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors.join(' | ')}` : ''}`);
   } finally {

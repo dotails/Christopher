@@ -14,6 +14,7 @@ import { FormsGame } from './forms.js';
 import { ZenGame } from './zen.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
+import { Guide } from './guide.js';
 import { TEXT } from './texts.js';
 import { loadSettings, saveSettings, shapeOf } from './settings.js';
 import { ShakeDetector } from './shake.js';
@@ -27,6 +28,8 @@ const trayPool = new RodPool(stage.scene, 2, { onTop: true, dome: true });
 const halos = new Halos(stage.scene, 320);
 const sound = new Sound();
 const settings = loadSettings();
+// The voice that talks a player through the game, until it is turned down to nothing (guide.js).
+const guide = new Guide({ sound, settings });
 const tray = new Tray(stage);
 const hand = new Hand(stage, tray);
 let motion = null;
@@ -53,9 +56,12 @@ let shaking = 0; // how far a shake to begin anew has gone (0..1)
 const haptic = (kind) => {
   if (settings.haptics) native.haptic(kind);
 };
-sound.setVolumes(settings.music, settings.sfx);
-// What the kal-toh says goes into its stone.
-const say = (text) => engraving?.setEvent(text);
+sound.setVolumes(settings.music, settings.sfx, settings.voice);
+// What the kal-toh says goes into its stone, and the guide hears it.
+const say = (text) => {
+  engraving?.setEvent(text);
+  guide.heard(text);
+};
 
 // --- Timers on game time ------------------------------------------------------------------
 
@@ -185,7 +191,8 @@ function insideHull(h, x, y, margin) {
 const seedParam = new URLSearchParams(location.search).get('seed');
 let nextSeed = seedParam === null ? undefined : Number(seedParam) >>> 0;
 
-function newGame() {
+// again: begun anew, rather than the first game since the app opened.
+function newGame(again = false) {
   way = settings.way;
   begunWith = shapeOf(settings);
   // What the last game had carved (the shape it built, how far it came) goes with it; each game
@@ -196,7 +203,12 @@ function newGame() {
   phase = 'shaped';
   shaped().newGame(nextSeed);
   nextSeed = undefined;
+  if (again) guide.anew(way);
+  else guide.begin(way);
 }
+
+// Where the t'an in hand would rest, as the guide is told it: blue, amber, or on nothing yet.
+const aimOf = () => (hand.glow >= 1 ? 'blue' : hand.amber > 0 ? 'amber' : null);
 
 // --- Holding and placing ---------------------------------------------------------------------
 
@@ -223,25 +235,34 @@ const input = new Input(canvas, {
     hand.lift(x, y);
     sound.lift();
     haptic('lift');
+    guide.lifted();
   },
   onCarry(x, y) {
     hand.carry(x, y);
   },
   // While carried: blue where it would rest, amber where it cannot.
   onAim([ta, tb], f1, f2) {
+    // Hanging from one finger until now: the second has just taken hold.
+    const taken = Boolean(hand.carried);
     shaped()?.aim([ta, tb], f1, f2);
+    if (taken) guide.held();
+    guide.aimed(aimOf());
   },
   // Let go: placed where it was shown, unless the touch was cancelled (the system took it).
   onRelease(targets, cancelled) {
+    const dangling = Boolean(hand.carried);
+    const aim = aimOf();
     shaped()?.release(cancelled);
+    guide.released({ placed: Boolean(hand.flight && !hand.flight.home), dangling, aim });
   },
   onTap(x, y) {
     sound.wake();
     // A tap on the carving reads or acts on it.
     engraving?.tap(x, y);
   },
-  onGrab() {
+  onGrab(what) {
     sound.wake();
+    if (what === 'base') guide.turned();
   },
 });
 
@@ -261,7 +282,7 @@ function restart() {
   shaped().dissolve();
   sound.dissolve();
   haptic('restart');
-  after(1.6, newGame);
+  after(1.6, () => newGame(true));
 }
 
 // --- Settings -------------------------------------------------------------------------------
@@ -273,7 +294,10 @@ function onEngravedAction(name) {
   if (name === 'translate' || name === 'page') {
     sound.hover();
     // Translated, the carving reads in that script from now on, next time too.
-    if (name === 'translate') saveSettings(settings);
+    if (name === 'translate') {
+      saveSettings(settings);
+      guide.translated();
+    }
   } else if (name === 'anew') {
     engraving.show('main');
     say(TEXT.applied);
@@ -288,7 +312,8 @@ function onEngravedOption(key, value) {
   if (pending !== Boolean(engraving.state.pending)) engraving.set({ pending });
   sound.wake();
   if (key === 'music' || key === 'sfx' || key === 'voice') {
-    sound.setVolumes(settings.music, settings.sfx);
+    sound.setVolumes(settings.music, settings.sfx, settings.voice);
+    if (key === 'voice') guide.levelled(value);
     // Drawn along a slider, a tick at each tenth (and for the sound effects, a sound at its level).
     const tenth = Math.round(value * 10);
     if (tenth !== sliderTenths[key]) {
@@ -299,6 +324,7 @@ function onEngravedOption(key, value) {
     return;
   }
   haptic('tick');
+  if (key === 'way') guide.chose(value);
 }
 
 // --- Shaking ------------------------------------------------------------------------------
@@ -406,6 +432,14 @@ function step(dt) {
   hand.update(dt);
   shake.update(dt);
   engraving.update(stage.camera, dt);
+  // Turned with two fingers: the guide need not tell how.
+  if (input.mode === 'twist' || input.mode === 'pinch') guide.twisted();
+  guide.update(dt, {
+    playing: shaped()?.phase === 'play',
+    trayWaiting: tray.visible && !hand.holding && !hand.flight,
+    flipped: stage.view.read.k > 0.8,
+    shaking,
+  });
 
   pool.begin();
   trayPool.begin();
@@ -456,6 +490,14 @@ async function start() {
     onAction: onEngravedAction,
     onOption: onEngravedOption,
   });
+  // Never guided before, the first game is zen's, where nothing can go wrong.
+  if (guide.fresh && guide.on) {
+    settings.way = 'zen';
+    saveSettings(settings);
+  }
+  // The sound readied at once, so the guide can greet the player (in a browser, from the first
+  // touch).
+  sound.open();
   newGame();
   document.getElementById('veil').classList.add('gone');
   requestAnimationFrame(frame);
@@ -520,6 +562,7 @@ window.__kaltoh = {
   touchesBase,
   rodEnds,
   sound,
+  guide,
   baseSurface: (r) => baseModel?.surface(r) ?? 0,
   shake,
 };

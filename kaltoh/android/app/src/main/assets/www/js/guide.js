@@ -5,11 +5,8 @@
 // over, a player waiting, a t'an left dangling, a shake gathering), and says each thing when it
 // helps: the lessons once (remembered from one day to the next), a mistake again whenever it is
 // made again (but not too often), never two lines at once.
-import * as TEXTS from './texts.js';
+import { CLASSIC, MANY, ZEN } from './texts.js';
 import { FAMILIES } from './forms-rules.js';
-
-const { CLASSIC, MANY } = TEXTS;
-const ZEN = TEXTS.ZEN ?? {}; // zen's lines (zen.js), where it is played
 
 const FILES = 'assets/voice/';
 const QUIET = 1.2; // seconds of quiet kept between two lines
