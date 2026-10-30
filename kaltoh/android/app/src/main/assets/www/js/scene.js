@@ -86,7 +86,7 @@ export function createScene(canvas) {
     zoom: 1, // the distance drawn nearer (less than 1) or further back (more), as the fingers pinch
     zoomRange: [0.45, 1], // how near, and how far back (fitZoom)
     framed: 1, // the zoom the view is first framed at (fitZoom)
-    room: 1, // how far off the room stands, from 0 (near) through 1 (far) to 2 (further: fitZoom)
+    room: 1, // how far off the room stands, from 0 (near) to 1 (far: fitZoom)
     focus: { x: 0.5, y: 0.4 }, // where the target sits on screen (fractions of width, height)
     // The pivot as the stone rests on the floor, level (motion.js): tipped, it rises above it.
     target: new THREE.Vector3(PIVOT.x, PIVOT.y + FLOOR, PIVOT.z),
@@ -213,15 +213,11 @@ export function createScene(canvas) {
 
   // Where the room stands, how near the view may be drawn and how far back, around the table's top
   // `top` (table.js TOP: a rounded square level with FLOOR about the stone's axis), looked for all
-  // across the screen with the base at rest. Never so that the room is seen past the photograph's
-  // bottom, or where its camera never saw; past its sides (a screen wider than it is) or its top
-  // (the room far off on a tall one), where it goes on mirrored and soft (makeRoom), on no more than
-  // a fifth of the screen, and past its top on no more than a tenth. The room as far off as the view
-  // as laid out (zoom 1) allows, or as near as it comes; the view first framed as laid out, or, if
-  // that shows too much past the photograph, as far back as shows little enough.
+  // across the screen with the base at rest. Never so that the room is seen past the photograph
+  // (where it goes on mirrored and soft: makeRoom), or where its camera never saw. The room as far
+  // off as the view as laid out (zoom 1) allows, or as near as it comes; the view first framed as
+  // laid out, or, if that sees past the photograph, as far back as sees none of it.
   const ZOOM = [0.45, 1.6]; // the nearest and the furthest ever
-  const PAST = 0.2; // how much of the screen may see past the photograph's sides or top
-  const ABOVE = 0.1; // and past its top
   const probe = new THREE.Ray();
   const seen = new THREE.Vector2();
   // How much of the screen sees the room past the photograph: past its sides alone (`sides`), past
@@ -268,10 +264,10 @@ export function createScene(canvas) {
     const { origin: o, direction: d } = rayAt(x, y, probe);
     return photographed(o, d, new THREE.Vector2());
   }
-  // Whether the view, as it is now, sees as little past the photograph as it may.
+  // Whether the view, as it is now, sees nothing past the photograph.
   function photographAllows(top) {
     const past = pastPhotograph(top);
-    return past.other === 0 && past.above <= ABOVE && past.sides + past.above <= PAST;
+    return past.sides + past.above + past.other === 0;
   }
   function fitZoom(top) {
     const { zoom } = view;
@@ -295,15 +291,14 @@ export function createScene(canvas) {
       placeRoom(away);
       return allows(1);
     };
-    // Looked for from as far as it goes, nearer by steps (not everywhere nearer fits: on a tall
-    // screen the floor past the photograph shows on the way in), then between the step that fits
-    // and the one before it.
-    let away = FURTHEST;
+    // Looked for from as far as it goes, nearer by steps (not everywhere nearer fits), then between
+    // the step that fits and the one before it.
+    let away = 1;
     let short = away;
     let fit = fits(away);
     while (!fit && away > 0) {
       short = away;
-      away = Math.max(0, away - 0.125);
+      away = Math.max(0, away - 0.0625);
       fit = fits(away);
     }
     if (fit && away < short) {
@@ -318,7 +313,7 @@ export function createScene(canvas) {
     let framed = 1;
     while (framed > ZOOM[0] && !allows(framed)) framed = Math.max(ZOOM[0], framed - 0.05);
     if (!allows(framed)) {
-      // Nowhere does it see little enough past the photograph: as near or far as ever.
+      // Nowhere does it see only the photograph: as near or far as ever.
       framed = 1;
       view.zoomRange = [ZOOM[0], 1];
     } else {
@@ -444,20 +439,16 @@ const GALLEY = {
   level: 0.4, // how bright it is drawn (it was taken brightly lit)
 };
 // Where the room stands: moved, never turned, so its lines still run to the table's own vanishing
-// points. On a tall screen, far off and well below the table's foot (FURTHER), the galley shows
-// from the block to the door on the right, its ceiling's lights above, the floor hidden by the
-// table's top until the photograph's own; nearer (FAR), less of it, larger. A wide screen sees past
-// the photograph's sides from there, and most of all past its left, cut away: the room is drawn
-// nearer (NEAR), until little enough is past them (fitZoom), more of its floor in view and less
-// of it above the counters. From NEAR through FAR to FURTHER: how far below the table's foot its
-// floor is, how far beyond the table's middle its camera stands, and how far to the left. (Where
-// the table's foot meets the floor is never seen: the table's top hides the floor about it.)
-const NEAR = { below: 2, ahead: -20, left: 26 };
-const FAR = { below: 16, ahead: 90, left: 29 };
-const FURTHER = { below: 27.5, ahead: 140, left: 31 };
-const PLACES = [NEAR, FAR, FURTHER];
-// How far off the room may stand: the last of PLACES.
-const FURTHEST = PLACES.length - 1;
+// points. On a tall screen, far off and well below the table's foot (FAR), the galley shows from
+// the block to the door on the right, its ceiling's lights above, the floor hidden by the table's
+// top until the photograph's own. A wide screen would see past the photograph's sides from there,
+// most of all past its left, cut away: the room is drawn nearer (NEAR, behind the table), until
+// none of the screen is past them (fitZoom), the counters close, more of the floor in view and
+// none of the ceiling. Between NEAR and FAR: how far below the table's foot its floor is, how far
+// beyond the table's middle its camera stands, and how far to the left. (Where the table's foot
+// meets the floor is never seen: the table's top hides the floor about it.)
+const NEAR = { below: 1.5, ahead: -25, left: 35 };
+const FAR = { below: 26, ahead: 110, left: 32.5 };
 // The table's foot (its top is at FLOOR, 1.7182 of its model's units above its foot, scaled 3.7
 // times: table.js), and the photograph camera's height above the room's floor.
 const FOOT = FLOOR - 1.7182 * 3.7;
@@ -473,20 +464,12 @@ const TO_PHOTO = new THREE.Matrix3().set(
 // and the wall behind the counter, the x where the block begins, the x of the wall on the right,
 // the z of the back); and the shader's uniforms.
 const room = { floor: 0, eye: new THREE.Vector3(), counter: new THREE.Vector4(), walls: new THREE.Vector4(), uniforms: null };
-// s from 0, as near as it stands, through 1, far, to FURTHEST, as far.
+// s from 0, as near as it stands, to 1, as far.
 function placeRoom(s) {
-  const i = Math.min(Math.max(Math.floor(s), 0), FURTHEST - 1);
-  const from = PLACES[i];
-  const to = PLACES[i + 1];
-  const at = (key) => from[key] + (to[key] - from[key]) * (s - i);
-  placeRoomAt(at('below'), at('ahead'), at('left'));
-}
-// Or as given: its floor `below` the table's foot, its camera `ahead` of the table's middle and to
-// its `left`.
-function placeRoomAt(below, ahead, left) {
+  const at = (key) => NEAR[key] + (FAR[key] - NEAR[key]) * s;
   const { counter, block } = GALLEY;
-  room.floor = FOOT - below;
-  room.eye.set(-left, room.floor + ROOM_HEIGHT, -ahead);
+  room.floor = FOOT - at('below');
+  room.eye.set(-at('left'), room.floor + ROOM_HEIGHT, -at('ahead'));
   const z = (k) => room.eye.z - k * ROOM_HEIGHT;
   const x = (k) => room.eye.x + k * ROOM_HEIGHT;
   room.counter.set(z(counter.front), x(counter.from), x(counter.to), room.floor + counter.top * ROOM_HEIGHT);

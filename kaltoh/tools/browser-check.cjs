@@ -991,8 +991,8 @@ function check(condition, message) {
       await sleep(300);
     };
     const upright = await framing();
-    check(upright.room > 1.5 && upright.across[1] - upright.across[0] > 0.6 && upright.zoom === upright.framed && upright.allows && upright.clear,
-      `upright, the room stands far back (${upright.room.toFixed(2)}), the galley across from the block to the door (${upright.across.map((u) => u.toFixed(2)).join(' to ')} of the photograph), and from as near as the view may be drawn to as far back it sees nothing past the photograph's bottom, and little past its sides or top (zoom ${upright.range.map((z) => z.toFixed(2)).join(' to ')})`);
+    check(upright.room > 0.9 && upright.across[1] - upright.across[0] > 0.5 && upright.zoom === upright.framed && upright.allows && upright.clear,
+      `upright, the room stands far back (${upright.room.toFixed(2)}), the galley across from the block to the door (${upright.across.map((u) => u.toFixed(2)).join(' to ')} of the photograph), and from as near as the view may be drawn to as far back it sees nothing past the photograph (zoom ${upright.range.map((z) => z.toFixed(2)).join(' to ')})`);
     await pinch({ x: 206, y: 120 }, 60, 260);
     const nearest = await side.evaluate(() => window.__kaltoh.stage.view.zoom);
     await pinch({ x: 206, y: 120 }, 260, 20);
@@ -1059,7 +1059,7 @@ function check(condition, message) {
     await sleep(800);
     const sideways = await framing();
     check(sideways.room < upright.room && sideways.zoom === sideways.framed && sideways.allows && sideways.clear && sideways.span === upright.span,
-      `held sideways, the room comes nearer (${sideways.room.toFixed(2)}), the view is framed afresh, and however pinched sees nothing past the photograph's top or bottom and little past its sides; the tray's t'an as long, the stone clear of it`);
+      `held sideways, the room comes close (${sideways.room.toFixed(2)}), the view is framed afresh, and however pinched sees nothing past the photograph; the tray's t'an as long, the stone clear of it`);
     await side.screenshot({ path: path.join(OUT, '12-sideways.png') });
     const sideSpot = await side.evaluate(() => {
       const k = window.__kaltoh;
@@ -1100,7 +1100,7 @@ function check(condition, message) {
     await side.waitForFunction(() => window.__kaltoh.stage.size.height === 915, null, { timeout: 30000 });
     await sleep(800);
     const taller = await framing();
-    check(taller.room > 1.5 && taller.allows && taller.clear, `on a taller phone the room stands as far back (${taller.room.toFixed(2)})`);
+    check(taller.room > 0.9 && taller.allows && taller.clear, `on a taller phone the room stands as far back (${taller.room.toFixed(2)})`);
     await turned.close();
 
     // Never played before (nothing remembered), the very first game is zen's, the voice at nothing

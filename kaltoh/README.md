@@ -31,22 +31,22 @@ stone.
 The stone stands on a silver pedestal table in Voyager's mess hall, seen from a seat at it: the
 galley before you, its floor's lines running with the table's edges, and drawing nearer moves you
 through the room. Held upright, the galley stands far back, from the pass-through block to the door
-on the right, its ceiling's lights overhead; turned sideways, either way, it comes nearer, the
-photograph going on softly, mirrored, at the sides of the wider screen (most of all at the left,
-where the photograph's own left side, not the galley as it is, was cut away). Pinch to draw nearer
-or back: never so far, either way, that you would see past the photograph's bottom. The table's
-satin top mirrors the room softly, at half strength, with the stone and the t'an standing on it.
-The galley lights them too, a photograph of it from nearer its counters stretched all round the
-table and kept dim on the table and the stone, while the t'an mirror it brightly, like polished
-aluminium, its ceiling's lights glinting on them. The waiting t'an in the tray, its faces gently
-domed, holds Tuvok at his table behind you - his whole panorama, so it keeps him as it dangles from
-your finger - and its faces turned away catch the galley ahead.
+on the right, its ceiling's lights overhead; turned sideways, either way, it comes close, its
+counters filling the wider screen from side to side (the photograph's own left side, not the galley
+as it is, cut away, is never seen). Pinch to draw nearer or back: never so far, either way, that
+you would see past the photograph. The table's satin top mirrors the room softly, at half strength,
+with the stone and the t'an standing on it. The galley lights them too, a photograph of it from
+nearer its counters stretched all round the table and kept dim on the table and the stone, while
+the t'an mirror it brightly, like polished aluminium, its ceiling's lights glinting on them. The
+waiting t'an in the tray, its faces gently domed, holds Tuvok at his table behind you - his whole
+panorama, so it keeps him as it dangles from your finger - and its faces turned away catch the
+galley ahead.
 
 <p align="center">
   <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table in the mess hall, the galley far beyond it from the block to the door, its ceiling's lights overhead, the stone and t'an mirrored in the table's top">
 </p>
 <p align="center">
-  <img src="docs/sideways.png" width="62%" alt="Held sideways: the galley nearer, the photograph going on softly at the sides of the wide screen, behind the kal-toh on its table">
+  <img src="docs/sideways.png" width="62%" alt="Held sideways: the galley close, its counters, the door and the replicator across the wide screen, behind the kal-toh on its table">
 </p>
 <p align="center">
   <img src="docs/jumble.png" width="19%" alt="The jumble of the original game, drawn near">
@@ -248,13 +248,13 @@ build is gathered into the next form.
     what its camera never saw), the room laid along the table, so each ray from the eye takes the
     photograph's colour where it meets the room, and drawing nearer moves the eye through it; set
     lower than the table's foot and moved, never turned, so its lines still meet the table's: as
-    far off as the screen allows, from the block to the door on a tall one, nearer on a wide one
-    until no more than a fifth of the screen sees past the photograph's sides or top (and nothing
-    past its bottom, or where its camera never saw), the view drawn no nearer or further than keeps
-    to that, found by casting rays across the screen as the shader does, past the table (its top,
-    and on a tall screen its front below the top's edge); past its edges the photograph goes on
-    mirrored, the further past the softer and dimmer - the stone, and the window the screen
-    becomes, framed afresh as the screen is turned), `table.js` (the pedestal
+    far off as the screen allows, from the block to the door on a tall one, close on a wide one,
+    never so that any of the screen sees past the photograph, or where its camera never saw, the
+    view drawn no nearer or further than keeps to that, found by casting rays across the screen as
+    the shader does, past the table (its top, and on a tall screen its front below the top's edge);
+    should it be seen past its edges, the photograph goes on mirrored, the further past the softer
+    and dimmer - the stone, and the window the screen becomes, framed afresh as the screen is
+    turned), `table.js` (the pedestal
     table under the stone, its top at the floor, its near edge out of sight: satin silver (black
     where the model is) mirroring the mess hall at half strength, and the
     stone and t'an on it drawn a second time each frame, the eye turned over in the plane of the
