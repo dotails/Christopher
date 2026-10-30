@@ -999,6 +999,9 @@ function check(condition, message) {
     const furthest = await side.evaluate(() => window.__kaltoh.stage.view.zoom);
     check(Math.abs(nearest - upright.range[0]) < 1e-6 && Math.abs(furthest - upright.range[1]) < 1e-6,
       'pinched, the view is drawn near and back again, no nearer and no further than the photograph allows');
+    // Back to the view as first framed (drawn far back, the glass a t'an hangs from stands far in
+    // front of the table: let go there, it falls before the table's near edge).
+    await side.evaluate(() => { const v = window.__kaltoh.stage.view; v.zoom = v.framed; });
     // Taken up by one finger and carried off the tray, then let go: it falls into the room, and
     // another rises in the tray. Flicked up, it is thrown, up and away into the room, to come down
     // on the table among the fallen. (Stamped as a phone stamps touches: this browser answers too
