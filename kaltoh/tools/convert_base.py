@@ -5,7 +5,15 @@ Usage: python3 -I convert_base.py <model.obj> <texture.png> <out_dir> [name] [fa
 
   name   what the files are called (base, the stone, by default; altar, the obsidian altar)
   faces  simplify the model to this many triangles first (pymeshlab, keeping its texture
-         coordinates): the altar comes at 431,554, far more than a phone need draw
+         coordinates): the altar comes at 431,554, far more than a phone need draw. Simplified,
+         what is meant to be flat is made flat: Meshy's flat faces are ever so slightly not, and
+         polished, every ripple shows in what they mirror, drawn across them in the shape of their
+         triangles. The faces lying within FLAT of one plane (and turned from it less than
+         FLAT_TURN) are found and made one region, neighbouring regions that are one plane merged,
+         and every corner of a broad region set on its plane - a corner of two or three of them on
+         the line or point they meet at. Its normals are found afresh, a corner taking those of the
+         faces about it turned less than CREASE from its own: a flat face reflects as one, its
+         edges stay sharp.
 
 Writes:
   <name>.bin   quantized mesh: int16 positions, int8 normals, uint16 uvs, uint16 indices
@@ -15,15 +23,25 @@ Writes:
                    relief is in its mesh, and its texture's patches would only roughen its polish)
 """
 import json
-import os
 import struct
 import sys
-import tempfile
 
 import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 Image.MAX_IMAGE_PIXELS = None
+
+# Making flat what is meant to be (see above): how far from a region's plane every corner of a face
+# joining it may lie, and how far turned from it the face may be; how small a region may be and
+# still be set flat (smaller ones are the filigree's curves, left as they are); how alike two
+# neighbouring regions' planes must be to be tried as one; how far a corner may be moved at most;
+# and the angle beyond which two faces about a corner do not share their normals.
+FLAT = 0.009
+FLAT_TURN = 25
+FLAT_AREA = 0.001
+FLAT_MERGE = 5
+FLAT_MOVE = 0.02
+CREASE = 25
 
 
 def load_obj(path):
@@ -64,24 +82,211 @@ def surface_heights(p, tris, reach, size=401):
     return grid, top
 
 
-def simplified(obj_path, faces, out_path):
-    """The model simplified to `faces` triangles, its normals found afresh, written to out_path."""
+def face_frames(V, F):
+    """Each face's unit normal and area."""
+    a, b, c = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+    cross = np.cross(b - a, c - a)
+    area = np.linalg.norm(cross, axis=1) / 2
+    return cross / np.maximum(2 * area[:, None], 1e-20), area
+
+
+def neighbours(F):
+    """The faces about each edge, and each face's neighbours across its edges."""
+    edges = {}
+    for f, (i, j, k) in enumerate(F):
+        for e in ((i, j), (j, k), (k, i)):
+            edges.setdefault((min(e), max(e)), []).append(f)
+    near = [[] for _ in range(len(F))]
+    for fs in edges.values():
+        for x in fs:
+            near[x].extend(y for y in fs if y != x)
+    return edges, near
+
+
+def flat_regions(V, F):
+    """The faces gathered into flat regions: grown from the broadest face not yet in one, a
+    neighbour joining when its corners all lie within FLAT of the region's plane (refitted as it
+    grows) and it is turned less than FLAT_TURN from it; then neighbouring regions that are one plane
+    (turned less than FLAT_MERGE, every corner of both within FLAT of their joint plane) made one.
+    Returns each face's region and each region's plane (normal, offset) and area."""
+    fn, area = face_frames(V, F)
+    edges, near = neighbours(F)
+
+    def fit(fs):
+        fs = np.asarray(fs)
+        pts = V[F[fs]].reshape(-1, 3)
+        w = np.repeat(area[fs] / 3, 3)
+        centre = (pts * w[:, None]).sum(0) / w.sum()
+        n = np.linalg.svd((pts - centre) * np.sqrt(w)[:, None], full_matrices=False)[2][2]
+        if n @ (fn[fs] * area[fs, None]).sum(0) < 0:
+            n = -n
+        return n, float(n @ centre)
+
+    def within(fs, plane):
+        n, d = plane
+        return np.abs(V[F[np.asarray(fs)]].reshape(-1, 3) @ n - d).max() <= FLAT
+
+    turned = np.cos(np.radians(FLAT_TURN))
+    region = np.full(len(F), -1)
+    groups = []
+    for seed in np.argsort(-area):
+        if region[seed] >= 0:
+            continue
+        region[seed] = len(groups)
+        members = [seed]
+        n, d = fn[seed], float(fn[seed] @ V[F[seed, 0]])
+        refit = 4
+        frontier = [seed]
+        while frontier:
+            for g in near[frontier.pop()]:
+                if region[g] >= 0 or fn[g] @ n < turned or np.abs(V[F[g]] @ n - d).max() > FLAT:
+                    continue
+                region[g] = len(groups)
+                members.append(g)
+                frontier.append(g)
+                if len(members) >= refit:
+                    n, d = fit(members)
+                    refit *= 2
+        groups.append(members)
+
+    # Neighbours that are one plane, made one.
+    parent = list(range(len(groups)))
+
+    def root(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    alike = np.cos(np.radians(FLAT_MERGE))
+    for _ in range(10):
+        members_of = {}
+        for gi, fs in enumerate(groups):
+            members_of.setdefault(root(gi), []).extend(fs)
+        planes = {r: fit(fs) for r, fs in members_of.items() if area[fs].sum() >= FLAT_AREA / 4}
+        pairs = set()
+        for fs in edges.values():
+            if len(fs) == 2:
+                r1, r2 = root(region[fs[0]]), root(region[fs[1]])
+                if r1 != r2 and r1 in planes and r2 in planes:
+                    pairs.add((min(r1, r2), max(r1, r2)))
+        merged = False
+        for r1, r2 in sorted(pairs, key=lambda pair: -(area[members_of[pair[0]]].sum() + area[members_of[pair[1]]].sum())):
+            r1, r2 = root(r1), root(r2)
+            if r1 == r2 or r1 not in planes or r2 not in planes or planes[r1][0] @ planes[r2][0] < alike:
+                continue
+            both = members_of[r1] + members_of[r2]
+            plane = fit(both)
+            if not within(both, plane):
+                continue
+            parent[r2] = r1
+            members_of[r1] = both
+            planes[r1] = plane
+            merged = True
+        if not merged:
+            break
+
+    final = {}
+    for gi, fs in enumerate(groups):
+        final.setdefault(root(gi), []).extend(fs)
+    regions = []
+    for fs in final.values():
+        region[np.asarray(fs)] = len(regions)
+        regions.append((*fit(fs), float(area[fs].sum())))
+    return region, regions, area
+
+
+def onto_planes(V, F, region, regions, area):
+    """Every corner of a broad region set on its plane; a corner of two or three, at the nearest point
+    on all their planes - those turned more than ten degrees from each other (two nearly alike meet far
+    off; the broader stands for both), the third well out of the line the first two meet along - or,
+    were that more than FLAT_MOVE off, on fewer."""
+    broad = np.array([r[2] >= FLAT_AREA for r in regions])
+    on = [set() for _ in range(len(V))]
+    for f in np.flatnonzero(broad[region]):
+        for v in F[f]:
+            on[v].add(region[f])
+    apart = np.cos(np.radians(10))
+    out = np.sin(np.radians(10))
+    moved = 0.0
+    for v, rs in enumerate(on):
+        picked = []
+        for r in sorted(rs, key=lambda r: -regions[r][2]):
+            n = regions[r][0]
+            if any(abs(n @ regions[q][0]) >= apart for q in picked):
+                continue
+            if len(picked) == 2:
+                axis = np.cross(regions[picked[0]][0], regions[picked[1]][0])
+                if abs(n @ axis) / np.linalg.norm(axis) < out:
+                    continue
+            picked.append(r)
+            if len(picked) == 3:
+                break
+        while picked:
+            N = np.array([regions[r][0] for r in picked])
+            D = np.array([regions[r][1] for r in picked])
+            x = V[v] - N.T @ np.linalg.solve(N @ N.T, N @ V[v] - D)
+            if np.linalg.norm(x - V[v]) <= FLAT_MOVE or len(picked) == 1:
+                moved = max(moved, float(np.linalg.norm(x - V[v])))
+                V[v] = x
+                break
+            picked.pop()
+    covered = sum(r[2] for r, b in zip(regions, broad) if b) / area.sum()
+    print(f'flat: {int(broad.sum())} regions, {covered:.0%} of the surface, corners moved {moved:.4f} at most', file=sys.stderr)
+    return V
+
+
+def creased_normals(V, F):
+    """Each corner's normal: the angle-weighted normals of the faces about its vertex turned less than
+    CREASE from its own face."""
+    fn, _ = face_frames(V, F)
+
+    def angle(p, q, r):
+        u = (q - p) / np.maximum(np.linalg.norm(q - p, axis=1, keepdims=True), 1e-20)
+        w = (r - p) / np.maximum(np.linalg.norm(r - p, axis=1, keepdims=True), 1e-20)
+        return np.arccos(np.clip((u * w).sum(1), -1, 1))
+
+    a, b, c = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+    corner_angle = np.stack([angle(a, b, c), angle(b, c, a), angle(c, a, b)], 1)
+    order = np.argsort(F.ravel(), kind='stable')
+    at = F.ravel()[order]
+    starts, ends = np.searchsorted(at, np.arange(len(V))), np.searchsorted(at, np.arange(len(V)), 'right')
+    keep = np.cos(np.radians(CREASE))
+    normals = np.zeros((len(F), 3, 3))
+    for v in range(len(V)):
+        corners = order[starts[v]:ends[v]]
+        fs, ks = corners // 3, corners % 3
+        n = fn[fs]
+        summed = (n @ n.T >= keep).astype(float) @ (corner_angle[fs, ks][:, None] * n)
+        normals[fs, ks] = summed / np.maximum(np.linalg.norm(summed, axis=1, keepdims=True), 1e-20)
+    return normals
+
+
+def flattened(obj_path, faces):
+    """The model simplified to `faces` triangles, what is flat made flat, its normals found afresh -
+    as load_obj gives a model (its texture coordinates and normals each once, every corner indexing
+    them)."""
     import pymeshlab
 
     ms = pymeshlab.MeshSet()
     ms.load_new_mesh(obj_path)
     ms.meshing_decimation_quadric_edge_collapse_with_texture(targetfacenum=faces, qualitythr=0.6, preserveboundary=True,
                                                              optimalplacement=True, preservenormal=True, planarquadric=True)
-    ms.compute_normal_per_vertex(weightmode='By Angle')
-    ms.save_current_mesh(out_path, save_vertex_normal=True, save_wedge_texcoord=True, save_vertex_color=False, save_textures=False)
+    m = ms.current_mesh()
+    V = m.vertex_matrix().copy()
+    F = m.face_matrix()
+    region, regions, area = flat_regions(V, F)
+    V = onto_planes(V, F, region, regions, area)
+    # Each texture coordinate and normal once (as they are stored), each corner indexing them.
+    uv, uv_at = np.unique(np.round(np.clip(m.wedge_tex_coord_matrix(), 0, 1) * 65535).astype(int), axis=0, return_inverse=True)
+    nrm, nrm_at = np.unique(np.round(creased_normals(V, F).reshape(-1, 3) * 127).astype(int), axis=0, return_inverse=True)
+    corners = list(zip(F.ravel().tolist(), uv_at.ravel().tolist(), nrm_at.ravel().tolist()))
+    return V, uv / 65535, nrm / 127, corners
 
 
 def main(obj_path, tex_path, out_dir, name='base', faces=None):
     if faces:
-        with tempfile.TemporaryDirectory() as tmp:
-            simpler = os.path.join(tmp, 'simplified.obj')
-            simplified(obj_path, int(faces), simpler)
-            pos, uv, nrm, corners = load_obj(simpler)
+        pos, uv, nrm, corners = flattened(obj_path, int(faces))
     else:
         pos, uv, nrm, corners = load_obj(obj_path)
 

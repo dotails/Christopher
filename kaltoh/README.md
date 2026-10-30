@@ -367,6 +367,12 @@ build is gathered into the next form.
     `convert_base.py` takes either base: the stone, as it came, and the obsidian altar simplified
     from its 431,554 triangles to 30,000 (with pymeshlab), its height over a fine grid as well as at
     its corners (its top is a few broad triangles), and the circle its foot gives the carving.
+    Simplified, what is meant to be flat is made exactly flat: Meshy's flat faces are ever so
+    slightly not, and polished, they mirrored the galley in the shape of their triangles. The faces
+    lying within 0.009 of one plane are gathered into regions (neighbouring regions that are one
+    plane merged: 251 of them, 95% of the altar), every corner set on its region's plane (a corner
+    of two or three on where they meet), and the normals found afresh, split where faces turn more
+    than 25° from each other: each flat face reflects as one, its edges sharp.
   - `measure_room.py`: measures the galley's photograph by its lines, for `scene.js`'s room.
   - `make_theme_notes.py`: finds the piano's notes in the music (where its spectrum rises, struck),
     each with how hard it was played, into `assets/theme-notes.json`, for the phone to feel.
