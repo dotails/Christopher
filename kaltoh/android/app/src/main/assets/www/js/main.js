@@ -17,11 +17,9 @@ import { FormsGame } from './forms.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { TEXT, ringText, fellText, playerText, completeText, winnerText, supplyText } from './texts.js';
-import { loadSettings, saveSettings, gameOptions, shapeOf, DEFAULT_TUNING } from './settings.js';
+import { loadSettings, saveSettings, gameOptions, shapeOf } from './settings.js';
 import { ShakeDetector } from './shake.js';
 import { native } from './native.js';
-import { Head } from './head.js';
-import { Tracker } from './tracker.js';
 
 const canvas = document.getElementById('view');
 const stage = createScene(canvas);
@@ -34,11 +32,6 @@ const sound = new Sound();
 const settings = loadSettings();
 const tray = new Tray(stage);
 const hand = new Hand(stage, tray);
-const head = new Head(deviceGeometry(), settings.holo);
-const tracker = new Tracker({
-  onEyes: (sighting) => head.eyes(sighting),
-  onStatus: (status) => trackerStatus(status),
-});
 let motion = null;
 let falling = null;
 let baseModel = null;
@@ -96,30 +89,10 @@ function tickTimers(dt) {
 
 // --- Layout ------------------------------------------------------------------------------
 
-// The screen's true size and where the front camera sits beside it, in millimetres (from the
-// Android shell; in a browser, a fair guess), for the hologram's window.
-function deviceGeometry() {
-  const info = native.device();
-  const dpr = window.devicePixelRatio || 1;
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const coarse = window.matchMedia?.('(pointer: coarse)').matches;
-  const mmX = info?.xdpi > 0 ? (25.4 / info.xdpi) * dpr : 25.4 / (coarse ? 160 : 96);
-  const mmY = info?.ydpi > 0 ? (25.4 / info.ydpi) * dpr : mmX;
-  const screen = { width: w * mmX, height: h * mmY };
-  // A camera in a hole in the screen is where the hole is; otherwise just above the screen.
-  const at = info?.cutout
-    ? { x: (info.cutout.x / dpr - w / 2) * mmX, y: (h / 2 - info.cutout.y / dpr) * mmY }
-    : { x: 0, y: screen.height / 2 + 6 };
-  return { screen, camera: { ...at, fovLong: info?.fovLong || 70, fovShort: info?.fovShort || 55 } };
-}
-
 function layout() {
   const dpr = Math.min(window.devicePixelRatio || 1, quality.maxDpr);
   const w = window.innerWidth;
   const h = window.innerHeight;
-  head.device = deviceGeometry();
-  Object.assign(stage.screen, head.device.screen);
   stage.layout(w, h, dpr);
   stage.view.focus.y = 0.42;
   // The t'an to place lies at the foot of the screen, below the base as the view first frames it
@@ -846,80 +819,7 @@ function restart() {
   after(1.6, newGame);
 }
 
-// --- Settings, hologram ---------------------------------------------------------------------
-
-// The hologram watches the camera from the page itself (tracker.js); if the page cannot, the
-// Android shell can follow the face instead, more roughly.
-function showHeadStatus(status, announce, source) {
-  head.setStatus(status, source);
-  engraving?.set({ hologram: status === 'on' || status === 'starting' });
-  if (status === 'denied' || status === 'unavailable') {
-    following = null;
-    settings.hologram = false;
-    saveSettings(settings);
-  }
-  if (!announce) return;
-  // Switched on, it first looks for the eyes; the carving says so again once they are found.
-  const text = { on: TEXT.hologramLooking, off: TEXT.hologramOff, denied: TEXT.hologramDenied, unavailable: TEXT.hologramUnavailable }[status];
-  if (text) say(text);
-}
-
-// What follows the player now: 'native' (the shell, the head), 'camera' (the page, the eyes) or
-// null. Word from the other is stale and ignored.
-let following = null;
-
-function trackerStatus(status) {
-  if (following !== 'camera') return;
-  if (status === 'unavailable' && native.hologram && settings.hologram) {
-    following = 'native';
-    showHeadStatus('starting', false, 'native');
-    native.setHologram(true);
-    return;
-  }
-  head.engine = status === 'on' ? tracker.engine : null;
-  showHeadStatus(status, status !== 'starting', 'camera');
-}
-
-// On the phone the shell follows the head; in a browser, or if the player chooses the eyes, the
-// page watches the camera itself.
-function watch() {
-  if (native.hologram && settings.holo.follow !== 'eyes') {
-    tracker.stop();
-    following = 'native';
-    showHeadStatus('starting', false, 'native');
-    native.setHologram(true);
-    return;
-  }
-  if (following === 'native') native.setHologram(false);
-  following = 'camera';
-  showHeadStatus('starting', false, 'camera');
-  tracker.start(settings.holo.engine);
-}
-
-function setHologram(on, announce = true) {
-  settings.hologram = on;
-  saveSettings(settings);
-  if (on) {
-    watch();
-  } else {
-    following = null;
-    tracker.stop();
-    native.setHologram(false);
-    showHeadStatus('off', announce, null);
-  }
-}
-
-// Out of sight, the camera is let go; back in sight, it is watched again.
-// (The shell lets its own camera go, and takes it up again, by itself.)
-function hide() {
-  sound.suspend();
-  if (following === 'camera') tracker.stop();
-}
-
-function reveal() {
-  sound.resume();
-  if (settings.hologram && following === 'camera') watch();
-}
+// --- Settings -------------------------------------------------------------------------------
 
 // The carving's glyphs and ways.
 function onEngravedAction(name, to) {
@@ -931,32 +831,10 @@ function onEngravedAction(name, to) {
     if (to === 'main' && engraving.state.pending) say(TEXT.pending);
   } else if (name === 'test') {
     requestSpinTest();
-  } else if (name === 'lens') {
-    setHologram(!(head.active || head.status === 'starting'));
-  } else if (name === 'centre') {
-    head.recentre();
-  } else if (name === 'reset') {
-    const engine = settings.holo.engine;
-    Object.assign(settings.holo, DEFAULT_TUNING);
-    saveSettings(settings);
-    head.recentre();
-    if (engine !== settings.holo.engine) onEngravedTune('engine', settings.holo.engine);
   } else if (name === 'anew') {
     engraving.show('main');
     say(TEXT.applied);
     restart();
-  }
-}
-
-function onEngravedTune(key) {
-  saveSettings(settings);
-  sound.wake();
-  haptic('tick');
-  // Following something else, or the eyes found another way: start afresh.
-  if ((key === 'follow' || key === 'engine') && settings.hologram) {
-    tracker.stop();
-    native.setHologram(false);
-    watch();
   }
 }
 
@@ -978,7 +856,6 @@ function onEngravedOption(key, value) {
     return;
   }
   haptic('tick');
-  if (key === 'hologram') setHologram(value, false);
   if (key === 'strain') refreshStrain();
   if (key === 'language' && engraving.standard !== (value === 'standard')) engraving.translate();
 }
@@ -999,30 +876,13 @@ if (!native.present) shake.listenToDeviceMotion();
 
 window.kaltoh = {
   shake: (magnitude) => shake.sample(magnitude),
-  // A sighting from the shell means it is following, whether or not word of that came first.
-  face(...sighting) {
-    if (following !== 'native') return;
-    if (head.status !== 'on') showHeadStatus('on', true, 'native');
-    head.face(...sighting);
-  },
-  head(x, y, size) {
-    if (following !== 'native') return;
-    if (head.status !== 'on') showHeadStatus('on', true, 'native');
-    head.sample(x, y, size);
-  },
-  headEngine: (engine) => {
-    head.engine = engine;
-  },
-  headStatus: (status) => {
-    if (following === 'native') showHeadStatus(status, status !== 'off', 'native');
-  },
   insets(top, bottom) {
     insets.top = top;
     insets.bottom = bottom;
     layout();
   },
-  pause: hide,
-  resume: reveal,
+  pause: () => sound.suspend(),
+  resume: () => sound.resume(),
 };
 
 window.addEventListener('resize', layout);
@@ -1031,7 +891,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') restart();
   if (e.key === 't' || e.key === 'T') requestSpinTest();
 });
-document.addEventListener('visibilitychange', () => (document.hidden ? hide() : reveal()));
+document.addEventListener('visibilitychange', () => (document.hidden ? sound.suspend() : sound.resume()));
 canvas.addEventListener('webglcontextlost', (e) => {
   e.preventDefault();
   setTimeout(() => location.reload(), 300);
@@ -1048,38 +908,6 @@ function readingView(dt) {
   read.k += (want - read.k) * (1 - Math.exp(-dt / 0.35));
   read.center.copy(readCenter);
 }
-
-// The hologram: the eye where the camera finds it, the kal-toh framed for where it first rested.
-let readoutAge = 0;
-function holograph(dt) {
-  head.update(dt);
-  Object.assign(stage.eye, head.view);
-  const optics = stage.optics;
-  const rest = head.rest?.z ?? head.designDistance;
-  optics.rest = (optics.rest ?? rest) + (rest - (optics.rest ?? rest)) * (1 - Math.exp(-dt / 0.4));
-  optics.depth = settings.holo.depth;
-  optics.size = settings.holo.size;
-  // The tuning page shows what the camera sees, twice a second, while it can be read.
-  readoutAge += dt;
-  if (readoutAge > 0.5 && engraving.page === 'tune' && engraving.seen) {
-    readoutAge = 0;
-    engraving.setReadout(head.readout(tracker));
-  }
-  // The carving says when the eyes are found, and when they are lost for a while.
-  const seeing = head.seeing;
-  if (head.active && seeing !== lastSeeing) {
-    lostFor = seeing ? 0 : lostFor + dt;
-    if (seeing || lostFor > 3) {
-      lastSeeing = seeing;
-      say(seeing ? TEXT.hologramOn : TEXT.hologramLooking);
-    }
-  } else if (!head.active) {
-    lastSeeing = null;
-    lostFor = 0;
-  }
-}
-let lastSeeing = null;
-let lostFor = 0;
 
 function adapt(dt) {
   quality.time += dt;
@@ -1111,7 +939,6 @@ function frame(now) {
 function step(dt) {
   time += dt;
   tickTimers(dt);
-  holograph(dt);
   readingView(dt);
   stage.update();
   if (shaped()) shaped().update(dt);
@@ -1192,10 +1019,8 @@ async function start() {
     baseMesh: base.mesh,
     onAction: onEngravedAction,
     onOption: onEngravedOption,
-    onTune: onEngravedTune,
   });
   newGame();
-  if (settings.hologram) setHologram(true, false);
   document.getElementById('veil').classList.add('gone');
   requestAnimationFrame(frame);
 }
@@ -1261,9 +1086,6 @@ window.__kaltoh = {
     return engraving;
   },
   settings,
-  head,
-  tracker,
-  setHologram,
   requestSpinTest,
   touchesAssembly,
   touchesBase,

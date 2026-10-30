@@ -1,17 +1,12 @@
 package com.dotails.kaltoh;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Color;
-import android.graphics.Rect;
-import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.CameraManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -26,18 +21,12 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.util.DisplayMetrics;
-import android.util.Size;
-import android.util.SizeF;
 import android.view.DisplayCutout;
-import android.view.Surface;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
-import android.webkit.PermissionRequest;
-import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -56,11 +45,6 @@ import java.util.Locale;
  * Pages are served from the APK's assets under a private https origin, so the game's ES
  * modules, textures and fonts load as same-origin content without touching the network.
  *
- * When the player asks for the hologram view, the shell follows their head with the front camera
- * (HeadTracker; never shown or kept), and tells the page the screen's true size and where the
- * camera sits, so the screen can be drawn as a window. The page can instead watch the camera for
- * the player's eyes itself, if they choose; then the shell grants it the camera.
- *
  * The game's music plays here rather than in the page: a page's media takes the phone's audio
  * focus, which pauses whatever else is playing. This player never asks for it, so the music plays
  * along with any other app's sound.
@@ -71,26 +55,17 @@ public class MainActivity extends Activity implements SensorEventListener {
     // Linear acceleration (m/s^2) worth reporting; the page decides what counts as a shake.
     private static final float SHAKE_FLOOR = 6f;
     private static final long SHAKE_INTERVAL_MS = 33;
-    private static final long HEAD_INTERVAL_MS = 15;
-    private static final int REQUEST_CAMERA = 7;
-    private static final int REQUEST_PAGE_CAMERA = 8;
 
     private WebView web;
     private SensorManager sensors;
     private Sensor motion;
     private boolean linearSensor;
-    private PermissionRequest pendingCamera; // the page's request for the camera, while asking the player
-    private float[] cameraFov; // the front camera's field of view (long side, short side), degrees
-    private volatile String deviceInfo = "null"; // see deviceJson(); kept current on the UI thread
     private final float[] gravity = new float[3];
     private long lastShakeSample;
     private Vibrator vibrator;
     private volatile boolean pageReady;
     private volatile float insetTop;
     private volatile float insetBottom;
-    private HeadTracker head;
-    private boolean headWanted;
-    private volatile long lastHeadSample;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -126,15 +101,12 @@ public class MainActivity extends Activity implements SensorEventListener {
         web.setOnLongClickListener(v -> true);
         web.addJavascriptInterface(new Bridge(), "KalTohAndroid");
         web.setWebViewClient(new AssetClient());
-        web.setWebChromeClient(new PageCamera());
         web.setOnApplyWindowInsetsListener((v, insets) -> {
             readInsets(insets);
             return v.onApplyWindowInsets(insets);
         });
         setContentView(web);
         immerse();
-        cameraFov = frontCameraFov();
-        deviceInfo = deviceJson(null);
 
         sensors = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         if (sensors != null) {
@@ -185,7 +157,6 @@ public class MainActivity extends Activity implements SensorEventListener {
         }
         insetTop = top / density;
         insetBottom = bottom / density;
-        deviceInfo = deviceJson(insets);
         if (pageReady) {
             run(String.format(Locale.US, "window.kaltoh&&window.kaltoh.insets(%.1f,%.1f)", insetTop, insetBottom));
         }
@@ -212,7 +183,6 @@ public class MainActivity extends Activity implements SensorEventListener {
         immerse();
         resumeMusic();
         if (pageReady) run("window.kaltoh&&window.kaltoh.resume()");
-        if (headWanted && cameraAllowed()) startHead();
     }
 
     @Override
@@ -220,7 +190,6 @@ public class MainActivity extends Activity implements SensorEventListener {
         pauseMusic();
         if (pageReady) run("window.kaltoh&&window.kaltoh.pause()");
         if (sensors != null) sensors.unregisterListener(this);
-        stopHead(); // never hold the camera while the game is out of sight
         web.onPause();
         web.pauseTimers();
         super.onPause();
@@ -267,199 +236,6 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
-    }
-
-    // --- Hologram view: following the player's face ------------------------------------------
-
-    private void setHologram(boolean on) {
-        headWanted = on;
-        if (!on) {
-            stopHead();
-            headStatus("off");
-        } else if (cameraAllowed()) {
-            startHead();
-        } else {
-            requestPermissions(new String[] {Manifest.permission.CAMERA}, REQUEST_CAMERA);
-        }
-    }
-
-    private boolean cameraAllowed() {
-        return Build.VERSION.SDK_INT < 23
-                || checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
-        super.onRequestPermissionsResult(requestCode, permissions, results);
-        boolean granted = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
-        if (requestCode == REQUEST_PAGE_CAMERA) {
-            if (pendingCamera != null) {
-                if (granted) pendingCamera.grant(new String[] {PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-                else pendingCamera.deny();
-                pendingCamera = null;
-            }
-            return;
-        }
-        if (requestCode != REQUEST_CAMERA) return;
-        if (granted) {
-            if (headWanted) startHead();
-        } else {
-            headWanted = false;
-            headStatus("denied");
-        }
-    }
-
-    private void startHead() {
-        if (head != null) return;
-        head = new HeadTracker(new HeadTracker.Listener() {
-            @Override
-            public void onFace(float leftX, float leftY, float rightX, float rightY, float boxX, float boxY, float boxWidth,
-                               int width, int height, float yaw, long age) {
-                long now = SystemClock.uptimeMillis();
-                if (now - lastHeadSample < HEAD_INTERVAL_MS) return;
-                lastHeadSample = now;
-                String script = String.format(Locale.US,
-                        "window.kaltoh&&window.kaltoh.face(%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%d,%d,%.2f,%d)",
-                        leftX, leftY, rightX, rightY, boxX, boxY, boxWidth, width, height, yaw, age);
-                runOnUiThread(() -> run(script));
-            }
-
-            @Override
-            public void onEngine(String engine) {
-                if (pageReady) runOnUiThread(() -> run("window.kaltoh&&window.kaltoh.headEngine('" + engine + "')"));
-            }
-
-            @Override
-            public void onHead(float x, float y, float size) {
-                long now = SystemClock.uptimeMillis();
-                if (now - lastHeadSample < HEAD_INTERVAL_MS) return;
-                lastHeadSample = now;
-                String script = String.format(Locale.US, "window.kaltoh&&window.kaltoh.head(%.4f,%.4f,%.4f)", x, y, size);
-                runOnUiThread(() -> run(script));
-            }
-
-            @Override
-            public void onStatus(String status) {
-                runOnUiThread(() -> {
-                    if (!"on".equals(status)) {
-                        stopHead();
-                        headWanted = false;
-                    }
-                    headStatus(status);
-                });
-            }
-        }, displayDegrees());
-        head.start();
-    }
-
-    private void stopHead() {
-        if (head != null) {
-            head.stop();
-            head = null;
-        }
-    }
-
-    private void headStatus(String status) {
-        if (pageReady) run("window.kaltoh&&window.kaltoh.headStatus('" + status + "')");
-    }
-
-    @SuppressWarnings("deprecation")
-    private int displayDegrees() {
-        switch (getWindowManager().getDefaultDisplay().getRotation()) {
-            case Surface.ROTATION_90: return 90;
-            case Surface.ROTATION_180: return 180;
-            case Surface.ROTATION_270: return 270;
-            default: return 0;
-        }
-    }
-
-    // The page asks for the camera to watch the player's eyes (if they chose that over the head):
-    // granted if the player allows it.
-    private final class PageCamera extends WebChromeClient {
-        @Override
-        public void onPermissionRequest(PermissionRequest request) {
-            runOnUiThread(() -> {
-                boolean video = false;
-                for (String resource : request.getResources()) {
-                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) video = true;
-                }
-                if (!video || !HOST.equals(request.getOrigin().getHost())) {
-                    request.deny();
-                    return;
-                }
-                stopHead(); // one watcher of the camera at a time
-                if (cameraAllowed()) {
-                    request.grant(new String[] {PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-                } else {
-                    if (pendingCamera != null) pendingCamera.deny();
-                    pendingCamera = request;
-                    requestPermissions(new String[] {Manifest.permission.CAMERA}, REQUEST_PAGE_CAMERA);
-                }
-            });
-        }
-
-        @Override
-        public void onPermissionRequestCanceled(PermissionRequest request) {
-            if (pendingCamera == request) pendingCamera = null;
-        }
-    }
-
-    // The screen's density and the front camera's field of view and place, for the page to draw
-    // the screen as a window of its true size (JSON; see native.js).
-    @SuppressWarnings("deprecation")
-    private String deviceJson(WindowInsets insets) {
-        DisplayMetrics metrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
-        StringBuilder json = new StringBuilder();
-        json.append(String.format(Locale.US, "{\"xdpi\":%.2f,\"ydpi\":%.2f", metrics.xdpi, metrics.ydpi));
-        float[] fov = cameraFov;
-        if (fov != null) json.append(String.format(Locale.US, ",\"fovLong\":%.2f,\"fovShort\":%.2f", fov[0], fov[1]));
-        if (Build.VERSION.SDK_INT >= 28 && insets != null) {
-            DisplayCutout cutout = insets.getDisplayCutout();
-            if (cutout != null) {
-                // The camera's hole: the cutout nearest the top of the screen.
-                Rect best = null;
-                for (Rect r : cutout.getBoundingRects()) {
-                    if (best == null || r.top < best.top) best = r;
-                }
-                if (best != null && best.top < metrics.heightPixels / 4) {
-                    json.append(String.format(Locale.US, ",\"cutout\":{\"x\":%.1f,\"y\":%.1f}", best.exactCenterX(), best.exactCenterY()));
-                }
-            }
-        }
-        return json.append('}').toString();
-    }
-
-    // The front camera's field of view across its sensor's long and short sides, in degrees.
-    private float[] frontCameraFov() {
-        try {
-            CameraManager cameras = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-            if (cameras == null) return null;
-            for (String id : cameras.getCameraIdList()) {
-                CameraCharacteristics c = cameras.getCameraCharacteristics(id);
-                Integer facing = c.get(CameraCharacteristics.LENS_FACING);
-                if (facing == null || facing != CameraCharacteristics.LENS_FACING_FRONT) continue;
-                SizeF sensor = c.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
-                float[] focal = c.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
-                if (sensor == null || focal == null || focal.length == 0) continue;
-                // The physical size is the whole pixel array's; the picture comes from its active part.
-                Size array = c.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE);
-                Rect active = c.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
-                float w = sensor.getWidth();
-                float h = sensor.getHeight();
-                if (array != null && active != null && array.getWidth() > 0 && array.getHeight() > 0) {
-                    w *= (float) active.width() / array.getWidth();
-                    h *= (float) active.height() / array.getHeight();
-                }
-                double f = focal[0];
-                double longSide = Math.toDegrees(2 * Math.atan(Math.max(w, h) / (2 * f)));
-                double shortSide = Math.toDegrees(2 * Math.atan(Math.min(w, h) / (2 * f)));
-                return new float[] {(float) longSide, (float) shortSide};
-            }
-        } catch (Exception unavailable) {
-            // No camera details: the page assumes a typical front camera.
-        }
-        return null;
     }
 
     // --- Haptics ------------------------------------------------------------------------------
@@ -591,16 +367,6 @@ public class MainActivity extends Activity implements SensorEventListener {
         }
 
         @JavascriptInterface
-        public void hologram(boolean on) {
-            runOnUiThread(() -> setHologram(on));
-        }
-
-        @JavascriptInterface
-        public String device() {
-            return deviceInfo;
-        }
-
-        @JavascriptInterface
         public String insets() {
             return String.format(Locale.US, "{\"top\":%.1f,\"bottom\":%.1f}", insetTop, insetBottom);
         }
@@ -658,7 +424,6 @@ public class MainActivity extends Activity implements SensorEventListener {
         if (p.endsWith(".ttf")) return "font/ttf";
         if (p.endsWith(".otf")) return "font/otf";
         if (p.endsWith(".woff2")) return "font/woff2";
-        if (p.endsWith(".wasm")) return "application/wasm";
         return "application/octet-stream";
     }
 }

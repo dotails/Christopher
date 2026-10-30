@@ -64,8 +64,6 @@ export const OPTIONS = [
     choices: [[40, 'forty', '40'], [30, 'thirty', '30'], [60, 'sixty', '60'], [0, 'without end', 'Unlimited']],
   },
   { key: 'lives', v: 'lives', s: 'Lives, when surviving', when: (s) => rings(s) && s.mode === 'collapse', choices: [[3, 'three', '3'], [1, 'one', '1'], [5, 'five', '5']] },
-  // The hologram is turned on and off by the lens under the base, and atop its tuning: not here.
-  { key: 'hologram', v: 'hologram', s: 'Hologram: the view follows you', when: () => false, choices: [[false, 'off', 'Off'], [true, 'on', 'On']] },
   // Sliders: drawn along their groove under the base, from silent to full.
   { key: 'music', v: 'music', s: 'Music', slider: true, value: 0.6 },
   { key: 'sfx', v: 'the sound of the tan', s: 'Sound effects', slider: true, value: 0.8 },
@@ -73,101 +71,23 @@ export const OPTIONS = [
   { key: 'language', v: 'script', s: 'Carving first reads in', choices: [['vulcan', 'vulcan', 'Vulcan'], ['standard', 'standard', 'Standard']] },
 ];
 
-// Tuning for the hologram's window (see head.js and scene.js), on carved pages of their own. Each
-// is chosen from its steps; touching the left of a value steps down, the right steps up. Values
-// are always written in numerals so the pages can be read off and the best ones made the defaults.
-const percent = (v) => `${Math.round(v * 100)}%`;
-const asWindow = (v) => (v === 0 ? '0%: not at all' : v === 1 ? '100%: as through a window' : percent(v));
-export const TUNE_PAGES = [
-  { v: 'what you see', s: 'What you see' },
-  { v: 'how it follows you', s: 'How it follows you' },
-  { v: 'your phone', s: 'Your phone' },
-];
-export const TUNING = [
-  {
-    // In front of the glass it stands out of the screen, and grows as you draw near; behind it, it
-    // is seen through the screen as through a window.
-    key: 'depth', page: 0, v: 'where it stands', s: 'Where it stands: out of the screen, or behind it',
-    steps: [-100, -80, -60, -50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 60, 80, 100, 130, 160, 200], value: -40,
-    text: (v) => (v === 0 ? '0 cm: on the glass' : v < 0 ? `${-v / 10} cm out of the screen` : `${v / 10} cm behind the screen`),
-  },
-  { key: 'size', page: 0, v: 'how big it looks', s: 'How big it looks', steps: [0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.35, 1.5, 1.75], value: 1, text: percent },
-  { key: 'shift', page: 0, v: 'turning as your head moves', s: 'How far it turns as your head moves', steps: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3], value: 1, text: asWindow },
-  { key: 'lean', page: 0, v: 'nearing as you lean in', s: 'How much it nears as you lean in', steps: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], value: 1, text: asWindow },
-  { key: 'origin', page: 1, v: 'straight on is', s: 'Straight on is', steps: ['rest', 'screen'], names: { rest: 'Where you first held it', screen: 'Square to the screen' }, value: 'rest' },
-  {
-    key: 'steady', page: 1, v: 'calm when you are still', s: 'Calm when you hold still: lower is calmer', steps: [0.1, 0.15, 0.25, 0.4, 0.6, 0.9, 1.3, 2, 3, 5], value: 0.4,
-    text: (v) => `${v} Hz`,
-  },
-  {
-    key: 'quick', page: 1, v: 'keeping up', s: 'Keeping up when you move fast: higher is quicker', steps: [0, 0.002, 0.004, 0.007, 0.012, 0.02, 0.035, 0.06], value: 0.007,
-    text: String,
-  },
-  {
-    key: 'ahead', page: 1, v: 'running ahead', s: "Running ahead of the camera's delay", steps: ['auto', 0, 20, 40, 60, 80, 100, 130], value: 'auto',
-    text: (v) => (v === 'auto' ? 'Auto: as long as the delay' : `${v} ms`),
-  },
-  { key: 'eye', page: 1, v: 'seen from', s: 'Seen from', steps: ['both', 'left', 'right'], names: { both: 'Between your eyes', left: 'Your left eye', right: 'Your right eye' }, value: 'both' },
-  {
-    key: 'follow', page: 2, v: 'it follows your', s: 'It follows your', steps: ['head', 'eyes'], value: 'head',
-    names: { head: 'Head: the phone finds your face', eyes: 'Eyes: finer, where the phone can' },
-  },
-  {
-    key: 'fov', page: 2, v: 'what the camera sees', s: "The front camera's view, long side", steps: ['auto', 50, 55, 60, 65, 70, 75, 80, 85, 90], value: 'auto',
-    text: (v) => (v === 'auto' ? 'Auto: as the phone says' : `${v}\u00b0`),
-  },
-  {
-    key: 'camera', page: 2, v: 'where the camera is', s: "The front camera, above the screen's middle", steps: ['auto', 50, 55, 60, 65, 70, 75, 80, 85, 90], value: 'auto',
-    text: (v) => (v === 'auto' ? 'Auto: as the phone says' : `${v} mm`),
-  },
-  {
-    key: 'ipd', page: 2, v: 'your eyes apart', s: 'Your eyes, apart (63 mm fits most)', steps: [56, 58, 60, 61, 62, 63, 64, 65, 66, 68, 70], value: 63,
-    text: (v) => `${v} mm`, when: (h) => h.follow !== 'eyes',
-  },
-  { key: 'iris', page: 2, v: 'your iris', s: 'Your iris, across (11.7 mm fits most)', steps: [10.8, 11.2, 11.7, 12.2, 12.6], value: 11.7, text: (v) => `${v} mm`, when: (h) => h.follow === 'eyes' },
-  {
-    key: 'engine', page: 2, v: 'the eye finder', s: 'The eye finder runs on', steps: ['gpu', 'cpu'], names: { gpu: 'The GPU: quicker', cpu: 'The CPU: surer' }, value: 'gpu',
-    when: (h) => h.follow === 'eyes',
-  },
-];
-
-export const DEFAULT_TUNING = Object.fromEntries(TUNING.map((t) => [t.key, t.value]));
-
-// A tuning value as written on the page.
-export function tuningText(t, value) {
-  if (t.names) return t.names[value] ?? String(value);
-  return t.text ? t.text(value) : String(value);
-}
-
-// The hologram's tuning as it is now laid out: where it stands and how calm it is mean what they
-// did not before, so earlier choices of them give way to the new defaults.
-const HOLO_VERSION = 2;
-export const DEFAULT_SETTINGS = {
-  ...Object.fromEntries(OPTIONS.map((o) => [o.key, o.slider ? o.value : o.choices[0][0]])),
-  holo: { ...DEFAULT_TUNING },
-  holoVersion: HOLO_VERSION,
-};
+export const DEFAULT_SETTINGS = Object.fromEntries(OPTIONS.map((o) => [o.key, o.slider ? o.value : o.choices[0][0]]));
 
 const KEY = 'kaltoh.settings.v2';
 
 export function loadSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
-    const out = { ...DEFAULT_SETTINGS, holo: { ...DEFAULT_TUNING } };
+    const out = { ...DEFAULT_SETTINGS };
     for (const o of OPTIONS) {
       const v = saved[o.key];
       if (o.slider ? Number.isFinite(v) && v >= 0 && v <= 1 : o.choices.some(([value]) => value === v)) out[o.key] = v;
     }
     // Sound was once simply on or off.
     if (saved.sound === false && !('sfx' in saved)) out.sfx = 0;
-    for (const t of TUNING) if (t.steps.includes(saved.holo?.[t.key])) out.holo[t.key] = saved.holo[t.key];
-    if (saved.holoVersion !== HOLO_VERSION) {
-      out.holo.depth = DEFAULT_TUNING.depth;
-      out.holo.steady = DEFAULT_TUNING.steady;
-    }
     return out;
   } catch {
-    return { ...DEFAULT_SETTINGS, holo: { ...DEFAULT_TUNING } };
+    return { ...DEFAULT_SETTINGS };
   }
 }
 
@@ -180,8 +100,8 @@ export function saveSettings(settings) {
 }
 
 // The settings a game was begun with, as one string: the ways shown that shape the game (not
-// the hologram, sound, vibration or script). A change shows as a different string.
-const UNSHAPING = new Set(['hologram', 'music', 'sfx', 'haptics', 'language']);
+// sound, vibration or script). A change shows as a different string.
+const UNSHAPING = new Set(['music', 'sfx', 'haptics', 'language']);
 export function shapeOf(settings) {
   return JSON.stringify(OPTIONS.filter((o) => !UNSHAPING.has(o.key) && (!o.when || o.when(settings))).map((o) => settings[o.key]));
 }

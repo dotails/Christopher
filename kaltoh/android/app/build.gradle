@@ -10,12 +10,8 @@ android {
         applicationId 'com.dotails.kaltoh'
         minSdk 24
         targetSdk 35
-        versionCode 23
-        versionName '2.8.4'
-        // Phones: ML Kit's face detector is native code, and only these two are worth carrying.
-        ndk {
-            abiFilters 'arm64-v8a', 'armeabi-v7a'
-        }
+        versionCode 24
+        versionName '2.9.0'
     }
 
     signingConfigs {
@@ -48,17 +44,4 @@ android {
         // Already-compressed assets gain nothing from zip compression.
         noCompress += ['jpg', 'bin', 'ttf']
     }
-
-    packaging {
-        // Native libraries compressed in the APK (unpacked on install): a much smaller download.
-        jniLibs {
-            useLegacyPackaging true
-        }
-    }
-}
-
-dependencies {
-    // Finding the player's face for the hologram: ML Kit's face detector, its model bundled in
-    // the app so it works offline and without Google Play services.
-    implementation 'com.google.mlkit:face-detection:16.1.7'
 }

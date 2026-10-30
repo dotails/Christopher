@@ -14,15 +14,11 @@
 // then hold perfectly still on it), spinning the
 // t'an by dragging their area, t'an never passing into the stone, turning the base over to read
 // its underside (whichever way it was turned, the carving reads with its top up), touching the
-// carving to translate all of it, the carved ways to play and the hologram's tuning, fallen t'an
-// lying where they fell until a new game, and shaking to begin anew. Nothing may be written on
-// the screen itself. Screenshots land in the directory given as the first argument.
+// carving to translate all of it, the carved ways to play, fallen t'an lying where they fell until
+// a new game, and shaking to begin anew. Nothing may be written on the screen itself. Screenshots
+// land in the directory given as the first argument.
 //
-// The hologram as on the phone, where the Android shell follows the head, is checked with a stand-in
-// for the shell. With a Y4M video of a face as the second argument, the page's own eye finder is
-// checked too: the front camera (faked by Chromium) is watched for the eyes and the view follows them.
-//
-// Run: node kaltoh/tools/browser-check.cjs [out-dir] [face.y4m]
+// Run: node kaltoh/tools/browser-check.cjs [out-dir]
 // Needs Playwright with Chromium (NODE_PATH or a global install).
 const http = require('node:http');
 const fs = require('node:fs');
@@ -31,10 +27,9 @@ const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '../android/app/src/main/assets/www');
 const OUT = path.resolve(process.argv[2] || 'kaltoh-check');
-const FACE = process.argv[3] ? path.resolve(process.argv[3]) : null;
 const TYPES = {
-  '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.jpg': 'image/jpeg',
-  '.png': 'image/png', '.mp3': 'audio/mpeg', '.ttf': 'font/ttf', '.bin': 'application/octet-stream', '.wasm': 'application/wasm', '.task': 'application/octet-stream',
+  '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.jpg': 'image/jpeg',
+  '.png': 'image/png', '.mp3': 'audio/mpeg', '.ttf': 'font/ttf', '.bin': 'application/octet-stream',
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -60,8 +55,7 @@ function check(condition, message) {
   fs.mkdirSync(OUT, { recursive: true });
   const server = await serve();
   const base = `http://127.0.0.1:${server.address().port}/index.html`;
-  const camera = FACE ? ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-video-capture=${FACE}`] : [];
-  const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', ...camera] });
+  const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const errors = [];
   try {
     const context = await browser.newContext({ viewport: { width: 412, height: 892 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
@@ -815,7 +809,7 @@ function check(condition, message) {
     await recut();
     check(await page.evaluate(() => !window.__kaltoh.engraving.standard), 'touched again, it returns all of it to Vulcan');
 
-    // 8. The carved ways to play, and the hologram's tuning: choose pass and play, begin anew.
+    // 8. The carved ways to play: choose pass and play, begin anew.
     await tap(await where('ways', 'button'));
     await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
     await recut();
@@ -864,26 +858,6 @@ function check(condition, message) {
       await page.waitForFunction(() => window.__kaltoh.engraving.phase === 'smoothing', null, { timeout: 10000 }).catch(() => {});
       await recut();
     }
-    await tap(await where('tune', 'button'));
-    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'tune', null, { timeout: 10000 });
-    await recut();
-    const depthBefore = await page.evaluate(() => window.__kaltoh.settings.holo.depth);
-    await tap(await where('step:depth+', 'step'));
-    await sleep(400);
-    const depthAfter = await page.evaluate(() => window.__kaltoh.settings.holo.depth);
-    check(depthAfter > depthBefore, `the hologram's tuning steps up when its value's right is touched (${depthBefore} to ${depthAfter} mm)`);
-    await tap(await where('step:depth', 'step'));
-    await sleep(400);
-    check(await page.evaluate((d) => window.__kaltoh.settings.holo.depth === d, depthBefore), 'and down when its left is');
-    check(await carved('tune:hologram'), 'the tuning begins with the hologram itself, on or off');
-    await page.screenshot({ path: path.join(OUT, '10b-tuning.png') });
-    await tap(await where('more', 'button'));
-    await page.waitForFunction(() => window.__kaltoh.engraving.tunePage === 1, null, { timeout: 10000 });
-    await recut();
-    check(await carved('step:steady+') && await carved('prev'), 'an arrow at the rim turns to how it follows the eyes');
-    await tap(await where('back', 'button'));
-    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
-    await recut();
     for (let i = 0; i < 4 && (await page.evaluate(() => window.__kaltoh.settings.opponent)) !== 'none'; i++) {
       await tap(await where('row:opponent', 'value'));
       await sleep(400);
@@ -950,95 +924,7 @@ function check(condition, message) {
     await page.waitForFunction(() => window.__kaltoh.falling.rods.length === 0, null, { timeout: 30000 });
     check(true, 'and the fallen t\'an fade with the old game');
     await page.screenshot({ path: path.join(OUT, '11-anew.png') });
-
-    // 11. The hologram, given a face to watch: the eye is found and the view follows it.
-    if (FACE) {
-      await page.evaluate(() => {
-        window.__kaltoh.settings.holo.engine = 'cpu';
-      });
-      await page.evaluate(() => window.__kaltoh.setHologram(true));
-      await page.waitForFunction(() => window.__kaltoh.head.status === 'on' && window.__kaltoh.head.last, null, { timeout: 120000 });
-      const seen = [];
-      for (let i = 0; i < 40; i++) {
-        seen.push(await page.evaluate(() => ({ x: window.__kaltoh.head.last.x, z: window.__kaltoh.head.last.z, cam: window.__kaltoh.stage.camera.position.x })));
-        await sleep(400);
-      }
-      const xs = seen.map((s) => s.x);
-      const zs = seen.map((s) => s.z);
-      const cams = seen.map((s) => s.cam);
-      check(Math.max(...zs) < 900 && Math.min(...zs) > 120, `the hologram finds the eye at a likely distance (${Math.min(...zs).toFixed(0)} to ${Math.max(...zs).toFixed(0)} mm)`);
-      check(Math.max(...xs) - Math.min(...xs) > 30 && Math.max(...cams) - Math.min(...cams) > 0.5, 'and the view follows it as it moves');
-      await page.evaluate(() => window.__kaltoh.setHologram(false));
-    }
     check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors.join(' | ')}` : ''}`);
-
-    // 12. On the phone the Android shell follows the head (HeadTracker.java). A stand-in for it here
-    // reports a face swaying from side to side, as ML Kit would: the view follows it.
-    const phone = await browser.newContext({ viewport: { width: 412, height: 892 } });
-    const handset = await phone.newPage();
-    const phoneErrors = [];
-    handset.on('pageerror', (e) => phoneErrors.push(e.message));
-    await handset.addInitScript(() => {
-      localStorage.setItem('kaltoh.settings.v2', JSON.stringify({ hologram: true }));
-      let timer = null;
-      window.KalTohAndroid = {
-        hologram(on) {
-          clearInterval(timer);
-          if (!on) return;
-          setTimeout(() => {
-            window.kaltoh.headEngine('mlkit');
-            window.kaltoh.headStatus('on');
-          }, 100);
-          let t = 0;
-          timer = setInterval(() => {
-            t += 1 / 30;
-            // Eyes 60 px apart in a 480 x 640 picture (the player's left eye further right).
-            const sway = Math.sin(t * 1.4) * 70;
-            window.kaltoh.face(270 + sway, 300, 210 + sway, 300, 240 + sway, 320, 160, 480, 640, 0, 40);
-          }, 33);
-        },
-        device: () => JSON.stringify({ xdpi: 420, ydpi: 420, fovLong: 75, fovShort: 60 }),
-        haptic() {},
-        insets: () => '{"top":0,"bottom":0}',
-      };
-    });
-    await handset.goto(`${base}?seed=3`);
-    await handset.waitForFunction(() => window.__kaltoh?.head?.status === 'on' && window.__kaltoh.head.source === 'native' && window.__kaltoh.head.last,
-      null, { timeout: 120000 });
-    const swayed = [];
-    for (let i = 0; i < 30; i++) {
-      swayed.push(await handset.evaluate(() => ({ z: window.__kaltoh.head.last.z, cam: window.__kaltoh.stage.camera.position.x })));
-      await sleep(150);
-    }
-    const near = Math.min(...swayed.map((v) => v.z));
-    const far = Math.max(...swayed.map((v) => v.z));
-    const cams = swayed.map((v) => v.cam);
-    check(near > 300 && far < 600, `on the phone, the shell's sightings place the head at a likely distance (${near.toFixed(0)} to ${far.toFixed(0)} mm)`);
-    check(Math.max(...cams) - Math.min(...cams) > 0.3, 'and the view follows the head as it moves');
-    // The t'an at the foot of the screen lies on the glass: it keeps its place however the head
-    // moves or the view is drawn near.
-    const trayAt = () => handset.evaluate(() => {
-      const k = window.__kaltoh;
-      return [k.stage.toScreen(k.tray.restA), k.stage.toScreen(k.tray.restB)].flatMap((p) => [p.x, p.y]);
-    });
-    // (Once it has slid in: under software rendering the jumble may still be growing.)
-    await handset.waitForFunction(() => window.__kaltoh.tray.visible && window.__kaltoh.tray.arrive >= 1, null, { timeout: 120000 });
-    const trayAt0 = await trayAt();
-    let trayDrift = 0;
-    for (let i = 0; i < 8; i++) {
-      if (i === 4) {
-        await handset.evaluate(() => {
-          window.__kaltoh.stage.view.zoom = 0.45;
-          window.dispatchEvent(new Event('resize'));
-        });
-      }
-      await sleep(200);
-      const now = await trayAt();
-      trayDrift = Math.max(trayDrift, ...now.map((v, j) => Math.abs(v - trayAt0[j])));
-    }
-    check(trayDrift < 1.5 && trayAt0[1] < 892 && trayAt0[1] > 600, `the t'an at the foot of the screen stays put as the head moves and the view draws near (${trayDrift.toFixed(2)} px)`);
-    check(phoneErrors.length === 0, `no errors on the page with the shell${phoneErrors.length ? `: ${phoneErrors.join(' | ')}` : ''}`);
-    await phone.close();
   } finally {
     await browser.close();
     server.close();

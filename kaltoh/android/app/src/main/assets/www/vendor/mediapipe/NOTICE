@@ -1,3 +1,0 @@
-MediaPipe Tasks Vision 0.10.21 (npm @mediapipe/tasks-vision) and its face landmarker model
-(face_landmarker.task, float16, version 1), by Google, under the Apache License 2.0 (LICENSE).
-Unmodified, except that the source map comment was removed from vision_bundle.mjs.

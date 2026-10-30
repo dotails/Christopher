@@ -1,7 +1,7 @@
 // The tray at the foot of the screen where the next t'an lies, and the hand that carries it.
 // The resting t'an lies on the glass itself (scene.js), so it keeps its place and size on the
-// screen however the eye moves or the view draws near, and it is drawn over everything else; it is
-// large enough there for two fingers. Taken up by one finger it slides across the glass, drawing in
+// screen however the view draws near, and it is drawn over everything else; it is large enough
+// there for two fingers. Taken up by one finger it slides across the glass, drawing in
 // to the size it will be at the kal-toh as the finger rises; held by two, it travels out to the
 // kal-toh and is seen at its scale.
 import * as THREE from '../vendor/three.module.min.js';

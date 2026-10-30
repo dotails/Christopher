@@ -1,6 +1,6 @@
 // The stage: renderer, lights, the mess hall all round (out of focus beyond the kal-toh, sharp in
-// its metal), the stone base, and a camera that stays put while the player's eye may move - the
-// screen is a window into the phone.
+// its metal), the stone base, and a camera framed through the screen as through a window, the
+// kal-toh standing a little out of it.
 //
 // World units are the base model's own: its foot rests at y = 0 and it is about 1.9 across.
 // The sphere the kal-toh becomes is centred PIVOT above the foot; the base turns about that
@@ -92,15 +92,15 @@ export function createScene(canvas) {
     // point to look at.
     read: { k: 0, center: PIVOT.clone() },
   };
-  // The window (see head.js): the screen, at its true size in millimetres, is a pane of glass with
-  // the kal-toh's centre `optics.depth` mm behind it (in front of it, standing out of the screen,
-  // when negative); the eye is where the player's is, in mm from the middle of the screen (z null:
-  // at rest, `optics.rest` mm away, or where the layout assumes).
+  // The window: the screen, at its true size in millimetres, is a pane of glass with the kal-toh's
+  // centre `optics.depth` mm behind it (in front of it, standing out of the screen, when negative:
+  // as it stands, 40 mm out); the eye is at rest before its middle, `optics.rest` mm away (or where
+  // the layout assumes). The t'an waiting in the tray lies on the glass.
   const screen = { width: 70, height: 150 };
-  const optics = { depth: 40, size: 1, rest: null };
+  const optics = { depth: -40, size: 1, rest: null };
   const eye = { x: 0, y: 0, z: null };
   // The glass itself in the world: its middle, its axes, and its half-width and half-height. A
-  // point on it stays where it is on the screen however the eye moves.
+  // point on it stays where it is on the screen however the view draws near.
   const glass = { centre: new THREE.Vector3(), across: new THREE.Vector3(), upward: new THREE.Vector3(), width: 1, half: 1 };
 
   function layout(width, height, dpr) {

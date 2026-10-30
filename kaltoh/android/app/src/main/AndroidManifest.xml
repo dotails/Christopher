@@ -4,13 +4,9 @@
     <!-- The game is served from the APK itself; WebView requires this permission for any page load. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Only for the optional hologram view, which follows the player's face. -->
-    <uses-permission android:name="android.permission.CAMERA" />
 
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen.multitouch" android:required="false" />
 
     <application

@@ -1,7 +1,7 @@
 // Nothing is written on the screen. Everything the kal-toh says is carved into the underside of
 // its stone base, in a medallion: its name, the players, what last happened, how to play, and
-// the glyphs that act - the ways to play, testing the spin, the hologram, beginning anew. Turn
-// the base over to read it: whichever way it is tipped, the carving is found with its top up.
+// the glyphs that act - the ways to play, testing the spin, beginning anew. Turn the base over to
+// read it: whichever way it is tipped, the carving is found with its top up.
 //
 // It is carved in Vulcan. The Starfleet delta among the glyphs translates all of it: the carving
 // smooths away to bare stone, and the other script is cut in its place, as deep. Within its
@@ -13,7 +13,7 @@
 // away and recut. All of it is engraved alike: dark grooves in the stone, without light of their own.
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT } from './scene.js';
-import { OPTIONS, TUNING, TUNE_PAGES, tuningText } from './settings.js';
+import { OPTIONS } from './settings.js';
 import { TEXT, vulcanOnly, scoreText, formText, rulesText, seatText } from './texts.js';
 
 const SIZE = 1024;
@@ -31,7 +31,6 @@ const RECUT = 0.42; // ... and to be cut again
 // How squarely the underside must face the eye to count as seen (and so be set upright).
 const SEEN = 0.08;
 const UNSEEN = 0.02;
-const READOUT = { x: 120, y: 198, w: 784, h: 66 }; // where the tuning pages' live figures are cut
 // Each seat's colour, as the light behind turns on their turn (main.js), painted into the ring about
 // their mark.
 const SEAT_PAINT = ['#d0261c', '#14a04a', '#2a64e0', '#e0a614'];
@@ -69,13 +68,12 @@ function carveShader(shader, uniforms) {
 }
 
 export class Engraving {
-  constructor(stage, { settings, stone, baseMesh, onAction, onOption, onTune }) {
+  constructor(stage, { settings, stone, baseMesh, onAction, onOption }) {
     this.stage = stage;
     this.settings = settings;
     this.baseMesh = baseMesh;
     this.onAction = onAction;
     this.onOption = onOption;
-    this.onTune = onTune;
 
     // The frame, cut for good: stone colour, relief and glow.
     this.stone = this.makeBackground(stone);
@@ -131,9 +129,8 @@ export class Engraving {
 
     this.page = 'main';
     this.wayPage = 0;
-    this.tunePage = 0;
     this.standard = settings.language === 'standard'; // which script is cut now
-    this.state = { game: null, event: TEXT.begin, hologram: false, testAllowed: true, readout: null };
+    this.state = { game: null, event: TEXT.begin, testAllowed: true };
     this.regions = [];
     this.dirty = true;
     this.change = null; // what is to be cut once the carving has smoothed away
@@ -255,7 +252,6 @@ export class Engraving {
   drawPage() {
     if (this.page === 'ways') this.drawWays();
     else if (this.page === 'rules') this.drawRules();
-    else if (this.page === 'tune') this.drawTune();
     else this.drawMain();
   }
 
@@ -337,7 +333,7 @@ export class Engraving {
       g.lineCap = 'round';
       g.lineJoin = 'round';
       shape(g);
-      // On (the hologram following you, a new game waiting to begin): a ring cut round it.
+      // On (a new game waiting to begin): a ring cut round it.
       if (on) {
         g.lineWidth = 3;
         g.beginPath();
@@ -462,7 +458,6 @@ export class Engraving {
     });
     const glyphs = [{ name: 'ways', label: TEXT.ways }];
     if (this.state.testAllowed) glyphs.push({ name: 'test', label: TEXT.test });
-    glyphs.push({ name: 'lens', label: this.state.hologram ? TEXT.lensOn : TEXT.lensOff, on: this.state.hologram });
     // Its name is carved in Standard in either script: it is how a reader of Standard finds it.
     glyphs.push({ name: 'translate', label: TEXT.translateGlyph, standard: true });
     glyphs.push({ name: 'anew', label: TEXT.anew, on: this.state.pending });
@@ -548,7 +543,6 @@ export class Engraving {
     // Ways that shape the game wait for it to begin anew.
     if (this.state.pending) this.line('pending', TEXT.pending, C, 738, { size: 28, max: 2 * chord(738) - 80, lit: 0.7 });
     this.glyphRow([
-      { name: 'tune', label: TEXT.tune },
       { name: 'rules', label: TEXT.rules },
       { name: 'anew', label: TEXT.anew, on: this.state.pending },
       { name: 'back', label: TEXT.back },
@@ -573,70 +567,9 @@ export class Engraving {
     this.glyphRow([{ name: 'ways', label: TEXT.ways }, { name: 'back', label: TEXT.back }], GLYPHS_Y);
   }
 
-  // The hologram's tuning, on three pages (what you see, how it follows you, your phone): what the
-  // camera sees of the eye now, then each value between a step down (touch its left) and a step up
-  // (touch its right). The first page begins with the hologram itself, on or off.
-  drawTune() {
-    const pages = TUNE_PAGES.length;
-    this.tunePage = Math.min(this.tunePage, pages - 1);
-    this.line('tuneTitle', TEXT.tuneTitle, C, 108, { size: 44, lit: 0.5 });
-    this.dots(pages, this.tunePage, 144);
-    this.line('tunePage', TUNE_PAGES[this.tunePage], C, 176, { size: 30, lit: 0.45 });
-    this.drawReadout();
-    const rowAt = (i) => 294 + i * 80;
-    let row = 0;
-    if (this.tunePage === 0) {
-      const y = rowAt(row++);
-      const max = Math.min(ROW_MAX, 2 * chord(y + 16) - 90);
-      this.line('tune:hologram', TEXT.hologramRow, C, y, { size: 25, max, lit: 0.22 });
-      this.line('tune:hologram', this.settings.hologram ? TEXT.hologramRowOn : TEXT.hologramRowOff, C, y + 32, { size: 31, max, lit: 0.62, kind: 'value', key: 'hologram' });
-    }
-    for (const t of TUNING.filter((x) => x.page === this.tunePage && (!x.when || x.when(this.settings.holo)))) {
-      const y = rowAt(row++);
-      const max = Math.min(ROW_MAX, 2 * chord(y + 16) - 90);
-      this.line(`tune:${t.key}`, { v: t.v, s: t.s }, C, y, { size: 25, max, lit: 0.22 });
-      const text = tuningText(t, this.settings.holo[t.key]);
-      const value = this.line(`tune:${t.key}`, { v: text, s: text }, C, y + 32, { size: 31, max: 400, lit: 0.62, kind: 'value', key: t.key, numerals: true });
-      // Chevrons either side: the left half of the row steps down, the right half up.
-      for (const side of [-1, 1]) {
-        const x = C + side * 240;
-        this.cut((g, color) => {
-          g.strokeStyle = color;
-          g.lineWidth = 4;
-          g.lineCap = 'round';
-          g.beginPath();
-          g.moveTo(x - side * 8, y + 20);
-          g.lineTo(x + side * 6, y + 32);
-          g.lineTo(x - side * 8, y + 44);
-          g.stroke();
-        }, 0.45);
-      }
-      this.regions.pop(); // the value's own region gives way to the two halves
-      const top = value.y;
-      this.regions.push({ kind: 'step', id: `step:${t.key}`, key: t.key, by: -1, x: C - 280, y: top, w: 280, h: value.h });
-      this.regions.push({ kind: 'step', id: `step:${t.key}+`, key: t.key, by: 1, x: C, y: top, w: 280, h: value.h });
-    }
-    this.arrows(this.tunePage, pages);
-    this.glyphRow([{ name: 'centre', label: TEXT.centre }, { name: 'reset', label: TEXT.reset }, { name: 'back', label: TEXT.back }], GLYPHS_Y);
-  }
-
-  drawReadout() {
-    const lines = this.state.readout ?? [{ v: 'not tracking', s: 'Not tracking' }];
-    lines.slice(0, 2).forEach((text, i) => {
-      this.line(`readout${i}`, text, C, READOUT.y + 16 + i * 32, { size: 24, max: READOUT.w, lit: 0.4, numerals: true });
-    });
-  }
-
-  // New live figures on the tuning page: recut just their strip of the carving.
-  setReadout(lines) {
-    this.state.readout = lines;
-    if (this.page !== 'tune') return;
-    this.recutStrip(READOUT, () => this.drawReadout());
-  }
-
-  // Recut one strip of the carving as it now stands (by default, the page drawn again within it),
-  // quickly, without smoothing it away: live figures, a slider being drawn along.
-  recutStrip({ x, y, w, h }, draw = () => this.drawPage()) {
+  // Recut one strip of the carving as it now stands (the page drawn again within it), quickly,
+  // without smoothing it away: a slider being drawn along.
+  recutStrip({ x, y, w, h }) {
     if (this.phase !== 'still' || this.dirty) {
       this.dirty = true;
       return;
@@ -657,7 +590,7 @@ export class Engraving {
       c.rect(x, y, w, h);
       c.clip();
     }
-    draw();
+    this.drawPage();
     for (const c of g) c.restore();
     this.regions = keep;
     buildRelief(mask, glow, this.relief, false, { x: x - 4, y: y - 4, w: w + 8, h: h + 8 });
@@ -725,7 +658,7 @@ export class Engraving {
     const at = this.pointAt(x, y);
     if (!at) return false;
     const { px, py } = at;
-    const region = this.regionAt(px, py, ['value', 'step', 'button', 'slider']);
+    const region = this.regionAt(px, py, ['value', 'button', 'slider']);
     if (!region) return true;
     if (region.kind === 'value') {
       const option = OPTIONS.find((o) => o.key === region.key);
@@ -734,15 +667,6 @@ export class Engraving {
       this.settings[option.key] = next;
       this.dirty = true;
       this.onOption?.(option.key, next);
-    } else if (region.kind === 'step') {
-      const t = TUNING.find((x) => x.key === region.key);
-      const i = t.steps.indexOf(this.settings.holo[t.key]);
-      const next = t.steps[Math.max(0, Math.min(t.steps.length - 1, i + region.by))];
-      if (next !== this.settings.holo[t.key]) {
-        this.settings.holo[t.key] = next;
-        this.dirty = true;
-        this.onTune?.(t.key, next);
-      }
     } else if (region.kind === 'slider') {
       this.slide(region, x, y);
     } else if (region.kind === 'button') {
@@ -762,13 +686,8 @@ export class Engraving {
       turn(() => {
         this.page = 'rules';
       });
-    } else if (name === 'tune') {
-      turn(() => {
-        this.page = 'tune';
-        this.tunePage = 0;
-      });
     } else if (name === 'back') {
-      const to = this.page === 'rules' || this.page === 'tune' ? 'ways' : 'main';
+      const to = this.page === 'rules' ? 'ways' : 'main';
       turn(() => {
         this.page = to;
       });
@@ -781,8 +700,7 @@ export class Engraving {
     } else if (name === 'more' || name === 'prev') {
       const by = name === 'more' ? 1 : -1;
       turn(() => {
-        if (this.page === 'tune') this.tunePage = Math.max(0, this.tunePage + by);
-        else this.wayPage = Math.max(0, this.wayPage + by);
+        this.wayPage = Math.max(0, this.wayPage + by);
       });
     } else {
       this.onAction?.(name);
@@ -918,14 +836,6 @@ const GLYPHS = {
     g.arc(0, 0, 4.5, 0, Math.PI * 2);
     g.fill();
   },
-  lens(g) {
-    g.beginPath();
-    g.arc(0, 0, 30, 0, Math.PI * 2);
-    g.stroke();
-    g.beginPath();
-    g.arc(0, 0, 11, 0, Math.PI * 2);
-    g.fill();
-  },
   anew(g) {
     g.beginPath();
     g.arc(0, 0, 30, Math.PI * 0.62, Math.PI * 2.38);
@@ -953,38 +863,6 @@ const GLYPHS = {
     g.lineTo(6, -22);
     g.lineTo(-6, -12);
     g.stroke();
-  },
-  // The lens, with the lines of sight that tune it.
-  tune(g) {
-    g.beginPath();
-    g.arc(0, 0, 13, 0, Math.PI * 2);
-    g.stroke();
-    for (let i = 0; i < 6; i++) {
-      const a = (i * Math.PI) / 3;
-      g.beginPath();
-      g.moveTo(Math.cos(a) * 20, Math.sin(a) * 20);
-      g.lineTo(Math.cos(a) * 31, Math.sin(a) * 31);
-      g.stroke();
-    }
-  },
-  centre(g) {
-    g.beginPath();
-    g.arc(0, 0, 22, 0, Math.PI * 2);
-    g.stroke();
-    for (const [x, y] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
-      g.beginPath();
-      g.moveTo(x * 12, y * 12);
-      g.lineTo(x * 32, y * 32);
-      g.stroke();
-    }
-  },
-  reset(g) {
-    g.beginPath();
-    g.arc(0, 0, 28, Math.PI * 0.2, Math.PI * 1.8);
-    g.stroke();
-    g.beginPath();
-    g.arc(0, 0, 4.5, 0, Math.PI * 2);
-    g.fill();
   },
   // Starfleet's delta: an arrowhead, its sides gently bowed, its foot cut back in an arc, and a
   // star at its heart. It translates the carving.

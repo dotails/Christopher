@@ -37,25 +37,14 @@ export const TEXT = {
   testOff: { v: 'testing is not allowed', s: 'Testing the spin is not allowed' },
   lifeLost: { v: 'a life is lost', s: 'A life is lost' },
   quickens: { v: 'the spin quickens', s: 'The spin quickens' },
-  hologramOn: { v: 'it follows you', s: 'Hologram: the view follows you' },
-  hologramLooking: { v: 'looking for you', s: 'Hologram: looking for your face' },
-  hologramOff: { v: 'the view is still', s: 'Hologram off' },
-  hologramDenied: { v: 'the camera was refused', s: 'The hologram needs the front camera' },
-  hologramUnavailable: { v: 'no camera to follow you', s: 'No front camera for the hologram' },
   applied: { v: 'a new game begins', s: 'A new game begins' },
   // Glyph labels.
   ways: { v: 'ways', s: 'Ways to play' },
   test: { v: 'spin', s: 'Test the spin' },
-  lensOn: { v: 'eyes open', s: 'Hologram on' },
-  lensOff: { v: 'eyes closed', s: 'Hologram off' },
   anew: { v: 'anew', s: 'Begin anew' },
   rules: { v: 'rules', s: 'Rules' },
   back: { v: 'return', s: 'Return' },
   waysTitle: { v: 'ways to play', s: 'Ways to play' },
-  tune: { v: 'tune', s: 'Tune the hologram' },
-  tuneTitle: { v: 'the hologram', s: 'Hologram tuning' },
-  centre: { v: 'centre', s: 'Recentre' },
-  reset: { v: 'as made', s: 'Defaults' },
   rulesTitle: { v: 'the rules', s: 'The rules' },
   pending: { v: 'begin anew to play this way', s: 'Begin anew to play this way' },
   // The marks of the plays under each seat (the rules page names them).
@@ -66,9 +55,6 @@ export const TEXT = {
   markLoop: { v: 'a loop', s: 'a loop' },
   markFell: { v: 'fell', s: 'fell' },
   markTested: { v: 'tested', s: 'tested' },
-  hologramRow: { v: 'hologram', s: 'Hologram' },
-  hologramRowOn: { v: 'on the view follows you', s: 'On: the view follows you' },
-  hologramRowOff: { v: 'off touch to turn it on', s: 'Off: touch to turn it on' },
 };
 
 export const ringText = (k) => ({ v: `a ring of ${spell(k)}`, s: `A ring of ${k}` });
