@@ -8,7 +8,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { ROD_LENGTH as RULE_LENGTH } from './rules.js';
 import { SCALE, TUVOK } from './scene.js';
 
-// The rings game's t'an; the original kal-toh's are shorter (the game sets `length`).
+// A t'an of the nest zen begins from; each game sets the length its own t'an take (`length`).
 export const ROD_LENGTH = RULE_LENGTH * SCALE;
 
 const ease = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);

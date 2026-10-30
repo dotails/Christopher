@@ -1,7 +1,6 @@
 // Everything the kal-toh says. Each line is a pair: v, what is carved in Vulcan (letters only:
 // the Vulcan fonts carry no digits or punctuation, so numbers are spelled out), and s, its
 // Federation Standard translation.
-import { FORMS } from './rules.js';
 
 const NUMBERS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
   'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
@@ -20,12 +19,6 @@ export const TEXT = {
   title: { v: 'kaltoh', s: 'KAL-TOH' },
   begin: { v: 'find the order within the chaos', s: 'Find the order within the chaos' },
   translateGlyph: { v: 'translate', s: 'Translate' },
-  holds: { v: 'it holds', s: 'It holds' },
-  ringLost: { v: 'the ring could not hold', s: 'The ring could not hold' },
-  vulcanThinks: { v: 'the vulcan considers', s: 'The Vulcan considers' },
-  yourTurn: { v: 'your turn', s: 'Your turn' },
-  lifeLost: { v: 'a life is lost', s: 'A life is lost' },
-  quickens: { v: 'the spin quickens', s: 'The spin quickens' },
   applied: { v: 'a new game begins', s: 'A new game begins' },
   // Glyph labels. The glyph that begins anew is named for shaking the phone, which does the same.
   anew: { v: 'shake', s: 'Shake' },
@@ -38,62 +31,19 @@ export const TEXT = {
   markJoined: { v: 'joined', s: 'joined' },
   markPlaced: { v: 'placed', s: 'placed' },
   markHoop: { v: 'a hoop', s: 'a hoop' },
-  markRing: { v: 'a ring', s: 'a ring' },
   markLoop: { v: 'a loop', s: 'a loop' },
   markFell: { v: 'fell', s: 'fell' },
+  markForm: { v: 'a form', s: 'a form' },
 };
 
-export const ringText = (k) => ({ v: `a ring of ${spell(k)}`, s: `A ring of ${k}` });
-export const fellText = (n) => ({ v: n === 1 ? 'one tan falls' : `${spell(n)} tan fall`, s: n === 1 ? "A t'an falls" : `${n} t'an fall` });
 export const playerText = (i) => ({ v: `player ${spell(i + 1)}`, s: `Player ${i + 1}` });
-// A seat's name, carved over its mark.
-export const seatText = (i, vulcan) => (vulcan ? { v: 'the vulcan', s: 'The Vulcan' } : playerText(i));
 // So many of so many, as a seat's score: true joins of those tried, say.
 export const ofText = (x, o) => ({ v: `${spell(x)} of ${spell(o)}`, s: `${x}/${o}` });
-export const supplyText = (n) => ({ v: `${spell(n)} tan remain`, s: `${n} t'an remain` });
-
-export function scoreText(game, p) {
-  const mode = game.settings.mode;
-  if (mode === 'collapse') return { v: `${spell(p.lives)} ${p.lives === 1 ? 'life' : 'lives'}`, s: `${p.lives} ${p.lives === 1 ? 'life' : 'lives'}` };
-  if (mode === 'meditation') return { v: `${spell(game.moves)} moves`, s: `${game.moves} moves` };
-  return { v: spell(p.score), s: String(p.score) };
-}
-
-export function completeText(game) {
-  const form = game.settings.form;
-  if (game.settings.mode === 'meditation') {
-    return { v: `the ${form} is complete in ${spell(game.moves)} moves`, s: `The ${form} is complete in ${game.moves} moves` };
-  }
-  return winnerText(game, `the ${form} is complete`, `The ${form} is complete`);
-}
-
-export function winnerText(game, v = '', s = '') {
-  const w = game.winner;
-  const lead = v ? `${v} ` : '';
-  const leadS = s ? `${s}. ` : '';
-  if (w < 0) return { v: `${lead}no one prevails`, s: `${leadS}No one prevails` };
-  if (game.players[w].vulcan) return { v: `${lead}the vulcan prevails`, s: `${leadS}The Vulcan prevails` };
-  if (game.players.some((p) => p.vulcan)) return { v: `${lead}you prevail`, s: `${leadS}You prevail` };
-  if (game.players.length === 1) return { v: v || 'it is done', s: s || 'It is done' };
-  return { v: `${lead}player ${spell(w + 1)} prevails`, s: `${leadS}Player ${w + 1} prevails` };
-}
 
 export function rulesText(settings) {
+  if (settings.way === 'zen') return ZEN_RULES;
   if (settings.way === 'forms') return MANY_RULES;
-  if (settings.way !== 'rings') return CLASSIC_RULES;
-  const form = FORMS[settings.form] ?? FORMS.globe;
-  return [
-    { v: 'the tan cling where they touch', s: "The t'an cling where they touch" },
-    { v: 'all gathered about a centre mass', s: 'all gathered about a centre mass.' },
-    { v: 'it spins on a hidden axis', s: 'It spins on a hidden axis,' },
-    { v: 'each game another axis and speed', s: 'each game another axis and speed.' },
-    { v: 'place one tan touching two others', s: "Place one t'an touching two others" },
-    { v: 'no further apart than its length', s: 'no further apart than its length.' },
-    { v: 'a loop around the axis becomes a ring', s: 'A loop around the axis becomes a ring;' },
-    { v: 'what cannot bear the spin falls', s: 'what cannot bear the spin falls.' },
-    { v: `this form needs ${spell(form.rings)} rings`, s: `This form needs ${form.rings} rings.` },
-    { v: 'a ring scores its tan a fall costs them', s: "A ring scores its t'an; a fall costs them." },
-  ];
+  return CLASSIC_RULES;
 }
 
 // The original kal-toh's words (classic.js).
@@ -181,6 +131,41 @@ export function manyCompleteText(game, form) {
   const moves = st.joined + st.discord;
   return { v: `${name.v} in ${spell(moves)} moves`, s: `${name.s}, in ${moves} moves` };
 }
+
+// Zen's words (zen.js).
+export const ZEN = {
+  begin: { v: 'be still lay tan where you will', s: "Be still. Lay t'an where you will" },
+  nest: { v: 'the nest', s: 'The nest' },
+  rests: { v: 'it rests across them', s: 'It rests across them' },
+  oneMore: { v: 'one more and it takes a new form', s: "One more t'an, and it takes a new form" },
+  gathers: { v: 'it gathers itself into a new form', s: 'It gathers itself into a new form' },
+  aimSame: { v: 'lay its ends on two different tan', s: "Lay its ends on two different t'an" },
+};
+
+// How far it has come (zen-rules.js progress), under what just happened: the forms taken, and the
+// t'an placed toward the next.
+export function zenStatusText(p) {
+  if (p.complete) return { v: `all ${spell(p.forms)} forms taken fully formed`, s: `All ${p.forms} forms taken: fully formed` };
+  const placed = { v: `${spell(p.placed)} of ${spell(p.per)} tan`, s: `${p.placed} of ${p.per} t'an` };
+  if (!p.stage) return { v: `no form yet ${placed.v} toward the first`, s: `No form yet: ${placed.s} toward the first` };
+  return { v: `form ${spell(p.stage)} of ${spell(p.forms)} ${placed.v} toward the next`, s: `Form ${p.stage} of ${p.forms}: ${placed.s} toward the next` };
+}
+
+export const zenBecomesText = (form) => ({ v: `it becomes the ${form.v}`, s: `It becomes the ${form.s}` });
+export const zenWholeText = (form) => ({ v: `fully formed the ${form.v}`, s: `Fully formed: the ${form.s}` });
+
+const ZEN_RULES = [
+  { v: 'one mind alone no score and no spin', s: 'One mind alone: no score, no spin;' },
+  { v: 'nothing strains and nothing falls', s: 'nothing strains and nothing falls.' },
+  { v: 'it begins as a nest of tan', s: "It begins as a nest of t'an" },
+  { v: 'gathered about a centre mass', s: 'gathered about a centre mass.' },
+  { v: 'lay a tan across any two others', s: "Lay a t'an across any two others:" },
+  { v: 'it rests wherever its ends lie', s: 'it rests wherever its ends lie.' },
+  { v: 'every ten tan it takes a new form', s: "Every ten t'an, it takes a new form;" },
+  { v: 'what the form needs not fades away', s: 'what the form needs not fades away.' },
+  { v: 'five forms each richer than the last', s: 'Five forms, each richer than the last,' },
+  { v: 'and it is fully formed', s: 'and it is fully formed.' },
+];
 
 export function classicCompleteText(game) {
   if (game.players > 1) {

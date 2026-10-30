@@ -1,24 +1,22 @@
 // Plays the real game in headless Chromium and checks it end to end, through simulated touch.
 // First the original kal-toh, the way to play on first opening: the jumble grows, a t'an taken up
 // by one finger and then held by a second joins two true neighbours, tips too far apart for a t'an
-// are refused, a false bond falls
-// (the first tip's true neighbours glowing), nothing passes into the
-// stone, and t'an meeting at a junction are mitred to touch. Then, through the ways to play carved
-// on the one face under the base (with the shape the game builds beneath the name, and nothing to
-// turn to), many forms: a new form's jumble with a sample of its loops true and noise among it, a
-// true join, noise touched falling away, the inner form whole with struts at every junction and a
-// longer t'an in the tray, and a join on the struts' tips. Then (its further ways a page on, by
-// the arrows at the rim) the game of rings: a two-finger lift and placement, the Vulcan's reply
-// (whose turn it is told only under the board, the scene's light the same for both; the plays
-// carved under the seats), a ring,
+// are refused, a false bond falls (the first tip's true neighbours glowing), nothing passes into
+// the stone, and t'an meeting at a junction are mitred to touch. Then, through the ways to play
+// carved on the one face under the base (with the shape the game builds beneath the name, and
+// nothing to turn to), many forms for two players: a new form's jumble with a sample of its loops
+// true and noise among it, a true join, the turn passing (told only under the board, the scene's
+// light the same for both; each seat named, the plays carved under the seats), noise touched
+// falling away, the inner form whole with struts at every junction and a longer t'an in the tray,
+// and a join on the struts' tips. Then zen, alone: the nest, a t'an laid across two pieces by
+// touch, the five forms taken one after another, and the kal-toh fully formed and glowing. On it:
 // a drag on open space turning nothing, turning the base by the stone (the t'an lag, catch up, and
-// then hold perfectly still on it), spinning the
-// t'an by dragging their area, t'an never passing into the stone, turning the base over to read
-// its underside (whichever way it was turned, the carving reads with its top up), touching the
-// carving to translate all of it (Standard at first; remembered for next time), the rules a glyph
-// away and back, the ways on the face (the music's and the voice's sliders, pass and play, Shake to
-// begin anew), fallen t'an lying
-// where they fell until a new game, and shaking to begin anew. Nothing may be written on the
+// then hold perfectly still on it), two fingers twisting it, spinning the t'an by dragging their
+// area, t'an never passing into the stone, turning the base over to read its underside (whichever
+// way it was turned, the carving reads with its top up), touching the carving to translate all of
+// it (Standard at first; remembered for next time), the rules a glyph away and back, the ways on
+// the face (the room's and the voice's sliders, a value touched, Shake to begin anew), fallen t'an
+// lying where they fell until a new game, and shaking to begin anew. Nothing may be written on the
 // screen itself. Screenshots land in the directory given as the first argument.
 //
 // Run: node kaltoh/tools/browser-check.cjs [out-dir]
@@ -89,10 +87,6 @@ function check(condition, message) {
       await touch('touchEnd', []);
     };
     const waitFor = (names, timeout = 240000) => page.waitForFunction((n) => n.includes(window.__kaltoh?.phase), names, { timeout });
-    const state = () => page.evaluate(() => {
-      const k = window.__kaltoh;
-      return { phase: k.phase, moves: k.game.moves, rings: k.game.rings.filter((r) => !r.broken).length, current: k.game.current, rods: k.display.size };
-    });
     // The assembly's orientation on the base, and its place.
     const onBase = () => page.evaluate(() => {
       const m = window.__kaltoh.motion;
@@ -112,14 +106,12 @@ function check(condition, message) {
       }
       return best && { x: best.x, y: best.y };
     }, near);
-
-    // The original game is the way to play at first; these ways wait for the game of rings.
-    await page.addInitScript(() => {
-      if (!sessionStorage.getItem('kaltoh.check')) {
-        sessionStorage.setItem('kaltoh.check', '1');
-        localStorage.setItem('kaltoh.settings.v2', JSON.stringify({ opponent: 'adept', foresight: 'always' }));
-      }
+    // Whose turn it is is told only under the board: the scene's light is the same for every player.
+    const sceneLight = () => page.evaluate(() => {
+      const s = window.__kaltoh.stage;
+      return [s.rim.color.getHex(), s.ambient.groundColor.getHex(), document.querySelectorAll('.tint').length].join();
     });
+
     await page.goto(`${base}?seed=7`);
     await waitFor(['intro', 'play']);
     // The stone stands on the table, in the mess hall: the table's top at the floor, the stone and
@@ -308,8 +300,8 @@ function check(condition, message) {
     check(junctions.meetings > 20 && junctions.worst > -1e-4 && junctions.resting > 20,
       `where t'an meet at a junction their ends are mitred to touch, neither apart nor through each other (${junctions.resting} corners resting, closest ${junctions.worst.toExponential(1)})`);
 
-    // Turn the base over, and choose many forms among the ways to play carved on its face. A change
-    // of game waits for a new one.
+    // Turn the base over, and choose many forms among the ways to play carved on its face, for two
+    // players (as there are at first). A change of game waits for a new one.
     const where = (id, kind) => page.evaluate(([id, kind]) => window.__kaltoh.engraving.screenOf(id, kind), [id, kind]);
     const carved = (id) => page.evaluate((id) => window.__kaltoh.engraving.regions.some((r) => r.id === id), id);
     const recut = () => page.waitForFunction(() => window.__kaltoh.engraving.phase === 'still', null, { timeout: 30000 });
@@ -329,18 +321,19 @@ function check(condition, message) {
     };
     await turnOver();
     // One face holds it all: the name and the shape the game builds, the players (two at first,
-    // passing and playing), what just happened, the game and its ways, the music, the sound, the
+    // passing and playing), what just happened, the game and its ways, the room, the sound, the
     // voice and vibration, and the glyphs.
     check(await page.evaluate(() => {
       const e = window.__kaltoh.engraving;
       return e.page === 'main' && e.state.shape?.s === 'Two concentric icosidodecahedra' && window.__kaltoh.classic.game.players === 2
         && ['title', 'shape', 'name0', 'name1', 'event', 'row:way', 'row:players', 'slider:music', 'slider:sfx', 'slider:voice', 'row:haptics', 'rules', 'translate', 'anew']
           .every((id) => e.regions.some((r) => r.id === id));
-    }), 'turned over, one carved face holds the name, the shape it builds, the two players, what happened, the ways, the music, the sound, the voice and vibration');
+    }), 'turned over, one carved face holds the name, the shape it builds, the two players, what happened, the ways, the room, the sound, the voice and vibration');
     check(!(await carved('more')) && !(await carved('prev')) && !(await carved('row:language')), 'all of it, with no page to turn to (and no row for the script)');
     await tap(await where('row:way', 'value'));
     await sleep(500);
     check(await page.evaluate(() => window.__kaltoh.settings.way === 'forms' && window.__kaltoh.engraving.state.pending), 'touching the game changes it, to begin anew: many forms');
+    check(await page.evaluate(() => window.__kaltoh.settings.players === 2), 'two players take turns at it, as at first');
     check(await carved('note') && await page.evaluate(async () => {
       const { TEXT } = await import('/js/texts.js');
       return TEXT.pending.s === 'Shake to play this way' && TEXT.anew.s === 'Shake';
@@ -403,10 +396,14 @@ function check(condition, message) {
     }
     let formsJoin = await findFormsJoin('harmony');
     check(formsJoin, 'two true neighbours within a t\'an\'s reach can be found on screen');
+    const lightBefore = await sceneLight();
     const formsHeld = await place(formsJoin, '0e-forms-joining.png');
     check(formsHeld.pose && formsHeld.glow > 0.9, 'carried over two tips, the t\'an shows where it will join them');
     await page.waitForFunction(() => window.__kaltoh.forms.game.history.length >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
     check((await formsState()).history[0] === 'harmony', 'true neighbours join');
+    await sleep(1500);
+    check(await page.evaluate(() => window.__kaltoh.forms.game.current === 1) && await sceneLight() === lightBefore,
+      'the turn passes to the second player, and the scene\'s light is as it was: whose turn it is is told under the board');
     formsJoin = await findFormsJoin('noise');
     check(formsJoin, 'a tip of the noise within reach can be found on screen');
     const noiseBefore = (await formsState()).noise;
@@ -414,6 +411,10 @@ function check(condition, message) {
     await page.waitForFunction(() => window.__kaltoh.forms.game.history.length >= 2 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
     const touchedNoise = await formsState();
     check(touchedNoise.history[1] === 'discord' && touchedNoise.noise < noiseBefore, 'joining it to the noise is discord, and the noise falls away');
+    check(await sceneLight() === lightBefore, 'and on the first player\'s turn again the light is as it was');
+    const carvedPlays = await page.evaluate(() => (window.__kaltoh.engraving.state.plays ?? []).map((p) => p.player));
+    check(carvedPlays.includes(0) && carvedPlays.includes(1), `each player's plays are kept for the carving under their seat (${carvedPlays.length})`);
+    check(await carved('name0') && await carved('name1'), 'and each seat is named over its mark');
     // The rest of the inner form's loops closed (as players would close them): it is whole.
     for (let i = 0; i < 80; i++) {
       const left = await page.evaluate(async () => {
@@ -443,40 +444,30 @@ function check(condition, message) {
     await page.waitForFunction(() => window.__kaltoh.forms.game.presentOut.size >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
     check(true, 'the outer shell is built on the struts\' tips');
 
-    // Then the game of rings, whose many ways do not all fit on the face: an arrow at the rim
-    // turns to the rest.
+    // Then zen, alone and calm: chosen on the face, and begun.
     await turnOver();
     check(await page.evaluate(() => {
       const { state, page: carvedPage } = window.__kaltoh.engraving;
       return carvedPage === 'main' && state.shape?.s === window.__kaltoh.forms.form.s && /^Loops closed/.test(state.status?.s);
     }), 'many forms carves the name of its form beneath the title, and how many loops are closed');
+    // (Cutting the carving can take a software renderer many seconds.)
+    await recut();
     await tap(await where('row:way', 'value'));
     await sleep(500);
-    check(await page.evaluate(() => window.__kaltoh.settings.way === 'rings' && window.__kaltoh.engraving.state.pending), 'touching it again chooses the game of rings');
-    check(await carved('more') && !(await carved('prev')), 'the game of rings has more ways: an arrow at the rim turns to them');
-    await tap(await where('more', 'button'));
-    await page.waitForFunction(() => window.__kaltoh.engraving.wayPage === 1, null, { timeout: 10000 });
-    await recut();
-    await page.screenshot({ path: path.join(OUT, '0d-ways-page.png') });
-    check(await carved('prev'), 'and an arrow on the other side turns back');
-    await tap(await where('prev', 'button'));
-    await page.waitForFunction(() => window.__kaltoh.engraving.wayPage === 0, null, { timeout: 10000 });
-    await recut();
+    check(await page.evaluate(() => window.__kaltoh.settings.way === 'zen' && window.__kaltoh.engraving.state.pending), 'touching it again chooses zen');
+    await page.waitForFunction(() => !window.__kaltoh.engraving.dirty, null, { timeout: 60000 });
+    check(!(await carved('row:players')) && !(await carved('more')), 'zen is played alone: no players to choose, and its ways fit on one page');
     await page.evaluate(() => {
-      window.__kaltoh.seed = 42;
+      window.__kaltoh.seed = 7;
     });
     await tap(await where('anew', 'button'));
-    await page.waitForFunction(() => window.__kaltoh.way === 'rings', null, { timeout: 30000 });
+    await page.waitForFunction(() => window.__kaltoh.way === 'zen', null, { timeout: 30000 });
     await page.evaluate(() => window.__kaltoh.engraving.show('main'));
     await drag(await stoneSpot({ x: 206, y: 420 }), 0, 155);
     await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1, null, { timeout: 30000 });
     await waitFor(['play']);
     await level();
-    check(await page.evaluate(() => window.__kaltoh.falling.rods.length === 0), 'beginning anew plays the game of rings');
-
-    let s = await state();
-    check(s.rods >= 40, `the nest gathers about its centre mass (${s.rods} t'an)`);
-    await page.screenshot({ path: path.join(OUT, '1-nest.png') });
+    check(await page.evaluate(() => window.__kaltoh.falling.rods.length === 0), 'beginning anew plays zen, and what fell in many forms goes with the old game');
 
     // Let the assembly come to rest, so what is found on screen stays where it was found.
     async function settle() {
@@ -488,53 +479,6 @@ function check(condition, message) {
         last = now;
         await sleep(250);
       }
-    }
-
-    // Two t'an under two fingers that make a good placement (a ring, if wanted).
-    async function findMove(wantRing) {
-      await settle();
-      return page.evaluate((wantRing) => {
-        const k = window.__kaltoh;
-        const { game, R, AI } = k;
-        const ids = [...k.display.keys()].filter((id) => game.nest.rods[id]?.alive);
-        const spots = [0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9];
-        const eye = k.motion.toLocal(k.stage.camera.position, k.stage.camera.position.clone());
-        let fallback = null;
-        for (const ia of ids) {
-          for (const ib of ids) {
-            if (ia >= ib) continue;
-            for (const sa of spots) {
-              for (const sb of spots) {
-                const pa = k.rodScreen(ia, sa);
-                const pb = k.rodScreen(ib, sb);
-                if (!pa || !pb || Math.hypot(pa.x - pb.x, pa.y - pb.y) < 50) continue;
-                if (pa.y < 120 || pb.y < 120 || pa.y > 560 || pb.y > 560) continue;
-                // The t'an carried between fingers spread wide of the two lays its ends on them.
-                const hold = window.fingersFor(pa, pb);
-                if (!hold.onScreen) continue;
-                const ha = k.pickRod(hold.e1.x, hold.e1.y);
-                const hb = k.pickRod(hold.e2.x, hold.e2.y);
-                if (!ha || !hb || ha.rod !== ia || hb.rod !== ib) continue;
-                const steady = (p, id) => [[-5, 0], [5, 0], [0, -5], [0, 5]].every(([dx, dy]) => k.pickRod(p.x + dx, p.y + dy)?.rod === id);
-                if (!steady(hold.e1, ia) || !steady(hold.e2, ib)) continue;
-                const pose = R.placement(game, ha, hb, [eye.x, eye.y, eye.z]);
-                if (!pose.ok) continue;
-                const ring = AI.ringFor(game, pose);
-                const move = { f1: hold.f1, f2: hold.f2, ring: ring?.k ?? 0 };
-                const sure = () => [[-3, 0], [3, 0], [0, -3], [0, 3]].every(([dx, dy]) => {
-                  const ja = k.pickRod(hold.e1.x + dx, hold.e1.y + dy);
-                  const jb = k.pickRod(hold.e2.x + dx, hold.e2.y + dy);
-                  const p = ja && jb && R.placement(game, ja, jb, [eye.x, eye.y, eye.z]);
-                  return p?.ok && AI.ringFor(game, p);
-                });
-                if (!wantRing || (ring && sure())) return move;
-                fallback ??= move;
-              }
-            }
-          }
-        }
-        return wantRing ? null : fallback;
-      }, wantRing);
     }
 
     // Lift the t'an with two fingers from the tray, carry them to the pieces, let go.
@@ -561,8 +505,7 @@ function check(condition, message) {
       if (shot) await page.screenshot({ path: path.join(OUT, shot) });
       const held = await page.evaluate(() => {
         const k = window.__kaltoh;
-        const a = k.aim;
-        return { pose: k.way === 'rings' ? Boolean(a?.pose) : Boolean((k.way === 'classic' ? k.classic : k.forms).aimed), ring: a?.ring?.k ?? 0, glow: k.hand.glow };
+        return { pose: Boolean(k[k.way].aimed), glow: k.hand.glow };
       });
       await touch('touchEnd', [f2]);
       await sleep(30);
@@ -617,7 +560,7 @@ function check(condition, message) {
       if (shot) await page.screenshot({ path: path.join(OUT, shot) });
       const held = await page.evaluate(() => {
         const k = window.__kaltoh;
-        return { pose: k.way === 'rings' ? Boolean(k.aim?.pose) : Boolean((k.way === 'classic' ? k.classic : k.forms).aimed), glow: k.hand.glow };
+        return { pose: Boolean(k[k.way].aimed), glow: k.hand.glow };
       });
       await touch('touchEnd', [f1]);
       await sleep(30);
@@ -625,56 +568,97 @@ function check(condition, message) {
       return held;
     }
 
-    // 1. A plain move. Whose turn it is is told only under the board: the scene's light is the same
-    // for every player.
-    const sceneLight = () => page.evaluate(() => {
-      const s = window.__kaltoh.stage;
-      return [s.rim.color.getHex(), s.ambient.groundColor.getHex(), document.querySelectorAll('.tint').length].join();
+    // 1. Zen, alone and calm: it begins as a nest of t'an about a centre mass; a t'an laid across any
+    // two pieces rests there; every ten placed, the whole assembly takes the next of five forms, each
+    // with more rods than the last; then it is fully formed, and glows, and the carving says so.
+    // Nothing falls.
+    const zenState = () => page.evaluate(() => {
+      const k = window.__kaltoh;
+      const g = k.zen.game;
+      return { stage: g.stage, form: g.form, placed: g.placed, total: g.total, rods: g.rods.length, views: k.zen.views.size, complete: g.complete, length: g.length, tray: k.tray.length, carved: k.engraving.state.zen, shape: k.engraving.state.shape };
     });
-    const lightBefore = await sceneLight();
-    const first = await findMove(false);
-    check(first, 'a placement within reach can be found on screen');
-    const held = await place(first, '2-holding.png');
-    check(held.pose && held.glow > 0.9, 'carried over two pieces, the t\'an shows where it will rest, glowing blue');
-    await page.waitForFunction(() => window.__kaltoh.game.moves >= 1, null, { timeout: 60000 });
-    check(true, 'releasing places the t\'an');
-    await page.waitForFunction(() => window.__kaltoh.game.current === 1, null, { timeout: 60000 });
-    await sleep(1500);
-    check(await sceneLight() === lightBefore, 'on the second player\'s turn the scene\'s light is as it was: the turn is told under the board');
-    // 2. The Vulcan replies.
-    await page.waitForFunction(() => window.__kaltoh.phase === 'play' && window.__kaltoh.game.current === 0, null, { timeout: 240000 });
-    s = await state();
-    check(s.moves >= 2, `the Vulcan takes its turn (${s.moves} moves)`);
-    check(await sceneLight() === lightBefore, 'and so on the first player\'s');
-    const carvedPlays = await page.evaluate(() => (window.__kaltoh.engraving.state.plays ?? []).map((p) => p.player));
-    check(carvedPlays.includes(0) && carvedPlays.includes(1), `each player's plays are kept for the carving under their seat (${carvedPlays.length})`);
-    check(await carved('name0') && await carved('name1'), 'and each seat is named over its mark');
-    await page.screenshot({ path: path.join(OUT, '3-after-vulcan.png') });
-
-    // 3. Close a ring: by touch if one sits steadily under the fingers, else placed directly.
-    let ringMove = null;
-    for (let look = 0; look < 3 && !ringMove; look++) {
-      ringMove = await findMove(true);
-      if (!ringMove) await drag(await stoneSpot({ x: 206, y: 600 }), 60, 0);
-    }
-    const ringsBefore = (await state()).rings;
-    if (ringMove) {
-      const preview = await place(ringMove, '5-ring-preview.png');
-      check(preview.ring > 0, `foresight shows the ring the move would make (${preview.ring})`);
-    } else {
-      await page.evaluate(() => {
+    let zen = await zenState();
+    check(zen.stage === 0 && zen.rods >= 40 && zen.views === zen.rods && zen.carved?.taken === 0 && zen.shape?.s === 'The nest',
+      `zen: the nest gathers about its centre mass (${zen.rods} t'an), and the carving has it so`);
+    await page.screenshot({ path: path.join(OUT, '1-zen-nest.png') });
+    // Two pieces under the ends of the t'an carried between two fingers, steadily.
+    const zenMove = async () => {
+      await settle();
+      return page.evaluate(() => {
         const k = window.__kaltoh;
-        const pose = k.AI.candidateMoves(k.game, { limit: 900 }).find((p) => k.AI.ringFor(k.game, p));
-        if (pose) k.commit(pose);
+        const m = k.stage.assemblyRoot.matrixWorld;
+        const at = (v, s) => k.stage.toScreen(v.a.clone().lerp(v.b, s).applyMatrix4(m));
+        const steady = (p, id) => [[0, 0], [-4, 0], [4, 0], [0, -4], [0, 4]].every(([dx, dy]) => k.pickRod(p.x + dx, p.y + dy)?.rod === id);
+        const views = [...k.zen.views.values()];
+        for (const va of views) {
+          for (const vb of views) {
+            if (va.id >= vb.id) continue;
+            for (const [sa, sb] of [[0.5, 0.5], [0.3, 0.7], [0.7, 0.3], [0.3, 0.3], [0.7, 0.7]]) {
+              const pa = at(va, sa);
+              const pb = at(vb, sb);
+              if (Math.hypot(pa.x - pb.x, pa.y - pb.y) < 50 || [pa, pb].some((p) => p.y < 120 || p.y > 560)) continue;
+              const hold = window.fingersFor(pa, pb);
+              if (hold.onScreen && steady(hold.e1, va.id) && steady(hold.e2, vb.id)) return { ...hold, pieces: [va.id, vb.id] };
+            }
+          }
+        }
+        return null;
       });
+    };
+    const across = await zenMove();
+    check(across, 'two pieces under the ends of a held t\'an can be found on screen');
+    const zenHeld = await place(across, '2-zen-holding.png');
+    check(zenHeld.pose && zenHeld.glow > 0.9, 'carried with its ends on any two pieces, the t\'an shows where it will rest across them, glowing blue');
+    await page.waitForFunction(() => window.__kaltoh.zen.game.total === 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
+    zen = await zenState();
+    check(zen.rods === zen.views && zen.placed === 1 && zen.carved?.placed === 1, 'letting go, it rests across them: one of ten toward the next form, the carving says');
+    // The rest laid through the game's own hand, as if by touch (fifty placed by touch would take
+    // too long here): each across two pieces chosen at random.
+    const layOne = () => page.evaluate(async () => {
+      const Z = await import('/js/zen-rules.js');
+      const G = await import('/js/geom.js');
+      const k = window.__kaltoh;
+      const g = k.zen.game;
+      const rng = (window.zenRng ??= G.mulberry32(5));
+      const eye = k.motion.toLocal(k.stage.camera.position, k.stage.camera.position.clone());
+      for (let tries = 0; tries < 400; tries++) {
+        const a = g.rods[Math.floor(rng() * g.rods.length)];
+        const b = g.rods[Math.floor(rng() * g.rods.length)];
+        if (a.id === b.id) continue;
+        const pose = Z.placement(g, { rod: a.id, s: 0.2 + rng() * 0.6 }, { rod: b.id, s: 0.2 + rng() * 0.6 }, [eye.x, eye.y, eye.z]);
+        if (pose.ok && pose.length < g.length * 1.6) return Boolean(k.zen.commit(pose).transform);
+      }
+      return null;
+    });
+    const zenEdges = (form) => page.evaluate(async (form) => (await import('/js/forms-rules.js')).buildForm(form).edges.length, form);
+    let taken = 0;
+    const rodsOfForms = [];
+    for (let i = 0; i < 60 && !(await zenState()).complete; i++) {
+      await waitFor(['play']);
+      const transformed = await layOne();
+      if (transformed === null) check(false, 'a placement across two pieces can be laid');
+      if (!transformed) continue;
+      taken += 1;
+      if (taken === 1) {
+        await page.waitForFunction(() => [...window.__kaltoh.zen.views.values()].some((v) => v.anim?.kind === 'glide' && v.anim.t > v.anim.delay + 0.4), null, { timeout: 60000 });
+        await page.screenshot({ path: path.join(OUT, '3-zen-taking-form.png') });
+      }
+      await waitFor(['play', 'complete']);
+      zen = await zenState();
+      const edges = await zenEdges(zen.form);
+      rodsOfForms.push(edges);
+      check(zen.stage === taken && zen.rods === edges && zen.views === edges && zen.placed === 0 && zen.carved?.taken === taken && (zen.complete || Math.abs(zen.tray - zen.length * 1.5) < 1e-9),
+        `ten more placed, it takes form ${taken} of five: the ${zen.shape?.s}, its ${edges} rods each a t'an${zen.complete ? '' : ', and the tray brings one of their length'}`);
+      if (taken === 1) await page.screenshot({ path: path.join(OUT, '4-zen-form.png') });
     }
-    await sleep(900);
-    await page.screenshot({ path: path.join(OUT, '6-ring-forming.png') });
-    await page.waitForFunction((n) => window.__kaltoh.game.rings.length > n, ringsBefore, { timeout: 30000 });
-    check(true, 'closing a loop around the axis makes a ring');
-    await page.waitForFunction(() => ['play', 'over', 'complete'].includes(window.__kaltoh.phase) && window.__kaltoh.game.current === 0, null, { timeout: 240000 });
+    check(taken === 5 && zen.complete && rodsOfForms.every((n, i) => i === 0 || n > rodsOfForms[i - 1]), `five forms taken, each with more rods than the last (${rodsOfForms.join(', ')})`);
+    await page.waitForFunction(() => window.__kaltoh.zen.glow > 0.99, null, { timeout: 60000 });
+    const zenWhole = await page.evaluate(() => ({ visible: window.__kaltoh.tray.visible, event: window.__kaltoh.engraving.state.event, carved: window.__kaltoh.engraving.state.zen, fell: window.__kaltoh.falling.rods.length }));
+    check(zenWhole.carved?.complete && !zenWhole.visible && /fully formed/i.test(zenWhole.event.s), `it is fully formed, and glows; the carving says so (${zenWhole.event.s})`);
+    check(zenWhole.fell === 0, 'and nothing fell');
+    await page.screenshot({ path: path.join(OUT, '5-zen-whole.png') });
 
-    // 4. A drag on open space below the stone, where a finger reaching for the tray might land, turns
+    // 2. A drag on open space below the stone, where a finger reaching for the tray might land, turns
     // nothing. One on the stone turns it: the t'an lag, catch up, then hold perfectly still on it.
     await settle();
     const start = await onBase();
@@ -745,7 +729,7 @@ function check(condition, message) {
     await twist(-40);
     await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 60000, polling: 100 });
 
-    // 5. Drag on the t'an's area, between the t'an: the assembly turns on the base; the base does not.
+    // 3. Drag on the t'an's area, between the t'an: the assembly turns on the base; the base does not.
     const between = await page.evaluate(() => {
       const k = window.__kaltoh;
       for (let y = 220; y < 480; y += 8) for (let x = 110; x < 310; x += 8) if (k.touchesAssembly(x, y) && !k.pickRod(x, y, 10)) return { x, y };
@@ -758,10 +742,10 @@ function check(condition, message) {
     const after = await onBase();
     check(differ(before.rel, after.rel, 0.05), 'dragging the t\'an\'s area turns the assembly on its base');
     check(!differ(before.base, after.base, 1e-6), 'without turning the base');
-    const clearance = await page.evaluate(() => window.nearest([...window.__kaltoh.display.values()].map((e) => [e.wa, e.wb])));
+    const clearance = await page.evaluate(() => window.nearest(window.__kaltoh.zen.worldRods().map(([a, b]) => [a, b])));
     check(clearance > -0.002, `the t'an never pass into the stone (closest ${clearance.toFixed(3)})`);
 
-    // 6. Turn the base over: its underside comes to the eye to be read, top up whichever way the
+    // 4. Turn the base over: its underside comes to the eye to be read, top up whichever way the
     // base had been turned before.
     await turnOver();
     check(true, 'turned over, the base brings its carved underside to the eye');
@@ -796,8 +780,8 @@ function check(condition, message) {
     await recut();
     check(await page.evaluate(() => window.__kaltoh.engraving.standard) && await script() === 'standard,standard', 'touched again, it returns all of it to Standard, and remembers that');
 
-    // 7. The rules, a glyph away, and back; then the ways on the face: the music's slider, pass and
-    // play, and the glyph named Shake to begin anew.
+    // 5. The rules, a glyph away, and back; then the ways on the face: the room's slider, the voice's,
+    // a value touched, and the glyph named Shake to begin anew.
     await tap(await where('rules', 'button'));
     await page.waitForFunction(() => window.__kaltoh.engraving.page === 'rules', null, { timeout: 30000 });
     await recut();
@@ -814,7 +798,7 @@ function check(condition, message) {
       const r = window.__kaltoh.engraving.regions.find((x) => x.id === 'slider:music');
       return r && { x0: r.x0, x1: r.x1, y0: r.y0, v: window.__kaltoh.settings.music };
     });
-    check(knob, 'the music has a slider on the face, and so do the sound effects');
+    check(knob, 'the room has a slider on the face, and so do the sound effects');
     const canvasPoint = (px, py) => page.evaluate(([px, py]) => {
       const e = window.__kaltoh.engraving;
       e.regions.push({ kind: 'probe', id: 'probe', x: px - 1, y: py - 1, w: 2, h: 2 });
@@ -860,17 +844,22 @@ function check(condition, message) {
     const raised = await voice();
     check(voiced.now === 1 && Math.abs(lowered.now - 0.3) < 0.06 && lowered.saved === lowered.now && !lowered.pending && raised.now === 1 && raised.saved === 1,
       `the voice has a slider of its own, full at first, its level remembered and waiting for no new game (lowered to ${Math.round(lowered.now * 100)}%)`);
-    for (let i = 0; i < 4 && (await page.evaluate(() => window.__kaltoh.settings.opponent)) !== 'none'; i++) {
-      await tap(await where('row:opponent', 'value'));
-      await sleep(400);
-    }
-    check(await page.evaluate(() => window.__kaltoh.settings.opponent === 'none'), 'touching a way\'s value changes it');
+    // Touching a value changes it: vibration, say, which does not wait for a new game.
+    const haptics = await page.evaluate(() => window.__kaltoh.settings.haptics);
+    await tap(await where('row:haptics', 'value'));
+    await sleep(400);
+    check(await page.evaluate((h) => window.__kaltoh.settings.haptics !== h && !window.__kaltoh.engraving.state.pending, haptics),
+      'touching a way\'s value changes it (vibration, which needs no new game)');
+    await tap(await where('row:haptics', 'value'));
+    await sleep(400);
+    const seedNow = await page.evaluate(() => window.__kaltoh.game.seed);
     await tap(await where('anew', 'button'));
     await page.waitForFunction(() => window.__kaltoh.phase === 'dissolving' || window.__kaltoh.phase === 'intro', null, { timeout: 20000 });
     await waitFor(['play']);
-    check(await page.evaluate(() => window.__kaltoh.game.players.every((p) => !p.vulcan)), 'a new game begins with the new ways');
+    check(await page.evaluate((seed) => window.__kaltoh.way === 'zen' && window.__kaltoh.game.seed !== seed && window.__kaltoh.game.stage === 0, seedNow),
+      'begun anew, a new game of zen gathers from the nest');
 
-    // 8. Fallen t'an lie where they fell until a new game: some on the stone's lip, some on the
+    // 6. Fallen t'an lie where they fell until a new game: some on the stone's lip, some on the
     // floor in front of it - and none in the stone.
     await drag(await stoneSpot({ x: 206, y: 420 }), 0, 155);
     await page.waitForFunction(() => window.__kaltoh.stage.view.read.k < 0.1 && !window.__kaltoh.engraving.seen, null, { timeout: 30000 });
@@ -910,7 +899,7 @@ function check(condition, message) {
     check(fallen.onStone > 0 && lying > -0.002, `nor do they pass into the stone (closest ${lying.toFixed(3)})`);
     await page.screenshot({ path: path.join(OUT, '10c-fallen.png') });
 
-    // 9. Shake for three seconds to begin anew; what had fallen goes with the old game.
+    // 7. Shake for three seconds to begin anew; what had fallen goes with the old game.
     await pace();
     const seedBefore = await page.evaluate(() => window.__kaltoh.game.seed);
     for (let i = 0; i < 400; i++) {
@@ -922,10 +911,11 @@ function check(condition, message) {
       await sleep(60);
     }
     await page.waitForFunction((seed) => window.__kaltoh.game.seed !== seed && window.__kaltoh.phase === 'play', seedBefore, { timeout: 240000 });
-    check(true, 'shaking begins anew');
+    check(await page.evaluate(() => window.__kaltoh.way === 'zen' && window.__kaltoh.game.stage === 0), 'shaking begins anew: zen, from the nest');
     await page.waitForFunction(() => window.__kaltoh.falling.rods.length === 0, null, { timeout: 30000 });
     check(true, 'and the fallen t\'an fade with the old game');
     await page.screenshot({ path: path.join(OUT, '11-anew.png') });
+
     check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors.join(' | ')}` : ''}`);
   } finally {
     await browser.close();

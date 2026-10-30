@@ -17,7 +17,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT } from './scene.js';
 import { OPTIONS, UNSHAPING } from './settings.js';
-import { TEXT, vulcanOnly, scoreText, rulesText, seatText } from './texts.js';
+import { TEXT, vulcanOnly, rulesText, playerText } from './texts.js';
 
 const SIZE = 1024;
 const C = SIZE / 2;
@@ -145,7 +145,7 @@ export class Engraving {
     this.page = 'main';
     this.wayPage = 0;
     this.standard = settings.script !== 'vulcan'; // which script is cut now
-    this.state = { game: null, event: TEXT.begin };
+    this.state = { event: TEXT.begin };
     this.regions = [];
     this.dirty = true;
     this.change = null; // what is to be cut once the carving has smoothed away
@@ -495,19 +495,23 @@ export class Engraving {
     this.glyphs({ name: 'rules', label: TEXT.rules });
   }
 
-  // The players: a mark each (a diamond for a Vulcan), filled for whose turn it is, in a ring
-  // painted their colour, and a score. With others at the board, each seat is named over its
-  // mark and its plays are marked beneath. Whose turn it is is told here, and only here.
+  // The players: a mark each, filled for whose turn it is, in a ring painted their colour, and a
+  // score. With others at the board, each seat is named over its mark and its plays are marked
+  // beneath. Whose turn it is is told here, and only here. Zen, played alone, has no seats: its
+  // progress stands in their place.
   drawSeats() {
-    const { game } = this.state;
-    const seats = this.state.seats ?? game?.players.map((p, i) => ({ vulcan: p.vulcan, now: i === game.current && !game.over, score: scoreText(game, p) })) ?? [];
+    if (this.state.zen) {
+      this.zenProgress(this.state.zen, SEATS_Y);
+      return;
+    }
+    const seats = this.state.seats ?? [];
     const plays = this.state.plays ?? [];
     const named = seats.length > 1;
     // Alone, the mark and score sit lower, midway down the space the names and plays would take.
     const y = named ? SEATS_Y : SEATS_Y + 22;
     seats.forEach((seat, i) => {
       const x = C + (i - (seats.length - 1) / 2) * 170;
-      if (named) this.line(`name${i}`, seatText(i, seat.vulcan), x, y - 38, { size: 27, max: 160, lit: seat.now ? 0.5 : 0.24 });
+      if (named) this.line(`name${i}`, playerText(i), x, y - 38, { size: 27, max: 160, lit: seat.now ? 0.5 : 0.24 });
       this.paint((g) => {
         g.strokeStyle = SEAT_PAINT[i % SEAT_PAINT.length];
         g.lineWidth = 6;
@@ -520,15 +524,7 @@ export class Engraving {
         g.strokeStyle = color;
         g.lineWidth = 3;
         g.beginPath();
-        if (seat.vulcan) {
-          g.moveTo(x, y - 11);
-          g.lineTo(x + 11, y);
-          g.lineTo(x, y + 11);
-          g.lineTo(x - 11, y);
-          g.closePath();
-        } else {
-          g.arc(x, y, 10, 0, Math.PI * 2);
-        }
+        g.arc(x, y, 10, 0, Math.PI * 2);
         if (seat.now) g.fill();
         else g.stroke();
       }, seat.now ? 0.95 : 0.3);
@@ -545,6 +541,35 @@ export class Engraving {
       const my = y + Math.floor(i / 7) * 18;
       this.cut((g, color) => MARKS[mark]?.(g, mx, my, color), now ? 0.75 : 0.4);
     });
+  }
+
+  // Zen keeps no seats: where they would be (from height y), its progress. A ringed dot for each of
+  // its forms taken (a bare ring for each still to come), and beneath, a dot for each t'an placed
+  // toward the next.
+  zenProgress({ forms, taken, placed, per, complete }, y = 210) {
+    const row = (count, done, y, gap, size, mark) => {
+      for (let i = 0; i < count; i++) {
+        const x = C + (i - (count - 1) / 2) * gap;
+        const on = i < done;
+        this.cut((g, color) => {
+          g.save();
+          g.translate(x, y);
+          g.scale(size, size);
+          if (on) {
+            MARKS[mark](g, 0, 0, color);
+          } else {
+            g.strokeStyle = color;
+            g.lineWidth = 1.4;
+            g.beginPath();
+            g.arc(0, 0, mark === 'ring' ? 7 : 4.6, 0, Math.PI * 2);
+            g.stroke();
+          }
+          g.restore();
+        }, on ? 0.8 : 0.3);
+      }
+    };
+    row(forms, taken, y, 50, 2.1, 'ring');
+    if (!complete) row(per, placed, y + 52, 27, 1.3, 'join');
   }
 
   visibleOptions() {
@@ -632,10 +657,10 @@ export class Engraving {
       const y = 214 + i * 46;
       this.line(`r${i}`, text, C, y, { size: 28, max: 2 * chord(y) - 80 });
     });
-    // What the marks beneath each seat mean.
-    const legend = this.settings.way === 'rings' ? [['join', TEXT.markPlaced], ['ring', TEXT.markRing]]
-      : [['join', TEXT.markJoined], ['ring', this.settings.way === 'forms' ? TEXT.markLoop : TEXT.markHoop]];
-    legend.push(['fall', TEXT.markFell]);
+    // What the marks beneath each seat mean (in zen, which has no seats, the marks of its progress;
+    // nothing falls there).
+    const legend = this.settings.way === 'zen' ? [['ring', TEXT.markForm], ['join', TEXT.markPlaced]]
+      : [['join', TEXT.markJoined], ['ring', this.settings.way === 'forms' ? TEXT.markLoop : TEXT.markHoop], ['fall', TEXT.markFell]];
     legend.forEach(([mark, label], i) => {
       const x = C + (i - (legend.length - 1) / 2) * 168;
       this.cut((g, color) => MARKS[mark](g, x - 52, 690, color), 0.6);
@@ -846,8 +871,9 @@ function buildRelief(mask, glow, out, full, rect = null) {
 }
 
 // The glyphs, drawn about their centre.
-// The marks of the plays under each seat: a dot for a true join (or a t'an placed), a ringed dot
-// for a ring or a great hoop, a cross where t'an fell.
+// The marks of the plays under each seat: a dot for a true join, a ringed dot for a great hoop or a
+// loop closed, a cross where t'an fell (and in zen's progress, a ringed dot for a form taken and a
+// dot for a t'an placed).
 const MARKS = {
   join(g, x, y, color) {
     g.fillStyle = color;
