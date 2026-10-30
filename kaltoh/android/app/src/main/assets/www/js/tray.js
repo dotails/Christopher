@@ -2,8 +2,8 @@
 // The resting t'an lies on the glass itself (scene.js), so it keeps its place and size on the
 // screen however the view draws near, and it is drawn over everything else; it is large enough
 // there for two fingers. Taken up by one finger it dangles from it, swinging on the glass, so it
-// is plain a second finger is wanted, drawing in to the size it will be at the kal-toh as the
-// finger rises; held by two, it travels out to the kal-toh and is seen at its scale.
+// is plain a second finger is wanted, as large as it lay in the tray (a shade smaller as it is
+// raised); held by two, it travels out to the kal-toh and is seen at its scale.
 import * as THREE from '../vendor/three.module.min.js';
 import { ROD_LENGTH as RULE_LENGTH } from './rules.js';
 import { SCALE, TUVOK } from './scene.js';
@@ -17,8 +17,7 @@ const RAISE = 160; // px a finger carries the t'an up from the tray for it to dr
 const DROOP = 3600; // how hard a t'an hanging from one finger is pulled down the screen (px/s^2)
 const SWAY = 1.4; // how fast its swinging dies away (per second)
 const SLIP = 0.22; // how long it takes to slip through the finger to hang by its end (s)
-const right = new THREE.Vector3();
-const side = new THREE.Vector3();
+const HELD_SMALLER = 0.1; // how much smaller it hangs, raised from the tray, than it lay there
 
 export class Tray {
   constructor(stage) {
@@ -137,15 +136,6 @@ export class Hand {
     this.carried.y = y;
   }
 
-  // How long the t'an looks on screen out at the kal-toh, in px.
-  atKaltoh() {
-    const { camera, assemblyRoot, toScreen } = this.stage;
-    right.set(1, 0, 0).applyQuaternion(camera.quaternion).multiplyScalar(this.tray.length / 2);
-    const p = toScreen(side.copy(assemblyRoot.position).add(right));
-    const q = toScreen(side.copy(assemblyRoot.position).sub(right));
-    return Math.hypot(p.x - q.x, p.y - q.y);
-  }
-
   // Follow the fingers: rest exactly where it would be placed when the placement is good,
   // otherwise hang between the touched points (or the fingers) at the kal-toh's depth.
   follow(f1, f2, { pose, touchA, touchB, anchor, refused = false }) {
@@ -203,12 +193,11 @@ export class Hand {
     if (this.carried) {
       // On the glass, hanging from the finger: its far end swings under the finger, pulled down
       // the screen and dragged along as the finger moves, the t'an slipping through the finger to
-      // hang by its end. Raised from the tray, it draws in to the size it will be at the kal-toh
-      // (and from the tray's breadth to its own).
-      const { size, glass } = this.stage;
+      // hang by its end. As large as it lay in the tray, a shade smaller once raised from it.
+      const { size } = this.stage;
       const c = this.carried;
       const s = ease(clamp01((c.y0 - c.y) / RAISE));
-      const length = size.width / 2 + (this.atKaltoh() - size.width / 2) * s;
+      const length = (size.width / 2) * (1 - HELD_SMALLER * s);
       c.above *= Math.exp(-dt / SLIP);
       const step = Math.min(dt, 1 / 30);
       const vx = (c.low.x - c.lowBefore.x) * Math.exp(-SWAY * step);
@@ -225,7 +214,7 @@ export class Hand {
       const ends = c.byB ? [this.goalB, this.goalA] : [this.goalA, this.goalB];
       this.stage.onGlass(c.x - dx * top, c.y - dy * top, ends[0]);
       this.stage.onGlass(c.low.x, c.low.y, ends[1]);
-      this.scaleGoal = ((length * glass.width) / (size.width * this.tray.length)) * (2 - s);
+      this.scaleGoal = this.tray.widthScale * (1 - HELD_SMALLER * s);
     }
     const k = 1 - Math.exp(-dt / 0.045);
     this.a.lerp(this.goalA, k);

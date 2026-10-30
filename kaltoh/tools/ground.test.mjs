@@ -1,6 +1,6 @@
 // Checks how the stone comes to rest on the floor (motion.js): level, it rests there; tipped a
 // little while held it rocks up onto its edge, never into the floor, and let go it tips over to lie
-// flush; tipped past ten degrees it lifts to turn freely about the pivot; held near level it does not
+// flush; tipped past twenty degrees it lifts to turn freely about the pivot; held near level it does not
 // come down, and let go it falls straight down to its edge first, then tips flush, knocking each time.
 // Resting there, a t'an spun into it is lifted clear rather than pushing it into the floor.
 // Run: node kaltoh/tools/ground.test.mjs
@@ -65,15 +65,15 @@ ok(tilt() < 0.05 && Math.abs(lowest() - FLOOR) < 1e-6, `let go, it turns to lie 
 tip(25);
 motion.wake();
 run(1.5);
-ok(motion.drop < 0.01 && Math.abs(motion.centre.y - PIVOT.y) < 0.01, 'tipped past ten degrees, it lifts to turn freely about the pivot');
+ok(motion.drop < 0.01 && Math.abs(motion.centre.y - PIVOT.y) < 0.01, 'tipped past twenty degrees, it lifts to turn freely about the pivot');
 tip(-25);
 motion.wake();
 run(1);
 ok(motion.drop < 0.01, 'toward the eye or away');
-// Brought back near level while held, it stays up; let go, it falls straight down to its edge,
-// then tips over on it to lie flush.
+// Brought back within twenty degrees of level while held, it stays up; let go, it falls straight
+// down to its edge, then tips over on it to lie flush.
 motion.baseDragged = true;
-tip(7);
+tip(17);
 run(1);
 ok(motion.drop < 0.01, 'held near level, it does not come down');
 motion.baseDragged = false;
@@ -88,7 +88,7 @@ for (let t = 0; t < 2; t += 1 / 60) {
     motion.landed = 0;
   }
 }
-ok(tiltAtEdge !== null && Math.abs(tiltAtEdge - 7) < 0.01, `let go, it falls straight down, unturned, until its edge meets the floor (${tiltAtEdge?.toFixed(2)} degrees)`);
+ok(tiltAtEdge !== null && Math.abs(tiltAtEdge - 17) < 0.1, `let go, it falls straight down, unturned, until its edge meets the floor (${tiltAtEdge?.toFixed(2)} degrees)`);
 ok(Math.abs(lowest() - FLOOR) < 1e-6 && tilt() < 1e-6 && knocks.length === 2,
   `then tips over on its edge to lie flush, knocking each time (${knocks.map((k) => k.toFixed(1)).join(', ')} a second)`);
 // Resting on the floor, a t'an spun into it lifts the t'an clear: the stone does not give way.

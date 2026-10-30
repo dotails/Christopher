@@ -575,8 +575,8 @@ function check(condition, message) {
       await sleep(600);
       if (shot) await page.screenshot({ path: path.join(OUT, shot.replace('.png', '-one.png')) });
       // It dangles from the finger, swinging: one end at the finger, the rest hanging down the screen
-      // below it (watched for a second, through its swing); carried up from the tray, it draws in to
-      // the size it will be at the kal-toh.
+      // below it (watched for a second, through its swing); carried up from the tray, it stays about
+      // as large as it lay there.
       let carried = null;
       for (let i = 0; i < 10; i++) {
         const now = await page.evaluate((f) => {
@@ -586,14 +586,14 @@ function check(condition, message) {
           const near = Math.hypot(a.x - f.x, a.y - f.y) < Math.hypot(b.x - f.x, b.y - f.y);
           const [top, low] = near ? [a, b] : [b, a];
           const length = Math.hypot(b.x - a.x, b.y - a.y);
-          return { off: Math.hypot(top.x - f.x, top.y - f.y), drop: (low.y - f.y) / length, length, own: k.hand.atKaltoh() };
+          return { off: Math.hypot(top.x - f.x, top.y - f.y), drop: (low.y - f.y) / length, length, tray: k.stage.size.width / 2 };
         }, f1);
         carried = carried ? { ...now, off: Math.max(carried.off, now.off), drop: Math.max(carried.drop, now.drop) } : now;
         await sleep(100);
       }
       check(carried.off < 0.12 * carried.length + 4 && carried.drop > 0.85,
         `it dangles from the finger (its end ${carried.off.toFixed(1)} px from it, hanging down ${(carried.drop * 100).toFixed(0)}% of its length)`);
-      check(Math.abs(carried.length - carried.own) < 6, `drawing in to the size it will be at the kal-toh (${carried.length.toFixed(0)} px long)`);
+      check(carried.length > 0.85 * carried.tray && carried.length <= carried.tray + 1, `about as large as it lay in the tray (${carried.length.toFixed(0)} of ${carried.tray.toFixed(0)} px long)`);
       const f2 = { id: 2, x: move.f2.x, y: move.f2.y };
       await touch('touchStart', [f1, f2]);
       await sleep(60);

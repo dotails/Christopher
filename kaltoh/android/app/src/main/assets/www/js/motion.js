@@ -11,7 +11,7 @@
 // own momentum, or spun) the base gives way just enough and comes back; when the base is turned
 // into the t'an they are bumped aside and drawn back into place.
 //
-// Let go level - its foot within ten degrees of facing straight down - the stone comes down to rest on
+// Let go level - its foot within twenty degrees of facing straight down - the stone comes down to rest on
 // the floor, and the t'an with it: first it falls straight down until its lowest edge meets the
 // floor, then it tips over on that edge until its foot lies flush, each with a knock. Held, it never
 // comes down, only rises as it must: tipped further, toward the eye or away, it is lifted back to turn
@@ -30,7 +30,7 @@ const HOME = 30; // how firmly it is drawn back to the pivot after a bump (1/s^2
 const CLEAR = 0.022; // how far a t'an's centre line stays from the stone: half its thickness and a hair
 const SAMPLE = 0.02; // a t'an is tested against the stone this often along its length (world units)
 const BASE_RETURN = 0.6; // seconds for a base that gave way to come back
-const LEVEL = Math.cos((10 * Math.PI) / 180); // within ten degrees of upright, the stone rests on the floor
+const LEVEL = Math.cos((20 * Math.PI) / 180); // within twenty degrees of upright, the stone rests on the floor
 const FALL = 9; // how fast it falls to the floor (world units/s^2)
 const LIFT = 45; // how firmly it is lifted back (1/s^2, critically damped)
 const TIP = 7; // how fast, resting on its edge, it tips over to lie flush (rad/s^2)
@@ -224,7 +224,7 @@ export class Motion {
     let room = this.room();
     this.flushing = false;
     if (this.baseDragged || !level) {
-      // Held, it never comes down: it only rises as it must (tipped past ten degrees, lifted back to
+      // Held, it never comes down: it only rises as it must (tipped past twenty degrees, lifted back to
       // turn freely; tipped a little, rocked up onto its edge).
       this.dropTarget = level ? Math.min(this.drop, room) : 0;
       this.tipW = 0;
