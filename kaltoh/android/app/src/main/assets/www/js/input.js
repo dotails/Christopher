@@ -16,7 +16,7 @@ const GRAB_MARGIN = 16; // a finger that only just misses the tray's t'an still 
 const TURN_RATE = 1.2; // half-turns per screen width
 const TAP_SLOP = 10;
 const TAP_TIME = 600; // a touch held still no longer than this is a tap
-const ZOOM = [0.45, 1.3];
+const ZOOM = [0.45, 1]; // drawn near, or back no further than first framed: the table's edge stays out of sight
 
 const axis = new THREE.Vector3();
 const right = new THREE.Vector3();

@@ -111,7 +111,7 @@ def main(obj_path, tex_path, out_dir):
 
     texture = np.asarray(Image.open(tex_path).convert('RGB').resize((2048, 2048), Image.LANCZOS), float) / 255
     luma = texture @ [0.2126, 0.7152, 0.0722]
-    mask = np.clip((luma - 0.1) / (0.35 - 0.1), 0, 1)
+    mask = np.clip((luma - 0.3) / (0.45 - 0.3), 0, 1)
     mask = mask * mask * (3 - 2 * mask)
     Image.fromarray(np.round(mask * 255).astype('uint8'), 'L').save(f'{out_dir}/table.jpg', quality=90, optimize=True)
     print(meta)

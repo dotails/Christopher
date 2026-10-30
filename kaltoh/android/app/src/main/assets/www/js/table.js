@@ -115,8 +115,10 @@ export async function loadTable(stage) {
   const table = { mesh, mirror: true, reflect };
 
   // Draw what the top mirrors, before the scene itself; `hidden`: what the mirror does not show
-  // (the room, which the table mirrors by its own lights, and the t'an on the glass). Before the
-  // scene has first been drawn (and its shadows with it) the mirror is only cleared.
+  // (the room, which the table mirrors by its own lights, and the t'an on the glass). It is drawn
+  // without shadows: softened in the mirror they are not missed, and some phones' drivers, given
+  // the shadow map of the frame before, drew the stone black in it every other frame. Before the
+  // scene has first been drawn the mirror is only cleared.
   function reflect(hidden) {
     const { renderer, scene, camera } = stage;
     if (!table.mirror) return;
@@ -131,8 +133,7 @@ export async function loadTable(stage) {
     const shown = hidden.map((o) => o.visible);
     mesh.visible = false;
     for (const o of hidden) o.visible = false;
-    const shadows = renderer.shadowMap.autoUpdate;
-    renderer.shadowMap.autoUpdate = false;
+    renderer.shadowMap.enabled = false;
     renderer.getClearColor(clear);
     const alpha = renderer.getClearAlpha();
     const before = renderer.getRenderTarget();
@@ -142,7 +143,7 @@ export async function loadTable(stage) {
     if (renderer.info.render.frame > 0) renderer.render(scene, eye);
     renderer.setRenderTarget(before);
     renderer.setClearColor(clear, alpha);
-    renderer.shadowMap.autoUpdate = shadows;
+    renderer.shadowMap.enabled = true;
     hidden.forEach((o, i) => (o.visible = shown[i]));
     mesh.visible = true;
   }

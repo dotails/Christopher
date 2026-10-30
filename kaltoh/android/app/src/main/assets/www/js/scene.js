@@ -255,7 +255,7 @@ export async function loadEnvironment(stage) {
   scene.environmentRotation.copy(ROOM);
   blurred.mapping = THREE.EquirectangularReflectionMapping;
   stage.skyEnvironment = pmrem.fromEquirectangular(blurred).texture;
-  stage.sky = makeSky(blurred);
+  stage.sky = makeSky(blurred, stage.view);
   scene.add(stage.sky);
   pmrem.dispose();
   target.dispose();
@@ -268,13 +268,15 @@ export async function loadEnvironment(stage) {
 // everything. It is shown small - the panorama's turning and tilting from the eye's line of sight
 // taken WIDE times over - so that much of the room is on the screen and little enlarged, and
 // framed so that the bar where Picard sits stands up and to the right, clear of the kal-toh (BAR
-// at AT of the way from the screen's middle to its right and top edges). As the eye moves the room
-// shifts as one seen through a window would: what is scaled is each ray's angle from the line of
-// sight, which the eye's moving turns as it would any ray to a far wall.
+// at AT of the way from the screen's middle to its right and top edges). It is a real room, though,
+// not a picture on the glass: drawn nearer to the kal-toh, or back from it, the eye nears or leaves
+// its far wall too, FAR beyond the kal-toh, and the room grows or shrinks about the line of sight
+// as that wall would.
 const WIDE = 8;
 const AT = new THREE.Vector2(0.48, 0.45);
+const FAR = 14;
 const forward = new THREE.Vector3();
-function makeSky(texture) {
+function makeSky(texture, view) {
   const turn = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(ROOM)).transpose();
   const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -335,6 +337,9 @@ function makeSky(texture) {
     const halfWide = Math.atan(Math.tan(halfHigh) * camera.aspect);
     material.uniforms.sight.value.set(heading, elevation);
     material.uniforms.shown.value.set(barHeading - WIDE * AT.x * halfWide, barElevation - WIDE * AT.y * halfHigh);
+    // How much nearer the far wall is than as first framed.
+    const near = view.distance * view.zoom * (1 - 0.3 * view.read.k);
+    material.uniforms.wide.value = (WIDE * (FAR + near)) / (FAR + view.distance);
   };
   return sky;
 }
