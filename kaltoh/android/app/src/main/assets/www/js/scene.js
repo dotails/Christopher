@@ -271,7 +271,7 @@ export async function loadEnvironment(stage) {
 // shifts as one seen through a window would: what is scaled is each ray's angle from the line of
 // sight, which the eye's moving turns as it would any ray to a far wall.
 const WIDE = 8;
-const AT = new THREE.Vector2(0.35, 0.62);
+const AT = new THREE.Vector2(0.35, 0.45);
 const forward = new THREE.Vector3();
 function makeSky(texture) {
   const turn = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(ROOM)).transpose();
