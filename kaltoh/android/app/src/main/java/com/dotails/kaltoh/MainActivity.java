@@ -262,29 +262,27 @@ public class MainActivity extends Activity implements SensorEventListener {
     // --- Haptics ------------------------------------------------------------------------------
 
     // Every sound felt as well as heard (feel, from the page; the music's notes, here): a signature
-    // for each kind, as strong as the sound. Where the phone has tuned haptic primitives - crisp
-    // clicks and ticks, thuds, swells - they are composed; elsewhere the motor is driven in pulses
-    // long and strong enough to be felt on any phone (a few milliseconds, as some once were, are felt
-    // on none). Felt as a game's are, with its media.
+    // for each kind, as strong as the sound, in firm pulses of the motor - long enough to be felt on
+    // any phone (a few milliseconds, as some once were, are felt on none; and the tuned primitives
+    // some phones offer, some play too faintly to be felt). Felt as a game's are, with its media, and
+    // as touch feedback too: a phone whose vibration for media is off may still have it for touch
+    // (from Android 12 the one the phone ignores leaves the other be).
     private static final int CLICK = 0, TICK = 1, LOW = 2, THUD = 3, RISE = 4, FALL = 5, SWELL = 6;
     private static final AudioAttributes FELT_AS = new AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_GAME)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build();
-    private boolean composes; // the phone's tuned primitives: click, tick and low tick
-    private boolean thuds; // ... and a thud
-    private boolean swells; // ... and rises and falls
+    private static final AudioAttributes FELT_AS_TOUCH = new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build();
+    private boolean softer; // the motor can be driven softer and harder
     private volatile boolean feeling = true; // vibration on (the page's setting)
     private long feltUntil; // a signature felt until then (uptime ms): the music's notes wait for it
 
     private void readHaptics() {
         if (vibrator != null && !vibrator.hasVibrator()) vibrator = null;
-        if (vibrator == null || Build.VERSION.SDK_INT < 31) return;
-        composes = vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_CLICK,
-                VibrationEffect.Composition.PRIMITIVE_TICK, VibrationEffect.Composition.PRIMITIVE_LOW_TICK);
-        thuds = composes && vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_THUD);
-        swells = composes && vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
-                VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, VibrationEffect.Composition.PRIMITIVE_QUICK_FALL);
+        softer = vibrator != null && Build.VERSION.SDK_INT >= 26 && vibrator.hasAmplitudeControl();
     }
 
     // A sound's signature, at its strength (0 to 1).
@@ -321,55 +319,37 @@ public class MainActivity extends Activity implements SensorEventListener {
                 for (int i = 0; i < 8; i++) f.pause(i == 0 ? 0 : 80).beat(CLICK, 0.5f + 0.07f * i, 25);
                 f.pause(160).beat(SWELL, 1f, 150).beat(THUD, 1f, 80);
                 break;
-            case "note": f.beat(s > 0.55f ? CLICK : TICK, 0.25f + 0.6f * s, 18); break;
+            case "note": f.beat(TICK, 0.1f + 0.6f * s, 18); break;
             default: return;
         }
         if (!"note".equals(kind)) feltUntil = SystemClock.uptimeMillis() + f.length;
         f.play();
     }
 
-    private int primitive(int kind) {
-        switch (kind) {
-            case TICK: return VibrationEffect.Composition.PRIMITIVE_TICK;
-            case LOW: return VibrationEffect.Composition.PRIMITIVE_LOW_TICK;
-            case THUD: return thuds ? VibrationEffect.Composition.PRIMITIVE_THUD : VibrationEffect.Composition.PRIMITIVE_CLICK;
-            case RISE: return swells ? VibrationEffect.Composition.PRIMITIVE_QUICK_RISE : VibrationEffect.Composition.PRIMITIVE_CLICK;
-            case SWELL: return swells ? VibrationEffect.Composition.PRIMITIVE_SLOW_RISE : VibrationEffect.Composition.PRIMITIVE_CLICK;
-            case FALL: return swells ? VibrationEffect.Composition.PRIMITIVE_QUICK_FALL : VibrationEffect.Composition.PRIMITIVE_TICK;
-            default: return VibrationEffect.Composition.PRIMITIVE_CLICK;
-        }
-    }
-
-    /** Beats felt one after another: tuned primitives where the phone has them, pulses elsewhere. */
+    /** Beats felt one after another, in pulses of the motor. */
     private final class Signature {
-        private final Object composition; // a VibrationEffect.Composition, on phones that compose
         private final long[] timings = new long[64];
         private final int[] amplitudes = new int[64];
         private int count;
         private long pause;
-        long length; // ms, as pulses
-
-        Signature() {
-            composition = composes && Build.VERSION.SDK_INT >= 31 ? VibrationEffect.startComposition() : null;
-        }
+        long length; // ms
 
         Signature pause(long ms) {
             pause += ms;
             return this;
         }
 
-        // A beat of the given kind and strength; as a pulse, `ms` long (and never shorter than a
-        // motor can be felt to turn).
+        // A beat at a strength (0 to 1), `ms` long, never shorter than a motor is felt to turn; a
+        // thud or a swell longer. Where the motor cannot be driven softer, a slighter beat is
+        // shorter instead.
         Signature beat(int kind, float strength, long ms) {
             if (count + 2 > timings.length) return this;
-            if (Build.VERSION.SDK_INT >= 31 && composition != null) {
-                ((VibrationEffect.Composition) composition).addPrimitive(primitive(kind), strength, (int) pause);
-            }
-            long on = Math.max(ms, kind == THUD || kind == SWELL ? 40 : 20);
+            long on = Math.max(ms, kind == THUD || kind == SWELL ? 45 : 30);
+            if (!softer) on = Math.max(15, Math.round(on * (0.4f + 0.6f * strength)));
             timings[count] = pause;
             amplitudes[count++] = 0;
             timings[count] = on;
-            amplitudes[count++] = Math.round(70 + 185 * strength);
+            amplitudes[count++] = Math.round(110 + 145 * strength);
             length += pause + on;
             pause = 0;
             return this;
@@ -384,15 +364,15 @@ public class MainActivity extends Activity implements SensorEventListener {
                     vibrator.vibrate(t, -1);
                     return;
                 }
-                VibrationEffect effect = Build.VERSION.SDK_INT >= 31 && composition != null
-                        ? ((VibrationEffect.Composition) composition).compose()
-                        : vibrator.hasAmplitudeControl()
-                                ? VibrationEffect.createWaveform(t, Arrays.copyOf(amplitudes, count), -1)
-                                : VibrationEffect.createWaveform(t, -1);
+                VibrationEffect effect = softer
+                        ? VibrationEffect.createWaveform(t, Arrays.copyOf(amplitudes, count), -1)
+                        : VibrationEffect.createWaveform(t, -1);
                 if (Build.VERSION.SDK_INT >= 33) {
                     vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_MEDIA));
+                    vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_TOUCH));
                 } else {
                     vibrator.vibrate(effect, FELT_AS);
+                    if (Build.VERSION.SDK_INT >= 31) vibrator.vibrate(effect, FELT_AS_TOUCH);
                 }
             } catch (RuntimeException refused) {
                 // A phone that will not have it: the game is simply not felt.
@@ -622,13 +602,15 @@ public class MainActivity extends Activity implements SensorEventListener {
             runOnUiThread(() -> MainActivity.this.feel(kind, strength));
         }
 
-        // Vibration on or off: the music's notes are felt only while it is on.
+        // Vibration on or off: the music's notes are felt only while it is on; turned on, it is felt.
         @JavascriptInterface
         public void vibration(boolean on) {
             runOnUiThread(() -> {
                 if (feeling == on) return;
                 feeling = on;
                 getSharedPreferences(KEPT, MODE_PRIVATE).edit().putBoolean(KEPT_FEEL, on).apply();
+                // Turned on, it is felt at once: a firm double pulse, so it is known to work.
+                if (on) MainActivity.this.feel("place", 1f);
                 noteWas = -1;
                 fade.post(noteStep);
             });

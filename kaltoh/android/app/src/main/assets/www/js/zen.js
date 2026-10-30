@@ -538,19 +538,24 @@ export class ZenGame {
   }
 
   // Begin anew: nothing falls; everything fades away into light.
+  // Begin anew: it bursts apart, as the other ways' kal-toh do, every t'an flung out from the
+  // centre to fall with the fallen (those yet to appear, or fading already, simply go).
   dissolve() {
+    const { stage, falling } = this.ctx;
     this.phase = 'dissolving';
     this.aimed = null;
     this.highlight = new Set();
+    const root = stage.assemblyRoot;
+    const centre = new THREE.Vector3().setFromMatrixPosition(root.matrixWorld);
     for (const v of this.views.values()) {
-      if (v.anim?.kind === 'appear' && v.anim.t < v.anim.delay) {
-        this.views.delete(v.id);
-        continue;
-      }
-      v.anim = null;
-      v.blend = 1;
-      v.fade = { t: 0, delay: Math.random() * 0.35, duration: 1 };
+      if (v.fade || (v.anim?.kind === 'appear' && v.anim.t < v.anim.delay)) continue;
+      const a = v.a.clone().applyMatrix4(root.matrixWorld);
+      const b = v.b.clone().applyMatrix4(root.matrixWorld);
+      const out = a.clone().add(b).multiplyScalar(0.5).sub(centre).normalize().multiplyScalar(0.6 + Math.random() * 1.1);
+      out.y += 0.4 + Math.random() * 0.8;
+      falling.spawn(a, b, out, { blue: 0.7, spin: 2, up: this.upOf(v, new THREE.Vector3()).applyQuaternion(root.quaternion) });
     }
+    this.views.clear();
     this.ctx.engraving.set({ zen: null, shape: null, status: null });
   }
 }

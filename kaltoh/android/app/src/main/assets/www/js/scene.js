@@ -69,7 +69,14 @@ export function createScene(canvas) {
   const fill = new THREE.DirectionalLight(0xbcd4ff, 0.7);
   fill.position.set(3.5, 2.5, 2);
   scene.add(fill);
-  const ambient = new THREE.HemisphereLight(0x3a3e48, 0x1c1a18, 0.55);
+  // And the key again from below, as the silver table mirrors it back up (unshadowed, softer), with
+  // the galley's light all round reflected off it too: what faces down - the stone's carved
+  // underside, turned to the table - is lit from there, as it would be.
+  const bounce = new THREE.DirectionalLight(0xfff1e0, 1.0);
+  bounce.position.set(-2.4, -4.4, 3.6);
+  bounce.target.position.copy(PIVOT).setY(0.6);
+  scene.add(bounce, bounce.target);
+  const ambient = new THREE.HemisphereLight(0x3a3e48, 0x34363b, 0.55);
   scene.add(ambient);
 
   // The base turns about the pivot; the base mesh hangs below it so its foot meets the floor.
@@ -338,11 +345,14 @@ export function createScene(canvas) {
 // taken, behind mirrored, so that its edges meet - and from its floor to its ceiling, its lights
 // overhead. It is of low dynamic range, so it is dimmed, and only its ceiling's lights are lifted
 // above white before filtering: the table and the stone take it softly, and the t'an, mirroring
-// it as bright as polished aluminium (rodmesh.js), catch real highlights. The t'an waiting in the
+// it as bright as polished aluminium (rodmesh.js), catch real highlights. Below, the silver table
+// mirrors it all back up, the ceiling and its lights (TABLE, as strongly as the table mirrors):
+// what faces down - the stone's carved underside, turned to the table - is lit from there. The t'an waiting in the
 // tray, and dangling from a finger, mirror Tuvok, at his table behind the player: behind them,
 // his panorama, whole, in place of the galley's mirrored half, which meets it at the sides
 // (stage.tuvokEnvironment); their faces turned away still catch the galley ahead.
 const LIGHT = { level: 0.3, lift: 8, tuvok: 0.6 };
+const TABLE = 0.55;
 export async function loadEnvironment(stage) {
   const { renderer, scene } = stage;
   const [galley, tuvok] = await Promise.all([loadTexture('assets/galley.jpg', true), loadTexture('assets/tuvok.jpg', true)]);
@@ -369,15 +379,21 @@ export async function loadEnvironment(stage) {
         float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
         return c * (level + ${LIGHT.lift.toFixed(1)} * smoothstep(0.6, 0.95, luma));
       }
-      void main() {
+      vec3 seen(vec2 at) {
         // Round the panorama: the photograph ahead (u = 0.25, toward -z), then mirrored behind.
-        float u = 2.0 * vUv.x;
-        vec3 c = lifted(texture2D(map, vec2(u < 1.0 ? u : 2.0 - u, vUv.y)).rgb, ${LIGHT.level.toFixed(2)});
+        float u = 2.0 * at.x;
+        vec3 c = lifted(texture2D(map, vec2(u < 1.0 ? u : 2.0 - u, at.y)).rgb, ${LIGHT.level.toFixed(2)});
         // Behind the player (u from 0.5 to 1), Tuvok's panorama, turned to put him straight behind,
         // met by the galley about the sides.
-        float behind = smoothstep(-0.34, 0.34, sin((vUv.x - 0.5) * 6.2831853));
-        vec3 t = lifted(texture2D(tuvok, vec2(vUv.x + turn, vUv.y)).rgb, ${LIGHT.tuvok.toFixed(2)});
-        c = mix(c, t, withTuvok * behind);
+        float behind = smoothstep(-0.34, 0.34, sin((at.x - 0.5) * 6.2831853));
+        vec3 t = lifted(texture2D(tuvok, vec2(at.x + turn, at.y)).rgb, ${LIGHT.tuvok.toFixed(2)});
+        return mix(c, t, withTuvok * behind);
+      }
+      void main() {
+        vec3 c = seen(vUv);
+        // Below the horizon, a little past the table's edge, the table: what is above, mirrored.
+        float table = smoothstep(0.03, 0.07, 0.5 - vUv.y);
+        c = mix(c, ${TABLE.toFixed(2)} * seen(vec2(vUv.x, 1.0 - vUv.y)), table);
         gl_FragColor = vec4(c, 1.0);
       }`,
     depthTest: false,
