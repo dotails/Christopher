@@ -26,6 +26,8 @@ export const OPTIONS = [
   // The voice guiding the play aloud, for every way: silent at first, the guide waiting until it
   // is turned up; turned down to nothing again, it guides no more.
   { key: 'voice', v: 'spes', s: 'Voice', slider: true, value: 0 },
+  // The music: Voyager's theme, on piano, at half at first.
+  { key: 'theme', v: 'ralash-tanaf', s: 'Music', slider: true, value: 0.5 },
   { key: 'haptics', v: 'bluhmbaya', s: 'Vibration', choices: [[true, 'torupik', 'On'], [false, 'yukupik', 'Off']] },
 ];
 
@@ -70,9 +72,9 @@ export function saveSettings(settings) {
 }
 
 // The settings a game was begun with, as one string: the ways shown that shape the game (not
-// sound, voice or vibration, which the carving keeps at its foot). A change shows as a different
-// string.
-export const UNSHAPING = new Set(['music', 'sfx', 'voice', 'haptics']);
+// sound, voice, music or vibration, which the carving keeps at its foot). A change shows as a
+// different string.
+export const UNSHAPING = new Set(['music', 'sfx', 'voice', 'theme', 'haptics']);
 export function shapeOf(settings) {
   return JSON.stringify(OPTIONS.filter((o) => !UNSHAPING.has(o.key) && (!o.when || o.when(settings))).map((o) => settings[o.key]));
 }

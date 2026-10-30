@@ -1,9 +1,9 @@
 // Nothing is written on the screen. Everything the kal-toh says is carved into the underside of
 // its stone base, in a medallion, all on one face: its name and the shape the game builds, the
-// players and whose turn it is, what last happened, the ways to play (the game first), the music,
-// the sound, the voice and vibration, and the glyphs that act - the rules, translating, and
-// beginning anew (Shake). Turn the base over to read it: whichever way it is tipped, the carving is
-// found with its top up.
+// players and whose turn it is, what last happened, the ways to play (the game first), the room,
+// the sound, the voice, the music and vibration, and the glyphs that act - the rules, translating,
+// and beginning anew (Shake). Turn the base over to read it: whichever way it is tipped, the carving
+// is found with its top up.
 //
 // It is carved in Standard at first. The Starfleet delta among the glyphs translates all of it: the
 // carving smooths away to bare stone, and the other script (Vulcan) is cut in its place, as deep;
@@ -32,10 +32,11 @@ const SHAPE_Y = 138;
 const SEATS_Y = 212;
 const EVENT_Y = 350;
 const RULE_Y = 424;
-const WAYS_Y = 470; // the first of the ways: the game itself
+const WAYS_Y = 459; // the first of the ways: the game itself
 const ROW = 50; // from one way to the next
 const HINT = 34; // the line beneath the game saying what it is
-const FOOT_Y = 760; // the last row, clear of the glyphs: the sound, voice and vibration end here
+const FOOT_Y = 766; // the last row, clear of the glyphs: the sound, voice, music and vibration end here
+const FOOT_ROW = 44; // from one to the next of those, a little closer
 const GLYPHS_Y = 840; // the row of glyphs at the foot of every page, their names beneath, clear of the frame
 const GUTTER = 16; // either side of the centre line: a way's name ends, its value begins
 const MORE_Y = 236; // the first row on a page of further ways (only if they do not all fit)
@@ -442,8 +443,9 @@ export class Engraving {
   }
 
   // A slider: a groove from silent to full, beginning at x0, a knob where the value is, and the
-  // value in numerals beyond. Touching anywhere along it, or drawing a finger along it, sets the value.
-  slider(key, x0, y, width) {
+  // value in numerals beyond, in a row h high. Touching anywhere along it, or drawing a finger along
+  // it, sets the value.
+  slider(key, x0, y, width, h = ROW) {
     const value = Math.max(0, Math.min(1, this.settings[key] ?? 0));
     const x1 = x0 + width;
     const at = x0 + (x1 - x0) * value;
@@ -479,7 +481,7 @@ export class Engraving {
     }, 0.75);
     const text = `${Math.round(value * 100)}%`;
     this.line(`slider:${key}:value`, { v: text, s: text }, x1 + 30, y, { size: 30, max: 96, lit: 0.5, numerals: true, align: 'left' });
-    this.regions.push({ kind: 'slider', id: `slider:${key}`, key, x: x0 - 30, y: y - ROW / 2, w: x1 - x0 + 60, h: ROW, x0, x1, y0: y });
+    this.regions.push({ kind: 'slider', id: `slider:${key}`, key, x: x0 - 30, y: y - h / 2, w: x1 - x0 + 60, h, x0, x1, y0: y });
   }
 
   // A rule across the face, tapering away either side of a small diamond - or of a note.
@@ -509,8 +511,8 @@ export class Engraving {
   }
 
   // The face: the name, the players, what just happened, and the ways to play - the game, its
-  // ways, then what neither shapes the game nor waits for a new one (the music, the sound, the
-  // voice and vibration) at the foot.
+  // ways, then what neither shapes the game nor waits for a new one (the room, the sound, the
+  // voice, the music and vibration) at the foot.
   drawMain(pages) {
     const { event, status, shape } = this.state;
     this.line('title', TEXT.title, C, TITLE_Y, { size: 66, script: true, max: 400, caps: true });
@@ -524,7 +526,7 @@ export class Engraving {
     this.rule(RULE_Y, this.state.pending ? TEXT.pending : null);
     const { rows, sound } = pages[0];
     for (const row of rows) this.way(row, pages.length > 1);
-    sound.forEach((o, i) => this.way({ o, y: FOOT_Y - (sound.length - 1 - i) * ROW }, pages.length > 1));
+    sound.forEach((o, i) => this.way({ o, y: FOOT_Y - (sound.length - 1 - i) * FOOT_ROW, h: FOOT_ROW }, pages.length > 1));
     if (pages.length > 1) this.arrows(0, pages.length, (rows[0].y + rows[rows.length - 1].y) / 2);
     this.glyphs({ name: 'rules', label: TEXT.rules });
   }
@@ -622,7 +624,7 @@ export class Engraving {
     const sound = shown.filter((o) => UNSHAPING.has(o.key));
     const pages = [{ rows: [], sound }];
     let y = WAYS_Y;
-    let last = FOOT_Y - sound.length * ROW;
+    let last = FOOT_Y - sound.length * FOOT_ROW - (ROW - FOOT_ROW) / 2; // the last row clear of the sound
     shown.filter((o) => !UNSHAPING.has(o.key)).forEach((o, i) => {
       // Room for the line on what the game is, whichever is chosen: what follows stays put.
       const tall = i === 0 && !o.slider && o.choices.some((c) => c[3]);
@@ -640,18 +642,18 @@ export class Engraving {
   // A way: its name, faint, ending short of the centre line, and its value beginning beyond it -
   // touch the value to change it - or the groove of its slider; and for the game, a line beneath
   // on what it is.
-  way({ o, y, tall }, narrow = false) {
+  way({ o, y, tall, h = ROW }, narrow = false) {
     const room = Math.min(narrow ? 280 : 340, chord(y) - GUTTER - 60); // each side, clear of the frame (and of arrows at the rim)
     this.line(`row:${o.key}`, { v: o.v, s: o.s }, C - GUTTER, y, { size: 30, max: room, align: 'right', faint: true });
     if (o.slider) {
-      this.slider(o.key, C + GUTTER + 14, y, Math.min(250, room - 90));
+      this.slider(o.key, C + GUTTER + 14, y, Math.min(250, room - 90), h);
       return;
     }
     const choice = this.choiceOf(o);
     this.line(`row:${o.key}`, { v: choice[1], s: choice[2] }, C + GUTTER, y, { size: 36, max: room, align: 'left' });
     if (tall && choice[3]) this.line(`hint:${o.key}`, choice[3], C, y + HINT, { size: 27, max: 2 * chord(y + HINT) - 120, faint: true });
     // The whole row is for touching, name and value alike: a broad mark for a fingertip.
-    this.regions.push({ kind: 'value', id: `row:${o.key}`, key: o.key, x: C - GUTTER - room, y: y - ROW / 2, w: 2 * (GUTTER + room), h: ROW + (tall ? HINT : 0) });
+    this.regions.push({ kind: 'value', id: `row:${o.key}`, key: o.key, x: C - GUTTER - room, y: y - h / 2, w: 2 * (GUTTER + room), h: h + (tall ? HINT : 0) });
   }
 
   // Large chevrons at the rim, either side at height y: touch one to turn to the page before or

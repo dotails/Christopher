@@ -147,6 +147,7 @@ joined or changed by the grammar above; *built*: a new word made of theirs.
 | `potau` |  | keep | dictionary |
 | `ralash` |  | sound; noise | dictionary |
 | `ralash-daya` | ralash + daya | sound effects | built |
+| `ralash-tanaf` |  | music | dictionary |
 | `raskril'es` |  | discord | dictionary |
 | `reh-vla` |  | triangle | dictionary |
 | `rehr-mavausu` | rehr- + mavausu | the third player | grammar |
@@ -259,6 +260,7 @@ Printed by `tools/vulcan-lines.mjs` from the game's own texts (a few with sample
 | tvihal | Room |
 | ralash-daya | Sound effects |
 | spes | Voice |
+| ralash-tanaf | Music |
 | bluhmbaya | Vibration |
 | torupik | On |
 | yukupik | Off |

@@ -46,8 +46,8 @@ import java.util.Locale;
  * Pages are served from the APK's assets under a private https origin, so the game's ES
  * modules, textures and fonts load as same-origin content without touching the network.
  *
- * The game's music plays here rather than in the page: a page's media takes the phone's audio
- * focus, which pauses whatever else is playing. This player never asks for it, so the music plays
+ * The game's room and music play here rather than in the page: a page's media takes the phone's
+ * audio focus, which pauses whatever else is playing. These players never ask for it, so they play
  * along with any other app's sound.
  */
 public class MainActivity extends Activity implements SensorEventListener {
@@ -198,15 +198,9 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     @Override
     protected void onDestroy() {
-        musicFade.removeCallbacksAndMessages(null);
-        if (louder != null) {
-            louder.release();
-            louder = null;
-        }
-        if (music != null) {
-            music.release();
-            music = null;
-        }
+        fade.removeCallbacksAndMessages(null);
+        room.release();
+        theme.release();
         if (web != null) {
             web.destroy();
             web = null;
@@ -297,84 +291,150 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     // --- Music ----------------------------------------------------------------------------------
 
-    private MediaPlayer music;
-    // The music raised past what the player's own volume allows: by this much (millibels), with
-    // the effect's own limiting to keep it clean.
-    private static final int MUSIC_BOOST_MB = 400;
-    private LoudnessEnhancer louder;
-    private boolean musicReady;
-    private boolean musicAway; // the game is out of sight
-    private float musicLevel; // as the page asks, 0 to 1
-    private float musicNow; // as heard, easing toward it
-    private final Handler musicFade = new Handler(Looper.getMainLooper());
-    private final Runnable musicStep = this::stepMusic;
+    // The recordings looping beneath the play, each in a player of its own: the room, and the
+    // music. Each is raised past what its player's own volume allows, by this much (millibels),
+    // with the effect's own limiting to keep it clean.
+    private static final int LOOP_BOOST_MB = 400;
+    private final Loop room = new Loop("www/assets/music.mp3");
+    private final Loop theme = new Loop("www/assets/theme.mp3");
+    private boolean away; // the game is out of sight
+    private final Handler fade = new Handler(Looper.getMainLooper());
 
-    private void setMusic(float level) {
-        musicLevel = Math.max(0f, Math.min(1f, level));
-        if (musicLevel > 0 && music == null) openMusic();
-        musicFade.removeCallbacks(musicStep);
-        musicFade.post(musicStep);
-    }
-
-    // Never given audio focus (it is never asked for): other apps play on, and this mixes in.
-    private void openMusic() {
-        try (AssetFileDescriptor fd = getAssets().openFd("www/assets/music.mp3")) {
-            MediaPlayer player = new MediaPlayer();
-            player.setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build());
-            player.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
-            player.setLooping(true);
-            player.setVolume(0f, 0f);
-            player.setOnPreparedListener(prepared -> {
-                musicReady = true;
-                musicFade.post(musicStep);
-            });
-            player.prepareAsync();
-            music = player;
-            try {
-                louder = new LoudnessEnhancer(player.getAudioSessionId());
-                louder.setTargetGain(MUSIC_BOOST_MB);
-                louder.setEnabled(true);
-            } catch (RuntimeException unsupported) {
-                louder = null; // a phone without the effect plays the music as loud as it is
-            }
-        } catch (IOException | RuntimeException failed) {
-            music = null; // without it the game is simply quieter
-        }
-    }
-
-    // Eased toward the level asked for (over a second or so), playing while above silence and
-    // paused once it reaches it.
-    private void stepMusic() {
-        if (music == null || !musicReady) return;
-        float target = musicAway ? 0f : musicLevel;
-        musicNow += (target - musicNow) * 0.1f;
-        if (Math.abs(target - musicNow) < 0.004f) musicNow = target;
-        music.setVolume(musicNow, musicNow);
-        if (musicNow > 0 && !music.isPlaying()) music.start();
-        if (musicNow == 0 && music.isPlaying()) music.pause();
-        if (musicNow != target) musicFade.postDelayed(musicStep, 30);
-    }
-
+    // Out of sight, each player is let go, and its loudness effect with it, keeping only where it
+    // was: coming back, a fresh one takes it up there from silence. (Paused and started again, the
+    // same player came back, now and then, with a pop.)
     private void pauseMusic() {
-        musicAway = true;
-        musicFade.removeCallbacks(musicStep);
-        if (music != null && musicReady && music.isPlaying()) music.pause();
-        musicNow = 0;
+        away = true;
+        room.pause();
+        theme.pause();
     }
 
     private void resumeMusic() {
-        musicAway = false;
-        musicFade.post(musicStep);
+        away = false;
+        room.resume();
+        theme.resume();
+    }
+
+    /** One recording, looping, at the level the page asks for. */
+    private final class Loop {
+        private final String asset;
+        private MediaPlayer player;
+        private LoudnessEnhancer louder;
+        private boolean ready;
+        private int at; // where it was when the game went out of sight (ms), to take it up there
+        private float level; // as the page asks, 0 to 1
+        private float now; // as heard, easing toward it
+        private final Runnable step = this::step;
+
+        Loop(String asset) {
+            this.asset = asset;
+        }
+
+        void set(float asked) {
+            level = Math.max(0f, Math.min(1f, asked));
+            if (level > 0 && player == null) open();
+            fade.removeCallbacks(step);
+            fade.post(step);
+        }
+
+        // Never given audio focus (it is never asked for): other apps play on, and this mixes in.
+        private void open() {
+            try (AssetFileDescriptor fd = getAssets().openFd(asset)) {
+                MediaPlayer opened = new MediaPlayer();
+                opened.setAudioAttributes(new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_GAME)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build());
+                opened.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
+                opened.setLooping(true);
+                opened.setVolume(0f, 0f);
+                opened.setOnPreparedListener(prepared -> {
+                    if (at <= 0) {
+                        ready(prepared);
+                        return;
+                    }
+                    prepared.setOnSeekCompleteListener(this::ready);
+                    prepared.seekTo(at);
+                });
+                opened.prepareAsync();
+                player = opened;
+                try {
+                    louder = new LoudnessEnhancer(opened.getAudioSessionId());
+                    louder.setTargetGain(LOOP_BOOST_MB);
+                    louder.setEnabled(true);
+                } catch (RuntimeException unsupported) {
+                    louder = null; // a phone without the effect plays it as loud as it is
+                }
+            } catch (IOException | RuntimeException failed) {
+                player = null; // without it the game is simply quieter
+            }
+        }
+
+        private void ready(MediaPlayer prepared) {
+            if (prepared != player) return; // let go of meanwhile
+            ready = true;
+            fade.post(step);
+        }
+
+        // Eased toward the level asked for (over a second or so), playing while above silence and
+        // paused once it reaches it. It starts from nothing: begun at once at any level, it would
+        // come in with a click.
+        private void step() {
+            if (player == null || !ready) return;
+            float target = away ? 0f : level;
+            if (target > 0 && !player.isPlaying()) {
+                now = 0;
+                player.setVolume(0f, 0f);
+                player.start();
+                fade.postDelayed(step, 30);
+                return;
+            }
+            now += (target - now) * 0.1f;
+            if (Math.abs(target - now) < 0.004f) now = target;
+            player.setVolume(now, now);
+            if (now == 0 && player.isPlaying()) player.pause();
+            if (now != target) fade.postDelayed(step, 30);
+        }
+
+        void pause() {
+            fade.removeCallbacks(step);
+            if (player != null) {
+                if (ready) at = player.getCurrentPosition();
+                release();
+            }
+            now = 0;
+        }
+
+        void resume() {
+            if (level > 0 && player == null) open();
+            fade.post(step);
+        }
+
+        void release() {
+            if (louder != null) {
+                louder.release();
+                louder = null;
+            }
+            if (player != null) {
+                player.release();
+                player = null;
+            }
+            ready = false;
+        }
     }
 
     /** Called from the page as window.KalTohAndroid. */
     private final class Bridge {
+        // The room.
         @JavascriptInterface
         public void music(float level) {
-            runOnUiThread(() -> setMusic(level));
+            runOnUiThread(() -> room.set(level));
+        }
+
+        // The music.
+        @JavascriptInterface
+        public void theme(float level) {
+            runOnUiThread(() -> theme.set(level));
         }
 
         @JavascriptInterface

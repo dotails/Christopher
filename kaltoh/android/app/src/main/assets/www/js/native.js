@@ -4,13 +4,14 @@ const bridge = window.KalTohAndroid;
 
 export const native = {
   present: Boolean(bridge),
-  // The shell plays the music itself, alongside other apps' sound (a page's would silence them).
-  get music() {
-    return typeof bridge?.music === 'function';
+  // The shell plays the recordings looping beneath the play itself - the room ('music') and the
+  // music ('theme') - alongside other apps' sound (a page's would silence them).
+  plays(loop) {
+    return typeof bridge?.[loop] === 'function';
   },
-  playMusic(level) {
+  play(loop, level) {
     try {
-      bridge?.music(level);
+      bridge?.[loop](level);
     } catch {
       // Without it, the game is simply quieter.
     }

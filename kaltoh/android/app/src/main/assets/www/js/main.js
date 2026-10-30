@@ -56,7 +56,7 @@ let shaking = 0; // how far a shake to begin anew has gone (0..1)
 const haptic = (kind) => {
   if (settings.haptics) native.haptic(kind);
 };
-sound.setVolumes(settings.music, settings.sfx, settings.voice);
+sound.setVolumes(settings);
 // What the kal-toh says goes into its stone, and the guide hears it.
 const say = (text) => {
   engraving?.setEvent(text);
@@ -348,8 +348,8 @@ function onEngravedOption(key, value) {
   const pending = shapeOf(settings) !== begunWith;
   if (pending !== Boolean(engraving.state.pending)) engraving.set({ pending });
   sound.wake();
-  if (key === 'music' || key === 'sfx' || key === 'voice') {
-    sound.setVolumes(settings.music, settings.sfx, settings.voice);
+  if (key === 'music' || key === 'sfx' || key === 'voice' || key === 'theme') {
+    sound.setVolumes(settings);
     if (key === 'voice') guide.levelled(value);
     // Drawn along a slider, a tick at each tenth (and for the sound effects, a sound at its level).
     const tenth = Math.round(value * 10);
@@ -490,7 +490,7 @@ function step(dt) {
   pool.end();
   trayPool.end();
   halos.end();
-  table?.reflect([trayPool.mesh]);
+  table?.reflect([trayPool.mesh, halos.mesh]);
   stage.renderer.render(stage.scene, stage.camera);
   adapt(dt);
 }

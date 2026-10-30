@@ -149,12 +149,13 @@ export async function loadTable(stage) {
   const table = { mesh, mirror: true, reflect };
 
   // Draw what the top mirrors, before the scene itself; `hidden`: what the mirror does not show (the
-  // t'an on the glass). The galley is drawn into it faintly, and transparent, from where it stands
-  // nearest (however far off it is seen, it is its ceiling's lights overhead the top mirrors, not
-  // the sky past the photograph's top). It is drawn without
-  // shadows: softened in the mirror they are not missed, and some phones' drivers, given the
-  // shadow map of the frame before, drew the stone black in it every other frame. Before the scene
-  // has first been drawn the mirror is only cleared.
+  // t'an on the glass; and the glow about t'an, its quads drawn black in the mirror, every other
+  // frame, by some phones' drivers). The galley is drawn into it faintly, and transparent, from
+  // where it stands nearest (however far off it is seen, it is its ceiling's lights overhead the top
+  // mirrors, not the sky past the photograph's top). It is drawn without shadows: softened in the
+  // mirror they are not missed, and some phones' drivers, given the shadow map of the frame before,
+  // drew the stone black in it every other frame. Before the scene has first been drawn the mirror
+  // is only cleared.
   function reflect(hidden) {
     const { renderer, scene, camera } = stage;
     if (!table.mirror) return;

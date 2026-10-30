@@ -330,13 +330,15 @@ function check(condition, message) {
     await turnOver();
     // One face holds it all: the name and the shape the game builds, the players (two at first,
     // passing and playing), what just happened, the game and its ways, the room, the sound, the
-    // voice and vibration, and the glyphs.
+    // voice, the music and vibration, and the glyphs - none of them over another.
     check(await page.evaluate(() => {
       const e = window.__kaltoh.engraving;
-      return e.page === 'main' && e.state.shape?.s === 'Two concentric icosidodecahedra' && window.__kaltoh.classic.game.players === 2
-        && ['title', 'shape', 'name0', 'name1', 'event', 'row:way', 'row:players', 'slider:music', 'slider:sfx', 'slider:voice', 'row:haptics', 'rules', 'translate', 'anew']
-          .every((id) => e.regions.some((r) => r.id === id));
-    }), 'turned over, one carved face holds the name, the shape it builds, the two players, what happened, the ways, the room, the sound, the voice and vibration');
+      const rows = ['row:way', 'row:players', 'slider:music', 'slider:sfx', 'slider:voice', 'slider:theme', 'row:haptics']
+        .map((id) => e.regions.find((r) => r.id === id && r.kind !== 'line'));
+      const apart = rows.every((r, i) => r && (i === 0 || r.y >= rows[i - 1].y + rows[i - 1].h - 1e-6));
+      return e.page === 'main' && e.state.shape?.s === 'Two concentric icosidodecahedra' && window.__kaltoh.classic.game.players === 2 && apart
+        && ['title', 'shape', 'name0', 'name1', 'event', 'rules', 'translate', 'anew'].every((id) => e.regions.some((r) => r.id === id));
+    }), 'turned over, one carved face holds the name, the shape it builds, the two players, what happened, the ways, the room, the sound, the voice, the music and vibration, each row clear of the next');
     check(!(await carved('more')) && !(await carved('prev')) && !(await carved('row:language')), 'all of it, with no page to turn to (and no row for the script)');
     await tap(await where('row:way', 'value'));
     await sleep(500);
@@ -822,17 +824,19 @@ function check(condition, message) {
     const music = await page.evaluate(() => window.__kaltoh.settings.music);
     check(Math.abs(music - 0.2) < 0.06 && !differ(unslid.base, (await onBase()).base, 1e-6) && await carved('slider:sfx'),
       `drawing a finger along it sets the music's level (${Math.round(music * 100)}%), and turns nothing`);
-    // The music plays from the first touch; silenced, it pauses, and raised again it plays on.
-    const musicPlays = () => page.waitForFunction(() => {
-      const m = window.__kaltoh.sound.music;
+    // The room plays from the first touch; silenced, it pauses, and raised again it plays on. So
+    // does the music, Voyager's theme, at half at first.
+    const plays = (key) => page.waitForFunction((key) => {
+      const m = window.__kaltoh.sound.loops[key]?.el;
       return Boolean(m) && !m.paused && m.currentTime > 0;
-    }, null, { timeout: 20000 }).then(() => true, () => false);
-    check(await musicPlays(), 'the music plays');
+    }, key, { timeout: 20000 }).then(() => true, () => false);
+    check(await plays('music'), 'the room plays');
     await tap(await canvasPoint(knob.x0 - 8, knob.y0));
     await sleep(400);
-    check(await page.evaluate(() => window.__kaltoh.settings.music === 0 && window.__kaltoh.sound.music.paused), 'silenced, it pauses');
+    check(await page.evaluate(() => window.__kaltoh.settings.music === 0 && window.__kaltoh.sound.loops.music.el.paused), 'silenced, it pauses');
     await tap(await canvasPoint(knob.x0 + (knob.x1 - knob.x0) * 0.6, knob.y0));
-    check(await musicPlays(), 'and raised again, it plays on');
+    check(await plays('music'), 'and raised again, it plays on');
+    check(await page.evaluate(() => window.__kaltoh.settings.theme === 0.5) && await plays('theme'), 'the music, at half at first, plays with it');
     // The guiding voice has a slider of its own, at nothing at first, the guide waiting: touched
     // along it and then past its end, its level follows, remembered like the other ways, waiting
     // for no new game; and turned up from nothing, the guide says how loud it will be and welcomes

@@ -4,43 +4,45 @@
 // knock, the crack of the meeting and its grit; drawn along, a grinding. Each pairing - metal on
 // metal, rock on metal, rock on rock - has its hit and its slide. Harmony answers in just
 // intonation; discord beats.
-// Beneath it, music: a recording looping quietly (MUSIC), if there is one. Each has a level of its
-// own, from silent to full (the sliders carved under the base). On the phone the Android shell
-// plays the music, so other apps' sound plays on with it (a page's media would pause them); the
-// sound of the t'an is the page's own, which takes nothing from them either.
+// Beneath it, two recordings looping (LOOPS): the room, and music. Each has a level of its own,
+// from silent to full (the sliders carved under the base). On the phone the Android shell plays
+// them, so other apps' sound plays on with them (a page's media would pause them); the sound of the
+// t'an is the page's own, which takes nothing from them either.
 import { native } from './native.js';
 
 const BAR = [1, 2.756, 5.404, 8.933];
 const BAR_GAIN = [1, 0.45, 0.22, 0.1];
 // Just-intonation pentatonic: the simplest ratios, as a Vulcan instrument maker might choose.
 const SCALE = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2];
-// The recording: ten minutes of ambience, faded in and out, so its loop is seamless (made some
-// 6 dB louder than it was given, its peaks held under a limiter; on the phone the shell raises it
-// further).
-const MUSIC = 'assets/music.mp3';
-const MUSIC_FULL = 1; // the music's gain at full: as loud as the player can play it
+// The recordings, by the setting each plays at. The room ('music'): ten minutes of the mess hall's
+// ambience, faded in and out, so its loop is seamless (made some 6 dB louder than it was given, its
+// peaks held under a limiter). The music ('theme'): Voyager's theme on piano, its quiet passages
+// brought up to stand beside the room (gently compressed, its peaks limited), a moment's silence
+// at either end parting one playing from the next. On the phone the shell raises both further.
+const LOOPS = { music: 'assets/music.mp3', theme: 'assets/theme.mp3' };
+const LOOP_FULL = 1; // a recording's gain at full: as loud as the player can play it
 const SFX_FULL = 0.6;
-const VOICE_DUCK = 0.35; // the music's level while the guide speaks at full
+const VOICE_DUCK = 0.35; // the recordings' level while the guide speaks at full
 
 export class Sound {
   constructor() {
     this.ctx = null;
     this.sfx = 0.8;
-    this.musicLevel = 0.6;
-    this.music = null; // the recording, once there is a gesture to start it
-    this.musicGain = null;
-    this.musicMissing = false;
+    this.levels = { music: 0.6, theme: 0.5 }; // the recordings', by setting
+    // Each recording's player, by setting, once there is a gesture to start it: the shell's, or an
+    // element of the page's own, through a gain.
+    this.loops = {};
     this.hidden = false;
-    this.ducked = false; // the music lowered beneath the guide's voice
+    this.ducked = false; // the recordings lowered beneath the guide's voice
     this.voices = new Map(); // the guide's lines, decoded, by file
     this.speaking = null; // the line being spoken: { source, gain }
     this.voiceLevel = 1;
   }
 
-  // The levels of the music, the sound effects and the guide's voice, each from 0 (silent) to 1
-  // (full). A line being spoken follows its slider at once.
-  setVolumes(music, sfx, voice = this.voiceLevel) {
-    this.musicLevel = music;
+  // The levels of the room, the sound effects, the guide's voice and the music, each from 0
+  // (silent) to 1 (full). A line being spoken follows its slider at once.
+  setVolumes({ music, sfx, voice = this.voiceLevel, theme }) {
+    this.levels = { music, theme };
     this.sfx = sfx;
     this.voiceLevel = voice;
     if (this.master) this.master.gain.value = SFX_FULL * sfx;
@@ -76,7 +78,7 @@ export class Sound {
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
   }
 
-  // A touch: the sound wakes if it was waiting for one, and the music begins.
+  // A touch: the sound wakes if it was waiting for one, and the recordings begin.
   wake() {
     this.open();
     if (!this.ctx) return;
@@ -89,58 +91,60 @@ export class Sound {
     return Boolean(this.ctx) && this.ctx.state === 'running' && !this.hidden && this.voiceLevel > 0.001;
   }
 
-  // The music begins with the first touch (a page may not play sound before one), fading in.
+  // The recordings begin with the first touch (a page may not play sound before one), fading in.
   startMusic() {
-    if (!MUSIC) return;
-    if (native.music) {
-      this.shellMusic = true;
-      this.applyMusic();
-      return;
+    for (const [key, url] of Object.entries(LOOPS)) {
+      if (this.loops[key]) continue;
+      if (native.plays(key)) {
+        this.loops[key] = { shell: true };
+        continue;
+      }
+      if (!this.ctx) continue;
+      const el = new Audio(url);
+      el.loop = true;
+      el.preload = 'auto';
+      const loop = { el, gain: null, missing: false };
+      el.addEventListener('error', () => {
+        loop.missing = true;
+      });
+      try {
+        // Through the audio graph, so its level eases rather than jumps.
+        const source = this.ctx.createMediaElementSource(el);
+        loop.gain = this.ctx.createGain();
+        loop.gain.gain.value = 0;
+        source.connect(loop.gain).connect(this.ctx.destination);
+      } catch {
+        loop.gain = null;
+      }
+      this.loops[key] = loop;
     }
-    if (!this.ctx || this.music || this.musicMissing) {
-      this.applyMusic();
-      return;
-    }
-    const el = new Audio(MUSIC);
-    el.loop = true;
-    el.preload = 'auto';
-    el.addEventListener('error', () => {
-      this.musicMissing = true;
-    });
-    try {
-      // Through the audio graph, so its level eases rather than jumps.
-      const source = this.ctx.createMediaElementSource(el);
-      this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = 0;
-      source.connect(this.musicGain).connect(this.ctx.destination);
-    } catch {
-      this.musicGain = null;
-    }
-    this.music = el;
     this.applyMusic();
   }
 
-  // Play the music at its level (lowered while the guide speaks), or pause it when silenced or out
-  // of sight.
+  // Play each recording at its level (lowered while the guide speaks), or pause it when silenced
+  // or out of sight.
   applyMusic() {
-    // Beneath the voice the music dips, the less the quieter the voice.
+    // Beneath the voice they dip, the less the quieter the voice.
     const duck = this.ducked ? 1 - (1 - VOICE_DUCK) * this.voiceLevel : 1;
-    const level = this.musicLevel * MUSIC_FULL * duck;
-    const play = level > 0.001 && !this.hidden;
-    if (this.shellMusic) {
-      native.playMusic(play ? level : 0);
-      return;
+    for (const [key, loop] of Object.entries(this.loops)) {
+      const level = (this.levels[key] ?? 0) * LOOP_FULL * duck;
+      const play = level > 0.001 && !this.hidden;
+      if (loop.shell) {
+        native.play(key, play ? level : 0);
+        continue;
+      }
+      const { el } = loop;
+      if (loop.missing) continue;
+      if (loop.gain) loop.gain.gain.setTargetAtTime(play ? level : 0, this.ctx.currentTime, 0.4);
+      else el.volume = Math.min(1, level);
+      if (play && el.paused) el.play().catch(() => {});
+      else if (!play && !el.paused) el.pause();
     }
-    const el = this.music;
-    if (!el || this.musicMissing) return;
-    if (this.musicGain) this.musicGain.gain.setTargetAtTime(play ? level : 0, this.ctx.currentTime, 0.4);
-    else el.volume = Math.min(1, level);
-    if (play && el.paused) el.play().catch(() => {});
-    else if (!play && !el.paused) el.pause();
   }
 
-  // One of the guide's lines, spoken over everything with the music lowered beneath it. Resolves when
-  // it ends (or at once, if it cannot be played); a line already being spoken is cut short.
+  // One of the guide's lines, spoken over everything with the recordings lowered beneath it.
+  // Resolves when it ends (or at once, if it cannot be played); a line already being spoken is cut
+  // short.
   async speak(url) {
     if (!this.ctx || this.hidden) return;
     let buffer = this.voices.get(url);
@@ -191,7 +195,7 @@ export class Sound {
   suspend() {
     this.hush();
     this.hidden = true;
-    this.music?.pause();
+    for (const loop of Object.values(this.loops)) loop.el?.pause();
     this.ctx?.suspend();
   }
 

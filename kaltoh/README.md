@@ -60,7 +60,7 @@ your finger - and its faces turned away catch the galley ahead.
   <img src="docs/zen-taking-form.png" width="19%" alt="Zen: ten t'an placed, the nest glides into its first form, what the form has no rod for fading into light">
   <img src="docs/zen-whole.png" width="19%" alt="Zen: fully formed, the rhombicuboctahedron glowing">
   <img src="docs/green.png" width="19%" alt="Two players, as it was before the mess hall: the light behind turned green on the second player's turn">
-  <img src="docs/underside.png" width="19%" alt="The carved underside of the base, all on one face, in zen: the name and the form it has taken, its progress where seats would be, what happened, the ways, the room, sound and voice sliders, vibration, and the glyphs Rules, Translate and Shake">
+  <img src="docs/underside.png" width="19%" alt="The carved underside of the base, all on one face, in zen: the name and the form it has taken, its progress where seats would be, what happened, the ways, the room, sound, voice and music sliders, vibration, and the glyphs Rules, Translate and Shake">
 </p>
 <p align="center">
   <img src="docs/ways.png" width="19%" alt="The same face cut again in Golic Vulcan: real Vulcan words, its strokes and half-stops cut among the letters">
@@ -90,7 +90,7 @@ over an older one without uninstalling.
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read. It is all on one face: the title, and beneath it the shape the game builds (in the original game *two concentric icosidodecahedra*; in many forms, this game's form; in zen, the form it has taken); whose turn it is and the score (in zen, its progress); what just happened (in many forms, and how many loops are closed; in zen, how far it has come); then, under a carved rule, the ways to play, the room, the sound, the voice and vibration; and three glyphs at the foot: *Rules*, *Translate* and *Shake*. *Rules* turns to the rules of the chosen game, short, and the marks under the seats; *Return* comes back. |
 | Play with others | Two players take turns at first, passing the phone; choose one to four in the ways to play (in the original game and many forms; zen is played alone). Whose turn it is is told under the base, and only there: each seat is named (*Player 1*, *Player 2*, ...) over its mark, which is ringed in paint of its colour (red for the first player, a rich green for the second, then deep blue and gold), the mark filled for whose turn it is. Beneath is the score: true joins of those tried (*7/9*). Each player's plays are carved in order under their seat: a dot for a true join, a ringed dot for a great hoop or a loop closed, a cross where t'an fell. The rules show the marks. |
 | Translate | Everything is carved in Standard at first. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it (in Standard, whichever script the rest is in): all of it is smoothed away to bare stone and cut again in Vulcan, as deep - Golic Vulcan, the language itself, not English in Vulcan letters: *tal'uh zek svi'nezhak*, find the order within the chaos; *huta'uh*, shake; a score of 7/9, *steh t'nau*, seven of nine (every word, and where it comes from, in [docs/vulcan.md](docs/vulcan.md)). Touch it again for Standard. The carving reads in whichever script you left it in, the next time too. Touching the carving anywhere else translates nothing. |
-| Ways to play | Carved on the face, under the players, in two columns: each way's name, and its value. First the game itself, with a line beneath on what it is, then its ways (how many players), then **Room** (the mess hall's sound around you), **Sound effects**, **Voice** (Sky's, guiding the play: silent at first, the guide waiting until you turn it up; down to nothing again, it guides no more) and **Vibration**. Touch a way's row to change its value. A change to the game waits for a new one: the rule across the face says *Shake to play this way*, and a ring is cut round *Shake*. Shake the phone, or touch *Shake*, to play that way. **Room**, **Sound effects** and **Voice** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the room's sound pauses). |
+| Ways to play | Carved on the face, under the players, in two columns: each way's name, and its value. First the game itself, with a line beneath on what it is, then its ways (how many players), then **Room** (the mess hall's sound around you), **Sound effects**, **Voice** (Sky's, guiding the play: silent at first, the guide waiting until you turn it up; down to nothing again, it guides no more), **Music** (Voyager's theme on piano, at half at first) and **Vibration**. Touch a way's row to change its value. A change to the game waits for a new one: the rule across the face says *Shake to play this way*, and a ring is cut round *Shake*. Shake the phone, or touch *Shake*, to play that way. **Room**, **Sound effects**, **Voice** and **Music** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the room's sound and the music pause). |
 | Begin anew | **Shake the phone for three seconds**, or touch *Shake* under the base. |
 | Be guided | A voice talks you through the game: *Sky*, one of the voices of the Kokoro speech model, every line spoken ahead of time and played from the app, offline. Your very first game is zen, where nothing can go wrong. The voice starts silent, waiting: turn **Voice** up under the stone and it says how loud it will be, greets you and takes up the game where it stands, and as you go tells you how to take up a t'an with one finger and hold it with two, what blue and amber mean, how to turn the stone, and that there is more under it. It watches what you do and answers it: a t'an left waiting, or dangling from one finger; one let go before its ends were on two pieces, or where it glowed amber; a refusal (the same tip twice, already joined, too far, too near); harmony, discord and what to look for; a wobble, a fling, noise, a loop closed, a form taken, a shake gathering. Turned over, it says that everything is there, and how to choose a way and begin it; and the first time you play each way, what that way is. Each lesson is given once, remembered from one day to the next; a mistake is explained again when it is made again, though not every time. It never speaks over itself, and the room's sound dips beneath it. **Voice**, under the stone, sets how loud it is; slide it back to nothing and it falls silent, and waits. |
 | Draw nearer | Pinch, anywhere. |
@@ -274,9 +274,11 @@ build is gathered into the next form.
     grammar, its numbers counted as it counts them, and its stroke and half-stop, which the Vulcan
     fonts lack, cut by hand among the letters (`docs/vulcan.md`) - and in Standard), `settings.js`, `audio.js` (synthesized sound: every contact as its materials would sound - thin light metal on
     metal, rock on metal, rock on rock - each struck and drawn along), `shake.js`, `main.js`. `audio.js` also
-    loops the music, through its own level, paused when silenced or out of sight; on the phone the
-    shell plays it (`MainActivity.java`, a media player that never asks for the audio focus, so other
-    apps' sound plays on). The **Room** slider sets its level.
+    loops two recordings, the room's sound and the music, each through its own level, paused when
+    silenced or out of sight; on the phone the shell plays them (`MainActivity.java`, a media player
+    each that never asks for the audio focus, so other apps' sound plays on; out of sight each is let
+    go, and coming back a fresh one takes it up where it was, from silence). The **Room** and
+    **Music** sliders set their levels.
   - `guide.js`: the voice guiding the play. It hears what the game reports (a t'an taken up, held,
     aimed, let go, placed; every line the carving says) and watches what it can see (a t'an left
     waiting, the stone turned over, a shake gathering), and answers: each lesson once, remembered
@@ -284,7 +286,7 @@ build is gathered into the next form.
     never two lines at once, and none until the sound can be heard. Its lines are Kokoro's *Sky*
     voice, rendered ahead of time by `tools/make_voice.py` from `tools/voice-lines.json` into
     `assets/voice/` (about four minutes of speech, 1.7 MB) and played by `audio.js` at the Voice
-    slider's level, the room's sound dipping beneath.
+    slider's level, the room's sound and the music dipping beneath.
 - **`android/`**: a small Java shell (`MainActivity.java`). It runs a full screen WebView that
   serves the game from the APK, and handles accelerometer shake detection and haptics.
 - **`tools/`**
@@ -334,7 +336,8 @@ build is gathered into the next form.
     circle turns nothing and a touch there does not translate it, but the Starfleet delta does
     (Standard at first, Vulcan then), and the script is remembered for next time. The rules glyph
     turns to the rules, and *Return* comes back. It draws a finger along the room's slider, sets the
-    voice's level on its own slider, and changes the ways on the face for a new game. It covers
+    voice's level on its own slider, hears the music play at half, and changes the ways on the face
+    for a new game. It covers
     fallen t'an staying until a new game, and shaking to begin anew. A t'an let go of as it
     dangles falls into the room, a new one rising in the tray, and flicked, it is thrown and comes
     down on the table. Held sideways and back, the room comes nearer on the wide screen and stands
@@ -389,8 +392,10 @@ wider than tall to see it held sideways.
   basin and pedestal table models (made with Meshy), the mess-hall pictures (the galley,
   `assets/galley.jpg`, and the panorama with Tuvok at his table, `assets/tuvok.jpg`) and the
   ambience (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and
-  faded in and out; made louder here) were supplied for this project. Their licences are not
-  included; check them before distributing the app beyond personal use.
+  faded in and out; made louder here) were supplied for this project, as was the music: a piano
+  arrangement of Jerry Goldsmith's *Star Trek: Voyager* main theme (`assets/theme.mp3`; its quiet
+  passages brought up here, gently compressed). Their licences are not included; check them
+  before distributing the app beyond personal use.
 - The guide's voice is *Sky* (`af_sky`) of Kokoro-82M by hexgrad (Apache 2.0), run with
   kokoro-onnx (MIT).
 - three.js is MIT licensed (`android/app/src/main/assets/www/vendor/three.LICENSE`).
