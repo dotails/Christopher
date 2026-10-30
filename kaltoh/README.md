@@ -36,7 +36,7 @@ aluminium's grey: a face turned toward you mirrors the dining room behind you; a
 in the tray, its faces gently domed, holds Tuvok's face, at his table behind you.
 
 <p align="center">
-  <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table in the mess hall, the stone and t'an mirrored in the table's top">
+  <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table, standing on the galley's floor in the mess hall, the stone and t'an mirrored in the table's top">
 </p>
 <p align="center">
   <img src="docs/jumble.png" width="19%" alt="The jumble of the original game">
@@ -50,10 +50,10 @@ in the tray, its faces gently domed, holds Tuvok's face, at his table behind you
   <img src="docs/zen-taking-form.png" width="19%" alt="Zen: ten t'an placed, the nest glides into its first form, what the form has no rod for fading into light">
   <img src="docs/zen-whole.png" width="19%" alt="Zen: fully formed, the rhombicuboctahedron glowing">
   <img src="docs/green.png" width="19%" alt="Two players, as it was before the mess hall: the light behind turned green on the second player's turn">
-  <img src="docs/underside.png" width="19%" alt="The carved underside of the base, all on one face: the name and the shape being built, each seat named, its mark ringed in its colour, its plays marked beneath, what just happened, and the ways to play">
+  <img src="docs/underside.png" width="19%" alt="The carved underside of the base, all on one face, in zen: the name and the form it has taken, its progress where seats would be, what happened, the ways, the room, sound and voice sliders, vibration, and the glyphs Rules, Translate and Shake">
 </p>
 <p align="center">
-  <img src="docs/ways.png" width="19%" alt="The face translated into Vulcan, in many forms: the form's name, the loops closed, the game and its ways, the room, sound and voice sliders, vibration, and the glyphs Rules, Translate and Shake">
+  <img src="docs/ways.png" width="19%" alt="The same face cut again in Golic Vulcan: real Vulcan words, its strokes and half-stops cut among the letters">
   <img src="docs/rules.png" width="19%" alt="The rules of the chosen game and the marks under the seats, a glyph away">
 </p>
 
