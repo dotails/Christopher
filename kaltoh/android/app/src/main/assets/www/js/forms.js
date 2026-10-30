@@ -11,7 +11,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import * as F from './forms-rules.js';
 import { PIVOT, SCALE } from './scene.js';
 import { mitreAtJunctions } from './rodmesh.js';
-import { CLASSIC, MANY, TEXT, playerText, ofText, loopText, loopsText, manyCompleteText } from './texts.js';
+import { CLASSIC, MANY, playerText, ofText, loopText, loopsText, manyCompleteText } from './texts.js';
 
 // The outer shell's radius, in assembly units: the original kal-toh's.
 export const SPHERE = 0.44;
@@ -475,16 +475,16 @@ export class FormsGame {
     this.carve();
   }
 
-  // What the carving shows for this game: the players (each one's score, true joins of those
-  // tried), how to play, and how far each shell has come.
+  // What the carving shows for this game: the form it builds, the players (each one's score, true
+  // joins of those tried), their plays, and how far each shell has come.
   carve() {
     const game = this.game;
     const seats = Array.from({ length: game.players }, (_, i) => {
       const { joined, discord } = game.stats[i];
       return { now: i === game.current && !game.complete, score: ofText(joined, joined + discord) };
     });
-    const lines = [TEXT.lift, CLASSIC.touch, MANY.angles, MANY.corners, MANY.holds, MANY.outer, loopsText(F.progress(game)), TEXT.rim];
-    this.ctx.engraving.set({ seats, lines, plays: this.plays });
+    const { v, s } = this.form;
+    this.ctx.engraving.set({ shape: { v, s }, seats, plays: this.plays, status: loopsText(F.progress(game)) });
   }
 
   update(dt) {

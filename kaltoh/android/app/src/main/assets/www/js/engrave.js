@@ -1,31 +1,46 @@
 // Nothing is written on the screen. Everything the kal-toh says is carved into the underside of
-// its stone base, in a medallion: its name, the players, what last happened, how to play, and
-// the glyphs that act - the ways to play, beginning anew. Turn the base over to read it:
-// whichever way it is tipped, the carving is found with its top up.
+// its stone base, in a medallion, all on one face: its name and the shape the game builds, the
+// players and whose turn it is, what last happened, the ways to play (the game first), the music,
+// the sound, the voice and vibration, and the glyphs that act - the rules, translating, and
+// beginning anew (Shake). Turn the base over to read it: whichever way it is tipped, the carving is
+// found with its top up.
 //
-// It is carved in Vulcan. The Starfleet delta among the glyphs translates all of it: the carving
-// smooths away to bare stone, and the other script is cut in its place, as deep. Within its
-// framing circle the carving is for touching - glyphs, values, and sliders drawn along their
-// grooves - and the stone is turned by its rim (input.js).
+// It is carved in Standard at first. The Starfleet delta among the glyphs translates all of it: the
+// carving smooths away to bare stone, and the other script (Vulcan) is cut in its place, as deep;
+// it reads in that script from then on, until translated again. Within its framing circle the
+// carving is for touching - glyphs, values, and sliders drawn along their grooves - and the stone
+// is turned by its rim (input.js).
 //
 // The medallion's frame is cut into the stone for good. Its words and glyphs are a second layer
 // whose depth the shader can scale (relief and darkened grooves alike), so they can be smoothed
 // away and recut. All of it is engraved alike: dark grooves in the stone, without light of their own.
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT } from './scene.js';
-import { OPTIONS } from './settings.js';
-import { TEXT, vulcanOnly, scoreText, formText, rulesText, seatText } from './texts.js';
+import { OPTIONS, UNSHAPING } from './settings.js';
+import { TEXT, vulcanOnly, scoreText, rulesText, seatText } from './texts.js';
 
 const SIZE = 1024;
 const C = SIZE / 2;
 const NORMAL_SIZE = 512;
 export const MEDALLION_RADIUS = 0.8; // in the base's own units, inside its foot
 const STANDARD_FONT = "'Roboto', 'Helvetica Neue', system-ui, sans-serif";
-const GLYPHS_Y = 784; // the row of glyphs at the foot of every page, their names beneath, clear of the frame
-const PAGE_HEIGHT = 510; // texture pixels of rows on a page of the ways
-const ARROW_Y = 466; // where the page arrows are cut, either side
-const ROW_MAX = 680; // the widest a row may be cut, clear of the arrows
+// The face, top to bottom (texture pixels): the name and the shape the game builds, the players
+// (their marks; their names above and scores and plays beneath), what just happened, a rule, the
+// ways, the glyphs.
+const TITLE_Y = 92;
+const SHAPE_Y = 138;
+const SEATS_Y = 212;
+const EVENT_Y = 350;
+const RULE_Y = 424;
+const WAYS_Y = 470; // the first of the ways: the game itself
+const ROW = 50; // from one way to the next
+const HINT = 34; // the line beneath the game saying what it is
+const FOOT_Y = 760; // the last row, clear of the glyphs: the sound, voice and vibration end here
+const GLYPHS_Y = 840; // the row of glyphs at the foot of every page, their names beneath, clear of the frame
+const GUTTER = 16; // either side of the centre line: a way's name ends, its value begins
+const MORE_Y = 236; // the first row on a page of further ways (only if they do not all fit)
 const RELIEF = 1.4; // the normal maps' strength at full depth
+const FAINT = 0.75; // how deep a faint line is cut
 const SMOOTH = 0.32; // seconds for the carving to smooth away ...
 const RECUT = 0.42; // ... and to be cut again
 // How squarely the underside must face the eye to count as seen (and so be set upright).
@@ -129,7 +144,7 @@ export class Engraving {
 
     this.page = 'main';
     this.wayPage = 0;
-    this.standard = settings.language === 'standard'; // which script is cut now
+    this.standard = settings.script !== 'vulcan'; // which script is cut now
     this.state = { game: null, event: TEXT.begin };
     this.regions = [];
     this.dirty = true;
@@ -163,9 +178,13 @@ export class Engraving {
     if (this.phase !== 'smoothing') this.phase = 'smoothing';
   }
 
+  // The other script, from now on: the settings remember it (main.js saves them), so the carving
+  // first reads in whichever script it was last translated to.
   translate() {
+    this.settings.script = this.settings.script === 'vulcan' ? 'standard' : 'vulcan';
+    const standard = this.settings.script === 'standard';
     this.recut(() => {
-      this.standard = !this.standard;
+      this.standard = standard;
     });
   }
 
@@ -250,23 +269,32 @@ export class Engraving {
   }
 
   drawPage() {
-    if (this.page === 'ways') this.drawWays();
-    else if (this.page === 'rules') this.drawRules();
-    else this.drawMain();
+    if (this.page === 'rules') {
+      this.drawRules();
+      return;
+    }
+    const pages = this.wayPages();
+    this.wayPage = Math.min(this.wayPage, pages.length - 1);
+    if (this.wayPage > 0) this.drawMore(pages);
+    else this.drawMain(pages);
   }
 
   // Cut into a layer: the stone (a faint worn lip and a black groove) and the depth mask (for the
   // relief). Frame, words and glyphs alike are engraved black; none of them carries light of its
-  // own (`lit`, from when they did, is let be).
-  cut(draw, lit) {
+  // own (`lit`, from when they did, is let be). A shallower cut (`depth` below 1) is fainter.
+  cut(draw, lit, depth = 1) {
     const { color, mask } = this.layer;
     const g = color.getContext('2d');
     g.save();
     g.translate(1.6, 1.6);
-    draw(g, 'rgba(255, 240, 230, 0.22)');
+    draw(g, `rgba(255, 240, 230, ${0.22 * depth})`);
     g.restore();
-    draw(g, 'rgba(10, 6, 5, 0.9)');
-    draw(mask.getContext('2d'), '#fff');
+    draw(g, `rgba(10, 6, 5, ${0.9 * depth})`);
+    const m = mask.getContext('2d');
+    m.save();
+    m.globalAlpha = depth;
+    draw(m, '#fff');
+    m.restore();
   }
 
   // Paint laid into a shallow groove: its colour, flush in the stone, without the cut's lip or glow.
@@ -290,31 +318,44 @@ export class Engraving {
     }, lit);
   }
 
-  // A line of text, centred at (x, y), fitted into `max` pixels. `numerals` keeps it in Standard
-  // letters whatever the script (the Vulcan fonts have no digits), as does `always` (what must be
-  // read by everyone, Vulcan or not).
-  line(id, text, x, y, { size = 32, script = false, max = 760, lit = 0.32, kind = 'line', key, numerals = false, always = false } = {}) {
+  // A line of text, centred at (x, y) - or beginning there (`align` left), or ending there (right) -
+  // fitted into `max` pixels. `numerals` keeps it in Standard letters whatever the script (the
+  // Vulcan fonts have no digits), as does `always` (what must be read by everyone, Vulcan or not).
+  // A `faint` line is cut shallower: what names a thing, beside the thing itself. In Standard,
+  // `caps` cuts it in capitals, spaced, as an inscription.
+  line(id, text, x, y, { size = 32, script = false, max = 760, lit = 0.32, kind = 'line', key, numerals = false, always = false, align = 'center', faint = false, caps = false } = {}) {
     const standard = this.standard || numerals || always;
-    const str = standard ? text.s : vulcanOnly(text.v);
+    let str = standard ? text.s : vulcanOnly(text.v);
     if (!str) return null;
     const family = standard ? STANDARD_FONT : script ? "'VulcanScript'" : "'ModernVulcan'";
-    let px = standard ? size * (script ? 0.55 : 0.82) : size;
+    let px = standard ? size * (script ? 0.55 : caps ? 0.7 : 0.82) : size;
+    const spacing = standard && caps ? 0.16 : 0; // between the letters, of their size
+    if (spacing) str = str.toUpperCase();
     const g = this.layer.color.getContext('2d');
-    g.font = `400 ${px}px ${family}`;
-    let w = g.measureText(str).width;
+    const measure = () => {
+      g.font = `400 ${px}px ${family}`;
+      g.letterSpacing = `${px * spacing}px`;
+      return g.measureText(str).width;
+    };
+    let w = measure();
     if (w > max) {
       px *= max / w;
-      w = max;
+      w = measure();
     }
+    w -= px * spacing; // none after the last letter
+    g.letterSpacing = '0px';
     const font = `400 ${px}px ${family}`;
-    const x0 = x - w / 2;
+    const tracking = `${px * spacing}px`;
+    const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
     this.cut((c, color) => {
       c.font = font;
+      c.letterSpacing = tracking;
       c.textBaseline = 'middle';
       c.textAlign = 'left';
       c.fillStyle = color;
       c.fillText(str, x0, y);
-    }, lit);
+      c.letterSpacing = '0px';
+    }, lit, faint ? FAINT : 1);
     const h = Math.max(px * 1.5, 44);
     const region = { kind, id, key, x: x0 - 14, y: y - h / 2, w: w + 28, h };
     this.regions.push(region);
@@ -343,7 +384,7 @@ export class Engraving {
       g.restore();
     }, lit);
     this.regions.push({ kind: 'button', id: name, x: x - 52, y: y - 52, w: 104, h: 96 });
-    if (label) this.line(`g:${name}`, label, x, y + 62, { size: 22, max: 132, lit: 0.26, always: standard });
+    if (label) this.line(`g:${name}`, label, x, y + 62, { size: 26, max: 140, lit: 0.26, always: standard });
   }
 
   glyphRow(items, y) {
@@ -354,12 +395,23 @@ export class Engraving {
     });
   }
 
-  // A slider: a groove from silent to full, a knob where the value is, and the value in numerals
-  // beyond. Touching anywhere along it, or drawing a finger along it, sets the value.
-  slider(key, x, y, width) {
+  // The glyphs at the foot of every page, always in the same places: the rules (on the rules, the
+  // way back), the Starfleet delta, and Shake - touched, it begins anew, as shaking the phone does;
+  // ringed while a change of way waits for a new game.
+  glyphs(first) {
+    this.glyphRow([
+      first,
+      // Its name is carved in Standard in either script: it is how a reader of Standard finds it.
+      { name: 'translate', label: TEXT.translateGlyph, standard: true },
+      { name: 'anew', label: TEXT.anew, on: this.state.pending },
+    ], GLYPHS_Y);
+  }
+
+  // A slider: a groove from silent to full, beginning at x0, a knob where the value is, and the
+  // value in numerals beyond. Touching anywhere along it, or drawing a finger along it, sets the value.
+  slider(key, x0, y, width) {
     const value = Math.max(0, Math.min(1, this.settings[key] ?? 0));
-    const x0 = x - width / 2;
-    const x1 = x + width / 2;
+    const x1 = x0 + width;
     const at = x0 + (x1 - x0) * value;
     this.cut((g, color) => {
       g.strokeStyle = color;
@@ -392,37 +444,70 @@ export class Engraving {
       g.fill();
     }, 0.75);
     const text = `${Math.round(value * 100)}%`;
-    this.line(`slider:${key}:value`, { v: text, s: text }, x1 + 62, y, { size: 26, max: 90, lit: 0.5, numerals: true });
-    this.regions.push({ kind: 'slider', id: `slider:${key}`, key, x: x0 - 30, y: y - 34, w: x1 - x0 + 60, h: 68, x0, x1, y0: y });
+    this.line(`slider:${key}:value`, { v: text, s: text }, x1 + 30, y, { size: 30, max: 96, lit: 0.5, numerals: true, align: 'left' });
+    this.regions.push({ kind: 'slider', id: `slider:${key}`, key, x: x0 - 30, y: y - ROW / 2, w: x1 - x0 + 60, h: ROW, x0, x1, y0: y });
   }
 
-  // Page marks: one dot for each page, the current one larger.
-  dots(count, current, y) {
-    for (let i = 0; i < count; i++) {
-      const x = C + (i - (count - 1) / 2) * 26;
-      const on = i === current;
-      this.cut((g, color) => {
-        g.fillStyle = color;
+  // A rule across the face, tapering away either side of a small diamond - or of a note.
+  rule(y, note) {
+    const half = Math.min(330, chord(y) - 80);
+    let gap = 18;
+    if (note) gap = this.line('note', note, C, y, { size: 28, max: 2 * half - 140 }).w / 2 + 6;
+    this.cut((g, color) => {
+      g.fillStyle = color;
+      for (const side of [-1, 1]) {
         g.beginPath();
-        g.arc(x, y, on ? 6 : 4, 0, Math.PI * 2);
+        g.moveTo(C + side * gap, y - 2.2);
+        g.lineTo(C + side * half, y);
+        g.lineTo(C + side * gap, y + 2.2);
+        g.closePath();
         g.fill();
-      }, on ? 0.9 : 0.25);
-    }
+      }
+      if (note) return;
+      g.beginPath();
+      g.moveTo(C, y - 8);
+      g.lineTo(C + 8, y);
+      g.lineTo(C, y + 8);
+      g.lineTo(C - 8, y);
+      g.closePath();
+      g.fill();
+    });
   }
 
-  drawMain() {
-    const { game, event } = this.state;
-    this.line('title', TEXT.title, C, 142, { size: 92, script: true, max: 480, lit: 0.55 });
-    // The players: a mark each (a diamond for a Vulcan), filled for whose turn it is, in a ring
-    // painted their colour, and a score. With others at the board, each seat is named over its
-    // mark and its plays are marked beneath.
+  // The face: the name, the players, what just happened, and the ways to play - the game, its
+  // ways, then what neither shapes the game nor waits for a new one (the music, the sound, the
+  // voice and vibration) at the foot.
+  drawMain(pages) {
+    const { event, status, shape } = this.state;
+    this.line('title', TEXT.title, C, TITLE_Y, { size: 66, script: true, max: 400, caps: true });
+    // Beneath the name, the shape this game builds, where the game says (state.shape).
+    if (shape) this.line('shape', shape, C, SHAPE_Y, { size: 25, max: 2 * chord(SHAPE_Y) - 120, caps: true });
+    this.drawSeats();
+    this.line('event', event, C, EVENT_Y, { size: 38, max: 2 * chord(EVENT_Y) - 100 });
+    // How far the game has come, where it says (many forms: the loops closed).
+    if (status) this.line('status', status, C, EVENT_Y + 36, { size: 26, max: 2 * chord(EVENT_Y + 36) - 110, faint: true });
+    // Ways that shape the game wait for it to begin anew: the rule says so.
+    this.rule(RULE_Y, this.state.pending ? TEXT.pending : null);
+    const { rows, sound } = pages[0];
+    for (const row of rows) this.way(row, pages.length > 1);
+    sound.forEach((o, i) => this.way({ o, y: FOOT_Y - (sound.length - 1 - i) * ROW }, pages.length > 1));
+    if (pages.length > 1) this.arrows(0, pages.length, (rows[0].y + rows[rows.length - 1].y) / 2);
+    this.glyphs({ name: 'rules', label: TEXT.rules });
+  }
+
+  // The players: a mark each (a diamond for a Vulcan), filled for whose turn it is, in a ring
+  // painted their colour, and a score. With others at the board, each seat is named over its
+  // mark and its plays are marked beneath. Whose turn it is is told here, and only here.
+  drawSeats() {
+    const { game } = this.state;
     const seats = this.state.seats ?? game?.players.map((p, i) => ({ vulcan: p.vulcan, now: i === game.current && !game.over, score: scoreText(game, p) })) ?? [];
     const plays = this.state.plays ?? [];
     const named = seats.length > 1;
-    const y = named ? 226 : 200;
+    // Alone, the mark and score sit lower, midway down the space the names and plays would take.
+    const y = named ? SEATS_Y : SEATS_Y + 22;
     seats.forEach((seat, i) => {
-      const x = C + (i - (seats.length - 1) / 2) * 150;
-      if (named) this.line(`name${i}`, seatText(i, seat.vulcan), x, 190, { size: 27, max: 140, lit: seat.now ? 0.5 : 0.24 });
+      const x = C + (i - (seats.length - 1) / 2) * 170;
+      if (named) this.line(`name${i}`, seatText(i, seat.vulcan), x, y - 38, { size: 27, max: 160, lit: seat.now ? 0.5 : 0.24 });
       this.paint((g) => {
         g.strokeStyle = SEAT_PAINT[i % SEAT_PAINT.length];
         g.lineWidth = 6;
@@ -447,21 +532,9 @@ export class Engraving {
         if (seat.now) g.fill();
         else g.stroke();
       }, seat.now ? 0.95 : 0.3);
-      this.line(`seat${i}`, seat.score, x, y + 34, { size: 30, max: 140, lit: seat.now ? 0.6 : 0.28 });
-      if (named) this.playMarks(plays.filter((p) => p.player === i).map((p) => p.mark), x, y + 62, seat.now);
+      this.line(`seat${i}`, seat.score, x, y + 36, { size: 30, max: 160, lit: seat.now ? 0.6 : 0.28 });
+      if (named) this.playMarks(plays.filter((p) => p.player === i).map((p) => p.mark), x, y + 64, seat.now);
     });
-    this.line('event', event, C, 352, { size: 38, max: 2 * chord(352) - 90, lit: 0.6 });
-    const lines = this.state.lines ?? [TEXT.lift, TEXT.touch, TEXT.ring, TEXT.hold, formText(this.settings.form), TEXT.turn, TEXT.shake, TEXT.rim];
-    lines.forEach((text, i) => {
-      const y = 398 + i * 44;
-      this.line(`l${i}`, text, C, y, { size: 30, max: 2 * chord(y) - 80 });
-    });
-    this.glyphRow([
-      { name: 'ways', label: TEXT.ways },
-      // Its name is carved in Standard in either script: it is how a reader of Standard finds it.
-      { name: 'translate', label: TEXT.translateGlyph, standard: true },
-      { name: 'anew', label: TEXT.anew, on: this.state.pending },
-    ], GLYPHS_Y);
   }
 
   // A player's plays, in order, as small marks beneath their seat (see MARKS): rows of seven, the
@@ -478,30 +551,56 @@ export class Engraving {
     return OPTIONS.filter((o) => !o.when || o.when(this.settings));
   }
 
-  // The ways, page by page: a row is its name and its value, and for some a line beneath on what
-  // the value means. As many rows to a page as fit.
+  choiceOf(o) {
+    return o.choices.find(([value]) => value === this.settings[o.key]) ?? o.choices[0];
+  }
+
+  // The ways shown, placed: the game first (with a line on what it is), then its ways, as many as
+  // fit on the face between the rule and the sound, which keeps the foot; any more (none, for the
+  // games there are) follow on pages of their own, turned to by an arrow at the rim.
   wayPages() {
-    const pages = [[]];
-    let used = 0;
-    for (const o of this.visibleOptions()) {
-      const h = o.slider ? 80 : o.choices.some((c) => c[3]) ? 106 : 80;
-      if (used + h > PAGE_HEIGHT && pages[pages.length - 1].length) {
-        pages.push([]);
-        used = 0;
+    const shown = this.visibleOptions();
+    const sound = shown.filter((o) => UNSHAPING.has(o.key));
+    const pages = [{ rows: [], sound }];
+    let y = WAYS_Y;
+    let last = FOOT_Y - sound.length * ROW;
+    shown.filter((o) => !UNSHAPING.has(o.key)).forEach((o, i) => {
+      // Room for the line on what the game is, whichever is chosen: what follows stays put.
+      const tall = i === 0 && !o.slider && o.choices.some((c) => c[3]);
+      if (y > last && pages[pages.length - 1].rows.length) {
+        pages.push({ rows: [] });
+        y = MORE_Y;
+        last = FOOT_Y;
       }
-      pages[pages.length - 1].push(o);
-      used += h;
-    }
+      pages[pages.length - 1].rows.push({ o, y, tall });
+      y += ROW + (tall ? HINT : 0);
+    });
     return pages;
   }
 
-  // Large chevrons at the rim, either side: touch one to turn to the page before or after.
-  // Only where there is such a page.
-  arrows(page, pages) {
-    const y = ARROW_Y;
+  // A way: its name, faint, ending short of the centre line, and its value beginning beyond it -
+  // touch the value to change it - or the groove of its slider; and for the game, a line beneath
+  // on what it is.
+  way({ o, y, tall }, narrow = false) {
+    const room = Math.min(narrow ? 280 : 340, chord(y) - GUTTER - 60); // each side, clear of the frame (and of arrows at the rim)
+    this.line(`row:${o.key}`, { v: o.v, s: o.s }, C - GUTTER, y, { size: 30, max: room, align: 'right', faint: true });
+    if (o.slider) {
+      this.slider(o.key, C + GUTTER + 14, y, Math.min(250, room - 90));
+      return;
+    }
+    const choice = this.choiceOf(o);
+    this.line(`row:${o.key}`, { v: choice[1], s: choice[2] }, C + GUTTER, y, { size: 36, max: room, align: 'left' });
+    if (tall && choice[3]) this.line(`hint:${o.key}`, choice[3], C, y + HINT, { size: 27, max: 2 * chord(y + HINT) - 120, faint: true });
+    // The whole row is for touching, name and value alike: a broad mark for a fingertip.
+    this.regions.push({ kind: 'value', id: `row:${o.key}`, key: o.key, x: C - GUTTER - room, y: y - ROW / 2, w: 2 * (GUTTER + room), h: ROW + (tall ? HINT : 0) });
+  }
+
+  // Large chevrons at the rim, either side at height y: touch one to turn to the page before or
+  // after. Only where there is such a page.
+  arrows(page, pages, y) {
     for (const [side, id] of [[-1, 'prev'], [1, 'more']]) {
       if (side < 0 ? page <= 0 : page >= pages - 1) continue;
-      const x = C + side * (chord(y) - 78);
+      const x = C + side * (chord(y) - 100);
       this.cut((g, color) => {
         g.strokeStyle = color;
         g.lineWidth = 10;
@@ -513,40 +612,18 @@ export class Engraving {
         g.lineTo(x - side * 20, y + 58);
         g.stroke();
       }, 0.8);
-      this.regions.push({ kind: 'button', id, x: x - 64, y: y - 160, w: 128, h: 320 });
+      this.regions.push({ kind: 'button', id, x: x - 60, y: y - 110, w: 120, h: 220 });
     }
   }
 
-  drawWays() {
-    const pages = this.wayPages();
-    this.wayPage = Math.min(this.wayPage, pages.length - 1);
-    this.line('waysTitle', TEXT.waysTitle, C, 140, { size: 44, lit: 0.5 });
-    this.dots(pages.length, this.wayPage, 184);
-    let y = 228;
-    for (const o of pages[this.wayPage]) {
-      const max = Math.min(ROW_MAX, 2 * chord(y + 16) - 90);
-      if (o.slider) {
-        // Its name, and beneath it a groove to draw the finger along.
-        this.line(`row:${o.key}`, { v: o.v, s: o.s }, C, y, { size: 25, max, lit: 0.22 });
-        this.slider(o.key, C, y + 40, Math.min(420, max - 150));
-        y += 80;
-        continue;
-      }
-      const choice = o.choices.find(([value]) => value === this.settings[o.key]) ?? o.choices[0];
-      // The name of the way, its value beneath (touch to change), and what that means.
-      this.line(`row:${o.key}`, { v: o.v, s: o.s }, C, y, { size: 25, max, lit: 0.22 });
-      this.line(`row:${o.key}`, { v: choice[1], s: choice[2] }, C, y + 32, { size: 31, max, lit: 0.62, kind: 'value', key: o.key });
-      if (choice[3]) this.line(`hint:${o.key}`, choice[3], C, y + 63, { size: 26, max, lit: 0.36 });
-      y += o.choices.some((c) => c[3]) ? 106 : 80;
-    }
-    this.arrows(this.wayPage, pages.length);
-    // Ways that shape the game wait for it to begin anew.
-    if (this.state.pending) this.line('pending', TEXT.pending, C, 738, { size: 28, max: 2 * chord(738) - 80, lit: 0.7 });
-    this.glyphRow([
-      { name: 'rules', label: TEXT.rules },
-      { name: 'anew', label: TEXT.anew, on: this.state.pending },
-      { name: 'back', label: TEXT.back },
-    ], GLYPHS_Y);
+  // Ways that do not fit on the face, on a page of their own.
+  drawMore(pages) {
+    const { rows } = pages[this.wayPage];
+    this.line('waysTitle', TEXT.waysTitle, C, 150, { size: 44, lit: 0.5 });
+    this.rule(194, this.state.pending ? TEXT.pending : null);
+    for (const row of rows) this.way(row, true);
+    this.arrows(this.wayPage, pages.length, (rows[0].y + rows[rows.length - 1].y) / 2);
+    this.glyphs({ name: 'rules', label: TEXT.rules });
   }
 
   drawRules() {
@@ -564,7 +641,7 @@ export class Engraving {
       this.cut((g, color) => MARKS[mark](g, x - 52, 690, color), 0.6);
       this.line(`legend${i}`, label, x + 8, 690, { size: 24, max: 104, lit: 0.36 });
     });
-    this.glyphRow([{ name: 'ways', label: TEXT.ways }, { name: 'back', label: TEXT.back }], GLYPHS_Y);
+    this.glyphs({ name: 'back', label: TEXT.back });
   }
 
   // Recut one strip of the carving as it now stands (the page drawn again within it), quickly,
@@ -677,22 +754,14 @@ export class Engraving {
 
   press(name) {
     const turn = (page) => this.recut(page);
-    if (name === 'ways') {
-      turn(() => {
-        this.page = 'ways';
-        this.wayPage = 0;
-      });
-    } else if (name === 'rules') {
+    if (name === 'rules') {
       turn(() => {
         this.page = 'rules';
       });
     } else if (name === 'back') {
-      const to = this.page === 'rules' ? 'ways' : 'main';
       turn(() => {
-        this.page = to;
+        this.page = 'main';
       });
-      this.onAction?.('page', to);
-      return;
     } else if (name === 'translate') {
       this.translate();
       this.onAction?.('translate');
@@ -713,6 +782,7 @@ export class Engraving {
   // Straight to a page, without recutting (a new game returns to the first).
   show(page) {
     this.page = page;
+    this.wayPage = 0;
     this.dirty = true;
   }
 }
@@ -810,14 +880,7 @@ const MARKS = {
 };
 
 const GLYPHS = {
-  ways(g) {
-    g.beginPath();
-    g.arc(0, 0, 30, 0, Math.PI * 2);
-    g.stroke();
-    g.beginPath();
-    g.arc(0, 0, 10, 0, Math.PI * 2);
-    g.stroke();
-  },
+  // Beginning anew (carved "Shake": shaking the phone does it too).
   anew(g) {
     g.beginPath();
     g.arc(0, 0, 30, Math.PI * 0.62, Math.PI * 2.38);

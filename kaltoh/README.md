@@ -18,11 +18,11 @@ of steel *t'an* on a stone basin:
   held by a field that spins on a hidden axis. Close a loop around that axis and it becomes a
   ring. Overload the structure and pieces fall. Ring by ring, order comes out of the chaos.
 
-Nothing is written on the screen. The title, the instructions and every control are carved into
-the underside of the stone: tip the base over to read them, from whichever side you like. All of
-it is engraved black, like the frame round it; only the rings round the players' marks are painted,
-each in its player's colour. Ten minutes of ambience loop beneath the play, starting with
-your first touch; they play along with whatever else the phone is playing, never pausing it.
+Nothing is written on the screen. The title, the shape being built, the players, what just
+happened and every control are carved on one face on the underside of the stone: tip the base over
+to read them, from whichever side you like. All of it is engraved black, like the frame round it;
+only the rings round the players' marks are painted, each in its player's colour. Ten minutes of
+ambience loop beneath the play, starting with your first touch; they play along with whatever else the phone is playing, never pausing it.
 The stone stands on a silver pedestal table in Voyager's mess hall: beyond it, out of focus
 and seen small and wide, the bar where Picard sits stands up to the right, and the table's satin
 top mirrors the room softly,
@@ -45,11 +45,11 @@ his table, and the waiting t'an in the tray, its faces gently domed, holds his f
   <img src="docs/ring.png" width="19%" alt="A ring forming">
   <img src="docs/complete.png" width="19%" alt="A completed globe of rings">
   <img src="docs/green.png" width="19%" alt="Two players, as it was before the mess hall: the light behind turned green on the second player's turn">
-  <img src="docs/underside.png" width="19%" alt="The carved underside of the base: each seat named, its mark ringed in its colour, its plays marked beneath">
+  <img src="docs/underside.png" width="19%" alt="The carved underside of the base, all on one face: the name and the shape being built, each seat named, its mark ringed in its colour, its plays marked beneath, what just happened, and the ways to play">
 </p>
 <p align="center">
-  <img src="docs/ways.png" width="19%" alt="The ways to play, with an arrow at the rim to turn the page">
-  <img src="docs/ways-sound.png" width="19%" alt="The ways' sliders for the music and the sound effects">
+  <img src="docs/ways.png" width="19%" alt="The face translated into Vulcan, in many forms: the form's name, the loops closed, the game and its ways, the music, sound and voice sliders, vibration, and the glyphs Rules, Translate and Shake">
+  <img src="docs/rules.png" width="19%" alt="The rules of the chosen game and the marks under the seats, a glyph away">
 </p>
 
 ## Install
@@ -72,11 +72,11 @@ over an older one without uninstalling.
 | Turn the base | Drag the stone (a fingertip off its edge counts). Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. Level - its foot within ten degrees of facing straight down - it rests on the floor, and spins there like a turntable; tip it further, toward you or away, and it lifts to turn freely. It never comes down while you hold it: let it go within ten degrees of level and it falls straight down until its lowest edge meets the floor, then tips over on that edge until it lies flush, with a knock each time (held tipped a little as it rests, it rocks up onto its edge, never into the floor). Resting there, the t'an turned into it ride up over it rather than pushing it into the floor. **Two fingers** on the stone turn it as you see it instead: twist them and it turns about your line of sight, the same way round; move them together and it tumbles along with them; spread or pinch them to draw nearer, or back again as far as the view was first framed. A drag on open space turns nothing, so a finger that only just misses the t'an at the foot of the screen sets nothing spinning. With the base turned over, grab it by its rim, outside the carving's framing circle: within the circle the carving is for touching, and nothing turns. |
 | Turn the t'an | Drag anywhere within the t'an's outline, even between them (two fingers turn it as you see it, as for the stone). The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
 | Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it dangles from your finger, swinging as you move, drawing in to the size it will be at the kal-toh as you raise it - one finger is not enough to lay it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Held so, the t'an lies between your fingers at its own length, and **where its ends are is where it lands**: spread your fingers wide of the pieces, out of your own way, and lay its ends on them - in the original game and many forms, on the tips you mean to join (each end picks the tip nearest it, which lights up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you draw the view nearer. |
-| Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read: the title, whose turn it is and the score, what just happened, and how to play. |
-| Play with others | Choose two to four players (or a Vulcan, in rings) in the ways to play. Whose turn it is is told under the base, and only there: each seat is named (*Player 1*, *Player 2*, ... or *The Vulcan*) over its mark, which is ringed in paint of its colour (red for the first player, a rich green for the second, then deep blue and gold), the mark filled for whose turn it is. Beneath is the score: in the original game and many forms, true joins of those tried (*7/9*); in rings, points. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop, a loop closed or a ring, a cross where t'an fell. The rules page shows the marks. |
-| Translate | Everything is carved in Vulcan. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it (in Standard, whichever script the rest is in): all of it is smoothed away to bare stone and cut again in Standard, as deep. Touch it again for Vulcan. Touching the carving anywhere else translates nothing. |
-| Ways to play | Touch the circle carved under the base. The first way is the game itself. Touch a value to change it; some say beneath what they mean. Where there are more ways than fit, a large **arrow carved at the rim** turns the page, and one on the other side turns back. A change to the game waits for a new one: the carving says so and a ring is cut round *begin anew*. Touch it to play that way. **Music** and **Sound effects** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the music pauses). |
-| Begin anew | **Shake the phone for three seconds**, or touch *begin anew* under the base. |
+| Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read. It is all on one face: the title, and beneath it the shape the game builds (in the original game *two concentric icosidodecahedra*; in many forms, this game's form); whose turn it is and the score; what just happened (in many forms, and how many loops are closed); then, under a carved rule, the ways to play, the music, the sound, the voice and vibration; and three glyphs at the foot: *Rules*, *Translate* and *Shake*. *Rules* turns to the rules of the chosen game, short, and the marks under the seats; *Return* comes back. |
+| Play with others | Two players take turns at first, passing the phone; choose one to four (or a Vulcan, in rings) in the ways to play. Whose turn it is is told under the base, and only there: each seat is named (*Player 1*, *Player 2*, ... or *The Vulcan*) over its mark, which is ringed in paint of its colour (red for the first player, a rich green for the second, then deep blue and gold), the mark filled for whose turn it is. Beneath is the score: in the original game and many forms, true joins of those tried (*7/9*); in rings, points. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop, a loop closed or a ring, a cross where t'an fell. The rules show the marks. |
+| Translate | Everything is carved in Standard at first. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it (in Standard, whichever script the rest is in): all of it is smoothed away to bare stone and cut again in Vulcan, as deep. Touch it again for Standard. The carving reads in whichever script you left it in, the next time too. Touching the carving anywhere else translates nothing. |
+| Ways to play | Carved on the face, under the players, in two columns: each way's name, and its value. First the game itself, with a line beneath on what it is, then its ways (how many players), then **Music**, **Sound effects**, **Voice** (the voice guiding the play, full at first; silent, it guides no more) and **Vibration**. Touch a way's row to change its value. A change to the game waits for a new one: the rule across the face says *Shake to play this way*, and a ring is cut round *Shake*. Shake the phone, or touch *Shake*, to play that way. **Music**, **Sound effects** and **Voice** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the music pauses). (Rings has more ways than fit on the face: a large **arrow carved at the rim** turns to them, and one on the other side turns back.) |
+| Begin anew | **Shake the phone for three seconds**, or touch *Shake* under the base. |
 | Draw nearer | Pinch, anywhere. |
 
 ### The kal-toh (the original game)
@@ -184,8 +184,9 @@ Opponent: a Vulcan *novice*, *adept* (default) or *master*, or nobody (pass and 
 four players). Other settings: the spin's strength (unknown by default), a drift, the axis hidden
 or shown, a light, medium or dense nest, *foresight* (see the ring a held
 t'an would make, once the axis is known, always, or never), strain cues, *chains* (a ring earns
-another turn, as boxes do in dots and boxes), the supply of t'an, lives, music and sound levels, vibration, and
-whether the carving reads in Vulcan or Standard until touched.
+another turn, as boxes do in dots and boxes), the supply of t'an, lives, music, sound and voice levels,
+and vibration. The settings are remembered, and so is the script the carving was last
+translated to.
 
 ### Strategy
 
@@ -250,8 +251,8 @@ it found it.
     ends are mitred in the shader, each corner cut back to the plane halving the angle to each
     other t'an there, so they meet the last millimetre to the last), `falling.js` (fallen t'an: tumbling, coming to rest on the
     stone or the table, or tipping off its edge and away, and staying until a new game), `tray.js`, `input.js`, `engrave.js`
-    (everything written, carved into the stone's underside on a layer whose depth the shader can
-    smooth away and recut, and the ways to play), `texts.js` (the words,
+    (everything written, carved on one face of the stone's underside - the ways to play among it,
+    laid out from `settings.js` - on a layer whose depth the shader can smooth away and recut), `texts.js` (the words,
     in Vulcan and Standard), `settings.js`, `audio.js` (synthesized sound: every contact as its materials would sound - thin light metal on
     metal, rock on metal, rock on rock - each struck and drawn along), `shake.js`, `main.js`. `audio.js` also
     loops the music, through its own level, paused when silenced or out of sight; on the phone the
@@ -282,17 +283,24 @@ it found it.
     original game: the jumble grows, a t'an taken up by one finger and held by a second, its ends laid
     on two tips, joins true neighbours, tips too far apart for a t'an are refused, a false bond falls and shows where the
     tip belonged, no t'an passes into the stone, and t'an meeting at a
-    junction are mitred to touch. Then it changes the game in the carved ways to play and plays
-    many forms: the sample and the noise, a true join, noise touched falling away, the inner form
+    junction are mitred to touch. Turned over, the base shows everything on one face (the name and
+    the shape being built, the two players, what happened, the game and its ways, the music, the
+    sound, the voice and vibration, and the glyphs, with no page to turn to and no row for the
+    script); touching the
+    game there changes it, the carving says to shake to play this way, and the glyph *Shake* plays
+    many forms: its form named under the title, the sample and the noise, a true join, noise touched
+    falling away, the inner form
     whole with struts at every junction and a longer t'an in the tray, a join on the struts' tips.
-    Then, turning the ways' pages by the arrows at the rim, it plays rings. It covers
+    Then, with its further ways a page on by the arrows at the rim, it plays rings. It covers
     placing, the Vulcan's reply, a ring, and turning the base: the t'an lag, catch
     up, then hold perfectly still; a drag on open space below the stone turns nothing; two fingers
     twisted on the stone turn it about the line of sight. It turns the t'an by their area and checks
     no t'an ever passes
     into the stone. It turns the base over to read it (top up whichever way it was turned); a drag
     within the carving's circle turns nothing and a touch there does not translate it, but the
-    Starfleet delta does. It draws a finger along the music's slider. It covers the carved ways to play,
+    Starfleet delta does (Standard at first, Vulcan then), and the script is remembered for next
+    time. The rules glyph turns to the rules, and *Return* comes back. It draws a finger along the
+    music's slider, sets the voice's level on its own slider, and changes the ways on the face for a new game. It covers
     fallen t'an staying until a new game, and shaking to begin anew. It checks that the stone stands on the table, its top at the
     floor, mirroring what stands on it (and then puts the table out of sight: drawing its metal
     makes the software renderer several times slower), that whose

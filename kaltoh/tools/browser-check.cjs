@@ -3,20 +3,23 @@
 // by one finger and then held by a second joins two true neighbours, tips too far apart for a t'an
 // are refused, a false bond falls
 // (the first tip's true neighbours glowing), nothing passes into the
-// stone, and t'an meeting at a junction are mitred to touch. Then, through the carved ways to play,
-// many forms: a new form's jumble with a sample of its loops true and noise among it, a true join,
-// noise touched falling away, the inner form whole with struts at every junction and a longer t'an
-// in the tray, and a join on the struts' tips. Then (turning the ways' pages by the arrows at the
-// rim) the game of rings: a two-finger lift and placement, the Vulcan's reply (whose turn it is
-// told only under the board, the scene's light the same for both; the plays carved under the
-// seats), a ring,
+// stone, and t'an meeting at a junction are mitred to touch. Then, through the ways to play carved
+// on the one face under the base (with the shape the game builds beneath the name, and nothing to
+// turn to), many forms: a new form's jumble with a sample of its loops true and noise among it, a
+// true join, noise touched falling away, the inner form whole with struts at every junction and a
+// longer t'an in the tray, and a join on the struts' tips. Then (its further ways a page on, by
+// the arrows at the rim) the game of rings: a two-finger lift and placement, the Vulcan's reply
+// (whose turn it is told only under the board, the scene's light the same for both; the plays
+// carved under the seats), a ring,
 // a drag on open space turning nothing, turning the base by the stone (the t'an lag, catch up, and
 // then hold perfectly still on it), spinning the
 // t'an by dragging their area, t'an never passing into the stone, turning the base over to read
 // its underside (whichever way it was turned, the carving reads with its top up), touching the
-// carving to translate all of it, the carved ways to play, fallen t'an lying where they fell until
-// a new game, and shaking to begin anew. Nothing may be written on the screen itself. Screenshots
-// land in the directory given as the first argument.
+// carving to translate all of it (Standard at first; remembered for next time), the rules a glyph
+// away and back, the ways on the face (the music's and the voice's sliders, pass and play, Shake to
+// begin anew), fallen t'an lying
+// where they fell until a new game, and shaking to begin anew. Nothing may be written on the
+// screen itself. Screenshots land in the directory given as the first argument.
 //
 // Run: node kaltoh/tools/browser-check.cjs [out-dir]
 // Needs Playwright with Chromium (NODE_PATH or a global install).
@@ -305,11 +308,11 @@ function check(condition, message) {
     check(junctions.meetings > 20 && junctions.worst > -1e-4 && junctions.resting > 20,
       `where t'an meet at a junction their ends are mitred to touch, neither apart nor through each other (${junctions.resting} corners resting, closest ${junctions.worst.toExponential(1)})`);
 
-    // Turn the base over, and choose the game of rings in the carved ways to play. A change of
-    // game waits for a new one; the ways turn their pages by arrows at the rim.
+    // Turn the base over, and choose many forms among the ways to play carved on its face. A change
+    // of game waits for a new one.
     const where = (id, kind) => page.evaluate(([id, kind]) => window.__kaltoh.engraving.screenOf(id, kind), [id, kind]);
     const carved = (id) => page.evaluate((id) => window.__kaltoh.engraving.regions.some((r) => r.id === id), id);
-    const recut = () => page.waitForFunction(() => window.__kaltoh.engraving.phase === 'still', null, { timeout: 10000 });
+    const recut = () => page.waitForFunction(() => window.__kaltoh.engraving.phase === 'still', null, { timeout: 30000 });
     // A new game begun, the base set level again (as a player would before playing): turned over
     // and back by hand, it keeps a little of the tilt, and over two games that adds up.
     const level = () => page.evaluate(() => {
@@ -325,13 +328,23 @@ function check(condition, message) {
       await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
     };
     await turnOver();
-    await tap(await where('ways', 'button'));
-    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
-    await recut();
-    check(!(await carved('more')) && !(await carved('prev')), 'the original game\'s ways fit on one page, with no arrows');
+    // One face holds it all: the name and the shape the game builds, the players (two at first,
+    // passing and playing), what just happened, the game and its ways, the music, the sound, the
+    // voice and vibration, and the glyphs.
+    check(await page.evaluate(() => {
+      const e = window.__kaltoh.engraving;
+      return e.page === 'main' && e.state.shape?.s === 'Two concentric icosidodecahedra' && window.__kaltoh.classic.game.players === 2
+        && ['title', 'shape', 'name0', 'name1', 'event', 'row:way', 'row:players', 'slider:music', 'slider:sfx', 'slider:voice', 'row:haptics', 'rules', 'translate', 'anew']
+          .every((id) => e.regions.some((r) => r.id === id));
+    }), 'turned over, one carved face holds the name, the shape it builds, the two players, what happened, the ways, the music, the sound, the voice and vibration');
+    check(!(await carved('more')) && !(await carved('prev')) && !(await carved('row:language')), 'all of it, with no page to turn to (and no row for the script)');
     await tap(await where('row:way', 'value'));
     await sleep(500);
     check(await page.evaluate(() => window.__kaltoh.settings.way === 'forms' && window.__kaltoh.engraving.state.pending), 'touching the game changes it, to begin anew: many forms');
+    check(await carved('note') && await page.evaluate(async () => {
+      const { TEXT } = await import('/js/texts.js');
+      return TEXT.pending.s === 'Shake to play this way' && TEXT.anew.s === 'Shake';
+    }), 'the carving says to shake to play this way, and the glyph that begins anew is named Shake');
     await page.evaluate(() => {
       window.__kaltoh.seed = 7;
     });
@@ -430,11 +443,13 @@ function check(condition, message) {
     await page.waitForFunction(() => window.__kaltoh.forms.game.presentOut.size >= 1 && window.__kaltoh.phase === 'play', null, { timeout: 60000 });
     check(true, 'the outer shell is built on the struts\' tips');
 
-    // Then the game of rings, whose ways turn their pages by arrows at the rim.
+    // Then the game of rings, whose many ways do not all fit on the face: an arrow at the rim
+    // turns to the rest.
     await turnOver();
-    await tap(await where('ways', 'button'));
-    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
-    await recut();
+    check(await page.evaluate(() => {
+      const { state, page: carvedPage } = window.__kaltoh.engraving;
+      return carvedPage === 'main' && state.shape?.s === window.__kaltoh.forms.form.s && /^Loops closed/.test(state.status?.s);
+    }), 'many forms carves the name of its form beneath the title, and how many loops are closed');
     await tap(await where('row:way', 'value'));
     await sleep(500);
     check(await page.evaluate(() => window.__kaltoh.settings.way === 'rings' && window.__kaltoh.engraving.state.pending), 'touching it again chooses the game of rings');
@@ -751,7 +766,7 @@ function check(condition, message) {
     await turnOver();
     check(true, 'turned over, the base brings its carved underside to the eye');
     const title = await where('title');
-    const glyphs = await where('ways', 'button');
+    const glyphs = await where('translate', 'button');
     check(title.y < glyphs.y - 100 && Math.abs(title.x - glyphs.x) < 140, 'its carving reads with its top up');
     await page.screenshot({ path: path.join(OUT, '8-underside.png') });
     // Within the carving's framing circle, a drag turns nothing, and a touch does not translate it.
@@ -759,39 +774,47 @@ function check(condition, message) {
     await drag(await where('title'), 120, 60);
     await sleep(600);
     check(!differ(flat.base, (await onBase()).base, 1e-6), 'a drag within the carving\'s circle turns nothing');
-    await tap(await where('l0'));
+    await tap(await where('event'));
     await sleep(800);
-    check(await page.evaluate(() => !window.__kaltoh.engraving.standard && window.__kaltoh.engraving.phase === 'still'), 'nor does touching the carving translate it');
-    // The Starfleet delta among the glyphs: all of it is smoothed away and cut again in Standard;
-    // touched again, Vulcan.
+    check(await page.evaluate(() => window.__kaltoh.engraving.standard && window.__kaltoh.engraving.phase === 'still'), 'nor does touching the carving translate it');
+    // It reads in Standard at first. The Starfleet delta among the glyphs: all of it is smoothed
+    // away and cut again in Vulcan, which the carving reads in from then on (the settings remember
+    // it); touched again, Standard.
+    const script = () => page.evaluate(async () => {
+      const { loadSettings } = await import('/js/settings.js');
+      return [window.__kaltoh.settings.script, loadSettings().script].join();
+    });
+    check(await script() === 'standard,standard', 'the carving reads in Standard at first');
     await tap(await where('translate', 'button'));
-    await page.waitForFunction(() => window.__kaltoh.engraving.depth.value < 0.5, null, { timeout: 10000, polling: 'raf' });
+    await page.waitForFunction(() => window.__kaltoh.engraving.depth.value < 0.5, null, { timeout: 30000, polling: 'raf' });
     await recut();
-    check(await page.evaluate(() => window.__kaltoh.engraving.standard), 'the Starfleet delta smooths the carving away and cuts it again in Standard');
+    check(await page.evaluate(() => !window.__kaltoh.engraving.standard), 'the Starfleet delta smooths the carving away and cuts it again in Vulcan');
+    check(await script() === 'vulcan,vulcan', 'and the carving will first read in Vulcan from now on');
     await sleep(300);
     await page.screenshot({ path: path.join(OUT, '9-translated.png') });
     await tap(await where('translate', 'button'));
     await recut();
-    check(await page.evaluate(() => !window.__kaltoh.engraving.standard), 'touched again, it returns all of it to Vulcan');
+    check(await page.evaluate(() => window.__kaltoh.engraving.standard) && await script() === 'standard,standard', 'touched again, it returns all of it to Standard, and remembers that');
 
-    // 7. The carved ways to play: choose pass and play, begin anew.
-    await tap(await where('ways', 'button'));
-    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'ways', null, { timeout: 10000 });
+    // 7. The rules, a glyph away, and back; then the ways on the face: the music's slider, pass and
+    // play, and the glyph named Shake to begin anew.
+    await tap(await where('rules', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'rules', null, { timeout: 30000 });
+    await recut();
+    check(await carved('r0') && await carved('legend0') && await carved('back') && await carved('translate') && await carved('anew'),
+      'the rules glyph turns to the rules of the game and its marks, with the way back');
+    await page.screenshot({ path: path.join(OUT, '10-rules.png') });
+    await tap(await where('back', 'button'));
+    await page.waitForFunction(() => window.__kaltoh.engraving.page === 'main', null, { timeout: 30000 });
     await recut();
     await page.screenshot({ path: path.join(OUT, '10-ways.png') });
-    check(true, 'the carved circle opens the ways to play');
+    check(await carved('row:way') && await carved('rules'), 'and the way back returns to the face');
     // Drawn along, a slider sets its level, and turns nothing: the music, from where it is to a fifth.
-    // (The game of rings has more ways: its sliders are pages on.)
-    for (let i = 0; i < 5 && !(await carved('slider:music')) && await carved('more'); i++) {
-      await tap(await where('more', 'button'));
-      await page.waitForFunction((n) => window.__kaltoh.engraving.wayPage === n, i + 1, { timeout: 10000 });
-      await recut();
-    }
     const knob = await page.evaluate(() => {
       const r = window.__kaltoh.engraving.regions.find((x) => x.id === 'slider:music');
       return r && { x0: r.x0, x1: r.x1, y0: r.y0, v: window.__kaltoh.settings.music };
     });
-    check(knob, 'the music has a slider among the ways, and so do the sound effects');
+    check(knob, 'the music has a slider on the face, and so do the sound effects');
     const canvasPoint = (px, py) => page.evaluate(([px, py]) => {
       const e = window.__kaltoh.engraving;
       e.regions.push({ kind: 'probe', id: 'probe', x: px - 1, y: py - 1, w: 2, h: 2 });
@@ -818,11 +841,25 @@ function check(condition, message) {
     check(await page.evaluate(() => window.__kaltoh.settings.music === 0 && window.__kaltoh.sound.music.paused), 'silenced, it pauses');
     await tap(await canvasPoint(knob.x0 + (knob.x1 - knob.x0) * 0.6, knob.y0));
     check(await musicPlays(), 'and raised again, it plays on');
-    for (let i = 0; i < 5 && await page.evaluate(() => window.__kaltoh.engraving.wayPage > 0); i++) {
-      await tap(await where('prev', 'button'));
-      await page.waitForFunction(() => window.__kaltoh.engraving.phase === 'smoothing', null, { timeout: 10000 }).catch(() => {});
-      await recut();
-    }
+    // The guiding voice has a slider of its own, full at first: touched lower along it and then
+    // past its end, its level follows, remembered like the other ways, waiting for no new game.
+    const voice = () => page.evaluate(async () => {
+      const { loadSettings } = await import('/js/settings.js');
+      return { now: window.__kaltoh.settings.voice, saved: loadSettings().voice, pending: Boolean(window.__kaltoh.engraving.state.pending) };
+    });
+    const voiceGroove = await page.evaluate(() => {
+      const r = window.__kaltoh.engraving.regions.find((x) => x.id === 'slider:voice');
+      return r && { x0: r.x0, x1: r.x1, y0: r.y0 };
+    });
+    const voiced = await voice();
+    await tap(await canvasPoint(voiceGroove.x0 + (voiceGroove.x1 - voiceGroove.x0) * 0.3, voiceGroove.y0));
+    await sleep(400);
+    const lowered = await voice();
+    await tap(await canvasPoint(voiceGroove.x1 + 10, voiceGroove.y0));
+    await sleep(400);
+    const raised = await voice();
+    check(voiced.now === 1 && Math.abs(lowered.now - 0.3) < 0.06 && lowered.saved === lowered.now && !lowered.pending && raised.now === 1 && raised.saved === 1,
+      `the voice has a slider of its own, full at first, its level remembered and waiting for no new game (lowered to ${Math.round(lowered.now * 100)}%)`);
     for (let i = 0; i < 4 && (await page.evaluate(() => window.__kaltoh.settings.opponent)) !== 'none'; i++) {
       await tap(await where('row:opponent', 'value'));
       await sleep(400);

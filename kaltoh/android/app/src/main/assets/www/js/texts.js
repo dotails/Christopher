@@ -19,13 +19,6 @@ export const vulcanOnly = (text) => text.toLowerCase().replace(/[^a-z ]+/g, '').
 export const TEXT = {
   title: { v: 'kaltoh', s: 'KAL-TOH' },
   begin: { v: 'find the order within the chaos', s: 'Find the order within the chaos' },
-  lift: { v: 'take up a tan then hold it with two fingers', s: "Take up a t'an from the tray, then hold it with two fingers" },
-  touch: { v: 'lay its ends on two tan within its reach', s: "Lay its ends on two t'an no further apart than its length" },
-  ring: { v: 'close a loop around the hidden spin', s: 'Close a loop around the hidden spin: a ring' },
-  hold: { v: 'what cannot bear the spin will fall', s: 'What cannot bear the spin will fall' },
-  turn: { v: 'drag the stone or the tan to turn them', s: "Drag the stone to turn it, the t'an to spin them" },
-  shake: { v: 'shake three seconds to begin anew', s: 'Shake for three seconds to begin anew' },
-  rim: { v: 'turn the stone by its rim', s: 'Turn the stone by its rim, outside this circle' },
   translateGlyph: { v: 'translate', s: 'Translate' },
   holds: { v: 'it holds', s: 'It holds' },
   ringLost: { v: 'the ring could not hold', s: 'The ring could not hold' },
@@ -34,14 +27,13 @@ export const TEXT = {
   lifeLost: { v: 'a life is lost', s: 'A life is lost' },
   quickens: { v: 'the spin quickens', s: 'The spin quickens' },
   applied: { v: 'a new game begins', s: 'A new game begins' },
-  // Glyph labels.
-  ways: { v: 'ways', s: 'Ways to play' },
-  anew: { v: 'anew', s: 'Begin anew' },
+  // Glyph labels. The glyph that begins anew is named for shaking the phone, which does the same.
+  anew: { v: 'shake', s: 'Shake' },
   rules: { v: 'rules', s: 'Rules' },
   back: { v: 'return', s: 'Return' },
   waysTitle: { v: 'ways to play', s: 'Ways to play' },
   rulesTitle: { v: 'the rules', s: 'The rules' },
-  pending: { v: 'begin anew to play this way', s: 'Begin anew to play this way' },
+  pending: { v: 'shake to play this way', s: 'Shake to play this way' },
   // The marks of the plays under each seat (the rules page names them).
   markJoined: { v: 'joined', s: 'joined' },
   markPlaced: { v: 'placed', s: 'placed' },
@@ -59,12 +51,6 @@ export const seatText = (i, vulcan) => (vulcan ? { v: 'the vulcan', s: 'The Vulc
 // So many of so many, as a seat's score: true joins of those tried, say.
 export const ofText = (x, o) => ({ v: `${spell(x)} of ${spell(o)}`, s: `${x}/${o}` });
 export const supplyText = (n) => ({ v: `${spell(n)} tan remain`, s: `${n} t'an remain` });
-
-export function formText(form) {
-  if (form === 'lantern') return { v: 'three rings above and below make the lantern', s: 'Three rings, above and below, make the lantern' };
-  if (form === 'sphere') return { v: 'six rings crowned at both poles make the sphere', s: 'Six rings, crowned at both poles, make the sphere' };
-  return { v: 'four rings above below and about the middle', s: 'Four rings, above, below and about the middle' };
-}
 
 export function scoreText(game, p) {
   const mode = game.settings.mode;
@@ -113,13 +99,8 @@ export function rulesText(settings) {
 // The original kal-toh's words (classic.js).
 export const CLASSIC = {
   begin: { v: 'find the order within the chaos', s: 'Find the order within the chaos' },
-  lift: { v: 'take up a tan then hold it with two fingers', s: "Take up a t'an from the tray, then hold it with two fingers" },
-  touch: { v: 'lay its ends on two tips a tan apart', s: "Lay its ends on two tips about a t'an apart to join them" },
-  truth: { v: 'true neighbours bring order', s: 'True neighbours bring order; false bonds fall' },
-  angles: { v: 'read the angles of each joint', s: 'Joints keep true angles: 60° a triangle, 108° a pentagon' },
-  axis: { v: 'it spins on a hidden axis', s: 'It spins on a hidden axis' },
-  balance: { v: 'build evenly round the axis', s: "Build evenly round the axis, or the spin flings t'an away" },
-  goal: { v: 'complete the sphere', s: "Complete the sphere: sixty t'an round two shells" },
+  // The shape it builds, carved beneath its name.
+  shape: { v: 'two concentric icosidodecahedra', s: 'Two concentric icosidodecahedra' },
   aimSame: { v: 'choose two different tips', s: 'Choose two different tips' },
   aimJoined: { v: 'already joined', s: 'Those tips are already joined' },
   aimFar: { v: 'too far apart for one tan', s: "Too far apart for one t'an" },
@@ -149,11 +130,6 @@ const CLASSIC_RULES = [
 // Many forms' words (forms.js).
 export const MANY = {
   begin: { v: 'a new form hides in the jumble', s: 'A new form hides in the jumble' },
-  angles: { v: 'the angles that repeat tell its loops', s: 'Joint angles that repeat tell its loops:' },
-  corners: { v: 'sixty a triangle ninety a square', s: '60° a triangle, 90° a square, 108° a pentagon, 120° a hexagon' },
-  noise: { v: 'loose tan among it are noise', s: "Loose t'an hanging among it are noise" },
-  holds: { v: 'a loop closed whole holds and braces out', s: 'A loop closed whole holds, and struts brace outward' },
-  outer: { v: 'then build it again on the struts', s: 'Then build the same form again on the struts' },
   harmony: { v: 'true neighbours', s: 'True neighbours' },
   discord: { v: 'discord not neighbours in this form', s: 'Discord: not neighbours. Where it belongs glows' },
   shaken: { v: 'discord a tan is shaken loose', s: "Discord: a t'an is shaken loose. Where it belongs glows" },

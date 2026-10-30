@@ -354,7 +354,9 @@ function humanTurn() {
 function newGame() {
   way = settings.way;
   begunWith = shapeOf(settings);
-  engraving.set({ pending: false });
+  // What the last game had carved (the shape it built, how far it came) goes with it; each game
+  // carves its own.
+  engraving.set({ pending: false, shape: null, status: null });
   display.clear();
   falling.clear();
   timers.length = 0;
@@ -396,7 +398,7 @@ function newGame() {
   });
   phase = 'intro';
   tray.hide();
-  engraving.set({ game, plays, seats: null, lines: null });
+  engraving.set({ game, plays, seats: null });
   say(TEXT.begin);
   after(span + 0.7, () => {
     syncDisplay();
@@ -758,13 +760,13 @@ function restart() {
 // --- Settings -------------------------------------------------------------------------------
 
 // The carving's glyphs and ways.
-function onEngravedAction(name, to) {
+function onEngravedAction(name) {
   sound.wake();
   haptic('tick');
   if (name === 'translate' || name === 'page') {
     sound.hover();
-    // Back from the ways with changes that wait for a new game: say so.
-    if (to === 'main' && engraving.state.pending) say(TEXT.pending);
+    // Translated, the carving reads in that script from now on, next time too.
+    if (name === 'translate') saveSettings(settings);
   } else if (name === 'anew') {
     engraving.show('main');
     say(TEXT.applied);
@@ -778,7 +780,7 @@ function onEngravedOption(key, value) {
   const pending = shapeOf(settings) !== begunWith;
   if (pending !== Boolean(engraving.state.pending)) engraving.set({ pending });
   sound.wake();
-  if (key === 'music' || key === 'sfx') {
+  if (key === 'music' || key === 'sfx' || key === 'voice') {
     sound.setVolumes(settings.music, settings.sfx);
     // Drawn along a slider, a tick at each tenth (and for the sound effects, a sound at its level).
     const tenth = Math.round(value * 10);
@@ -791,7 +793,6 @@ function onEngravedOption(key, value) {
   }
   haptic('tick');
   if (key === 'strain') refreshStrain();
-  if (key === 'language' && engraving.standard !== (value === 'standard')) engraving.translate();
 }
 
 // --- Shaking ------------------------------------------------------------------------------
