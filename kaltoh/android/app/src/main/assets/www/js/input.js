@@ -62,7 +62,7 @@ export class Input {
     }
     // Event times, not handler times: a busy frame must not turn a tap into a press.
     const now = e.timeStamp;
-    const p = { id: e.pointerId, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: now, t0: now };
+    const p = { id: e.pointerId, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: now, t0: now, vx: 0, vy: 0 };
     this.pointers.set(e.pointerId, p);
     const { tray, motion, stage } = this.ctx;
 
@@ -133,6 +133,9 @@ export class Input {
     p.x = e.clientX;
     p.y = e.clientY;
     p.t = now;
+    // How fast it is going (px/s), over the last few moves.
+    p.vx += (dx / dt - p.vx) * 0.5;
+    p.vy += (dy / dt - p.vy) * 0.5;
     const { motion, stage } = this.ctx;
 
     if ((this.mode === 'turn' || this.mode === 'spin') && p.id === this.ids[0]) {
@@ -182,9 +185,11 @@ export class Input {
       this.mode = 'idle';
       if (tap) this.ctx.onTap?.(p.x, p.y, 'void', now);
     } else if (this.mode === 'grab' && p.id === this.ids[0]) {
-      // Let go of with one finger: back to the tray.
+      // Let go of with one finger: it falls, or is thrown as the finger went (barely moved, it goes
+      // back to the tray). A finger at rest a moment before it lifts throws nothing.
       this.mode = 'idle';
-      this.ctx.onRelease([null, null], true);
+      const resting = now - p.t > 80;
+      this.ctx.onRelease([null, null], cancelled, { x: resting ? 0 : p.vx, y: resting ? 0 : p.vy });
       if (tap) this.ctx.onTap?.(p.x, p.y, 'tray', now);
     } else if (this.mode === 'twist' && this.ids.includes(p.id)) {
       // Turned by two fingers, it stops where they leave it; the other is ignored until it lifts.

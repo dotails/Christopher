@@ -4,7 +4,8 @@
 // texture's light grey patches looked speckled, so only its black parts are kept: table.jpg is
 // their mask). Its satin metal mirrors the mess hall about it (stage.skyEnvironment, the light the
 // scene is lit by); and in its top, the stone and the t'an on it - drawn a second time each frame as
-// the top would show them, a little softened.
+// the top would show them, a little softened. It mirrors both at half their strength, so the
+// table stays quiet under the bright t'an.
 import * as THREE from '../vendor/three.module.min.js';
 import { FLOOR } from './scene.js';
 
@@ -22,6 +23,8 @@ export const TOP = { half: 0.95 * SCALE, corner: 0.3 * SCALE };
 // a touch, as a satin finish softens it.
 const FLIP = new THREE.Matrix4().set(1, 0, 0, 0, 0, -1, 0, 2 * FLOOR, 0, 0, 1, 0, 0, 0, 0, 1);
 const MIRROR_X = new THREE.Matrix4().makeScale(-1, 1, 1);
+// How strongly the top mirrors the room and what stands on it.
+const REFLECTS = 0.5;
 
 export async function loadTable(stage) {
   const [bin, black] = await Promise.all([
@@ -75,7 +78,7 @@ export async function loadTable(stage) {
     metalness: 0.8,
     roughness: 0.3,
     envMap: stage.skyEnvironment,
-    envMapIntensity: 1.2,
+    envMapIntensity: 1.2 * REFLECTS,
   });
   material.envMapRotation.copy(stage.scene.environmentRotation);
   material.onBeforeCompile = (shader) => {
@@ -97,11 +100,11 @@ export async function loadTable(stage) {
   float onTop = smoothstep(0.9, 0.97, up) * (1.0 - smoothstep(0.08, 0.2, abs(vHeight - uTop)));
   vec2 st = gl_FragCoord.xy / uScreen;
   vec4 seen = textureLod(tMirror, vec2(1.0 - st.x, st.y), 0.6);
-  radiance = mix(radiance, seen.rgb / max(seen.a, 1e-3), clamp(seen.a, 0.0, 1.0) * onTop);
+  radiance = mix(radiance, ${REFLECTS.toFixed(2)} * seen.rgb / max(seen.a, 1e-3), clamp(seen.a, 0.0, 1.0) * onTop);
 }`,
       );
   };
-  material.customProgramCacheKey = () => 'kaltoh-table-v4';
+  material.customProgramCacheKey = () => 'kaltoh-table-v5';
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.scale.setScalar(SCALE);

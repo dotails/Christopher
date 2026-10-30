@@ -59,13 +59,14 @@ export class Falling {
     return this.rods.some((r) => !r.asleep && !r.leaving);
   }
 
-  // a, b, velocity in world space. Options: spin (rad/s about a random axis), amber glow.
-  spawn(a, b, velocity, { amber = 0, blue = 0, spin = 1.2 } = {}) {
+  // a, b, velocity in world space. Options: the other end's velocity, if it goes otherwise
+  // (velocityB), spin (rad/s about a random axis), amber glow, and its broad face's direction (up).
+  spawn(a, b, velocity, { amber = 0, blue = 0, spin = 1.2, velocityB = velocity, up = null } = {}) {
     const axis = tmp.subVectors(b, a).normalize();
     const twist = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5)
       .cross(axis).normalize().multiplyScalar(spin * 0.21 * (0.4 + Math.random() * 0.6));
     const va = velocity.clone().add(twist);
-    const vb = velocity.clone().sub(twist);
+    const vb = velocityB.clone().sub(twist);
     this.rods.push({
       a: a.clone(),
       b: b.clone(),
@@ -81,7 +82,7 @@ export class Falling {
       amber,
       blue,
       lastClink: -1,
-      up: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
+      up: up ? up.clone().normalize() : new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
     });
   }
 

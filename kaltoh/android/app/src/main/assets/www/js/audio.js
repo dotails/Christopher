@@ -411,6 +411,12 @@ export class Sound {
     this.hiss(0.08, 0.35, { from: 900, to: 200, q: 0.6 });
   }
 
+  // A t'an thrown: the air it cuts, as hard as it was flicked (0 to 1); merely let fall, nothing.
+  toss(strength) {
+    if (strength < 0.15) return;
+    this.hiss(0.1 * strength, 0.35, { from: 1800, to: 500, q: 1.2 });
+  }
+
   fling() {
     this.hiss(0.16, 0.55, { from: 2400, to: 260, q: 1.4 });
     this.tone(150, 0.1, 0.5, { type: 'triangle', attack: 0.01, room: 0.2 });

@@ -137,10 +137,11 @@ export class Guide {
     this.aim = kind;
   }
 
-  // Let go. placed: it rests where it was shown. Otherwise it went back to the tray: dangling, it
-  // hung from one finger; aim, where it would have rested when let go ('amber': where it could
-  // not; null: its ends were not yet on two pieces, let go too soon).
-  released({ placed, dangling = false, aim = null }) {
+  // Let go. placed: it rests where it was shown. dropped: it dangled from one finger, and fell
+  // (or was thrown), another rising in the tray. Otherwise it went back to the tray: dangling, it
+  // hung from one finger, barely moved; aim, where it would have rested when let go ('amber': where
+  // it could not; null: its ends were not yet on two pieces, let go too soon).
+  released({ placed, dangling = false, aim = null, dropped = false }) {
     this.holding = false;
     this.aim = null;
     this.amber = 0;
@@ -155,7 +156,8 @@ export class Guide {
       if (this.placements >= 6) this.say('flipHint', { once: true, still: () => !this.flipped });
       return;
     }
-    if (dangling) this.say('droppedDangling', { gap: AGAIN });
+    if (dropped) this.say('droppedDangling', { gap: AGAIN });
+    else if (dangling) return;
     else if (aim === 'amber') this.say('missed', { gap: AGAIN });
     else this.say('droppedOne', { gap: AGAIN });
   }

@@ -18,18 +18,19 @@ export const FLOOR = -0.62;
 // The layout's vertical field of view (degrees): the screen subtends this from the distance the
 // scene is framed for.
 export const FOV = 30;
-// Tuvok at his mess-hall table, a strip of the old panorama (assets/tuvok.jpg, tools/cut_tuvok.py)
-// set into the light behind the player for the t'an waiting in the tray: where its middle lies in
-// the light (u round it, v up it), and how much of it the strip covers, at the panorama's own scale.
-const TUVOK_STRIP = { u: 0.75, v: 0.4785, width: 900 / 2048, height: 300 / 1024 };
+// Tuvok at his mess-hall table, in the old panorama (assets/tuvok.jpg), kept whole for the t'an
+// waiting in the tray and the one dangling from a finger: set into the light behind the player,
+// turned so that he sits straight behind them. Where his face is in the panorama (u round it, v up
+// it):
+const TUVOK_AT = { u: 0.337, v: 0.478 };
 // The direction of a point of a panorama (u round it, v up it), as three.js reads one (equirectUv).
 function panoramaward(u, v) {
   const azimuth = (u - 0.5) * 2 * Math.PI;
   const elevation = (v - 0.5) * Math.PI;
   return new THREE.Vector3(Math.cos(azimuth) * Math.cos(elevation), Math.sin(elevation), Math.sin(azimuth) * Math.cos(elevation));
 }
-// The direction of his face: straight behind the player.
-export const TUVOK = panoramaward(TUVOK_STRIP.u, TUVOK_STRIP.v);
+// The direction of his face: straight behind the player (u = 0.75).
+export const TUVOK = panoramaward(0.75, TUVOK_AT.v);
 const across = new THREE.Vector3();
 const upward = new THREE.Vector3();
 const backward = new THREE.Vector3();
@@ -300,32 +301,33 @@ export function createScene(canvas) {
 // The light the stone and the table are lit by, and what the metal mirrors: the galley itself, its
 // photograph stretched twice round the table - ahead as it was taken, behind mirrored, so that its
 // edges meet - and from its floor to its ceiling. The photograph is of low dynamic range, so it is
-// dimmed, and only its ceiling's lights are lifted above white before filtering: polished t'an catch
-// real highlights, and stand clear of the bright room behind them. The t'an waiting in the tray
-// alone mirrors Tuvok, at his table behind the player: his strip of the old panorama set into the
-// same light, as bright as the panorama was (stage.tuvokEnvironment). Beyond the kal-toh stands the
-// galley (makeRoom).
-const LIGHT = { level: 0.3, lift: 8 };
+// dimmed, and only its ceiling's lights are lifted above white before filtering: the table and the
+// stone take it quietly, and the t'an, mirroring it as bright as polished aluminium (rodmesh.js),
+// catch real highlights. The t'an waiting in the tray, and dangling from a finger, mirror Tuvok,
+// at his table behind the player: behind them, his panorama, whole, in place of the galley's
+// mirrored half, which meets it at the sides (stage.tuvokEnvironment); their faces turned away
+// still catch the galley ahead. Beyond the kal-toh stands the galley (makeRoom).
+const LIGHT = { level: 0.3, lift: 8, tuvok: 0.6 };
 export async function loadEnvironment(stage) {
   const { renderer, scene } = stage;
   const [galley, tuvok] = await Promise.all([loadTexture('assets/room.jpg', true), loadTexture('assets/tuvok.jpg', true)]);
   // The room first: it sets how the photograph is sampled before it is first drawn from.
   stage.sky = makeRoom(galley);
   scene.add(stage.sky);
+  tuvok.wrapS = THREE.RepeatWrapping; // turned, the panorama goes round
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const s = TUVOK_STRIP;
   const lifter = new THREE.ShaderMaterial({
     uniforms: {
       map: { value: galley },
       tuvok: { value: tuvok },
-      strip: { value: new THREE.Vector4(s.u - s.width / 2, s.v - s.height / 2, s.width, s.height) },
+      turn: { value: TUVOK_AT.u - 0.75 },
       withTuvok: { value: 0 },
     },
     vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
     fragmentShader: /* glsl */ `
       uniform sampler2D map;
       uniform sampler2D tuvok;
-      uniform vec4 strip;
+      uniform float turn;
       uniform float withTuvok;
       varying vec2 vUv;
       vec3 lifted(vec3 c, float level) {
@@ -336,9 +338,11 @@ export async function loadEnvironment(stage) {
         // Round the panorama: the photograph ahead (u = 0.25, toward -z), then mirrored behind.
         float u = 2.0 * vUv.x;
         vec3 c = lifted(texture2D(map, vec2(u < 1.0 ? u : 2.0 - u, vUv.y)).rgb, ${LIGHT.level.toFixed(2)});
-        vec2 q = (vUv - strip.xy) / strip.zw;
-        vec2 edge = smoothstep(0.0, 0.12, q) * smoothstep(0.0, 0.12, 1.0 - q);
-        c = mix(c, lifted(texture2D(tuvok, clamp(q, 0.0, 1.0)).rgb, 1.3), withTuvok * edge.x * edge.y);
+        // Behind the player (u from 0.5 to 1), Tuvok's panorama, turned to put him straight behind,
+        // met by the galley about the sides.
+        float behind = smoothstep(-0.34, 0.34, sin((vUv.x - 0.5) * 6.2831853));
+        vec3 t = lifted(texture2D(tuvok, vec2(vUv.x + turn, vUv.y)).rgb, ${LIGHT.tuvok.toFixed(2)});
+        c = mix(c, t, withTuvok * behind);
         gl_FragColor = vec4(c, 1.0);
       }`,
     depthTest: false,
@@ -587,7 +591,8 @@ export async function loadBase(stage) {
     bumpScale: 2.2,
     roughness: 0.78,
     metalness: 0,
-    envMapIntensity: 1.0,
+    // The room's light on it kept low: it is the t'an that should catch the eye.
+    envMapIntensity: 0.5,
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;

@@ -267,10 +267,17 @@ const input = new Input(canvas, {
     if (taken) guide.held();
     guide.aimed(aimOf());
   },
-  // Let go: placed where it was shown, unless the touch was cancelled (the system took it).
-  onRelease(targets, cancelled) {
+  // Let go: placed where it was shown, unless the touch was cancelled (the system took it). Let go
+  // of while it dangles from one finger, carried off the tray or flicked, it falls into the room,
+  // or is thrown; barely moved, it goes back.
+  onRelease(targets, cancelled, fling = { x: 0, y: 0 }) {
     const dangling = Boolean(hand.carried);
     const aim = aimOf();
+    if (dangling && !cancelled && hand.falls(fling)) {
+      letFall(fling);
+      guide.released({ placed: false, dangling, dropped: true });
+      return;
+    }
     shaped()?.release(cancelled);
     guide.released({ placed: Boolean(hand.flight && !hand.flight.home), dangling, aim });
   },
@@ -284,6 +291,16 @@ const input = new Input(canvas, {
     if (what === 'base') guide.turned();
   },
 });
+
+// A t'an let go of as it dangled: into the room it goes, falling, or thrown as it was flicked, to
+// lie with the fallen until a new game; another rises in the tray.
+function letFall(fling) {
+  const { a, b, va, vb, up, flick } = hand.drop(fling);
+  falling.spawn(a, b, va, { velocityB: vb, up, spin: 0.3 });
+  sound.toss(Math.min(1, flick / 2500));
+  haptic(flick > 900 ? 'fling' : 'tick');
+  tray.renew();
+}
 
 // --- Beginning anew --------------------------------------------------------------------------
 
@@ -467,8 +484,8 @@ function step(dt) {
   falling.draw(pool, halos);
   tray.draw(trayPool, hand);
   hand.draw(pool, halos, trayPool);
-  // The t'an waiting in the tray mirrors Tuvok; taken up, it mirrors the room as the others do.
-  trayPool.mesh.material.envMap = hand.carried ? stage.scene.environment : stage.tuvokEnvironment ?? null;
+  // The t'an waiting in the tray, or dangling from a finger, mirrors Tuvok behind the player.
+  trayPool.mesh.material.envMap = stage.tuvokEnvironment ?? null;
   pool.end();
   trayPool.end();
   halos.end();
@@ -491,6 +508,11 @@ async function start() {
     document.fonts.load('30px VulcanScript'),
   ]).catch(() => {});
   const [base, laid] = await Promise.all([loadBase(stage), loadEnvironment(stage).then(() => loadTable(stage))]);
+  // The stone and the t'an take the scene's light each at its own strength: given it as their own
+  // (three.js lights what takes only the scene's environment at the scene's strength, whatever
+  // its own).
+  base.mesh.material.envMap = stage.scene.environment;
+  pool.mesh.material.envMap = stage.scene.environment;
   baseModel = base;
   table = laid;
   motion = new Motion(base);

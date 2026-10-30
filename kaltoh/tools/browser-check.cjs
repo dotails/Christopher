@@ -16,11 +16,12 @@
 // way it was turned, the carving reads with its top up), touching the carving to translate all of
 // it (Standard at first; remembered for next time), the rules a glyph away and back, the ways on
 // the face (the room's and the voice's sliders, a value touched, Shake to begin anew), fallen t'an
-// lying where they fell until a new game, and shaking to begin anew. Held sideways and back: the
-// room drawn nearer to fill the wide screen, the view framed afresh and pinched no nearer or further
-// than its photograph allows, the stone clear of the tray, and its carving all on the screen.
-// Nothing may be written on the screen itself. Screenshots land in the directory given as the
-// first argument.
+// lying where they fell until a new game, and shaking to begin anew. A t'an let go of as it dangles
+// falling into the room, another rising in the tray; flicked, thrown onto the table. Held sideways
+// and back: the room drawn nearer to fill the wide screen, the view framed afresh and pinched no
+// nearer or further than its photograph allows, the stone clear of the tray, and its carving all
+// on the screen. Nothing may be written on the screen itself. Screenshots land in the directory
+// given as the first argument.
 //
 // Run: node kaltoh/tools/browser-check.cjs [out-dir]
 // Needs Playwright with Chromium (NODE_PATH or a global install).
@@ -986,6 +987,61 @@ function check(condition, message) {
     const furthest = await side.evaluate(() => window.__kaltoh.stage.view.zoom);
     check(Math.abs(nearest - upright.range[0]) < 1e-6 && Math.abs(furthest - upright.range[1]) < 1e-6,
       'pinched, the view is drawn near and back again, no nearer and no further than the photograph allows');
+    // Taken up by one finger and carried off the tray, then let go: it falls into the room, and
+    // another rises in the tray. Flicked up, it is thrown, up and away into the room, to come down
+    // on the table among the fallen. (Stamped as a phone stamps touches: this browser answers too
+    // slowly to stamp a flick itself.)
+    await side.waitForFunction(() => window.__kaltoh.phase === 'play' && window.__kaltoh.tray.arrive >= 1 && !window.__kaltoh.hand.holding, null, { timeout: 120000, polling: 100 });
+    let stamp = Date.now() / 1000;
+    const stamped = (type, points, after) => {
+      stamp += after;
+      return sideTouch.send('Input.dispatchTouchEvent', {
+        type, timestamp: stamp, touchPoints: points.map((p) => ({ x: p.x, y: p.y, id: p.id, radiusX: 8, radiusY: 8, force: 1 })),
+      });
+    };
+    const trayAt = await side.evaluate(() => window.__kaltoh.tray.y);
+    const dropped = { id: 4, x: 250, y: trayAt };
+    await stamped('touchStart', [dropped], 0);
+    for (let i = 0; i < 10; i++) {
+      dropped.y -= 15;
+      await stamped('touchMove', [dropped], 0.03);
+      await sleep(40);
+    }
+    await stamped('touchEnd', [], 0.3);
+    await sleep(200);
+    const fell = await side.evaluate(() => {
+      const k = window.__kaltoh;
+      return { fallen: k.falling.rods.length, length: k.falling.rods[0]?.length, tray: k.tray.length, from: k.tray.from, holding: k.hand.holding };
+    });
+    check(fell.fallen === 1 && Math.abs(fell.length - fell.tray) < 1e-6 && fell.from === 'below' && !fell.holding,
+      'let go of once carried off the tray, the dangling t\'an falls into the room, a t\'an of its own length, and another rises in the tray');
+    await side.waitForFunction(() => window.__kaltoh.tray.arrive >= 1 && !window.__kaltoh.hand.holding, null, { timeout: 120000, polling: 100 });
+    stamp = Date.now() / 1000;
+    const flicked = { id: 5, x: 206, y: trayAt };
+    await stamped('touchStart', [flicked], 0);
+    for (let i = 0; i < 4; i++) {
+      flicked.y -= 10;
+      await stamped('touchMove', [flicked], 0.04);
+      await sleep(40);
+    }
+    for (let i = 0; i < 5; i++) {
+      flicked.y -= 40;
+      await stamped('touchMove', [flicked], 0.016);
+      await sleep(16);
+    }
+    await stamped('touchEnd', [], 0.008);
+    const thrown = await side.evaluate(() => {
+      const k = window.__kaltoh;
+      const r = k.falling.rods.at(-1);
+      return { fallen: k.falling.rods.length, up: (r.a.y - r.pa.y) * 120, away: (r.pa.z - r.a.z) * 120 };
+    });
+    check(thrown.fallen >= 1 && thrown.up > 1 && thrown.away > 1, `flicked up, it is thrown up and away into the room (${thrown.up.toFixed(1)} up, ${thrown.away.toFixed(1)} away)`);
+    await side.waitForFunction(() => {
+      const r = window.__kaltoh.falling.rods.at(-1);
+      return r && r.onFloor && r.mid.z < 3;
+    }, null, { timeout: 120000, polling: 100 });
+    check(true, 'and comes down on the table, among the fallen');
+
     await side.setViewportSize({ width: 892, height: 412 });
     await side.waitForFunction(() => window.__kaltoh.stage.size.width === 892, null, { timeout: 30000 });
     await sleep(800);

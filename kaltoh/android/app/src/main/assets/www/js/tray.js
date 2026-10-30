@@ -18,6 +18,12 @@ const DROOP = 3600; // how hard a t'an hanging from one finger is pulled down th
 const SWAY = 1.4; // how fast its swinging dies away (per second)
 const SLIP = 0.22; // how long it takes to slip through the finger to hang by its end (s)
 const HELD_SMALLER = 0.1; // how much smaller it hangs, raised from the tray, than it lay there
+const LET_FALL = 30; // px a finger must carry a dangling t'an from where it took it for it to fall when let go
+const FLICK = 500; // px/s: let go of at least this fast, a dangling t'an is thrown, however near the tray
+const TOSS = 0.6; // tossed upward, how much of that speed it also goes away from the eye
+const THROW = 5.5; // the fastest a t'an is ever thrown (world units/s): a hard flick lands it on the table
+const moved = new THREE.Vector3();
+const away = new THREE.Vector3();
 // How far above the resting t'an (px) a finger still takes it up (and as far again as the margin
 // it is given: input.js).
 export const TRAY_REACH = 56;
@@ -28,7 +34,9 @@ export class Tray {
     this.y = 0; // CSS px of the resting t'an
     this.visible = false;
     this.arrive = 0; // 0..1 slide-in of the next t'an
+    this.from = 'side'; // where the next t'an comes in from: the side, or (one let fall) from below
     this.slide = 0; // how far it has still to slide in, in px
+    this.rise = 0; // or how far it has still to rise
     this.restA = new THREE.Vector3();
     this.restB = new THREE.Vector3();
     this.restUp = new THREE.Vector3();
@@ -60,6 +68,14 @@ export class Tray {
     if (this.visible) return;
     this.visible = true;
     this.arrive = 0;
+    this.from = 'side';
+  }
+
+  // The t'an it held is gone, let fall or thrown: another rises into its place.
+  renew() {
+    this.visible = true;
+    this.arrive = 0;
+    this.from = 'below';
   }
 
   hide() {
@@ -70,8 +86,10 @@ export class Tray {
     this.time += dt;
     if (this.visible) this.arrive = Math.min(1, this.arrive + dt / 0.45);
     const { camera, size, glass } = this.stage;
-    this.slide = (1 - ease(this.arrive)) * size.width * 0.9;
-    this.ends(this.slide, 0, this.restA, this.restB);
+    const coming = 1 - ease(this.arrive);
+    this.slide = this.from === 'side' ? coming * size.width * 0.9 : 0;
+    this.rise = this.from === 'below' ? coming * (size.height - this.y + 60) : 0;
+    this.ends(this.slide, this.rise, this.restA, this.restB);
     this.widthScale = (glass.width * 2 * this.span) / (size.width * this.length);
     // Its broad face to the eye, tipped so that it mirrors Tuvok's face behind the player, rocking
     // slowly so the reflection runs over him from brow to chin and back.
@@ -113,6 +131,12 @@ export class Hand {
     this.scale = 1; // its breadth: the tray's, easing to its own once out at the kal-toh
     this.scaleGoal = 1;
     this.carried = null; // taken up by one finger: where it was touched, and where the finger is
+    // How fast the ends of a t'an dangling from a finger go (world, across the glass), smoothed over
+    // the last moments: let go of, it goes on so.
+    this.velA = new THREE.Vector3();
+    this.velB = new THREE.Vector3();
+    this.lastA = new THREE.Vector3();
+    this.lastB = new THREE.Vector3();
   }
 
   // Taken up from the tray, by a finger at (x, y).
@@ -134,10 +158,57 @@ export class Hand {
     const byB = along > 0.5;
     const above = byB ? 1 - along : along;
     const reach = span * (1 - above);
-    this.carried = { x: fx, y: fy, y0: fy, byB, above, low: new THREE.Vector2(fx + (byB ? -reach : reach), fy), lowBefore: null };
+    this.carried = { x: fx, y: fy, x0: fx, y0: fy, byB, above, low: new THREE.Vector2(fx + (byB ? -reach : reach), fy), lowBefore: null };
     this.carried.lowBefore = this.carried.low.clone();
     this.glow = 0;
     this.amber = 0;
+    this.lastA.copy(this.a);
+    this.lastB.copy(this.b);
+    this.velA.set(0, 0, 0);
+    this.velB.set(0, 0, 0);
+  }
+
+  // Whether a t'an dangling from a finger falls when the finger lets go going at `fling` (px/s,
+  // { x, y } down the screen): carried off the tray, or flicked.
+  falls(fling) {
+    const c = this.carried;
+    return Boolean(c) && (Math.hypot(c.x - c.x0, c.y - c.y0) > LET_FALL || Math.hypot(fling.x, fling.y) > FLICK);
+  }
+
+  // Let go of while it dangles, by a finger going at `fling` (px/s, { x, y } down the screen): it
+  // falls into the room, or, flicked, is thrown. It is a t'an of its own length where it seemed to
+  // hang - its ends drawn toward the eye until it is that long, so that from the eye it is just
+  // where it was - its end at the finger going as the finger went, the other swinging as it swung;
+  // tossed upward, away from the eye as well. Its ends, their velocities and its broad face's
+  // direction (world), and how fast it was flicked (px/s).
+  drop(fling) {
+    const { camera, glass, size } = this.stage;
+    const eye = camera.position;
+    const k = this.tray.length / Math.max(1e-6, this.a.distanceTo(this.b));
+    const a = this.a.clone().sub(eye).multiplyScalar(k).add(eye);
+    const b = this.b.clone().sub(eye).multiplyScalar(k).add(eye);
+    // The finger's going on the glass (world units per px there), and each end's as it hung.
+    const perPx = (glass.width * 2) / size.width;
+    const finger = glass.across.clone().multiplyScalar(fling.x * perPx).addScaledVector(glass.upward, -fling.y * perPx);
+    const byB = this.carried?.byB;
+    const [held, swung] = byB ? [this.velB, this.velA] : [this.velA, this.velB];
+    const swing = swung.clone().sub(held).add(finger);
+    const va = (byB ? swing : finger).clone().multiplyScalar(k);
+    const vb = (byB ? finger : swing).clone().multiplyScalar(k);
+    const rising = (va.y + vb.y) / 2;
+    if (rising > 0) {
+      camera.getWorldDirection(away).setY(0).normalize().multiplyScalar(rising * TOSS);
+      va.add(away);
+      vb.add(away);
+    }
+    va.clampLength(0, THROW);
+    vb.clampLength(0, THROW);
+    const flick = Math.hypot(fling.x, fling.y);
+    this.carried = null;
+    this.holding = false;
+    this.glow = 0;
+    this.amber = 0;
+    return { a, b, va, vb, up: this.tray.restUp.clone(), flick };
   }
 
   // One finger carries it across the glass, the point it touched staying under the finger.
@@ -230,6 +301,13 @@ export class Hand {
     const k = 1 - Math.exp(-dt / 0.045);
     this.a.lerp(this.goalA, k);
     this.b.lerp(this.goalB, k);
+    if (this.carried && dt > 0) {
+      const smooth = 1 - Math.exp(-dt / 0.05);
+      this.velA.lerp(moved.subVectors(this.a, this.lastA).divideScalar(dt), smooth);
+      this.velB.lerp(moved.subVectors(this.b, this.lastB).divideScalar(dt), smooth);
+    }
+    this.lastA.copy(this.a);
+    this.lastB.copy(this.b);
   }
 
   // On the glass it is drawn over everything, as in the tray (`top`, RodPool's onTop).

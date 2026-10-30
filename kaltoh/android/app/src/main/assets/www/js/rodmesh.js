@@ -59,9 +59,10 @@ export function rodMaterial({ dome = false } = {}) {
     color: 0xe8ebf0,
     metalness: 1,
     // Mirror-smooth, so the room behind the player is seen in the metal, clearly enough to make
-    // out who is there.
+    // out who is there; and as bright as polished aluminium, mirroring the room near its full
+    // brightness (the light is dimmed for the table and the stone: scene.js).
     roughness: 0.035,
-    envMapIntensity: 2,
+    envMapIntensity: 4.5,
   });
   // The room is looked up as sharp as the metal is smooth: three.js never lets it be sharper than
   // its coarser 256-texel mip (fine for lights, but it blurs a mirror), so the reflection of the
