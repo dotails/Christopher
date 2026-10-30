@@ -60,7 +60,7 @@ your finger - and its faces turned away catch the galley ahead.
   <img src="docs/zen-taking-form.png" width="19%" alt="Zen: ten t'an placed, the nest glides into its first form, what the form has no rod for fading into light">
   <img src="docs/zen-whole.png" width="19%" alt="Zen: fully formed, the rhombicuboctahedron glowing">
   <img src="docs/green.png" width="19%" alt="Two players, as it was before the mess hall: the light behind turned green on the second player's turn">
-  <img src="docs/underside.png" width="19%" alt="The carved underside of the base, all on one face, in zen: the name and the form it has taken, its progress where seats would be, what happened, the ways, the room, sound, voice and music sliders, vibration, and the glyphs Rules, Translate and Shake">
+  <img src="docs/underside.png" width="19%" alt="The carved underside of the base, all on one face, in zen: the name and the form it has taken, its progress where seats would be, what happened, the ways (each choice between solid triangles), the room, sound, voice and music sliders, vibration, and the glyphs Rules, Translate and Shake">
 </p>
 <p align="center">
   <img src="docs/ways.png" width="19%" alt="The same face cut again in Golic Vulcan: real Vulcan words, its strokes and half-stops cut among the letters">
