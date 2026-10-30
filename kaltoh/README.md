@@ -24,7 +24,8 @@ it is engraved black, like the frame round it; only the rings round the players'
 each in its player's colour. Ten minutes of ambience loop quietly beneath the play, starting with
 your first touch; they play along with whatever else the phone is playing, never pausing it.
 The stone stands on a plain silver pedestal table in Voyager's mess hall: beyond it, out of focus
-and seen wide, is the bar where Picard sits, and the table's satin top mirrors the room softly,
+and seen small and wide, the bar where Picard sits stands up to the right, and the table's satin
+top mirrors the room softly,
 with the stone and the t'an standing on it. The t'an are mirror-polished, with a touch of
 aluminium's grey: a face turned toward you mirrors the mess hall behind you, where Tuvok sits at
 his table, and the waiting t'an in the tray, its faces gently domed, holds his face.
@@ -311,9 +312,10 @@ instead.
     small position-based solver as each junction finds its order, the inner shell settling into
     place, joining, the spin test and the end), `forms.js` (many forms on the stone, in the same
     way: loops closing, struts growing out, noise falling away, the outer shell), `scene.js` (renderer, lights, the mess hall -
-    sharp in the metal; out of focus beyond the kal-toh, seen through a lens wider than the window
-    so more of the room shows; turned so that the bar where Picard sits is beyond it and Tuvok,
-    at his table, behind the player - the stone, and the window the screen becomes), `table.js` (the pedestal
+    sharp in the metal, turned so that Tuvok, at his table, is behind the player; out of focus
+    beyond the kal-toh, shown eight times smaller than the window would show it, so much of the
+    room is on the screen, and framed so the bar where Picard sits stands up to the right, clear of
+    the kal-toh - the stone, and the window the screen becomes), `table.js` (the pedestal
     table under the stone, its top at the floor: plain satin silver mirroring the blurred room, and the
     stone and t'an on it drawn a second time each frame, the eye turned over in the plane of the
     top, softened in the mirror's smaller mipmaps), `motion.js` (base and assembly dynamics, and every t'an kept clear of
@@ -376,7 +378,9 @@ instead.
     into the stone. It turns the base over to read it (top up whichever way it was turned); a drag
     within the carving's circle turns nothing and a touch there does not translate it, but the
     Starfleet delta does. It draws a finger along the music's slider. It covers the carved ways to play and the hologram's
-    tuning, fallen t'an staying until a new game, and shaking to begin anew. It checks that whose
+    tuning, fallen t'an staying until a new game, and shaking to begin anew. It checks that the stone stands on the table, its top at the
+    floor, mirroring what stands on it (and then puts the table out of sight: drawing its metal
+    makes the software renderer several times slower), that whose
     turn it is is told only under the board (the scene's light the same on each player's turn),
     that each player's plays are kept for the carving, and that each seat is named. With a stand-in for the Android shell reporting a swaying face, it checks the
     view follows the head as on the phone, and that the t'an at the foot of the screen stays put

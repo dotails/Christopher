@@ -125,6 +125,19 @@ function check(condition, message) {
     });
     await page.goto(`${base}?seed=7`);
     await waitFor(['intro', 'play']);
+    // The stone stands on the table, in the mess hall: the table's top at the floor, the stone and
+    // t'an mirrored in it. Drawing its metal makes this software renderer several times slower, so
+    // from here on the table is put out of sight (nothing that follows depends on how it looks).
+    const laid = await page.evaluate(async () => {
+      const { FLOOR } = await import('/js/scene.js');
+      const k = window.__kaltoh;
+      return { top: k.table ? k.table.mesh.position.y - FLOOR : NaN, mirror: k.table?.mirror, room: Boolean(k.stage.sky?.parent) };
+    });
+    check(Math.abs(laid.top) < 1e-6 && laid.mirror && laid.room, 'the stone stands on the table in the mess hall, its top at the floor, mirroring what stands on it');
+    await page.evaluate(() => {
+      window.__kaltoh.table.mesh.visible = false;
+      window.__kaltoh.table.mirror = false;
+    });
     // Software rendering is slow; keep game time close to wall time.
     const pace = async () => {
       const fps = await page.evaluate(() => new Promise((res) => {

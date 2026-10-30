@@ -18,18 +18,20 @@ export const FLOOR = -0.62;
 // The layout's vertical field of view (degrees): the screen subtends this from the distance the
 // scene is framed for.
 export const FOV = 30;
-// The room is turned so that beyond the kal-toh is the bar, where Picard sits (u 0.73 in the
-// panorama), and Tuvok, seated at the mess-hall table, is behind the player, a little to one side:
-// seen in the metal, never beyond the kal-toh.
-const ROOM = new THREE.Euler(0, 3.3, 0);
-// The direction of his face, as the room is turned (it is at u 0.337, v 0.478 in the panorama;
-// three.js shows the panorama's direction e at the room's turn applied to e).
-export const TUVOK = (() => {
-  const azimuth = (0.337 - 0.5) * 2 * Math.PI;
-  const elevation = (0.478 - 0.5) * Math.PI;
-  const e = new THREE.Vector3(Math.cos(azimuth) * Math.cos(elevation), Math.sin(elevation), Math.sin(azimuth) * Math.cos(elevation));
-  return e.applyEuler(ROOM);
-})();
+// The room is turned so that Tuvok, seated at the mess-hall table in the panorama, is behind the
+// player: seen in the metal, never beyond the kal-toh.
+const ROOM = new THREE.Euler(0, 3.69, 0);
+// A direction in the panorama (u along it, v up it), as the room is turned.
+function roomward(u, v) {
+  const azimuth = (u - 0.5) * 2 * Math.PI;
+  const elevation = (v - 0.5) * Math.PI;
+  return new THREE.Vector3(Math.cos(azimuth) * Math.cos(elevation), Math.sin(elevation), Math.sin(azimuth) * Math.cos(elevation)).applyEuler(ROOM);
+}
+// The direction of his face (three.js shows the panorama's direction e at the room's turn applied
+// to e).
+export const TUVOK = roomward(0.337, 0.478);
+// The bar, where Picard sits: the glowing panel behind it.
+const BAR = roomward(0.83, 0.525);
 const across = new THREE.Vector3();
 const upward = new THREE.Vector3();
 const backward = new THREE.Vector3();
@@ -252,7 +254,7 @@ export async function loadEnvironment(stage) {
   scene.environmentRotation.copy(ROOM);
   blurred.mapping = THREE.EquirectangularReflectionMapping;
   stage.skyEnvironment = pmrem.fromEquirectangular(blurred).texture;
-  stage.sky = makeSky(blurred, stage.glass);
+  stage.sky = makeSky(blurred);
   scene.add(stage.sky);
   pmrem.dispose();
   target.dispose();
@@ -262,13 +264,16 @@ export async function loadEnvironment(stage) {
 }
 
 // The room beyond the kal-toh, at any distance: a box about the eye, drawn first and behind
-// everything, each pixel looking out into the panorama the way the room is turned. It is seen
-// as through a lens WIDE times wider than the window itself, so that more of the room is on the
-// screen and less enlarged; the eye moving still shifts it as much as a room seen through a window
-// would shift (only the spread across the glass is widened, not the eye's offset from its middle).
-const WIDE = 4.5;
-const glassSeen = new THREE.Vector3();
-function makeSky(texture, glass) {
+// everything. It is shown small - the panorama's turning and tilting from the eye's line of sight
+// taken WIDE times over - so that much of the room is on the screen and little enlarged, and
+// framed so that the bar where Picard sits stands up and to the right, clear of the kal-toh (BAR
+// at AT of the way from the screen's middle to its right and top edges). As the eye moves the room
+// shifts as one seen through a window would: what is scaled is each ray's angle from the line of
+// sight, which the eye's moving turns as it would any ray to a far wall.
+const WIDE = 8;
+const AT = new THREE.Vector2(0.35, 0.62);
+const forward = new THREE.Vector3();
+function makeSky(texture) {
   const turn = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(ROOM)).transpose();
   const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -276,13 +281,13 @@ function makeSky(texture, glass) {
       turn: { value: turn },
       level: { value: 0.75 },
       wide: { value: WIDE },
-      glassMiddle: { value: new THREE.Vector2() },
-      glassDepth: { value: 1 },
+      sight: { value: new THREE.Vector2() }, // the line of sight: its heading and elevation
+      shown: { value: new THREE.Vector2() }, // what is shown along it
     },
     vertexShader: /* glsl */ `
       varying vec3 vSeen;
       void main() {
-        vSeen = mat3(viewMatrix) * position;
+        vSeen = position;
         vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         gl_Position = p.xyww;
       }`,
@@ -292,14 +297,18 @@ function makeSky(texture, glass) {
       uniform mat3 turn;
       uniform float level;
       uniform float wide;
-      uniform vec2 glassMiddle;
-      uniform float glassDepth;
+      uniform vec2 sight;
+      uniform vec2 shown;
       varying vec3 vSeen;
       void main() {
-        // Where this pixel's ray crosses the glass, spread out from the glass's middle.
-        vec2 onGlass = vSeen.xy * (glassDepth / max(-vSeen.z, 1e-4));
-        vec3 seen = normalize(vec3(glassMiddle + wide * (onGlass - glassMiddle), -glassDepth));
-        vec3 look = turn * inverseTransformDirection(seen, viewMatrix);
+        vec3 ray = normalize(vSeen);
+        float heading = atan(ray.x, -ray.z);
+        float elevation = asin(clamp(ray.y, -1.0, 1.0));
+        float turned = heading - sight.x;
+        turned -= 2.0 * PI * floor((turned + PI) / (2.0 * PI));
+        heading = shown.x + wide * turned;
+        elevation = clamp(shown.y + wide * (elevation - sight.y), -0.5 * PI, 0.5 * PI);
+        vec3 look = turn * vec3(sin(heading) * cos(elevation), sin(elevation), -cos(heading) * cos(elevation));
         gl_FragColor = vec4(texture2D(map, equirectUv(look)).rgb * level, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -308,16 +317,23 @@ function makeSky(texture, glass) {
     depthTest: false,
     depthWrite: false,
   });
+  const barHeading = Math.atan2(BAR.x, -BAR.z);
+  const barElevation = Math.asin(BAR.y);
   const sky = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
   sky.frustumCulled = false;
   sky.renderOrder = -100;
   sky.onBeforeRender = (renderer, scene, camera) => {
     sky.position.setFromMatrixPosition(camera.matrixWorld);
     sky.updateMatrixWorld();
-    // The glass's middle as the eye sees it, and how far off the glass lies.
-    glassSeen.copy(glass.centre).applyMatrix4(camera.matrixWorldInverse);
-    material.uniforms.glassMiddle.value.set(glassSeen.x, glassSeen.y);
-    material.uniforms.glassDepth.value = Math.max(1e-3, -glassSeen.z);
+    // The line of sight is the camera's own (it never turns with the eye, only moves), and the
+    // screen spans FOV about it, at rest.
+    forward.setFromMatrixColumn(camera.matrixWorld, 2).negate().normalize();
+    const heading = Math.atan2(forward.x, -forward.z);
+    const elevation = Math.asin(forward.y);
+    const halfHigh = THREE.MathUtils.degToRad(FOV / 2);
+    const halfWide = Math.atan(Math.tan(halfHigh) * camera.aspect);
+    material.uniforms.sight.value.set(heading, elevation);
+    material.uniforms.shown.value.set(barHeading - WIDE * AT.x * halfWide, barElevation - WIDE * AT.y * halfHigh);
   };
   return sky;
 }
