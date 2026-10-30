@@ -57,7 +57,8 @@ export class Guide {
     } catch {
       // Private mode: nothing was remembered.
     }
-    // Never guided before: the first game is a calm one (main.js begins it in zen).
+    // Never guided before: the first game is a calm one (main.js begins it in zen), and only the
+    // first.
     this.fresh = saved === null;
     try {
       this.learnt = new Set(JSON.parse(saved ?? '[]'));
@@ -83,7 +84,7 @@ export class Guide {
   }
 
   remember(key) {
-    this.learnt.add(key);
+    if (key) this.learnt.add(key);
     try {
       localStorage.setItem(STORE, JSON.stringify([...this.learnt]));
     } catch {
@@ -96,6 +97,10 @@ export class Guide {
   // A game is under way: its way of playing, and how many take turns at it (zen is played alone).
   begin(way) {
     this.way = way;
+    if (this.fresh) {
+      this.fresh = false;
+      this.remember();
+    }
     this.say('welcome', { once: true });
     if (WAY_START[way]) this.say(WAY_START[way], { once: true });
     if (way !== 'zen' && (this.settings.players ?? 1) > 1) this.say('twoPlayers', { once: true });

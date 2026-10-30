@@ -50,6 +50,7 @@ const since = (n) => spoken.slice(n);
 
 ok(guide.fresh, 'never guided before: a fresh start (main.js begins it in zen)');
 guide.begin('zen');
+ok(!guide.fresh && !new Guide({ sound, settings }).fresh, 'once begun, never fresh again, even before a word is said');
 await run(3);
 ok(spoken.length === 0, 'nothing said while it could not be heard');
 sound.canSpeak = true;
@@ -155,7 +156,6 @@ guide.released({ placed: false, aim: 'amber' });
 guide.heard(CLASSIC.discord);
 await run(10, { trayWaiting: true });
 ok(spoken.length === quiet, 'turned down to nothing: it says nothing more');
-ok(!new Guide({ sound, settings }).fresh, 'once guided, not fresh again');
 
 // Every line it may ask for is written, and rendered.
 const lines = JSON.parse(readFileSync(new URL('./voice-lines.json', import.meta.url)));
