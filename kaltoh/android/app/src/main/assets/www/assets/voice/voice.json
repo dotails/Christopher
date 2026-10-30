@@ -1,7 +1,7 @@
 {
  "welcome": {
-  "text": "Welcome to kal-toh. I'll guide you through your first game. You can turn my voice off under the stone whenever you like.",
-  "seconds": 6.08,
+  "text": "Welcome to kal-toh. I'll guide you through your first game. You can turn my voice down, or off, under the stone whenever you like.",
+  "seconds": 6.72,
   "level": -14
  },
  "touchTray": {
@@ -254,14 +254,9 @@
   "seconds": 6.46,
   "level": -14
  },
- "guideOn": {
-  "text": "Voice guidance is on.",
-  "seconds": 1.6,
-  "level": -14
- },
- "guideOff": {
-  "text": "Voice guidance is off. You can turn it back on under the stone.",
-  "seconds": 3.52,
+ "voiceLevel": {
+  "text": "This is how loud I'll be.",
+  "seconds": 1.83,
   "level": -14
  },
  "form_tetra": {

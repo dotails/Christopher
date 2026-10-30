@@ -1,6 +1,6 @@
 // The guide: a voice that talks a new player through the game - Kokoro's Sky voice, its lines
 // rendered ahead of time (tools/make_voice.py, tools/voice-lines.json, assets/voice) - until they
-// turn it off under the stone. It hears what the game reports (a t'an taken up, held, aimed, let
+// turn it down to nothing under the stone (the Voice slider). It hears what the game reports (a t'an taken up, held, aimed, let
 // go, placed; what the carving says) and watches what it can see for itself (the stone turned
 // over, a player waiting, a t'an left dangling, a shake gathering), and says each thing when it
 // helps: the lessons once (remembered from one day to the next), a mistake again whenever it is
@@ -32,8 +32,8 @@ const REFUSALS = new Map([
 ]);
 
 export class Guide {
-  // sound: audio.js's Sound (it speaks the lines); settings: the player's settings (`guide` false
-  // silences it).
+  // sound: audio.js's Sound (it speaks the lines); settings: the player's settings (`voice` at
+  // nothing silences it).
   constructor({ sound, settings }) {
     this.sound = sound;
     this.settings = settings;
@@ -67,7 +67,7 @@ export class Guide {
   }
 
   get on() {
-    return this.settings.guide !== false;
+    return (this.settings.voice ?? 1) > 0.001;
   }
 
   // Say a line now or as soon as the voice is free. once: never again (remembered); gap: not
@@ -201,19 +201,15 @@ export class Guide {
     this.say('translate', { once: true });
   }
 
-  // The guide turned on or off under the stone: it says so (off, then silence).
-  toggled(on) {
-    if (on) {
-      this.say('guideOn');
+  // The Voice slider drawn along: turned down to nothing, the guide falls silent at once;
+  // otherwise it says how loud it will be (a line already being spoken follows the slider).
+  levelled(level) {
+    if (level <= 0.001) {
+      this.queue.length = 0;
+      this.sound.hush();
       return;
     }
-    this.queue.length = 0;
-    this.sound.hush();
-    if (!this.sound.canSpeak) return;
-    this.talking = true;
-    this.sound.speak(`${FILES}guideOff.mp3`).finally(() => {
-      this.talking = false;
-    });
+    if (!this.talking) this.say('voiceLevel', { gap: 8 });
   }
 
   // The stone taken by a finger to turn it: that lesson needs no telling.
@@ -292,5 +288,5 @@ export const GUIDE_KEYS = [...new Set([
   'flippedBack', 'chooseWay', ...Object.values(WAY_NEXT), 'translate', 'shakeHint', 'shaking', 'newGame',
   ...Object.values(WAY_START), 'zenTen', 'zenTransform', 'zenComplete', 'harmony', 'discord', 'lookKaltoh',
   ...new Set(REFUSALS.values()), 'noise', 'eases', 'flung', 'wobble', 'loopClosed', 'struts', 'complete',
-  'twoPlayers', 'guideOn', 'guideOff',
+  'twoPlayers', 'voiceLevel',
 ])];

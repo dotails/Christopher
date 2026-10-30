@@ -35,7 +35,7 @@ const sound = {
   },
   hush() {},
 };
-const settings = { guide: true, players: 2 };
+const settings = { voice: 1, players: 2 };
 const guide = new Guide({ sound, settings });
 // Let the guide run a while, frame by frame, as the game does.
 const run = async (seconds, state = {}) => {
@@ -141,8 +141,12 @@ ok(said('startKaltoh') && said('twoPlayers'), 'the kal-toh begun, two at the boa
 guide.heard(CLASSIC.discord);
 await run(14);
 ok(said('discord') && said('lookKaltoh'), 'discord: why, and what to look for');
-settings.guide = false;
-guide.toggled(false);
+settings.voice = 0.4;
+guide.levelled(0.4);
+await run(4);
+ok(spoken.at(-1) === 'voiceLevel', 'the voice turned down: it says how loud it will be');
+settings.voice = 0;
+guide.levelled(0);
 await run(2);
 const quiet = spoken.length;
 guide.lifted();
@@ -150,8 +154,7 @@ guide.aimed('amber');
 guide.released({ placed: false, aim: 'amber' });
 guide.heard(CLASSIC.discord);
 await run(10, { trayWaiting: true });
-ok(spoken.at(-1) === 'guideOff', 'turned off: it says so');
-ok(spoken.length === quiet, 'and says nothing more');
+ok(spoken.length === quiet, 'turned down to nothing: it says nothing more');
 ok(!new Guide({ sound, settings }).fresh, 'once guided, not fresh again');
 
 // Every line it may ask for is written, and rendered.

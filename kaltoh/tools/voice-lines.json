@@ -1,5 +1,5 @@
 {
-  "welcome": "Welcome to kal-toh. I'll guide you through your first game. You can turn my voice off under the stone whenever you like.",
+  "welcome": "Welcome to kal-toh. I'll guide you through your first game. You can turn my voice down, or off, under the stone whenever you like.",
   "touchTray": "The tan resting at the bottom of the screen is yours to place. Touch it with one finger to pick it up.",
   "dangling": "It's dangling from one finger. Put a second finger down, and you'll hold it with both.",
   "danglingAgain": "Add a second finger to hold it with both.",
@@ -50,8 +50,7 @@
   "struts": "Struts brace outward from each loop you close. When the inner form is whole, build the same form again on their tips.",
   "complete": "Complete. Beautifully done. Shake to begin again.",
   "twoPlayers": "Two players take turns. Pass the phone once your tan is placed. The carving under the stone shows whose turn it is.",
-  "guideOn": "Voice guidance is on.",
-  "guideOff": "Voice guidance is off. You can turn it back on under the stone.",
+  "voiceLevel": "This is how loud I'll be.",
   "form_tetra": "It has become a truncated tetrahedron.",
   "form_cubocta": "It has become a cuboctahedron.",
   "form_octa": "It has become a truncated octahedron.",

@@ -20,7 +20,7 @@ const SCALE = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2];
 const MUSIC = 'assets/music.mp3';
 const MUSIC_FULL = 1; // the music's gain at full: as loud as the player can play it
 const SFX_FULL = 0.6;
-const VOICE_DUCK = 0.35; // the music's level while the guide speaks
+const VOICE_DUCK = 0.35; // the music's level while the guide speaks at full
 
 export class Sound {
   constructor() {
@@ -33,14 +33,18 @@ export class Sound {
     this.hidden = false;
     this.ducked = false; // the music lowered beneath the guide's voice
     this.voices = new Map(); // the guide's lines, decoded, by file
-    this.speaking = null;
+    this.speaking = null; // the line being spoken: { source, gain }
+    this.voiceLevel = 1;
   }
 
-  // The levels of the music and of the sound effects, each from 0 (silent) to 1 (full).
-  setVolumes(music, sfx) {
+  // The levels of the music, the sound effects and the guide's voice, each from 0 (silent) to 1
+  // (full). A line being spoken follows its slider at once.
+  setVolumes(music, sfx, voice = this.voiceLevel) {
     this.musicLevel = music;
     this.sfx = sfx;
+    this.voiceLevel = voice;
     if (this.master) this.master.gain.value = SFX_FULL * sfx;
+    if (this.speaking) this.speaking.gain.gain.setTargetAtTime(voice, this.ctx.currentTime, 0.05);
     this.applyMusic();
   }
 
@@ -82,7 +86,7 @@ export class Sound {
 
   // Whether a line spoken now would be heard.
   get canSpeak() {
-    return Boolean(this.ctx) && this.ctx.state === 'running' && !this.hidden;
+    return Boolean(this.ctx) && this.ctx.state === 'running' && !this.hidden && this.voiceLevel > 0.001;
   }
 
   // The music begins with the first touch (a page may not play sound before one), fading in.
@@ -119,7 +123,9 @@ export class Sound {
   // Play the music at its level (lowered while the guide speaks), or pause it when silenced or out
   // of sight.
   applyMusic() {
-    const level = this.musicLevel * MUSIC_FULL * (this.ducked ? VOICE_DUCK : 1);
+    // Beneath the voice the music dips, the less the quieter the voice.
+    const duck = this.ducked ? 1 - (1 - VOICE_DUCK) * this.voiceLevel : 1;
+    const level = this.musicLevel * MUSIC_FULL * duck;
     const play = level > 0.001 && !this.hidden;
     if (this.shellMusic) {
       native.playMusic(play ? level : 0);
@@ -151,16 +157,17 @@ export class Sound {
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
     const gain = this.ctx.createGain();
-    gain.gain.value = 1;
+    gain.gain.value = this.voiceLevel;
     source.connect(gain).connect(this.ctx.destination);
-    this.speaking = source;
+    const line = { source, gain };
+    this.speaking = line;
     this.ducked = true;
     this.applyMusic();
     await new Promise((done) => {
       source.onended = done;
       source.start();
     });
-    if (this.speaking === source) {
+    if (this.speaking === line) {
       this.speaking = null;
       this.ducked = false;
       this.applyMusic();
@@ -173,7 +180,7 @@ export class Sound {
     const was = this.speaking;
     this.speaking = null;
     try {
-      was.stop();
+      was.source.stop();
     } catch {
       // already ended
     }
