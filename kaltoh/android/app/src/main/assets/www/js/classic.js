@@ -14,7 +14,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import * as K from './classic-rules.js';
 import { PIVOT, SCALE } from './scene.js';
 import { mitreAtJunctions } from './rodmesh.js';
-import { CLASSIC, TEXT, playerText, ofText, classicCompleteText } from './texts.js';
+import { CLASSIC, playerText, ofText, classicCompleteText } from './texts.js';
 
 // The finished sphere's radius, in assembly units: 0.66 across the world, so its lowest t'an clear
 // the basin with the kal-toh's centre at the pivot.
@@ -626,16 +626,15 @@ export class ClassicGame {
     this.carve();
   }
 
-  // What the carving shows for this game: the players (each one's score, true joins of those
-  // tried) and how to play.
+  // What the carving shows for this game: the shape it builds, the players (each one's score, true
+  // joins of those tried) and their plays.
   carve() {
     const game = this.game;
     const seats = Array.from({ length: game.players }, (_, i) => {
       const { joined, discord } = game.stats[i];
       return { now: i === game.current && !game.complete, score: ofText(joined, joined + discord) };
     });
-    const lines = [CLASSIC.lift, CLASSIC.touch, CLASSIC.truth, CLASSIC.angles, CLASSIC.axis, CLASSIC.balance, CLASSIC.goal, TEXT.rim];
-    this.ctx.engraving.set({ seats, lines, plays: this.plays });
+    this.ctx.engraving.set({ shape: CLASSIC.shape, seats, plays: this.plays });
   }
 
   update(dt) {
