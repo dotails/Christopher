@@ -19,8 +19,6 @@ export const TEXT = {
   title: { v: 'kaltoh', s: 'KAL-TOH' },
   begin: { v: 'find the order within the chaos', s: 'Find the order within the chaos' },
   lift: { v: 'take up a tan then hold it with two fingers', s: "Take up a t'an from the tray, then hold it with two fingers" },
-  turn: { v: 'drag the stone or the tan to turn them', s: "Drag the stone to turn it, the t'an to spin them" },
-  shake: { v: 'shake three seconds to begin anew', s: 'Shake for three seconds to begin anew' },
   rim: { v: 'turn the stone by its rim', s: 'Turn the stone by its rim, outside this circle' },
   translateGlyph: { v: 'translate', s: 'Translate' },
   applied: { v: 'a new game begins', s: 'A new game begins' },
@@ -151,26 +149,21 @@ export function manyCompleteText(game, form) {
 export const ZEN = {
   begin: { v: 'be still lay tan where you will', s: "Be still. Lay t'an where you will" },
   nest: { v: 'the nest', s: 'The nest' },
-  touch: { v: 'lay its ends on any two tan', s: "Lay its ends on any two t'an: it rests across them" },
-  every: { v: 'every ten tan it takes a new form', s: "Every ten t'an placed, it takes a new form" },
-  richer: { v: 'five forms each richer than the last', s: 'Five forms, each richer than the last' },
   rests: { v: 'it rests across them', s: 'It rests across them' },
   oneMore: { v: 'one more and it takes a new form', s: "One more t'an, and it takes a new form" },
   gathers: { v: 'it gathers itself into a new form', s: 'It gathers itself into a new form' },
   aimSame: { v: 'lay its ends on two different tan', s: "Lay its ends on two different t'an" },
 };
 
-// Which of its forms it has taken (form: forms-rules.js buildForm's, or null for the nest).
-export function zenFormText(p, form) {
-  if (p.complete) return zenWholeText(form);
-  if (!form) return { v: `the nest none of ${spell(p.forms)} forms yet`, s: `The nest: none of the ${p.forms} forms yet` };
-  return { v: `form ${spell(p.stage)} of ${spell(p.forms)} the ${form.v}`, s: `Form ${p.stage} of ${p.forms}: the ${form.s}` };
+// How far it has come (zen-rules.js progress), under what just happened: the forms taken, and the
+// t'an placed toward the next.
+export function zenStatusText(p) {
+  if (p.complete) return { v: `all ${spell(p.forms)} forms taken fully formed`, s: `All ${p.forms} forms taken: fully formed` };
+  const placed = { v: `${spell(p.placed)} of ${spell(p.per)} tan`, s: `${p.placed} of ${p.per} t'an` };
+  if (!p.stage) return { v: `no form yet ${placed.v} toward the first`, s: `No form yet: ${placed.s} toward the first` };
+  return { v: `form ${spell(p.stage)} of ${spell(p.forms)} ${placed.v} toward the next`, s: `Form ${p.stage} of ${p.forms}: ${placed.s} toward the next` };
 }
 
-export const zenPlacedText = (p) => ({
-  v: `${spell(p.placed)} of ${spell(p.per)} tan toward the next form`,
-  s: `${p.placed} of ${p.per} t'an toward the next form`,
-});
 export const zenBecomesText = (form) => ({ v: `it becomes the ${form.v}`, s: `It becomes the ${form.s}` });
 export const zenWholeText = (form) => ({ v: `fully formed the ${form.v}`, s: `Fully formed: the ${form.s}` });
 

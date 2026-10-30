@@ -467,9 +467,10 @@ export class Engraving {
     });
   }
 
-  // Zen keeps no seats: where they would be, its progress. A ringed dot for each of its forms taken
-  // (a bare ring for each still to come), and beneath, a dot for each t'an placed toward the next.
-  zenProgress({ forms, taken, placed, per, complete }) {
+  // Zen keeps no seats: where they would be (from height y), its progress. A ringed dot for each of
+  // its forms taken (a bare ring for each still to come), and beneath, a dot for each t'an placed
+  // toward the next.
+  zenProgress({ forms, taken, placed, per, complete }, y = 210) {
     const row = (count, done, y, gap, size, mark) => {
       for (let i = 0; i < count; i++) {
         const x = C + (i - (count - 1) / 2) * gap;
@@ -491,8 +492,8 @@ export class Engraving {
         }, on ? 0.8 : 0.3);
       }
     };
-    row(forms, taken, 210, 50, 2.1, 'ring');
-    if (!complete) row(per, placed, 262, 27, 1.3, 'join');
+    row(forms, taken, y, 50, 2.1, 'ring');
+    if (!complete) row(per, placed, y + 52, 27, 1.3, 'join');
   }
 
   visibleOptions() {

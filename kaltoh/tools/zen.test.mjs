@@ -1,8 +1,8 @@
 // Checks zen (zen-rules.js): it begins as a seed's nest (rules.js), a t'an rests across any two
 // pieces, every ten placed the assembly takes the next form - each t'an to a rod of it, the rest
 // fading, new ones filling what none reached - and after five forms, each richer than the last, it
-// is fully formed. And the ways to play (settings.js): the kal-toh, many forms and zen, where the
-// way of rings once was.
+// is fully formed; and its progress in words (texts.js). And the ways to play (settings.js): the
+// kal-toh, many forms and zen, where the way of rings once was.
 // Run: node kaltoh/tools/zen.test.mjs
 import assert from 'node:assert/strict';
 import * as G from '../android/app/src/main/assets/www/js/geom.js';
@@ -10,6 +10,7 @@ import * as R from '../android/app/src/main/assets/www/js/rules.js';
 import * as Z from '../android/app/src/main/assets/www/js/zen-rules.js';
 import { buildForm, FORM_KEYS } from '../android/app/src/main/assets/www/js/forms-rules.js';
 import { OPTIONS, loadSettings } from '../android/app/src/main/assets/www/js/settings.js';
+import { zenStatusText } from '../android/app/src/main/assets/www/js/texts.js';
 
 let checks = 0;
 const ok = (cond, msg) => {
@@ -172,6 +173,19 @@ for (const seed of [1, 7, 42]) {
     `seed ${seed}: fully formed, nothing more is placed`);
   const p = Z.progress(g);
   ok(p.complete && p.stage === 5 && p.forms === 5, `seed ${seed}: its progress says so`);
+}
+{
+  // How far it has come, in words under what just happened (texts.js); the Vulcan letters only.
+  const g = Z.createGame({ seed: 2 });
+  const rng = G.mulberry32(8);
+  const said = [zenStatusText(Z.progress(g)).s];
+  for (let i = 0; i < 13; i++) placeOne(g, rng);
+  said.push(zenStatusText(Z.progress(g)).s);
+  while (!g.complete) placeOne(g, rng);
+  said.push(zenStatusText(Z.progress(g)).s);
+  ok(JSON.stringify(said) === JSON.stringify(["No form yet: 0 of 10 t'an toward the first", "Form 1 of 5: 3 of 10 t'an toward the next", 'All 5 forms taken: fully formed']),
+    `its progress in words (${said.join(' / ')})`);
+  ok([0, 13, 50].every((n) => /^[a-z ]+$/.test(zenStatusText({ stage: Math.floor(n / 10), forms: 5, placed: n % 10, per: 10, complete: n === 50 }).v)), 'carved in Vulcan, letters only');
 }
 {
   // The same placements, the same forms the same way up.

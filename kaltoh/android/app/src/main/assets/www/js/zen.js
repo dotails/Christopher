@@ -15,7 +15,7 @@ import { buildForm } from './forms-rules.js';
 import { SPHERE } from './forms.js';
 import { SCALE } from './scene.js';
 import { mitreAtJunctions } from './rodmesh.js';
-import { TEXT, ZEN, zenFormText, zenPlacedText, zenBecomesText, zenWholeText } from './texts.js';
+import { ZEN, zenStatusText, zenBecomesText, zenWholeText } from './texts.js';
 
 const GATHER = 2.4; // seconds over which the nest gathers, t'an by t'an
 const GLIDE = 1.5; // seconds a t'an takes to glide to its rod of a new form
@@ -130,16 +130,18 @@ export class ZenGame {
     return v;
   }
 
-  // What the carving shows: no seats or scores, but how far it has come (engrave.js zenProgress),
-  // the name of the form it has taken, and how to play.
+  // What the carving shows: beneath the name, the shape it has taken (the nest at first); no seats
+  // or scores, but where they would be, how far it has come (engrave.js zenProgress: the forms
+  // taken, the t'an placed toward the next), and the same in words under what just happened. No
+  // how-to-play lines: the rules are a glyph away.
   carve() {
     const g = this.game;
     const p = Z.progress(g);
     const form = Z.formOf(g);
-    const lines = [TEXT.lift, ZEN.touch, ZEN.every, ZEN.richer, zenFormText(p, form), p.complete ? TEXT.shake : zenPlacedText(p), TEXT.turn, TEXT.rim];
     this.ctx.engraving.set({
-      seats: [], plays: [], lines,
       shape: form ? { v: form.v, s: form.s } : ZEN.nest,
+      status: zenStatusText(p),
+      seats: [], plays: [], lines: [],
       zen: { forms: p.forms, taken: p.stage, placed: p.placed, per: p.per, complete: p.complete },
     });
   }
@@ -528,6 +530,6 @@ export class ZenGame {
       v.blend = 1;
       v.fade = { t: 0, delay: Math.random() * 0.35, duration: 1 };
     }
-    this.ctx.engraving.set({ zen: null, shape: null });
+    this.ctx.engraving.set({ zen: null, shape: null, status: null });
   }
 }

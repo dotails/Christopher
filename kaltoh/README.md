@@ -165,10 +165,11 @@ over an older one without uninstalling.
 - **Five forms**, each with more rods than the last: the truncated tetrahedron (18), the
   cuboctahedron (24), the octagonal antiprism (32), the truncated octahedron (36) and the
   rhombicuboctahedron (48). After the fifth it is fully formed: it glows, and the carving says so.
-  Shake, or touch *begin anew*, for another.
-- Under the base, where the other ways name their seats, its progress: a ringed dot for each form
-  taken (of five) and a dot for each t'an placed toward the next (of ten); and in words beneath,
-  which form it is and how many t'an it has of the ten.
+  Shake the phone, or touch the glyph that begins anew, for another.
+- Under the base, beneath the name, the shape it has taken (*the nest* at first); where the other
+  ways name their seats, its progress, a ringed dot for each form taken (of five) and a dot for
+  each t'an placed toward the next (of ten); and under what just happened, the same in words
+  (*Form 2 of 5: 4 of 10 t'an toward the next*). No seats, no scores.
 
 ### Strategy
 
