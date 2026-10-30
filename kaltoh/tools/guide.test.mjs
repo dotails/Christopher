@@ -16,7 +16,8 @@ Object.defineProperty(globalThis, 'localStorage', {
 
 const { Guide, GUIDE_KEYS } = await import('../android/app/src/main/assets/www/js/guide.js');
 const { FAMILIES } = await import('../android/app/src/main/assets/www/js/forms-rules.js');
-const { CLASSIC, ZEN, zenBecomesText } = await import('../android/app/src/main/assets/www/js/texts.js');
+const texts = await import('../android/app/src/main/assets/www/js/texts.js');
+const { CLASSIC } = texts;
 
 let checks = 0;
 const ok = (cond, msg) => {
@@ -102,10 +103,16 @@ await run(25);
 guide.released({ placed: false, aim: null });
 await run(5);
 ok(count('droppedOne') === drops + 1, 'but again a while later');
-guide.heard(ZEN.gathers);
-guide.heard(zenBecomesText({ v: 'cuboctahedron', s: 'cuboctahedron' }));
-await run(10);
-ok(said('zenTransform') && said('form_cubocta'), 'zen transforms: and into what');
+if (texts.ZEN) {
+  guide.heard(texts.ZEN.gathers);
+  guide.heard(texts.zenBecomesText({ v: 'cuboctahedron', s: 'cuboctahedron' }));
+  await run(10);
+  ok(said('zenTransform') && said('form_cubocta'), 'zen transforms: and into what');
+} else {
+  guide.transformed('cubocta');
+  await run(10);
+  ok(said('form_cubocta'), 'zen transforms: into what');
+}
 before = spoken.length;
 guide.lifted();
 guide.held();

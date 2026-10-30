@@ -5,8 +5,11 @@
 // over, a player waiting, a t'an left dangling, a shake gathering), and says each thing when it
 // helps: the lessons once (remembered from one day to the next), a mistake again whenever it is
 // made again (but not too often), never two lines at once.
-import { CLASSIC, MANY, ZEN } from './texts.js';
+import * as TEXTS from './texts.js';
 import { FAMILIES } from './forms-rules.js';
+
+const { CLASSIC, MANY } = TEXTS;
+const ZEN = TEXTS.ZEN ?? {}; // zen's lines (zen.js), where it is played
 
 const FILES = 'assets/voice/';
 const QUIET = 1.2; // seconds of quiet kept between two lines
@@ -283,11 +286,11 @@ export class Guide {
 }
 
 // The lines it can say, for tests: every key it may ask for has a file (tools/voice-lines.json).
-export const GUIDE_KEYS = [
+export const GUIDE_KEYS = [...new Set([
   'welcome', 'touchTray', 'dangling', 'danglingAgain', 'holding', 'blue', 'amber', 'amberAgain', 'droppedDangling',
   'droppedOne', 'missed', 'placedFirst', ...PRAISE, 'idle', 'turnStone', 'twoFingerTurn', 'flipHint', 'flipped',
   'flippedBack', 'chooseWay', ...Object.values(WAY_NEXT), 'translate', 'shakeHint', 'shaking', 'newGame',
   ...Object.values(WAY_START), 'zenTen', 'zenTransform', 'zenComplete', 'harmony', 'discord', 'lookKaltoh',
   ...new Set(REFUSALS.values()), 'noise', 'eases', 'flung', 'wobble', 'loopClosed', 'struts', 'complete',
   'twoPlayers', 'guideOn', 'guideOff',
-];
+])];
