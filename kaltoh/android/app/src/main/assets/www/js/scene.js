@@ -379,21 +379,22 @@ export async function loadEnvironment(stage) {
         float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
         return c * (level + ${LIGHT.lift.toFixed(1)} * smoothstep(0.6, 0.95, luma));
       }
-      vec3 seen(vec2 at) {
+      vec3 galley(vec2 at) {
         // Round the panorama: the photograph ahead (u = 0.25, toward -z), then mirrored behind.
         float u = 2.0 * at.x;
-        vec3 c = lifted(texture2D(map, vec2(u < 1.0 ? u : 2.0 - u, at.y)).rgb, ${LIGHT.level.toFixed(2)});
-        // Behind the player (u from 0.5 to 1), Tuvok's panorama, turned to put him straight behind,
-        // met by the galley about the sides.
-        float behind = smoothstep(-0.34, 0.34, sin((at.x - 0.5) * 6.2831853));
-        vec3 t = lifted(texture2D(tuvok, vec2(at.x + turn, at.y)).rgb, ${LIGHT.tuvok.toFixed(2)});
-        return mix(c, t, withTuvok * behind);
+        return lifted(texture2D(map, vec2(u < 1.0 ? u : 2.0 - u, at.y)).rgb, ${LIGHT.level.toFixed(2)});
       }
       void main() {
-        vec3 c = seen(vUv);
-        // Below the horizon, a little past the table's edge, the table: what is above, mirrored.
+        vec3 c = galley(vUv);
+        // Below the horizon, a little past the table's edge, the table: the galley above, mirrored.
         float table = smoothstep(0.03, 0.07, 0.5 - vUv.y);
-        c = mix(c, ${TABLE.toFixed(2)} * seen(vec2(vUv.x, 1.0 - vUv.y)), table);
+        c = mix(c, ${TABLE.toFixed(2)} * galley(vec2(vUv.x, 1.0 - vUv.y)), table);
+        // Behind the player (u from 0.5 to 1), Tuvok's panorama, turned to put him straight behind,
+        // met by the galley about the sides - whole, his own table beneath him: his face is just
+        // below the horizon, where the silver table's mirror begins.
+        float behind = smoothstep(-0.34, 0.34, sin((vUv.x - 0.5) * 6.2831853));
+        vec3 t = lifted(texture2D(tuvok, vec2(vUv.x + turn, vUv.y)).rgb, ${LIGHT.tuvok.toFixed(2)});
+        c = mix(c, t, withTuvok * behind);
         gl_FragColor = vec4(c, 1.0);
       }`,
     depthTest: false,
