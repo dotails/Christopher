@@ -22,8 +22,8 @@ Nothing is written on the screen. The title, the shape being built, the players,
 happened and every control are carved on one face on the underside of the stone: tip the base over
 to read them, from whichever side you like. All of it is engraved black, like the frame round it;
 only the rings round the players' marks are painted, each in its player's colour. Ten minutes of
-the mess hall loop beneath the play - the crew's voices murmuring over the warp core's hum -
-starting with your first touch; they play along with whatever else the phone is playing, never
+the mess hall loop beneath the play - the warp core's hum, the air, the crew's voices murmuring
+under them - starting with your first touch; they play along with whatever else the phone is playing, never
 pausing it. A voice guides you through your first game, and each way to play the first time you
 play it, answering what you do, until you turn it down under the stone.
 The stone stands on a silver pedestal table in Voyager's mess hall: beyond it, out of focus
@@ -51,7 +51,7 @@ his table, and the waiting t'an in the tray, its faces gently domed, holds his f
   <img src="docs/underside.png" width="19%" alt="The carved underside of the base, all on one face: the name and the shape being built, each seat named, its mark ringed in its colour, its plays marked beneath, what just happened, and the ways to play">
 </p>
 <p align="center">
-  <img src="docs/ways.png" width="19%" alt="The face translated into Vulcan, in many forms: the form's name, the loops closed, the game and its ways, the music, sound and voice sliders, vibration, and the glyphs Rules, Translate and Shake">
+  <img src="docs/ways.png" width="19%" alt="The face translated into Vulcan, in many forms: the form's name, the loops closed, the game and its ways, the room, sound and voice sliders, vibration, and the glyphs Rules, Translate and Shake">
   <img src="docs/rules.png" width="19%" alt="The rules of the chosen game and the marks under the seats, a glyph away">
 </p>
 
@@ -75,12 +75,12 @@ over an older one without uninstalling.
 | Turn the base | Drag the stone (a fingertip off its edge counts). Sideways spins it like a potter's wheel; up and down tips it toward or away from you, all the way over. Let go mid-drag and it glides on, then stops. The base always turns about the centre of the sphere-to-be. Level - its foot within twenty degrees of facing straight down - it rests on the floor, and spins there like a turntable; tip it further, toward you or away, and it lifts to turn freely. It never comes down while you hold it: let it go within twenty degrees of level and it falls straight down until its lowest edge meets the floor, then tips over on that edge until it lies flush, with a knock each time (held tipped a little as it rests, it rocks up onto its edge, never into the floor). Resting there, the t'an turned into it ride up over it rather than pushing it into the floor. **Two fingers** on the stone turn it as you see it instead: twist them and it turns about your line of sight, the same way round; move them together and it tumbles along with them; spread or pinch them to draw nearer, or back again as far as the view was first framed. A drag on open space turns nothing, so a finger that only just misses the t'an at the foot of the screen sets nothing spinning. With the base turned over, grab it by its rim, outside the carving's framing circle: within the circle the carving is for touching, and nothing turns. |
 | Turn the t'an | Drag anywhere within the t'an's outline, even between them (two fingers turn it as you see it, as for the stone). The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
 | Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it dangles from your finger, swinging as you move, about as large as it lay in the tray - one finger is not enough to lay it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Held so, the t'an lies between your fingers at its own length, and **where its ends are is where it lands**: spread your fingers wide of the pieces, out of your own way, and lay its ends on them - in the original game and many forms, on the tips you mean to join (each end picks the tip nearest it, which lights up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you draw the view nearer. |
-| Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read. It is all on one face: the title, and beneath it the shape the game builds (in the original game *two concentric icosidodecahedra*; in many forms, this game's form); whose turn it is and the score; what just happened (in many forms, and how many loops are closed); then, under a carved rule, the ways to play, the music, the sound, the voice and vibration; and three glyphs at the foot: *Rules*, *Translate* and *Shake*. *Rules* turns to the rules of the chosen game, short, and the marks under the seats; *Return* comes back. |
+| Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read. It is all on one face: the title, and beneath it the shape the game builds (in the original game *two concentric icosidodecahedra*; in many forms, this game's form); whose turn it is and the score; what just happened (in many forms, and how many loops are closed); then, under a carved rule, the ways to play, the room, the sound, the voice and vibration; and three glyphs at the foot: *Rules*, *Translate* and *Shake*. *Rules* turns to the rules of the chosen game, short, and the marks under the seats; *Return* comes back. |
 | Play with others | Two players take turns at first, passing the phone; choose one to four (or a Vulcan, in rings) in the ways to play. Whose turn it is is told under the base, and only there: each seat is named (*Player 1*, *Player 2*, ... or *The Vulcan*) over its mark, which is ringed in paint of its colour (red for the first player, a rich green for the second, then deep blue and gold), the mark filled for whose turn it is. Beneath is the score: in the original game and many forms, true joins of those tried (*7/9*); in rings, points. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop, a loop closed or a ring, a cross where t'an fell. The rules show the marks. |
 | Translate | Everything is carved in Standard at first. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it (in Standard, whichever script the rest is in): all of it is smoothed away to bare stone and cut again in Vulcan, as deep. Touch it again for Standard. The carving reads in whichever script you left it in, the next time too. Touching the carving anywhere else translates nothing. |
-| Ways to play | Carved on the face, under the players, in two columns: each way's name, and its value. First the game itself, with a line beneath on what it is, then its ways (how many players), then **Music**, **Sound effects**, **Voice** (the voice guiding the play, full at first; silent, it guides no more) and **Vibration**. Touch a way's row to change its value. A change to the game waits for a new one: the rule across the face says *Shake to play this way*, and a ring is cut round *Shake*. Shake the phone, or touch *Shake*, to play that way. **Music**, **Sound effects** and **Voice** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the music pauses). (Rings has more ways than fit on the face: a large **arrow carved at the rim** turns to them, and one on the other side turns back.) |
+| Ways to play | Carved on the face, under the players, in two columns: each way's name, and its value. First the game itself, with a line beneath on what it is, then its ways (how many players), then **Room** (the mess hall's sound around you), **Sound effects**, **Voice** (Sky's, guiding the play, full at first; silent, it guides no more) and **Vibration**. Touch a way's row to change its value. A change to the game waits for a new one: the rule across the face says *Shake to play this way*, and a ring is cut round *Shake*. Shake the phone, or touch *Shake*, to play that way. **Room**, **Sound effects** and **Voice** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the room's sound pauses). (Rings has more ways than fit on the face: a large **arrow carved at the rim** turns to them, and one on the other side turns back.) |
 | Begin anew | **Shake the phone for three seconds**, or touch *Shake* under the base. |
-| Be guided | A voice talks you through the game: *Sky*, one of the voices of the Kokoro speech model, every line spoken ahead of time and played from the app, offline. Your very first game is zen, where nothing can go wrong. The voice greets you, and as you go tells you how to take up a t'an with one finger and hold it with two, what blue and amber mean, how to turn the stone, and that there is more under it. It watches what you do and answers it: a t'an left waiting, or dangling from one finger; one let go before its ends were on two pieces, or where it glowed amber; a refusal (the same tip twice, already joined, too far, too near); harmony, discord and what to look for; a wobble, a fling, noise, a loop closed, a form taken, a shake gathering. Turned over, it says that everything is there, and how to choose a way and begin it; and the first time you play each way, what that way is. Each lesson is given once, remembered from one day to the next; a mistake is explained again when it is made again, though not every time. It never speaks over itself, and the music dips beneath it. **Voice**, under the stone, sets how loud it is; slide it to nothing and it falls silent. |
+| Be guided | A voice talks you through the game: *Sky*, one of the voices of the Kokoro speech model, every line spoken ahead of time and played from the app, offline. Your very first game is zen, where nothing can go wrong. The voice greets you, and as you go tells you how to take up a t'an with one finger and hold it with two, what blue and amber mean, how to turn the stone, and that there is more under it. It watches what you do and answers it: a t'an left waiting, or dangling from one finger; one let go before its ends were on two pieces, or where it glowed amber; a refusal (the same tip twice, already joined, too far, too near); harmony, discord and what to look for; a wobble, a fling, noise, a loop closed, a form taken, a shake gathering. Turned over, it says that everything is there, and how to choose a way and begin it; and the first time you play each way, what that way is. Each lesson is given once, remembered from one day to the next; a mistake is explained again when it is made again, though not every time. It never speaks over itself, and the room's sound dips beneath it. **Voice**, under the stone, sets how loud it is; slide it to nothing and it falls silent. |
 | Draw nearer | Pinch, anywhere. |
 
 ### The kal-toh (the original game)
@@ -188,7 +188,7 @@ Opponent: a Vulcan *novice*, *adept* (default) or *master*, or nobody (pass and 
 four players). Other settings: the spin's strength (unknown by default), a drift, the axis hidden
 or shown, a light, medium or dense nest, *foresight* (see the ring a held
 t'an would make, once the axis is known, always, or never), strain cues, *chains* (a ring earns
-another turn, as boxes do in dots and boxes), the supply of t'an, lives, music, sound and voice levels,
+another turn, as boxes do in dots and boxes), the supply of t'an, lives, the room's, sound and voice levels,
 and vibration. The settings are remembered, and so is the script the carving was last
 translated to.
 
@@ -261,10 +261,7 @@ it found it.
     metal, rock on metal, rock on rock - each struck and drawn along), `shake.js`, `main.js`. `audio.js` also
     loops the music, through its own level, paused when silenced or out of sight; on the phone the
     shell plays it (`MainActivity.java`, a media player that never asks for the audio focus, so other
-    apps' sound plays on). The music is the supplied ambience remastered (`tools/master_music.sh`):
-    nearly all of it was the warp core's rumble, deeper than a phone can play, with the crew's
-    voices some 37 dB beneath it, so the two are levelled apart - the hum limited on its own, the
-    voices and the air raised over it, the voices' band most.
+    apps' sound plays on). The **Room** slider sets its level.
   - `guide.js`: the voice guiding the play. It hears what the game reports (a t'an taken up, held,
     aimed, let go, placed; every line the carving says) and watches what it can see (a t'an left
     waiting, the stone turned over, a shake gathering), and answers: each lesson once, remembered
@@ -272,7 +269,7 @@ it found it.
     never two lines at once, and none until the sound can be heard. Its lines are Kokoro's *Sky*
     voice, rendered ahead of time by `tools/make_voice.py` from `tools/voice-lines.json` into
     `assets/voice/` (about four minutes of speech, 1.7 MB) and played by `audio.js` at the Voice
-    slider's level, the music dipping beneath.
+    slider's level, the room's sound dipping beneath.
 - **`android/`**: a small Java shell (`MainActivity.java`). It runs a full screen WebView that
   serves the game from the APK, and handles accelerometer shake detection and haptics.
 - **`tools/`**
@@ -299,7 +296,7 @@ it found it.
     on two tips, joins true neighbours, tips too far apart for a t'an are refused, a false bond falls and shows where the
     tip belonged, no t'an passes into the stone, and t'an meeting at a
     junction are mitred to touch. Turned over, the base shows everything on one face (the name and
-    the shape being built, the two players, what happened, the game and its ways, the music, the
+    the shape being built, the two players, what happened, the game and its ways, the room, the
     sound, the voice and vibration, and the glyphs, with no page to turn to and no row for the
     script); touching the
     game there changes it, the carving says to shake to play this way, and the glyph *Shake* plays
@@ -315,7 +312,7 @@ it found it.
     within the carving's circle turns nothing and a touch there does not translate it, but the
     Starfleet delta does (Standard at first, Vulcan then), and the script is remembered for next
     time. The rules glyph turns to the rules, and *Return* comes back. It draws a finger along the
-    music's slider, sets the voice's level on its own slider, and changes the ways on the face for a new game. It covers
+    room's slider, sets the voice's level on its own slider, and changes the ways on the face for a new game. It covers
     fallen t'an staying until a new game, and shaking to begin anew. It checks that the stone stands on the table, its top at the
     floor, mirroring what stands on it (and then puts the table out of sight: drawing its metal
     makes the software renderer several times slower), that whose
@@ -324,8 +321,8 @@ it found it.
   - `convert_base.py`, `convert_table.py`, `make_icon.py`: asset and icon generators (the table at its
     full detail, 154,670 triangles; on the phone that is nothing, and its rounded edges need them).
   - `make_voice.py`: renders the guide's lines with Kokoro (kokoro-onnx, the Sky voice) into
-    `assets/voice/`, each brought to -14 LUFS so it is clear over the music; unchanged lines are
-    kept. `master_music.sh`: remasters the ambience as supplied into `assets/music.mp3`.
+    `assets/voice/`, each brought to -14 LUFS so it is clear over the room's sound; unchanged
+    lines are kept.
   - `guide.test.mjs`: the guide, as a player would meet it - each lesson once, each mistake
     answered, nothing said while it cannot be heard or once turned down to nothing - and every line
     it can say written and rendered as written.
@@ -360,8 +357,8 @@ area; press `R` to begin anew, and use the mouse wheel to draw nearer.
   basin and pedestal table models (made with Meshy), the mess-hall panorama (and its blurred copy,
   `assets/sky.jpg`) and the ambience
   (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and faded in and
-  out; remastered here) were supplied for this project. Their licences are not included; check them
-  before distributing the app beyond personal use.
+  out; made louder here) were supplied for this project. Their licences are not included; check
+  them before distributing the app beyond personal use.
 - The guide's voice is *Sky* (`af_sky`) of Kokoro-82M by hexgrad (Apache 2.0), run with
   kokoro-onnx (MIT).
 - three.js is MIT licensed (`android/app/src/main/assets/www/vendor/three.LICENSE`).

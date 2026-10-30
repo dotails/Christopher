@@ -62,7 +62,8 @@ export const OPTIONS = [
   },
   { key: 'lives', v: 'lives', s: 'Lives, when surviving', when: (s) => rings(s) && s.mode === 'collapse', choices: [[3, 'three', '3'], [1, 'one', '1'], [5, 'five', '5']] },
   // Sliders: drawn along their groove under the base, from silent to full.
-  { key: 'music', v: 'music', s: 'Music', slider: true, value: 1 },
+  // The mess hall around the stone: its hum, its air, the voices in it.
+  { key: 'music', v: 'the room', s: 'Room', slider: true, value: 1 },
   { key: 'sfx', v: 'the sound of the tan', s: 'Sound effects', slider: true, value: 0.8 },
   // The voice guiding the play aloud, for every way; silent, it guides no more.
   { key: 'voice', v: 'the guiding voice', s: 'Voice', slider: true, value: 1 },
