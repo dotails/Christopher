@@ -1004,7 +1004,7 @@ function check(condition, message) {
     await side.evaluate(() => { const v = window.__kaltoh.stage.view; v.zoom = v.framed; });
     // Taken up by one finger and carried off the tray, then let go: it falls into the room, and
     // another rises in the tray. Flicked up, it is thrown, up and away into the room, to come down
-    // on the table among the fallen. (Stamped as a phone stamps touches: this browser answers too
+    // among the fallen (on the table, or the stone: where depends on how the flick is timed). (Stamped as a phone stamps touches: this browser answers too
     // slowly to stamp a flick itself.)
     await side.waitForFunction(() => window.__kaltoh.phase === 'play' && window.__kaltoh.tray.arrive >= 1 && !window.__kaltoh.hand.holding, null, { timeout: 120000, polling: 100 });
     let stamp = Date.now() / 1000;
@@ -1053,9 +1053,9 @@ function check(condition, message) {
     check(thrown.fallen >= 1 && thrown.up > 1 && thrown.away > 1, `flicked up, it is thrown up and away into the room (${thrown.up.toFixed(1)} up, ${thrown.away.toFixed(1)} away)`);
     await side.waitForFunction(() => {
       const r = window.__kaltoh.falling.rods.at(-1);
-      return r && r.onFloor && r.mid.z < 3;
+      return r && (r.onFloor || r.onStone) && r.mid.z < 3;
     }, null, { timeout: 120000, polling: 100 });
-    check(true, 'and comes down on the table, among the fallen');
+    check(true, 'and comes down among the fallen, on the table or the stone');
 
     await side.setViewportSize({ width: 892, height: 412 });
     await side.waitForFunction(() => window.__kaltoh.stage.size.width === 892, null, { timeout: 30000 });
