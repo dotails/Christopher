@@ -3,6 +3,7 @@ package com.dotails.kaltoh;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
@@ -56,6 +57,9 @@ public class MainActivity extends Activity implements SensorEventListener {
     // Linear acceleration (m/s^2) worth reporting; the page decides what counts as a shake.
     private static final float SHAKE_FLOOR = 6f;
     private static final long SHAKE_INTERVAL_MS = 33;
+    // Where the game in play is kept between sessions.
+    private static final String KEPT = "kaltoh";
+    private static final String KEPT_GAME = "game";
 
     private WebView web;
     private SensorManager sensors;
@@ -440,6 +444,21 @@ public class MainActivity extends Activity implements SensorEventListener {
         @JavascriptInterface
         public void haptic(String kind) {
             runOnUiThread(() -> buzz(kind));
+        }
+
+        // The game in play (keep.js), written down as soon as it is given: the page's own storage
+        // writes it only some seconds later, and the app may be closed sooner.
+        @JavascriptInterface
+        public void keep(String text) {
+            SharedPreferences.Editor kept = getSharedPreferences(KEPT, MODE_PRIVATE).edit();
+            if (text == null || text.isEmpty()) kept.remove(KEPT_GAME);
+            else kept.putString(KEPT_GAME, text);
+            kept.apply();
+        }
+
+        @JavascriptInterface
+        public String kept() {
+            return getSharedPreferences(KEPT, MODE_PRIVATE).getString(KEPT_GAME, null);
         }
 
         @JavascriptInterface

@@ -119,6 +119,31 @@ export class ZenGame {
     this.carve();
   }
 
+  // The game as it stands, kept between sessions (keep.js): the rules' state, every t'an in it.
+  keep() {
+    return { state: this.game };
+  }
+
+  // Taken up again where it was kept, at once: every t'an where it lies, nothing gathering or
+  // gliding; the t'an in the tray, unless it is fully formed, glowing.
+  resume({ state }) {
+    const { tray } = this.ctx;
+    this.game = Z.resumeGame(state, { radius: SPHERE });
+    this.views.clear();
+    this.time = 0;
+    this.aimed = null;
+    this.aimKey = '';
+    this.highlight = new Set();
+    for (const rod of this.game.rods) this.addView(rod);
+    this.shown = this.views.size;
+    this.phase = this.game.complete ? 'complete' : 'play';
+    this.glow = this.game.complete ? 1 : 0;
+    tray.length = this.game.length * SCALE;
+    if (this.game.complete) tray.hide();
+    else tray.refill();
+    this.carve();
+  }
+
   // A view of a t'an of the rules, where it lies.
   addView(rod) {
     const v = {

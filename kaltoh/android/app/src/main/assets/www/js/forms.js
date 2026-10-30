@@ -104,6 +104,27 @@ class Structure {
     return { a, b, length: length * SPHERE, born: 0, appear: 0, appearAt, from, pulses: [] };
   }
 
+  // Taken up again as it was kept (FormsGame.resume): every t'an of the game whole and in place at
+  // once - both shells' as far as they are built, the struts braced out, the noise still hanging -
+  // each tip where it lay (pos), as far as its junction had found its order.
+  resume(pos) {
+    const game = this.game;
+    const { V } = game;
+    const whole = (a, b, length) => ({ a, b, length: length * SPHERE, born: -1, appear: 1, appearAt: 0, from: -1, pulses: [] });
+    this.views.clear();
+    for (const layer of ['inner', 'outer']) {
+      const present = layer === 'outer' ? game.presentOut : game.presentIn;
+      for (const e of present.keys()) this.views.set(shellKey(layer, e), whole(...F.tipsOf(game, layer, e), layer === 'outer' ? game.rodOut : game.rodIn));
+    }
+    for (let v = 0; v < V; v++) if (game.sprouted[v]) this.views.set(`s${v}`, whole(v, V + v, game.strut));
+    game.noise.forEach((n, i) => n.alive && this.views.set(`n${i}`, whole(n.host, 2 * V + i, game.rodIn)));
+    this.orderIn = [...game.orderIn];
+    this.orderOut = [...game.orderOut];
+    this.findRest();
+    pos.forEach((p, t) => this.pos[t]?.fromArray(p));
+    if (game.complete) this.axisGlow = 1;
+  }
+
   get grown() {
     for (const view of this.views.values()) if (view.appear < 1) return false;
     return true;
@@ -472,6 +493,31 @@ export class FormsGame {
     tray.hide();
     tray.length = this.rod * SCALE;
     say(MANY.begin);
+    this.carve();
+  }
+
+  // The game as it stands, kept between sessions (keep.js): the rules' state (made again from its
+  // seed, all but what play has changed), the plays carved under the seats, and where each tip lies.
+  keep() {
+    return { state: this.game, plays: this.plays, pos: this.structure.pos.map((p) => p.toArray()) };
+  }
+
+  // Taken up again where it was kept, at once: no jumble growing, nothing glowing; the t'an the
+  // shell being built takes in the tray, unless the form is whole.
+  resume({ state, plays, pos }) {
+    const { tray } = this.ctx;
+    const floor = (x, z) => this.floor(x * SPHERE, z * SPHERE) / SPHERE;
+    this.game = F.resumeGame(state, { floor });
+    this.plays = Array.isArray(plays) ? plays : [];
+    this.sinceEase = 0;
+    this.easing = false;
+    this.structure.reset(this.game);
+    this.structure.resume(pos);
+    this.phase = this.game.complete ? 'complete' : 'play';
+    this.aimed = null;
+    tray.length = this.rod * SCALE;
+    if (this.game.complete) tray.hide();
+    else tray.refill();
     this.carve();
   }
 

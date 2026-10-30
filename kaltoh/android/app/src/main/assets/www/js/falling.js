@@ -82,6 +82,30 @@ export class Falling {
     });
   }
 
+  // Where the fallen lie, and how each is turned: kept between sessions (keep.js).
+  keep() {
+    return this.rods.filter((r) => !r.leaving).map((r) => ({
+      a: r.a.toArray(), b: r.b.toArray(), up: r.up.toArray(), ground: r.ground.toArray(), onFloor: r.onFloor,
+    }));
+  }
+
+  // Lying again, still, where they were kept.
+  resume(kept) {
+    const point = (p) => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite);
+    this.rods = [];
+    for (const k of Array.isArray(kept) ? kept : []) {
+      if (!point(k?.a) || !point(k?.b)) continue;
+      this.spawn(new THREE.Vector3().fromArray(k.a), new THREE.Vector3().fromArray(k.b), new THREE.Vector3(), {
+        spin: 0, up: point(k.up) ? new THREE.Vector3().fromArray(k.up) : null,
+      });
+      const r = this.rods[this.rods.length - 1];
+      if (point(k.ground)) r.ground.fromArray(k.ground).normalize();
+      r.onFloor = Boolean(k.onFloor);
+      r.mid.addVectors(r.a, r.b).multiplyScalar(0.5);
+      this.sleep(r);
+    }
+  }
+
   // A new game: what lay fallen fades away.
   clear() {
     for (const r of this.rods) r.leaving = Math.max(r.leaving, 1e-6);

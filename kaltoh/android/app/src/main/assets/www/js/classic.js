@@ -98,6 +98,19 @@ class Structure {
     return this.inner.grown;
   }
 
+  // Taken up again as it was kept (ClassicGame.resume): every t'an of the game whole and in place
+  // at once, its junctions where they lay (pos) as far as they had found their order, the inner
+  // shell's t'an as settled as that order lets them.
+  resume(pos) {
+    const game = this.game;
+    this.views.clear();
+    for (const e of game.present.keys()) this.views.set(e, { born: -1, appear: 1, appearAt: 0, from: -1, pulses: [] });
+    pos.forEach((p, v) => this.pos[v]?.fromArray(p));
+    this.order.set(game.order);
+    if (game.complete) this.axisGlow = 1;
+    this.inner.resume();
+  }
+
   update(dt) {
     const game = this.game;
     if (!game) return;
@@ -514,6 +527,19 @@ class InnerShell {
     return this.rods.every((r) => r.appear >= 1);
   }
 
+  // Every t'an here at once, settled as far as the order lets it (Structure.resume).
+  resume() {
+    const s = this.structure;
+    for (const rod of this.rods) {
+      rod.appear = 1;
+      const order = rod.kind === 'strut' ? s.order[rod.a] : Math.min(s.order[rod.a], s.order[rod.b]);
+      rod.settle = smooth(clamp01((order - rod.threshold + 0.12) / 0.24));
+      rod.locked = rod.settle > 0.9;
+      rod.glow = 0;
+      this.pose(rod);
+    }
+  }
+
   update(dt) {
     const s = this.structure;
     this.time += dt;
@@ -623,6 +649,32 @@ export class ClassicGame {
     tray.hide();
     tray.length = ROD * SCALE;
     say(CLASSIC.begin);
+    this.carve();
+  }
+
+  // The game as it stands, kept between sessions (keep.js): the rules' state (made again from its
+  // seed, all but what play has changed), the plays carved under the seats, and where each junction
+  // lies.
+  keep() {
+    return { state: this.game, plays: this.plays, pos: this.structure.pos.map((p) => p.toArray()) };
+  }
+
+  // Taken up again where it was kept, at once: no jumble growing, nothing glowing; the t'an in the
+  // tray, unless it is whole.
+  resume({ state, plays, pos }) {
+    const { tray } = this.ctx;
+    const floor = (x, z) => this.floor(x * SPHERE, z * SPHERE) / SPHERE;
+    this.game = K.resumeGame(state, { floor });
+    this.plays = Array.isArray(plays) ? plays : [];
+    this.sinceEase = 0;
+    this.easing = false;
+    this.structure.reset(this.game);
+    this.structure.resume(pos);
+    this.phase = this.game.complete ? 'complete' : 'play';
+    this.aimed = null;
+    tray.length = ROD * SCALE;
+    if (this.game.complete) tray.hide();
+    else tray.refill();
     this.carve();
   }
 

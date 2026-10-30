@@ -16,12 +16,12 @@
 // way it was turned, the carving reads with its top up), touching the carving to translate all of
 // it (Standard at first; remembered for next time), the rules a glyph away and back, the ways on
 // the face (the room's and the voice's sliders, a value touched, Shake to begin anew), fallen t'an
-// lying where they fell until a new game, and shaking to begin anew. A t'an let go of as it dangles
-// falling into the room, another rising in the tray; flicked, thrown onto the table. Held sideways
-// and back: the room drawn nearer on the wide screen, the view framed afresh and pinched no nearer
-// or further than its photograph allows, the stone clear of the tray, and its carving all on the
-// screen. Nothing may be written on the screen itself. Screenshots land in the directory
-// given as the first argument.
+// lying where they fell until a new game, the game going on where it was when opened again, and
+// shaking to begin anew. A t'an let go of as it dangles falling into the room, another rising in
+// the tray; flicked, thrown onto the table. Held sideways and back: the room drawn nearer on the
+// wide screen, the view framed afresh and pinched no nearer or further than its photograph allows,
+// the stone clear of the tray, and its carving all on the screen. Nothing may be written on the
+// screen itself. Screenshots land in the directory given as the first argument.
 //
 // Run: node kaltoh/tools/browser-check.cjs [out-dir]
 // Needs Playwright with Chromium (NODE_PATH or a global install).
@@ -918,6 +918,34 @@ function check(condition, message) {
     const lying = await page.evaluate(() => window.nearest(window.__kaltoh.falling.rods.map((r) => [r.a, r.b])));
     check(fallen.onStone > 0 && lying > -0.002, `nor do they pass into the stone (closest ${lying.toFixed(3)})`);
     await page.screenshot({ path: path.join(OUT, '10c-fallen.png') });
+
+    // Closed and opened again, the game goes on where it was: the same game as far as it had come,
+    // the t'an fallen from it where they lay, the stone turned as it was, the carving saying what it
+    // said - none of it begun anew.
+    const standing = () => {
+      const k = window.__kaltoh;
+      const g = k.game;
+      return {
+        way: k.way, seed: g.seed, stage: g.stage, placed: g.placed, rods: g.rods.length, phase: k.phase,
+        fallen: k.falling.rods.filter((r) => !r.leaving).map((r) => [...r.a.toArray(), ...r.b.toArray()]),
+        base: k.motion.baseQ.toArray(), event: k.engraving.state.event?.s,
+      };
+    };
+    await page.evaluate(() => {
+      window.kaltoh.pause();
+      window.kaltoh.resume();
+    });
+    const left = await page.evaluate(standing);
+    const reopened = await context.newPage();
+    reopened.on('pageerror', (e) => errors.push(e.message));
+    await reopened.goto(base);
+    await reopened.waitForFunction(() => ['play', 'complete'].includes(window.__kaltoh?.phase), null, { timeout: 240000 });
+    const found = await reopened.evaluate(standing);
+    const moved = Math.max(0, ...found.fallen.map((f, i) => Math.max(...f.map((x, j) => Math.abs(x - (left.fallen[i]?.[j] ?? Infinity))))));
+    check(['way', 'seed', 'stage', 'placed', 'rods', 'phase', 'event'].every((key) => found[key] === left[key])
+      && found.fallen.length === left.fallen.length && moved < 0.05 && found.base.every((x, i) => Math.abs(x - left.base[i]) < 1e-9),
+    `closed and opened again, the game goes on where it was (${found.way}, ${found.rods} t'an, ${found.fallen.length} fallen, the farthest moved ${moved.toFixed(3)})`);
+    await reopened.close();
 
     // 7. Shake for three seconds to begin anew; what had fallen goes with the old game.
     await pace();

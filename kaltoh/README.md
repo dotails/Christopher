@@ -91,7 +91,7 @@ over an older one without uninstalling.
 | Play with others | Two players take turns at first, passing the phone; choose one to four in the ways to play (in the original game and many forms; zen is played alone). Whose turn it is is told under the base, and only there: each seat is named (*Player 1*, *Player 2*, ...) over its mark, which is ringed in paint of its colour (red for the first player, a rich green for the second, then deep blue and gold), the mark filled for whose turn it is. Beneath is the score: true joins of those tried (*7/9*). Each player's plays are carved in order under their seat: a dot for a true join, a ringed dot for a great hoop or a loop closed, a cross where t'an fell. The rules show the marks. |
 | Translate | Everything is carved in Standard at first. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it (in Standard, whichever script the rest is in): all of it is smoothed away to bare stone and cut again in Vulcan, as deep - Golic Vulcan, the language itself, not English in Vulcan letters: *tal'uh zek svi'nezhak*, find the order within the chaos; *huta'uh*, shake; a score of 7/9, *steh t'nau*, seven of nine (every word, and where it comes from, in [docs/vulcan.md](docs/vulcan.md)). Touch it again for Standard. The carving reads in whichever script you left it in, the next time too. Touching the carving anywhere else translates nothing. |
 | Ways to play | Carved on the face, under the players, in two columns: each way's name, and its value. First the game itself, with a line beneath on what it is, then its ways (how many players), then **Room** (the mess hall's sound around you), **Sound effects**, **Voice** (Sky's, guiding the play: silent at first, the guide waiting until you turn it up; down to nothing again, it guides no more), **Music** (Voyager's theme on piano, at half at first) and **Vibration**. Touch a way's row to change its value. A change to the game waits for a new one: the rule across the face says *Shake to play this way*, and a ring is cut round *Shake*. Shake the phone, or touch *Shake*, to play that way. **Room**, **Sound effects**, **Voice** and **Music** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the room's sound and the music pause). |
-| Begin anew | **Shake the phone for three seconds**, or touch *Shake* under the base. |
+| Begin anew | **Shake the phone for three seconds**, or touch *Shake* under the base. Nothing else begins a game anew: close the app (or let the phone close it) and open it again, and the game goes on where you left it - every t'an placed, the scores and whose turn it is, the t'an fallen where they lay, the stone turned as it was. |
 | Be guided | A voice talks you through the game: *Sky*, one of the voices of the Kokoro speech model, every line spoken ahead of time and played from the app, offline. Your very first game is zen, where nothing can go wrong. The voice starts silent, waiting: turn **Voice** up under the stone and it says how loud it will be, greets you and takes up the game where it stands, and as you go tells you how to take up a t'an with one finger and hold it with two, what blue and amber mean, how to turn the stone, and that there is more under it. It watches what you do and answers it: a t'an left waiting, or dangling from one finger; one let go before its ends were on two pieces, or where it glowed amber; a refusal (the same tip twice, already joined, too far, too near); harmony, discord and what to look for; a wobble, a fling, noise, a loop closed, a form taken, a shake gathering. Turned over, it says that everything is there, and how to choose a way and begin it; and the first time you play each way, what that way is. Each lesson is given once, remembered from one day to the next; a mistake is explained again when it is made again, though not every time. It never speaks over itself, and the room's sound dips beneath it. **Voice**, under the stone, sets how loud it is; slide it back to nothing and it falls silent, and waits. |
 | Draw nearer | Pinch, anywhere. |
 
@@ -272,7 +272,11 @@ build is gathered into the next form.
     laid out from `settings.js` - on a layer whose depth the shader can smooth away and recut), `texts.js` (the words,
     in Golic Vulcan - from the Vulcan Language Institute's dictionaries, in the order of its
     grammar, its numbers counted as it counts them, and its stroke and half-stop, which the Vulcan
-    fonts lack, cut by hand among the letters (`docs/vulcan.md`) - and in Standard), `settings.js`, `audio.js` (synthesized sound: every contact as its materials would sound - thin light metal on
+    fonts lack, cut by hand among the letters (`docs/vulcan.md`) - and in Standard), `settings.js`, `keep.js` (the game in
+    play, kept every few seconds and whenever the app goes out of sight, in the page's storage and,
+    on the phone, written down at once by the shell; opened again, each way takes its game up from
+    its seed and all that play has changed - zen drawing its random numbers on from where they
+    were - and the stone, the fallen t'an and what the carving said with it), `audio.js` (synthesized sound: every contact as its materials would sound - thin light metal on
     metal, rock on metal, rock on rock - each struck and drawn along), `shake.js`, `main.js`. `audio.js` also
     loops two recordings, the room's sound and the music, each through its own level, paused when
     silenced or out of sight; on the phone the shell plays them (`MainActivity.java`, a media player
@@ -338,7 +342,8 @@ build is gathered into the next form.
     turns to the rules, and *Return* comes back. It draws a finger along the room's slider, sets the
     voice's level on its own slider, hears the music play at half, and changes the ways on the face
     for a new game. It covers
-    fallen t'an staying until a new game, and shaking to begin anew. A t'an let go of as it
+    fallen t'an staying until a new game, the game going on where it was when the page is opened
+    again, and shaking to begin anew. A t'an let go of as it
     dangles falls into the room, a new one rising in the tray, and flicked, it is thrown and comes
     down on the table. Held sideways and back, the room comes nearer on the wide screen and stands
     back again, the view is framed afresh, and pinched it goes no nearer or further than the
@@ -358,6 +363,8 @@ build is gathered into the next form.
   - `guide.test.mjs`: the guide, as a player would meet it - each lesson once, each mistake
     answered, nothing said while it cannot be heard or once turned down to nothing - and every line
     it can say written and rendered as written.
+  - `keep.test.mjs`: the game kept between sessions: packed and unpacked exactly, and taken up
+    again in each way, it goes on exactly as it would have (zen past taking new forms at random).
 
 ```sh
 node kaltoh/tools/physics.test.mjs
@@ -368,6 +375,7 @@ node kaltoh/tools/zen.test.mjs
 node kaltoh/tools/ground.test.mjs
 node kaltoh/tools/guide.test.mjs
 node kaltoh/tools/vulcan.test.mjs
+node kaltoh/tools/keep.test.mjs
 node kaltoh/tools/browser-check.cjs out/   # needs Playwright with Chromium
 ```
 

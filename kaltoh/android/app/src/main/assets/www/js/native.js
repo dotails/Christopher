@@ -16,6 +16,21 @@ export const native = {
       // Without it, the game is simply quieter.
     }
   },
+  // The game in play, written down by the shell at once (keep.js), and read back.
+  keep(text) {
+    try {
+      bridge?.keep?.(text);
+    } catch {
+      // The page's own storage keeps it still.
+    }
+  },
+  kept() {
+    try {
+      return bridge?.kept?.() || null;
+    } catch {
+      return null;
+    }
+  },
   haptic(kind) {
     try {
       bridge?.haptic(kind);

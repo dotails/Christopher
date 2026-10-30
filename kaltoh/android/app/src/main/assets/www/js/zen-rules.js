@@ -33,9 +33,16 @@ export function createGame(options = {}) {
   const seed = options.seed ?? (Math.random() * 2 ** 32) >>> 0;
   const { nest } = R.startingNest({ seed });
   const rods = nest.liveRods.map((r, i) => ({ id: i, a: [...r.a], b: [...r.b], kind: r.kind === 'core' ? 'core' : 'nest', edge: -1 }));
-  return {
+  const random = G.mulberry32((seed ^ 0x2545f491) >>> 0);
+  const state = {
     seed,
-    rng: G.mulberry32((seed ^ 0x2545f491) >>> 0),
+    // Its random numbers (the turns each form is tried in), counted, so that a game kept between
+    // sessions draws on from where it left off.
+    rng: () => {
+      state.draws += 1;
+      return random();
+    },
+    draws: 0,
     radius: options.radius ?? RADIUS,
     forms: options.forms ?? FORMS,
     per: options.per ?? PER_FORM,
@@ -50,6 +57,16 @@ export function createGame(options = {}) {
     complete: false,
     history: [],
   };
+  return state;
+}
+
+// A game kept between sessions (keep.js), taken up again: made afresh from its seed, its random
+// numbers drawn on as far as they had been, then all that play has changed, as it was.
+export function resumeGame(kept, options = {}) {
+  const state = createGame({ ...options, seed: kept.seed, radius: kept.radius, forms: kept.forms, per: kept.per });
+  const draws = Math.min(Number(kept.draws) || 0, 1e5);
+  while (state.draws < draws) state.rng();
+  return Object.assign(state, kept);
 }
 
 export const rodOf = (state, id) => state.rods.find((r) => r.id === id) ?? null;

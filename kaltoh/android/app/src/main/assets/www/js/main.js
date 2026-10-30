@@ -19,6 +19,7 @@ import { TEXT } from './texts.js';
 import { loadSettings, saveSettings, shapeOf } from './settings.js';
 import { ShakeDetector } from './shake.js';
 import { native } from './native.js';
+import { keepGame, keptGame } from './keep.js';
 
 const canvas = document.getElementById('view');
 const stage = createScene(canvas);
@@ -224,6 +225,58 @@ function newGame(again = false) {
   nextSeed = undefined;
   if (again) guide.anew(way);
   else guide.begin(way);
+  keep();
+}
+
+// --- Kept between sessions ------------------------------------------------------------------
+
+// The game in play as it stands (keep.js): its way and the ways it was begun with, the game itself,
+// the t'an fallen from it, how the stone is turned, and what the carving last said. Nothing while
+// the app is loading, or while the game falls away, a new one on its way.
+const KEPT = 1; // how it is kept: a game kept otherwise is not taken up
+function kept() {
+  const game = shaped();
+  if (!game?.game || phase === 'loading' || dissolving()) return null;
+  return {
+    kept: KEPT,
+    way,
+    begunWith,
+    game: game.keep(),
+    fallen: falling.keep(),
+    stone: motion.keep(),
+    event: engraving.state.event ?? null,
+  };
+}
+
+let sinceKept = 0;
+function keep() {
+  sinceKept = 0;
+  const data = kept();
+  if (data) keepGame(data);
+}
+
+// The game kept when the app was last closed, taken up again where it was: false if there is none
+// (or it cannot be).
+let resumed = false;
+function resumeGame() {
+  const last = keptGame();
+  if (last?.kept !== KEPT || !last.game?.state || !['classic', 'forms', 'zen'].includes(last.way)) return false;
+  try {
+    way = last.way;
+    begunWith = typeof last.begunWith === 'string' ? last.begunWith : shapeOf(settings);
+    engraving.set({ pending: shapeOf(settings) !== begunWith, shape: null, status: null, zen: null });
+    phase = 'shaped';
+    shaped().resume(last.game);
+    motion.resume(last.stone);
+    falling.resume(last.fallen);
+    if (last.event?.v && last.event?.s) engraving.setEvent(last.event);
+    guide.begin(way);
+    resumed = true;
+    return true;
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
 }
 
 // Where the t'an in hand would rest, as the guide is told it: blue, amber, or on nothing yet.
@@ -311,6 +364,7 @@ function dissolving() {
 
 function restart() {
   if (phase === 'loading' || dissolving()) return;
+  keepGame(null);
   hand.holding = false;
   hand.flight = null;
   tray.hide();
@@ -385,7 +439,11 @@ window.kaltoh = {
     insets.bottom = bottom;
     layout();
   },
-  pause: () => sound.suspend(),
+  // Out of sight (the app left, or closed): silent, and the game kept as it stands.
+  pause: () => {
+    sound.suspend();
+    keep();
+  },
   resume: () => sound.resume(),
 };
 
@@ -394,9 +452,18 @@ window.addEventListener('pointerdown', () => sound.wake(), { capture: true });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') restart();
 });
-document.addEventListener('visibilitychange', () => (document.hidden ? sound.suspend() : sound.resume()));
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    sound.resume();
+    return;
+  }
+  sound.suspend();
+  if (phase !== 'loading') keep();
+});
+// Its drawing lost (the phone took it back), the game is drawn afresh, and taken up where it was.
 canvas.addEventListener('webglcontextlost', (e) => {
   e.preventDefault();
+  if (phase !== 'loading') keep();
   setTimeout(() => location.reload(), 300);
 });
 
@@ -436,6 +503,11 @@ function frame(now) {
     step(dt);
   } catch (err) {
     if (failures++ < 5) console.error(err);
+    // A game taken up again that cannot go on is let go of, and a new one begun.
+    if (resumed && failures === 30) {
+      keepGame(null);
+      location.reload();
+    }
   }
 }
 
@@ -493,6 +565,9 @@ function step(dt) {
   table?.reflect([trayPool.mesh, halos.mesh]);
   stage.renderer.render(stage.scene, stage.camera);
   adapt(dt);
+  // Every few seconds, the game kept as it stands (only what changed is written).
+  sinceKept += dt;
+  if (sinceKept > 3) keep();
 }
 
 async function start() {
@@ -542,7 +617,8 @@ async function start() {
   // The sound readied at once, so the guide can greet the player (in a browser, from the first
   // touch).
   sound.open();
-  newGame();
+  // The game left when the app was last closed goes on; or a new one begins.
+  if (seedParam !== null || !resumeGame()) newGame();
   document.getElementById('veil').classList.add('gone');
   requestAnimationFrame(frame);
 }

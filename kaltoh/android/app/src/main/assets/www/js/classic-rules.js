@@ -402,6 +402,12 @@ export function createGame(options = {}) {
   };
 }
 
+// A game kept between sessions (keep.js), taken up again: made afresh from its seed (its jumble
+// over the same floor, as when it began), then all that play has changed, as it was.
+export function resumeGame(kept, options = {}) {
+  return Object.assign(createGame({ ...options, seed: kept.seed, players: kept.players }), kept);
+}
+
 // The number of players may change only before the first move.
 export function setPlayers(state, count) {
   if (state.turns > 0) return false;

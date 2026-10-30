@@ -206,6 +206,31 @@ export class Motion {
     this.wake();
   }
 
+  // How the stone is turned, and the kal-toh's place on it: kept between sessions (keep.js).
+  keep() {
+    return { base: this.baseQ.toArray(), anchor: this.anchor.toArray() };
+  }
+
+  // Taken up again as it was kept: the stone turned as it was, the kal-toh in its place on it, and
+  // still - resting on the floor if it lay level, lifted to turn freely if not.
+  resume({ base, anchor } = {}) {
+    const turn = (q) => Array.isArray(q) && q.length === 4 && q.every(Number.isFinite) && Math.hypot(...q) > 0.5;
+    if (turn(base)) this.baseQ.fromArray(base).normalize();
+    if (turn(anchor)) this.anchor.fromArray(anchor).normalize();
+    this.q.copy(this.baseQ).multiply(this.anchor);
+    this.w.set(0, 0, 0);
+    this.baseW.set(0, 0, 0);
+    this.pos.set(0, 0, 0);
+    this.vel.set(0, 0, 0);
+    this.mode = 'held';
+    this.spin = null;
+    if (upNow.set(0, 1, 0).applyQuaternion(this.baseQ).y < LEVEL) {
+      this.drop = this.dropTarget = this.dropV = 0;
+      this.centre.setY(PIVOT.y);
+    }
+    this.wake();
+  }
+
   // Its place on the base becomes wherever it is now.
   keepPlace() {
     this.anchor.copy(this.baseQ).invert().multiply(this.q);

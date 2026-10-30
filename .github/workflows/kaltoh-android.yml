@@ -41,6 +41,7 @@ jobs:
           node kaltoh/tools/ground.test.mjs
           node kaltoh/tools/guide.test.mjs
           node kaltoh/tools/vulcan.test.mjs
+          node kaltoh/tools/keep.test.mjs
 
       - name: Build APK
         working-directory: kaltoh/android
