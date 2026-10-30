@@ -13,3 +13,4 @@ obj/
 *.exe
 *.pdb
 *.dll
+__pycache__/
