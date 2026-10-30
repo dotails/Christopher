@@ -1,0 +1,282 @@
+{
+ "welcome": {
+  "text": "Welcome to kal-toh. I'll guide you through your first game. You can turn my voice off under the stone whenever you like.",
+  "seconds": 6.08,
+  "level": -14
+ },
+ "touchTray": {
+  "text": "The tan resting at the bottom of the screen is yours to place. Touch it with one finger to pick it up.",
+  "seconds": 5.44,
+  "level": -14
+ },
+ "dangling": {
+  "text": "It's dangling from one finger. Put a second finger down, and you'll hold it with both.",
+  "seconds": 4.42,
+  "level": -14
+ },
+ "danglingAgain": {
+  "text": "Add a second finger to hold it with both.",
+  "seconds": 2.52,
+  "level": -14
+ },
+ "holding": {
+  "text": "Now lay its two ends on two pieces of the structure. Spread your fingers wide, so you can see where the ends land.",
+  "seconds": 6.34,
+  "level": -14
+ },
+ "blue": {
+  "text": "Blue means it can rest there. Lift both fingers together to place it.",
+  "seconds": 3.82,
+  "level": -14
+ },
+ "amber": {
+  "text": "Amber means it can't rest there. Move it until its ends touch two pieces.",
+  "seconds": 4.22,
+  "level": -14
+ },
+ "amberAgain": {
+  "text": "Still amber. Try two other pieces.",
+  "seconds": 2.22,
+  "level": -14
+ },
+ "droppedOne": {
+  "text": "You let go with one finger before it was placed, so it slipped back to the tray. Keep both fingers down until it glows blue, then lift them together.",
+  "seconds": 7.85,
+  "level": -14
+ },
+ "missed": {
+  "text": "Its ends weren't resting on two pieces, so it went back to the tray. Try again.",
+  "seconds": 4.5,
+  "level": -14
+ },
+ "placedFirst": {
+  "text": "Well done. That's your first tan placed.",
+  "seconds": 2.18,
+  "level": -14
+ },
+ "placed1": {
+  "text": "Nicely done.",
+  "seconds": 1.15,
+  "level": -14
+ },
+ "placed2": {
+  "text": "Good.",
+  "seconds": 0.75,
+  "level": -14
+ },
+ "placed3": {
+  "text": "That's it.",
+  "seconds": 0.96,
+  "level": -14
+ },
+ "idle": {
+  "text": "Take your time. When you're ready, pick up the tan at the bottom of the screen.",
+  "seconds": 3.97,
+  "level": -14
+ },
+ "turnStone": {
+  "text": "You can turn the stone by dragging it. Sideways spins it, up and down tilts it.",
+  "seconds": 4.61,
+  "level": -14
+ },
+ "twoFingerTurn": {
+  "text": "With two fingers on the stone, twist to turn it as you see it, and pinch to draw nearer.",
+  "seconds": 4.86,
+  "level": -14
+ },
+ "flipHint": {
+  "text": "There's more under the stone. Drag it upward until its underside faces you.",
+  "seconds": 4.54,
+  "level": -14
+ },
+ "flipped": {
+  "text": "This is the underside of the stone. Everything is here: the ways to play, players, music, sound, and my voice. Touch any option to change it.",
+  "seconds": 8.19,
+  "level": -14
+ },
+ "flippedBack": {
+  "text": "To turn it back over, drag the stone down again.",
+  "seconds": 2.69,
+  "level": -14
+ },
+ "chooseWay": {
+  "text": "Choose a way to play, then touch Shake, or shake your phone, to begin a new game.",
+  "seconds": 4.35,
+  "level": -14
+ },
+ "wayKaltoh": {
+  "text": "Next game, the original kal-toh. Touch Shake to begin.",
+  "seconds": 3.31,
+  "level": -14
+ },
+ "wayForms": {
+  "text": "Next game, many forms. Touch Shake to begin.",
+  "seconds": 2.79,
+  "level": -14
+ },
+ "wayZen": {
+  "text": "Next game, zen. Touch Shake to begin.",
+  "seconds": 2.43,
+  "level": -14
+ },
+ "translate": {
+  "text": "The Starfleet delta translates the carving between English and Vulcan.",
+  "seconds": 4.03,
+  "level": -14
+ },
+ "shakeHint": {
+  "text": "Shaking your phone also begins a new game.",
+  "seconds": 2.71,
+  "level": -14
+ },
+ "newGame": {
+  "text": "A new game.",
+  "seconds": 1.13,
+  "level": -14
+ },
+ "startZen": {
+  "text": "This is zen. Lay each tan across any two pieces. There are no wrong moves here.",
+  "seconds": 4.57,
+  "level": -14
+ },
+ "zenTen": {
+  "text": "Every ten tan you place, the whole structure transforms into a new form.",
+  "seconds": 4.2,
+  "level": -14
+ },
+ "zenTransform": {
+  "text": "It's transforming.",
+  "seconds": 1.34,
+  "level": -14
+ },
+ "zenComplete": {
+  "text": "It is fully formed. Shake your phone, or touch Shake under the stone, to begin again.",
+  "seconds": 4.86,
+  "level": -14
+ },
+ "startKaltoh": {
+  "text": "This is the original kal-toh. The jumble hides two nested shapes. Join two tips that belong together. True neighbours glow blue and bring order. A wrong pair brings discord, and pieces fall.",
+  "seconds": 10.82,
+  "level": -14
+ },
+ "harmony": {
+  "text": "Harmony. Those two belong together.",
+  "seconds": 2.09,
+  "level": -14
+ },
+ "discord": {
+  "text": "Discord. Those weren't neighbours, so pieces fell. Look for tips the right distance apart.",
+  "seconds": 4.93,
+  "level": -14
+ },
+ "tooFar": {
+  "text": "Those tips are too far apart for one tan.",
+  "seconds": 2.56,
+  "level": -14
+ },
+ "startForms": {
+  "text": "This is many forms. A different shape hides in the jumble each game. Look for the angles that repeat, and close its loops one at a time.",
+  "seconds": 7.72,
+  "level": -14
+ },
+ "loopClosed": {
+  "text": "A loop is closed.",
+  "seconds": 1.43,
+  "level": -14
+ },
+ "struts": {
+  "text": "Struts brace outward from each loop you close. When the inner form is whole, build the same form again on their tips.",
+  "seconds": 6.36,
+  "level": -14
+ },
+ "complete": {
+  "text": "Complete. Beautifully done. Shake to begin again.",
+  "seconds": 2.82,
+  "level": -14
+ },
+ "twoPlayers": {
+  "text": "Two players take turns. Pass the phone once your tan is placed. Whose turn it is is carved under the stone.",
+  "seconds": 5.95,
+  "level": -14
+ },
+ "guideOn": {
+  "text": "Voice guidance is on.",
+  "seconds": 1.6,
+  "level": -14
+ },
+ "guideOff": {
+  "text": "Voice guidance is off. You can turn it back on under the stone.",
+  "seconds": 3.52,
+  "level": -14
+ },
+ "form_tetra": {
+  "text": "It has become a truncated tetrahedron.",
+  "seconds": 2.52,
+  "level": -14
+ },
+ "form_cubocta": {
+  "text": "It has become a cuboctahedron.",
+  "seconds": 2.07,
+  "level": -14
+ },
+ "form_octa": {
+  "text": "It has become a truncated octahedron.",
+  "seconds": 2.56,
+  "level": -14
+ },
+ "form_cube": {
+  "text": "It has become a truncated cube.",
+  "seconds": 2.13,
+  "level": -14
+ },
+ "form_rhombi": {
+  "text": "It has become a rhombicuboctahedron.",
+  "seconds": 2.5,
+  "level": -14
+ },
+ "form_prism5": {
+  "text": "It has become a pentagonal prism.",
+  "seconds": 2.24,
+  "level": -14
+ },
+ "form_prism6": {
+  "text": "It has become a hexagonal prism.",
+  "seconds": 2.3,
+  "level": -14
+ },
+ "form_prism7": {
+  "text": "It has become a heptagonal prism.",
+  "seconds": 2.24,
+  "level": -14
+ },
+ "form_prism8": {
+  "text": "It has become an octagonal prism.",
+  "seconds": 2.28,
+  "level": -14
+ },
+ "form_anti4": {
+  "text": "It has become a square antiprism.",
+  "seconds": 2.18,
+  "level": -14
+ },
+ "form_anti5": {
+  "text": "It has become a pentagonal antiprism.",
+  "seconds": 2.56,
+  "level": -14
+ },
+ "form_anti6": {
+  "text": "It has become a hexagonal antiprism.",
+  "seconds": 2.58,
+  "level": -14
+ },
+ "form_anti7": {
+  "text": "It has become a heptagonal antiprism.",
+  "seconds": 2.58,
+  "level": -14
+ },
+ "form_anti8": {
+  "text": "It has become an octagonal antiprism.",
+  "seconds": 2.62,
+  "level": -14
+ }
+}

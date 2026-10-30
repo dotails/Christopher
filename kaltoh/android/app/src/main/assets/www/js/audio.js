@@ -20,6 +20,7 @@ const SCALE = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2];
 const MUSIC = 'assets/music.mp3';
 const MUSIC_FULL = 1; // the music's gain at full: as loud as the player can play it
 const SFX_FULL = 0.6;
+const VOICE_DUCK = 0.35; // the music's level while the guide speaks
 
 export class Sound {
   constructor() {
@@ -30,6 +31,9 @@ export class Sound {
     this.musicGain = null;
     this.musicMissing = false;
     this.hidden = false;
+    this.ducked = false; // the music lowered beneath the guide's voice
+    this.voices = new Map(); // the guide's lines, decoded, by file
+    this.speaking = null;
   }
 
   // The levels of the music and of the sound effects, each from 0 (silent) to 1 (full).
@@ -101,9 +105,10 @@ export class Sound {
     this.applyMusic();
   }
 
-  // Play the music at its level, or pause it when silenced or out of sight.
+  // Play the music at its level (lowered while the guide speaks), or pause it when silenced or out
+  // of sight.
   applyMusic() {
-    const level = this.musicLevel * MUSIC_FULL;
+    const level = this.musicLevel * MUSIC_FULL * (this.ducked ? VOICE_DUCK : 1);
     const play = level > 0.001 && !this.hidden;
     if (this.shellMusic) {
       native.playMusic(play ? level : 0);
@@ -117,7 +122,56 @@ export class Sound {
     else if (!play && !el.paused) el.pause();
   }
 
+  // One of the guide's lines, spoken over everything with the music lowered beneath it. Resolves when
+  // it ends (or at once, if it cannot be played); a line already being spoken is cut short.
+  async speak(url) {
+    if (!this.ctx || this.hidden) return;
+    let buffer = this.voices.get(url);
+    if (!buffer) {
+      try {
+        const data = await fetch(url).then((r) => r.arrayBuffer());
+        buffer = await this.ctx.decodeAudioData(data);
+        this.voices.set(url, buffer);
+      } catch {
+        return;
+      }
+    }
+    this.hush();
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 1;
+    source.connect(gain).connect(this.ctx.destination);
+    this.speaking = source;
+    this.ducked = true;
+    this.applyMusic();
+    await new Promise((done) => {
+      source.onended = done;
+      source.start();
+    });
+    if (this.speaking === source) {
+      this.speaking = null;
+      this.ducked = false;
+      this.applyMusic();
+    }
+  }
+
+  // Stop the guide mid-line.
+  hush() {
+    if (!this.speaking) return;
+    const was = this.speaking;
+    this.speaking = null;
+    try {
+      was.stop();
+    } catch {
+      // already ended
+    }
+    this.ducked = false;
+    this.applyMusic();
+  }
+
   suspend() {
+    this.hush();
     this.hidden = true;
     this.music?.pause();
     this.ctx?.suspend();
