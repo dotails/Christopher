@@ -46,6 +46,11 @@ const FOOT_Y = 766; // the last row, clear of the glyphs: the sound, voice, musi
 const FOOT_ROW = 44; // from one to the next of those, a little closer
 const GLYPHS_Y = 840; // the row of glyphs at the foot of every page, their names beneath, clear of the frame
 const GUTTER = 16; // either side of the centre line: a way's name ends, its value begins
+// The solid triangles either side of a value chosen from a list, pointing away from it: how tall
+// and how wide each is, and the room between it and the value.
+const STEP_H = 26;
+const STEP_W = 21;
+const STEP_GAP = 14;
 const MORE_Y = 236; // the first row on a page of further ways (only if they do not all fit)
 const RELIEF = 1.4; // the normal maps' strength at full depth
 const FAINT = 0.75; // how deep a faint line is cut
@@ -645,9 +650,10 @@ export class Engraving {
     return pages;
   }
 
-  // A way: its name, faint, ending short of the centre line, and its value beginning beyond it -
-  // touch the value to change it - or the groove of its slider; and for the game, a line beneath
-  // on what it is.
+  // A way: its name, faint, ending short of the centre line, and its value beginning beyond it,
+  // between two solid triangles that say it can be changed - touch the one before it for the choice
+  // before, anywhere else on the row for the next - or the groove of its slider; and for the game, a
+  // line beneath on what it is.
   way({ o, y, tall, h = ROW }, narrow = false) {
     const room = Math.min(narrow ? 280 : 340, chord(y) - GUTTER - 60); // each side, clear of the frame (and of arrows at the rim)
     this.line(`row:${o.key}`, { v: o.v, s: o.s }, C - GUTTER, y, { size: 30, max: room, align: 'right', faint: true });
@@ -656,10 +662,33 @@ export class Engraving {
       return;
     }
     const choice = this.choiceOf(o);
-    this.line(`row:${o.key}`, { v: choice[1], s: choice[2] }, C + GUTTER, y, { size: 36, max: room, align: 'left' });
+    const start = C + GUTTER + STEP_W + STEP_GAP;
+    const value = this.line(`row:${o.key}`, { v: choice[1], s: choice[2] }, start, y, { size: 36, max: room - 2 * (STEP_W + STEP_GAP), align: 'left' });
+    const after = (value ? value.x + value.w - 14 : start) + STEP_GAP; // where the second triangle begins
+    this.steps(C + GUTTER, after, y);
     if (tall && choice[3]) this.line(`hint:${o.key}`, choice[3], C, y + HINT, { size: 27, max: 2 * chord(y + HINT) - 120, faint: true });
-    // The whole row is for touching, name and value alike: a broad mark for a fingertip.
+    // The whole row is for touching, name and value alike: a broad mark for a fingertip. Each
+    // triangle is a mark of its own, as broad as the row allows: the first reaches back over the
+    // gutter, the second on toward the frame.
     this.regions.push({ kind: 'value', id: `row:${o.key}`, key: o.key, x: C - GUTTER - room, y: y - h / 2, w: 2 * (GUTTER + room), h: h + (tall ? HINT : 0) });
+    this.regions.push({ kind: 'value', id: `prev:${o.key}`, key: o.key, by: -1, x: C - 6, y: y - h / 2, w: start - STEP_GAP / 2 - (C - 6), h });
+    this.regions.push({ kind: 'value', id: `next:${o.key}`, key: o.key, by: 1, x: after - STEP_GAP / 2, y: y - h / 2, w: STEP_W + STEP_GAP / 2 + 30, h });
+  }
+
+  // The solid triangles either side of a value, pointing away from it: the first with its tip at
+  // x0, the second with its back at x1.
+  steps(x0, x1, y) {
+    this.cut((g, color) => {
+      g.fillStyle = color;
+      for (const [tip, back] of [[x0, x0 + STEP_W], [x1 + STEP_W, x1]]) {
+        g.beginPath();
+        g.moveTo(tip, y);
+        g.lineTo(back, y - STEP_H / 2);
+        g.lineTo(back, y + STEP_H / 2);
+        g.closePath();
+        g.fill();
+      }
+    }, 0.6);
   }
 
   // Large chevrons at the rim, either side at height y: touch one to turn to the page before or
@@ -801,9 +830,11 @@ export class Engraving {
     const region = this.regionAt(px, py, ['value', 'button', 'slider']);
     if (!region) return true;
     if (region.kind === 'value') {
+      // The choice after - or, touched on the triangle before the value, the choice before.
       const option = OPTIONS.find((o) => o.key === region.key);
+      const n = option.choices.length;
       const i = option.choices.findIndex(([value]) => value === this.settings[option.key]);
-      const next = option.choices[(i + 1) % option.choices.length][0];
+      const next = option.choices[(i + (region.by ?? 1) + n) % n][0];
       this.settings[option.key] = next;
       this.dirty = true;
       this.onOption?.(option.key, next);

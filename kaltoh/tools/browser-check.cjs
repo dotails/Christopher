@@ -348,9 +348,36 @@ function check(condition, message) {
         && ['title', 'shape', 'name0', 'name1', 'event', 'rules', 'translate', 'anew'].every((id) => e.regions.some((r) => r.id === id));
     }), 'turned over, one carved face holds the name, the shape it builds, the two players, what happened, the ways, the room, the sound, the voice, the music and vibration, each row clear of the next');
     check(!(await carved('more')) && !(await carved('prev')) && !(await carved('row:language')), 'all of it, with no page to turn to (and no row for the script)');
-    await tap(await where('row:way', 'value'));
+    // Each value chosen from a list lies between two solid triangles cut into the stone, saying it
+    // can be changed: the one before it turns to the choice before; the one after (as anywhere else
+    // on its row), to the next.
+    check(await page.evaluate(() => {
+      const e = window.__kaltoh.engraving;
+      const mask = e.carve.mask.getContext('2d');
+      // The deepest cut along the row's middle, from x0 to x1.
+      const deepest = (x0, x1, y) => {
+        const { data } = mask.getImageData(Math.round(x0), Math.round(y), Math.max(1, Math.round(x1 - x0)), 1);
+        return Math.max(...data.filter((_, i) => i % 4 === 3));
+      };
+      return ['way', 'players', 'haptics'].every((key) => {
+        const [name, value] = e.regions.filter((r) => r.id === `row:${key}` && r.kind === 'line');
+        const prev = e.regions.find((r) => r.id === `prev:${key}`);
+        const next = e.regions.find((r) => r.id === `next:${key}`);
+        if (!value || prev?.by !== -1 || next?.by !== 1) return false;
+        const y = prev.y + prev.h / 2;
+        return name.x + name.w - 14 < prev.x && prev.x + prev.w <= value.x + 14 && next.x >= value.x + value.w - 14
+          && deepest(prev.x, prev.x + prev.w - 4, y) > 250 && deepest(next.x + 4, next.x + next.w, y) > 250;
+      });
+    }), 'each value chosen from a list (the game, the players, vibration) lies between two solid triangles cut into the stone');
+    await tap(await where('next:way', 'value'));
     await sleep(500);
-    check(await page.evaluate(() => window.__kaltoh.settings.way === 'forms' && window.__kaltoh.engraving.state.pending), 'touching the game changes it, to begin anew: many forms');
+    check(await page.evaluate(() => window.__kaltoh.settings.way === 'forms' && window.__kaltoh.engraving.state.pending), 'touching the triangle after the game changes it to the next, to begin anew: many forms');
+    await tap(await where('prev:way', 'value'));
+    await sleep(500);
+    check(await page.evaluate(() => window.__kaltoh.settings.way === 'classic' && !window.__kaltoh.engraving.state.pending), 'the triangle before it turns it back: the game being played, nothing waits');
+    await tap(await where('next:way', 'value'));
+    await sleep(500);
+    check(await page.evaluate(() => window.__kaltoh.settings.way === 'forms' && window.__kaltoh.engraving.state.pending), 'and after it again, many forms waits for a new game');
     check(await page.evaluate(() => window.__kaltoh.settings.players === 2), 'two players take turns at it, as at first');
     check(await carved('note') && await page.evaluate(async () => {
       const { TEXT } = await import('/js/texts.js');
@@ -470,9 +497,9 @@ function check(condition, message) {
     }), 'many forms carves the name of its form beneath the title, and how many loops are closed');
     // (Cutting the carving can take a software renderer many seconds.)
     await recut();
-    await tap(await where('row:way', 'value'));
+    await tap(await where('row:way', 'line'));
     await sleep(500);
-    check(await page.evaluate(() => window.__kaltoh.settings.way === 'zen' && window.__kaltoh.engraving.state.pending), 'touching it again chooses zen');
+    check(await page.evaluate(() => window.__kaltoh.settings.way === 'zen' && window.__kaltoh.engraving.state.pending), 'touching it again (its name, this time) chooses zen');
     await page.waitForFunction(() => !window.__kaltoh.engraving.dirty, null, { timeout: 60000 });
     check(!(await carved('row:players')) && !(await carved('more')), 'zen is played alone: no players to choose, and its ways fit on one page');
     await page.evaluate(() => {

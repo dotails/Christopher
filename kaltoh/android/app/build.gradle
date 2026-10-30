@@ -10,8 +10,8 @@ android {
         applicationId 'com.dotails.kaltoh'
         minSdk 24
         targetSdk 35
-        versionCode 31
-        versionName '2.12.1'
+        versionCode 32
+        versionName '2.12.2'
     }
 
     signingConfigs {
