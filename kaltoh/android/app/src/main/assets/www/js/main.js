@@ -448,6 +448,8 @@ function step(dt) {
   falling.draw(pool, halos);
   tray.draw(trayPool, hand);
   hand.draw(pool, halos, trayPool);
+  // The t'an waiting in the tray mirrors Tuvok; taken up, it mirrors the room as the others do.
+  trayPool.mesh.material.envMap = hand.carried ? stage.scene.environment : stage.tuvokEnvironment ?? null;
   pool.end();
   trayPool.end();
   halos.end();

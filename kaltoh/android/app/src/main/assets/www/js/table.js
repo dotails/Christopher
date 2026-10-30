@@ -2,9 +2,9 @@
 // tools/convert_table.py), its top plates level with the floor the stone rests on, turned so the
 // groove down its middle runs across the view. Plain silver, but black where the model is (its
 // texture's light grey patches looked speckled, so only its black parts are kept: table.jpg is
-// their mask). Its satin metal mirrors the room as the eye sees it
-// beyond the kal-toh, out of focus (stage.skyEnvironment); and in its top, the stone and the t'an
-// on it - drawn a second time each frame as the top would show them, a little softened.
+// their mask). Its satin metal mirrors the mess hall about it (stage.skyEnvironment, the light the
+// scene is lit by); and in its top, the stone and the t'an on it - drawn a second time each frame as
+// the top would show them, a little softened.
 import * as THREE from '../vendor/three.module.min.js';
 import { FLOOR } from './scene.js';
 

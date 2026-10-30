@@ -27,11 +27,13 @@ the mess hall loop beneath the play - the warp core's hum, the air, the crew's v
 under them - starting with your first touch; they play along with whatever else the phone is playing, never
 pausing it. A voice guides you through your first game, and each way to play the first time you
 play it, answering what you do, until you turn it down under the stone.
-The stone stands on a silver pedestal table in Voyager's mess hall: beyond it stands the galley,
-sharp, its counters just above the table's far edge and its ceiling's light panels overhead, and
-the table's satin top mirrors the room softly, with the stone and the t'an standing on it. The t'an are mirror-polished, with a touch of
-aluminium's grey: a face turned toward you mirrors the mess hall behind you, where Tuvok sits at
-his table, and the waiting t'an in the tray, its faces gently domed, holds his face.
+The stone stands on a silver pedestal table in Voyager's mess hall, seen from a seat at it: the
+table stands on the galley's own floor, its edges along the floor's lines, the galley's counters
+across the room before you, and drawing nearer moves you through the room. The table's satin top
+mirrors the room softly, with the stone and the t'an standing on it. The mess hall lights them: the
+dining room behind you, the galley before you. The t'an are mirror-polished, with a touch of
+aluminium's grey: a face turned toward you mirrors the dining room behind you; and the waiting t'an
+in the tray, its faces gently domed, holds Tuvok's face, at his table behind you.
 
 <p align="center">
   <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table in the mess hall, the stone and t'an mirrored in the table's top">
@@ -218,14 +220,19 @@ build is gathered into the next form.
     way: loops closing, struts growing out, noise falling away, the outer shell), `zen.js` (Zen on
     the stone: the nest gathering, t'an laid across any two pieces, and each form taken in a wave of
     gliding t'an, those it has no rod for fading into light, new ones settling in, its sound made of
-    the synthesizer's own voices), `scene.js` (renderer, lights, the mess hall -
-    sharp in the metal, turned so that Tuvok, at his table, is behind the player; beyond the
-    kal-toh, the galley, a photograph seen as a camera would see it, its counters standing just
-    above the table's far edge, as large as fits a phone held upright (a wider screen sees more of
-    it); drawn nearer, it grows as a room some way beyond the table would - the stone, and the
-    window the screen becomes), `table.js` (the pedestal
+    the synthesizer's own voices), `scene.js` (renderer, lights, the mess hall - the light everything
+    is lit by and the metal mirrors, a panorama made of the dining room behind and the galley ahead
+    (`tools/make_environment.py`), the waiting t'an alone mirroring Tuvok, his patch of the old
+    panorama set into it where he sat; and the room the table stands in: the galley's photograph,
+    measured by its lines (`tools/measure_room.py`: where the floor's, the counters' and the
+    ceiling's lines meet, the room's three directions, and from them its lens and how it was held,
+    4.7 degrees down and 19.6 to the right of the room's length, from an eye 1.18 counters high),
+    projected from where it was taken onto the room's own floor - level with the table's foot - and
+    the counters' and walls' fronts, the room laid along the table, so each ray from the eye takes
+    the photograph's colour where it meets the room, and drawing nearer moves the eye through it -
+    the stone, and the window the screen becomes), `table.js` (the pedestal
     table under the stone, its top at the floor, its near edge out of sight: satin silver (black
-    where the model is) mirroring the blurred room, and the
+    where the model is) mirroring the mess hall, and the
     stone and t'an on it drawn a second time each frame, the eye turned over in the plane of the
     top, without shadows, at the screen's own resolution and multisampled, softened only a touch), `motion.js` (base and assembly dynamics, and every t'an kept clear of
     the stone along its length), `rodmesh.js` (polished metal t'an: flat mirror faces, nothing
@@ -307,6 +314,9 @@ build is gathered into the next form.
     makes the software renderer several times slower).
   - `convert_base.py`, `convert_table.py`, `make_icon.py`: asset and icon generators (the table at its
     full detail, 154,670 triangles; on the phone that is nothing, and its rounded edges need them).
+  - `measure_room.py`: measures the galley's photograph by its lines, for `scene.js`'s room.
+    `make_environment.py`: makes the mess hall's light (`assets/room-env.jpg`) from the dining room
+    and the galley, and cuts Tuvok's patch (`assets/tuvok.jpg`) from the old panorama.
   - `make_voice.py`: renders the guide's lines with Kokoro (kokoro-onnx, the Sky voice) into
     `assets/voice/`, each brought to -14 LUFS so it is clear over the room's sound; unchanged
     lines are kept.
@@ -346,8 +356,9 @@ area; press `R` to begin anew, and use the mouse wheel to draw nearer.
 
 - Kal-toh and *Star Trek* belong to Paramount; this is an unofficial fan project for personal use.
 - The Vulcan fonts (*Vulcan Script* for titles, *Modern Vulcan* for everything else), the stone
-  basin and pedestal table models (made with Meshy), the mess-hall panorama (and its blurred copy,
-  `assets/sky.jpg`), the galley (`assets/room.jpg`) and the ambience
+  basin and pedestal table models (made with Meshy), the mess-hall pictures (the galley,
+  `assets/room.jpg`; the dining room, within `assets/room-env.jpg`; and Tuvok's patch of a
+  panorama, `assets/tuvok.jpg`) and the ambience
   (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and faded in and
   out; made louder here) were supplied for this project. Their licences are not included; check
   them before distributing the app beyond personal use.
