@@ -30,8 +30,8 @@
   "level": -14
  },
  "amber": {
-  "text": "Amber means it can't rest there. Move it until its ends touch two pieces.",
-  "seconds": 4.22,
+  "text": "Amber means it can't rest there. Slide its ends onto two other pieces.",
+  "seconds": 4.12,
   "level": -14
  },
  "amberAgain": {
@@ -39,14 +39,19 @@
   "seconds": 2.22,
   "level": -14
  },
+ "droppedDangling": {
+  "text": "It went back to the tray. Next time, keep that finger down, and add a second one to hold it with both.",
+  "seconds": 5.74,
+  "level": -14
+ },
  "droppedOne": {
-  "text": "You let go with one finger before it was placed, so it slipped back to the tray. Keep both fingers down until it glows blue, then lift them together.",
-  "seconds": 7.85,
+  "text": "You let go before its ends were on two pieces, so it went back to the tray. Keep both fingers down until it glows blue, then lift them together.",
+  "seconds": 7.96,
   "level": -14
  },
  "missed": {
-  "text": "Its ends weren't resting on two pieces, so it went back to the tray. Try again.",
-  "seconds": 4.5,
+  "text": "It was amber there, so it went back to the tray. Find two pieces where it glows blue, then let go.",
+  "seconds": 5.5,
   "level": -14
  },
  "placedFirst": {
@@ -80,13 +85,13 @@
   "level": -14
  },
  "twoFingerTurn": {
-  "text": "With two fingers on the stone, twist to turn it as you see it, and pinch to draw nearer.",
-  "seconds": 4.86,
+  "text": "With two fingers on the stone, twist them to turn it as you see it, and spread them apart to draw nearer.",
+  "seconds": 5.65,
   "level": -14
  },
  "flipHint": {
-  "text": "There's more under the stone. Drag it upward until its underside faces you.",
-  "seconds": 4.54,
+  "text": "There's more under the stone. Drag the stone up, all the way over, until its underside faces you.",
+  "seconds": 5.59,
   "level": -14
  },
  "flipped": {
@@ -95,8 +100,8 @@
   "level": -14
  },
  "flippedBack": {
-  "text": "To turn it back over, drag the stone down again.",
-  "seconds": 2.69,
+  "text": "To turn it back over, drag the stone by its rim, outside the carved circle.",
+  "seconds": 4.35,
   "level": -14
  },
  "chooseWay": {
@@ -129,6 +134,11 @@
   "seconds": 2.71,
   "level": -14
  },
+ "shaking": {
+  "text": "Shaking begins a new game. Keep shaking to start over, or hold still to carry on.",
+  "seconds": 5.01,
+  "level": -14
+ },
  "newGame": {
   "text": "A new game.",
   "seconds": 1.13,
@@ -155,8 +165,13 @@
   "level": -14
  },
  "startKaltoh": {
-  "text": "This is the original kal-toh. The jumble hides two nested shapes. Join two tips that belong together. True neighbours glow blue and bring order. A wrong pair brings discord, and pieces fall.",
-  "seconds": 10.82,
+  "text": "This is the original kal-toh. The jumble hides a sphere, built of two shells. Join two tips about one tan apart. True neighbours bring harmony and order. A false pair brings discord, and a tan is shaken loose.",
+  "seconds": 12.12,
+  "level": -14
+ },
+ "lookKaltoh": {
+  "text": "Look at the angles where the tan meet. True neighbours make triangles and pentagons.",
+  "seconds": 4.57,
   "level": -14
  },
  "harmony": {
@@ -165,8 +180,18 @@
   "level": -14
  },
  "discord": {
-  "text": "Discord. Those weren't neighbours, so pieces fell. Look for tips the right distance apart.",
-  "seconds": 4.93,
+  "text": "Discord. Those two weren't true neighbours. The glow now shows where that tip belongs.",
+  "seconds": 4.44,
+  "level": -14
+ },
+ "aimSame": {
+  "text": "Both ends are on the same piece. Spread your fingers so they land on two different ones.",
+  "seconds": 4.84,
+  "level": -14
+ },
+ "aimJoined": {
+  "text": "Those two tips are already joined. Choose two that aren't.",
+  "seconds": 3.33,
   "level": -14
  },
  "tooFar": {
@@ -174,9 +199,39 @@
   "seconds": 2.56,
   "level": -14
  },
+ "tooNear": {
+  "text": "Those tips are too close together for one tan.",
+  "seconds": 2.6,
+  "level": -14
+ },
+ "flung": {
+  "text": "It was out of balance, so the spin flung it away. Build evenly around the spin.",
+  "seconds": 4.27,
+  "level": -14
+ },
+ "wobble": {
+  "text": "It's wobbling. Build on the other side to balance it.",
+  "seconds": 2.9,
+  "level": -14
+ },
+ "eases": {
+  "text": "There was no true pair within reach, so the jumble eased itself toward its order.",
+  "seconds": 4.33,
+  "level": -14
+ },
  "startForms": {
   "text": "This is many forms. A different shape hides in the jumble each game. Look for the angles that repeat, and close its loops one at a time.",
   "seconds": 7.72,
+  "level": -14
+ },
+ "aimOuter": {
+  "text": "Finish the inner form first. The outer shell waits for it.",
+  "seconds": 3.24,
+  "level": -14
+ },
+ "noise": {
+  "text": "That was noise, a loose tan that isn't part of the form. It falls away.",
+  "seconds": 4.12,
   "level": -14
  },
  "loopClosed": {
@@ -195,8 +250,8 @@
   "level": -14
  },
  "twoPlayers": {
-  "text": "Two players take turns. Pass the phone once your tan is placed. Whose turn it is is carved under the stone.",
-  "seconds": 5.95,
+  "text": "Two players take turns. Pass the phone once your tan is placed. The carving under the stone shows whose turn it is.",
+  "seconds": 6.46,
   "level": -14
  },
  "guideOn": {

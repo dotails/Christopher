@@ -1,6 +1,7 @@
 """Render the guide's spoken lines with Kokoro (the Sky voice), ahead of time, into the app.
 
 Usage: python3 -I make_voice.py <kokoro-v1.0.onnx> <voices-v1.0.bin> [out_dir]
+(KOKORO_THREADS=n limits the model to n threads, to leave the rest of the machine be.)
 
 Reads voice-lines.json beside this script ({ key: text }) and writes <out_dir>/<key>.mp3 (mono,
 24 kHz, brought to -14 LUFS so the voice is clear over the music) for each line, and
@@ -15,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 
+import onnxruntime as rt
 import soundfile as sf
 from kokoro_onnx import Kokoro
 
@@ -40,7 +42,11 @@ def main(model, voices, out_dir=DEFAULT_OUT):
         if manifest.get(key, {}).get('text') == text and manifest[key].get('level') == LEVEL and os.path.exists(mp3):
             continue
         if kokoro is None:
-            kokoro = Kokoro(model, voices)
+            options = rt.SessionOptions()
+            threads = int(os.environ.get('KOKORO_THREADS', '0'))
+            options.intra_op_num_threads = threads
+            options.inter_op_num_threads = 1 if threads else 0
+            kokoro = Kokoro.from_session(rt.InferenceSession(model, options, providers=['CPUExecutionProvider']), voices)
         samples, rate = kokoro.create(text, voice=VOICE, speed=1.0, lang='en-us')
         with tempfile.NamedTemporaryFile(suffix='.wav') as wav:
             sf.write(wav.name, samples, rate)

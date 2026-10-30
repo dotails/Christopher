@@ -48,30 +48,41 @@ export class Sound {
     return this.sfx <= 0.001;
   }
 
-  // Audio may only start from a user gesture.
+  // The sound, ready to play: at once in the app (its page may play without a touch), so the guide
+  // can greet the player; in a browser it waits, silent, for the first touch.
+  open() {
+    if (this.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    this.ctx = ctx;
+    this.master = ctx.createGain();
+    this.master.gain.value = SFX_FULL * this.sfx;
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -12;
+    limiter.ratio.value = 4;
+    this.master.connect(limiter).connect(ctx.destination);
+    this.room = ctx.createConvolver();
+    this.room.buffer = this.impulse(2.4);
+    const wet = ctx.createGain();
+    wet.gain.value = 0.32;
+    this.room.connect(wet).connect(this.master);
+    this.noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const data = this.noise.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  }
+
+  // A touch: the sound wakes if it was waiting for one, and the music begins.
   wake() {
-    if (!this.ctx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      const ctx = new AC();
-      this.ctx = ctx;
-      this.master = ctx.createGain();
-      this.master.gain.value = SFX_FULL * this.sfx;
-      const limiter = ctx.createDynamicsCompressor();
-      limiter.threshold.value = -12;
-      limiter.ratio.value = 4;
-      this.master.connect(limiter).connect(ctx.destination);
-      this.room = ctx.createConvolver();
-      this.room.buffer = this.impulse(2.4);
-      const wet = ctx.createGain();
-      wet.gain.value = 0.32;
-      this.room.connect(wet).connect(this.master);
-      this.noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-      const data = this.noise.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    }
+    this.open();
+    if (!this.ctx) return;
     if (this.ctx.state === 'suspended' && !this.hidden) this.ctx.resume();
     this.startMusic();
+  }
+
+  // Whether a line spoken now would be heard.
+  get canSpeak() {
+    return Boolean(this.ctx) && this.ctx.state === 'running' && !this.hidden;
   }
 
   // The music begins with the first touch (a page may not play sound before one), fading in.

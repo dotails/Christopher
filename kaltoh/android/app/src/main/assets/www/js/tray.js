@@ -173,6 +173,7 @@ export class Hand {
       this.holding = false;
     });
     this.flight.onGlass = onGlass;
+    this.flight.home = true; // back to the tray, not placed
   }
 
   update(dt) {
