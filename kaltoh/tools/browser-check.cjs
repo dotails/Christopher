@@ -321,10 +321,18 @@ function check(condition, message) {
       m.baseW.set(0, 0, 0);
       m.resetPlace();
     });
+    // A finger drags the stone up and over. At the couple of frames a second the software renderer
+    // draws, the turn a drag gives the stone can fall short of bringing its underside to the eye;
+    // then the finger drags it on, as a player's would (each such moment is kept as a picture).
     const turnOver = async () => {
-      await settle();
-      await drag(await stoneSpot({ x: 206, y: 640 }), 0, -155);
-      await page.waitForFunction(() => window.__kaltoh.stage.view.read.k > 0.9, null, { timeout: 30000 });
+      for (let tries = 0; ; tries++) {
+        await settle();
+        await drag(await stoneSpot({ x: 206, y: 640 }), 0, -155);
+        const read = await page.waitForFunction(() => window.__kaltoh.stage.view.read.k > 0.9, null, { timeout: 20000 }).then(() => true, () => false);
+        if (read) break;
+        await page.screenshot({ path: path.join(OUT, `turned-short-${tries}.png`) });
+        if (tries === 2) throw new Error('the stone would not turn over to be read');
+      }
       await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
     };
     await turnOver();
