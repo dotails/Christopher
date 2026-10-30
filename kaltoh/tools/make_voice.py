@@ -3,7 +3,8 @@
 Usage: python3 -I make_voice.py <kokoro-v1.0.onnx> <voices-v1.0.bin> [out_dir]
 (KOKORO_THREADS=n limits the model to n threads, to leave the rest of the machine be.)
 
-Reads voice-lines.json beside this script ({ key: text }) and writes <out_dir>/<key>.mp3 (mono,
+Reads voice-lines.json beside this script ({ key: text }; words are spelt as they are to be said:
+t'an as tan, kal-toh's shapes in parts, cubo-octahedron) and writes <out_dir>/<key>.mp3 (mono,
 24 kHz, brought to -14 LUFS so the voice is clear over the music) for each line, and
 <out_dir>/voice.json ({ key: { text, seconds, level } }). Lines whose text and level are unchanged
 since the last run are kept as they are. The model files come from the kokoro-onnx

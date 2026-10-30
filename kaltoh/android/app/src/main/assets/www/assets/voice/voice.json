@@ -265,8 +265,8 @@
   "level": -14
  },
  "form_cubocta": {
-  "text": "It has become a cuboctahedron.",
-  "seconds": 2.07,
+  "text": "It has become a cubo-octahedron.",
+  "seconds": 2.26,
   "level": -14
  },
  "form_octa": {
@@ -280,8 +280,8 @@
   "level": -14
  },
  "form_rhombi": {
-  "text": "It has become a rhombicuboctahedron.",
-  "seconds": 2.5,
+  "text": "It has become a rhombi-cubo-octahedron.",
+  "seconds": 2.79,
   "level": -14
  },
  "form_prism5": {
