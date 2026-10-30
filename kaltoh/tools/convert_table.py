@@ -5,7 +5,9 @@ Usage: python3 -I convert_table.py <model.obj> <texture.png> <out_dir>
 Writes:
   table.bin   quantized mesh: int16 positions, int8 normals, uint16 uvs, uint32 indices (aligned)
   table.json  sizes: the top's half-widths and the depth of its groove, in model units
-  table.jpg   2048px colour texture (the game draws the table plain silver and does not ship it)
+  table.jpg   2048px mask of the texture's black parts (black there, white where it is silver): the
+              texture's light greys vary in patches that look speckled, so the game draws all of
+              them one plain silver and keeps only where the model is black
 
 The model is centred on the vertical axis with y = 0 at its top plates (where the stone stands).
 """
@@ -107,8 +109,11 @@ def main(obj_path, tex_path, out_dir):
     with open(f'{out_dir}/table.json', 'w') as f:
         json.dump(meta, f)
 
-    Image.open(tex_path).convert('RGB').resize((2048, 2048), Image.LANCZOS).save(
-        f'{out_dir}/table.jpg', quality=88, optimize=True)
+    texture = np.asarray(Image.open(tex_path).convert('RGB').resize((2048, 2048), Image.LANCZOS), float) / 255
+    luma = texture @ [0.2126, 0.7152, 0.0722]
+    mask = np.clip((luma - 0.1) / (0.35 - 0.1), 0, 1)
+    mask = mask * mask * (3 - 2 * mask)
+    Image.fromarray(np.round(mask * 255).astype('uint8'), 'L').save(f'{out_dir}/table.jpg', quality=90, optimize=True)
     print(meta)
 
 

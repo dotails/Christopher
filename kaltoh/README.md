@@ -23,7 +23,7 @@ the underside of the stone: tip the base over to read them, from whichever side 
 it is engraved black, like the frame round it; only the rings round the players' marks are painted,
 each in its player's colour. Ten minutes of ambience loop quietly beneath the play, starting with
 your first touch; they play along with whatever else the phone is playing, never pausing it.
-The stone stands on a plain silver pedestal table in Voyager's mess hall: beyond it, out of focus
+The stone stands on a silver pedestal table in Voyager's mess hall: beyond it, out of focus
 and seen small and wide, the bar where Picard sits stands up to the right, and the table's satin
 top mirrors the room softly,
 with the stone and the t'an standing on it. The t'an are mirror-polished, with a touch of
@@ -316,7 +316,8 @@ instead.
     beyond the kal-toh, shown eight times smaller than the window would show it, so much of the
     room is on the screen, and framed so the bar where Picard sits stands up to the right, clear of
     the kal-toh - the stone, and the window the screen becomes), `table.js` (the pedestal
-    table under the stone, its top at the floor: plain satin silver mirroring the blurred room, and the
+    table under the stone, its top at the floor, its near edge out of sight: satin silver (black
+    where the model is) mirroring the blurred room, and the
     stone and t'an on it drawn a second time each frame, the eye turned over in the plane of the
     top, softened in the mirror's smaller mipmaps), `motion.js` (base and assembly dynamics, and every t'an kept clear of
     the stone along its length), `rodmesh.js` (polished metal t'an: flat mirror faces, nothing
