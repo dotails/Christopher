@@ -22,7 +22,10 @@ Nothing is written on the screen. The title, the shape being built, the players,
 happened and every control are carved on one face on the underside of the stone: tip the base over
 to read them, from whichever side you like. All of it is engraved black, like the frame round it;
 only the rings round the players' marks are painted, each in its player's colour. Ten minutes of
-ambience loop beneath the play, starting with your first touch; they play along with whatever else the phone is playing, never pausing it.
+the mess hall loop beneath the play - the crew's voices murmuring over the warp core's hum -
+starting with your first touch; they play along with whatever else the phone is playing, never
+pausing it. A voice guides you through your first game, and each way to play the first time you
+play it, answering what you do, until you turn it down under the stone.
 The stone stands on a silver pedestal table in Voyager's mess hall: beyond it, out of focus
 and seen small and wide, the bar where Picard sits stands up to the right, and the table's satin
 top mirrors the room softly,
@@ -77,6 +80,7 @@ over an older one without uninstalling.
 | Translate | Everything is carved in Standard at first. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it (in Standard, whichever script the rest is in): all of it is smoothed away to bare stone and cut again in Vulcan, as deep. Touch it again for Standard. The carving reads in whichever script you left it in, the next time too. Touching the carving anywhere else translates nothing. |
 | Ways to play | Carved on the face, under the players, in two columns: each way's name, and its value. First the game itself, with a line beneath on what it is, then its ways (how many players), then **Music**, **Sound effects**, **Voice** (the voice guiding the play, full at first; silent, it guides no more) and **Vibration**. Touch a way's row to change its value. A change to the game waits for a new one: the rule across the face says *Shake to play this way*, and a ring is cut round *Shake*. Shake the phone, or touch *Shake*, to play that way. **Music**, **Sound effects** and **Voice** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the music pauses). (Rings has more ways than fit on the face: a large **arrow carved at the rim** turns to them, and one on the other side turns back.) |
 | Begin anew | **Shake the phone for three seconds**, or touch *Shake* under the base. |
+| Be guided | A voice talks you through the game: *Sky*, one of the voices of the Kokoro speech model, every line spoken ahead of time and played from the app, offline. Your very first game is zen, where nothing can go wrong. The voice greets you, and as you go tells you how to take up a t'an with one finger and hold it with two, what blue and amber mean, how to turn the stone, and that there is more under it. It watches what you do and answers it: a t'an left waiting, or dangling from one finger; one let go before its ends were on two pieces, or where it glowed amber; a refusal (the same tip twice, already joined, too far, too near); harmony, discord and what to look for; a wobble, a fling, noise, a loop closed, a form taken, a shake gathering. Turned over, it says that everything is there, and how to choose a way and begin it; and the first time you play each way, what that way is. Each lesson is given once, remembered from one day to the next; a mistake is explained again when it is made again, though not every time. It never speaks over itself, and the music dips beneath it. **Voice**, under the stone, sets how loud it is; slide it to nothing and it falls silent. |
 | Draw nearer | Pinch, anywhere. |
 
 ### The kal-toh (the original game)
@@ -257,7 +261,18 @@ it found it.
     metal, rock on metal, rock on rock - each struck and drawn along), `shake.js`, `main.js`. `audio.js` also
     loops the music, through its own level, paused when silenced or out of sight; on the phone the
     shell plays it (`MainActivity.java`, a media player that never asks for the audio focus, so other
-    apps' sound plays on).
+    apps' sound plays on). The music is the supplied ambience remastered (`tools/master_music.sh`):
+    nearly all of it was the warp core's rumble, deeper than a phone can play, with the crew's
+    voices some 37 dB beneath it, so the two are levelled apart - the hum limited on its own, the
+    voices and the air raised over it, the voices' band most.
+  - `guide.js`: the voice guiding the play. It hears what the game reports (a t'an taken up, held,
+    aimed, let go, placed; every line the carving says) and watches what it can see (a t'an left
+    waiting, the stone turned over, a shake gathering), and answers: each lesson once, remembered
+    in the browser's storage; a mistake again when it is made again, but not within twenty seconds;
+    never two lines at once, and none until the sound can be heard. Its lines are Kokoro's *Sky*
+    voice, rendered ahead of time by `tools/make_voice.py` from `tools/voice-lines.json` into
+    `assets/voice/` (about four minutes of speech, 1.7 MB) and played by `audio.js` at the Voice
+    slider's level, the music dipping beneath.
 - **`android/`**: a small Java shell (`MainActivity.java`). It runs a full screen WebView that
   serves the game from the APK, and handles accelerometer shake detection and haptics.
 - **`tools/`**
@@ -308,6 +323,12 @@ it found it.
     that each player's plays are kept for the carving, and that each seat is named.
   - `convert_base.py`, `convert_table.py`, `make_icon.py`: asset and icon generators (the table at its
     full detail, 154,670 triangles; on the phone that is nothing, and its rounded edges need them).
+  - `make_voice.py`: renders the guide's lines with Kokoro (kokoro-onnx, the Sky voice) into
+    `assets/voice/`, each brought to -14 LUFS so it is clear over the music; unchanged lines are
+    kept. `master_music.sh`: remasters the ambience as supplied into `assets/music.mp3`.
+  - `guide.test.mjs`: the guide, as a player would meet it - each lesson once, each mistake
+    answered, nothing said while it cannot be heard or once turned down to nothing - and every line
+    it can say written and rendered as written.
 
 ```sh
 node kaltoh/tools/physics.test.mjs
@@ -315,6 +336,7 @@ node kaltoh/tools/rules.test.mjs
 node kaltoh/tools/classic.test.mjs
 node kaltoh/tools/forms.test.mjs
 node kaltoh/tools/ground.test.mjs
+node kaltoh/tools/guide.test.mjs
 node kaltoh/tools/browser-check.cjs out/   # needs Playwright with Chromium
 ```
 
@@ -338,8 +360,10 @@ area; press `R` to begin anew, and use the mouse wheel to draw nearer.
   basin and pedestal table models (made with Meshy), the mess-hall panorama (and its blurred copy,
   `assets/sky.jpg`) and the ambience
   (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and faded in and
-  out) were supplied for this project. Their licences are not included; check them before
-  distributing the app beyond personal use.
+  out; remastered here) were supplied for this project. Their licences are not included; check them
+  before distributing the app beyond personal use.
+- The guide's voice is *Sky* (`af_sky`) of Kokoro-82M by hexgrad (Apache 2.0), run with
+  kokoro-onnx (MIT).
 - three.js is MIT licensed (`android/app/src/main/assets/www/vendor/three.LICENSE`).
 - The window the screen becomes follows Robert Kooima's *Generalized Perspective Projection*
   (2008).
