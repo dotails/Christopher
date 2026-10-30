@@ -833,11 +833,17 @@ function check(condition, message) {
     check(await page.evaluate(() => window.__kaltoh.settings.music === 0 && window.__kaltoh.sound.music.paused), 'silenced, it pauses');
     await tap(await canvasPoint(knob.x0 + (knob.x1 - knob.x0) * 0.6, knob.y0));
     check(await musicPlays(), 'and raised again, it plays on');
-    // The guiding voice has a slider of its own, full at first: touched lower along it and then
-    // past its end, its level follows, remembered like the other ways, waiting for no new game.
+    // The guiding voice has a slider of its own, at nothing at first, the guide waiting: touched
+    // along it and then past its end, its level follows, remembered like the other ways, waiting
+    // for no new game; and turned up from nothing, the guide says how loud it will be and welcomes
+    // the player.
     const voice = () => page.evaluate(async () => {
       const { loadSettings } = await import('/js/settings.js');
-      return { now: window.__kaltoh.settings.voice, saved: loadSettings().voice, pending: Boolean(window.__kaltoh.engraving.state.pending) };
+      const k = window.__kaltoh;
+      return {
+        now: k.settings.voice, saved: loadSettings().voice, pending: Boolean(k.engraving.state.pending),
+        lines: [...k.guide.last.keys()], // all it has had to say, spoken yet or not
+      };
     });
     const voiceGroove = await page.evaluate(() => {
       const r = window.__kaltoh.engraving.regions.find((x) => x.id === 'slider:voice');
@@ -850,8 +856,10 @@ function check(condition, message) {
     await tap(await canvasPoint(voiceGroove.x1 + 10, voiceGroove.y0));
     await sleep(400);
     const raised = await voice();
-    check(voiced.now === 1 && Math.abs(lowered.now - 0.3) < 0.06 && lowered.saved === lowered.now && !lowered.pending && raised.now === 1 && raised.saved === 1,
-      `the voice has a slider of its own, full at first, its level remembered and waiting for no new game (lowered to ${Math.round(lowered.now * 100)}%)`);
+    check(voiced.now === 0 && voiced.lines.length === 0 && Math.abs(lowered.now - 0.3) < 0.06 && lowered.saved === lowered.now && !lowered.pending && raised.now === 1 && raised.saved === 1,
+      `the voice has a slider of its own, at nothing at first, its level remembered and waiting for no new game (touched to ${Math.round(lowered.now * 100)}%)`);
+    check(lowered.lines.includes('voiceLevel') && lowered.lines.includes('welcome'),
+      `turned up from nothing, the guide says how loud it will be and welcomes the player (${lowered.lines.join(', ')})`);
     // Touching a value changes it: vibration, say, which does not wait for a new game.
     const haptics = await page.evaluate(() => window.__kaltoh.settings.haptics);
     await tap(await where('row:haptics', 'value'));
@@ -955,10 +963,13 @@ function check(condition, message) {
         return fine;
       };
       const foot = s.toScreen(new (s.camera.position.constructor)(0, -0.62, 0.9));
+      // How much of the photograph's width shows across the screen, a fifth of the way down.
+      const across = [0, s.size.width].map((x) => s.photographedAt(x, 0.2 * s.size.height).x);
       return {
         room: v.room, zoom: v.zoom, range: v.zoomRange, framed: v.framed, span: k.tray.span,
         allows: allows(v.zoom) && allows(v.zoomRange[0]) && allows(v.zoomRange[1]),
         clear: foot.y < k.tray.y - TRAY_REACH - 16,
+        across,
       };
     });
     // Two fingers on open space, drawn together or apart.
@@ -980,8 +991,8 @@ function check(condition, message) {
       await sleep(300);
     };
     const upright = await framing();
-    check(upright.room > 0.8 && upright.zoom === upright.framed && upright.allows && upright.clear,
-      `upright, the room stands far back (${upright.room.toFixed(2)}), the galley whole, and from as near as the view may be drawn to as far back it sees nothing past the photograph's top or bottom, and little past its sides (zoom ${upright.range.map((z) => z.toFixed(2)).join(' to ')})`);
+    check(upright.room > 1.5 && upright.across[1] - upright.across[0] > 0.6 && upright.zoom === upright.framed && upright.allows && upright.clear,
+      `upright, the room stands far back (${upright.room.toFixed(2)}), the galley across from the block to the door (${upright.across.map((u) => u.toFixed(2)).join(' to ')} of the photograph), and from as near as the view may be drawn to as far back it sees nothing past the photograph's bottom, and little past its sides or top (zoom ${upright.range.map((z) => z.toFixed(2)).join(' to ')})`);
     await pinch({ x: 206, y: 120 }, 60, 260);
     const nearest = await side.evaluate(() => window.__kaltoh.stage.view.zoom);
     await pinch({ x: 206, y: 120 }, 260, 20);
@@ -1083,17 +1094,25 @@ function check(condition, message) {
     await sleep(800);
     const back = await framing();
     check(back.room === upright.room && back.zoom === back.framed, 'and upright again, the room stands as far back again, framed afresh');
+    // A taller phone (20:9) sees, along the screen's foot, the table's front below its top's edge:
+    // not the room, which stands as far back there.
+    await side.setViewportSize({ width: 412, height: 915 });
+    await side.waitForFunction(() => window.__kaltoh.stage.size.height === 915, null, { timeout: 30000 });
+    await sleep(800);
+    const taller = await framing();
+    check(taller.room > 1.5 && taller.allows && taller.clear, `on a taller phone the room stands as far back (${taller.room.toFixed(2)})`);
     await turned.close();
 
-    // Never guided before (nothing remembered), the very first game is zen's, the guide welcoming.
+    // Never played before (nothing remembered), the very first game is zen's, the voice at nothing
+    // and the guide waiting, silent.
     const fresh = await browser.newContext({ viewport: { width: 412, height: 892 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
     const first = await fresh.newPage();
     first.on('pageerror', (e) => errors.push(e.message));
     await first.goto(`${base}?seed=7`);
     await first.waitForFunction(() => ['intro', 'play'].includes(window.__kaltoh?.phase), null, { timeout: 240000 });
     check(await first.evaluate(() => window.__kaltoh.way === 'zen' && window.__kaltoh.settings.way === 'zen' && !window.__kaltoh.guide.fresh
-      && window.__kaltoh.guide.queue.concat(window.__kaltoh.guide.talking ? [{ key: 'welcome' }] : []).some((q) => q.key === 'welcome' || q.key === 'startZen')),
-    'never guided before, the first game is zen\'s, and the guide is to welcome the player');
+      && window.__kaltoh.settings.voice === 0 && window.__kaltoh.guide.queue.length === 0 && !window.__kaltoh.guide.talking),
+    'never played before, the first game is zen\'s, the voice at nothing and the guide waiting, silent');
     await fresh.close();
 
     check(errors.length === 0, `no errors on the page${errors.length ? `: ${errors.join(' | ')}` : ''}`);

@@ -25,26 +25,28 @@ to read them, from whichever side you like. All of it is engraved black, like th
 only the rings round the players' marks are painted, each in its player's colour. Ten minutes of
 the mess hall loop beneath the play - the warp core's hum, the air, the crew's voices murmuring
 under them - starting with your first touch; they play along with whatever else the phone is playing, never
-pausing it. A voice guides you through your first game, and each way to play the first time you
-play it, answering what you do, until you turn it down under the stone.
+pausing it. A voice can guide you through your first game, and each way to play the first time
+you play it, answering what you do: silent at first, it waits until you turn it up under the
+stone.
 The stone stands on a silver pedestal table in Voyager's mess hall, seen from a seat at it: the
 galley before you, its floor's lines running with the table's edges, and drawing nearer moves you
-through the room. Held upright, the galley stands well back, whole up to its ceiling's lights;
-turned sideways, either way, it comes a little nearer, the photograph going on softly, mirrored,
-at the sides of the wider screen. Pinch to draw nearer or back: never so far, either way, that you
-would see past the photograph's top or bottom. The
-table's satin top mirrors the room softly, at half strength, with the stone and the t'an standing
-on it. The galley lights them too, its photograph stretched all round the table and kept dim on
-the table and the stone, while the t'an mirror it brightly, like polished aluminium, its ceiling's
-lights glinting on them. The waiting t'an in the tray, its faces gently domed, holds Tuvok at his
-table behind you - his whole panorama, so it keeps him as it dangles from your finger - and its
-faces turned away catch the galley ahead.
+through the room. Held upright, the galley stands far back, from the pass-through block to the door
+on the right, its ceiling's lights overhead; turned sideways, either way, it comes nearer, the
+photograph going on softly, mirrored, at the sides of the wider screen (most of all at the left,
+where the photograph's own left side, not the galley as it is, was cut away). Pinch to draw nearer
+or back: never so far, either way, that you would see past the photograph's bottom. The table's
+satin top mirrors the room softly, at half strength, with the stone and the t'an standing on it.
+The galley lights them too, a photograph of it from nearer its counters stretched all round the
+table and kept dim on the table and the stone, while the t'an mirror it brightly, like polished
+aluminium, its ceiling's lights glinting on them. The waiting t'an in the tray, its faces gently
+domed, holds Tuvok at his table behind you - his whole panorama, so it keeps him as it dangles from
+your finger - and its faces turned away catch the galley ahead.
 
 <p align="center">
-  <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table in the mess hall, the galley beyond it whole up to its ceiling's lights, the stone and t'an mirrored in the table's top">
+  <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table in the mess hall, the galley far beyond it from the block to the door, its ceiling's lights overhead, the stone and t'an mirrored in the table's top">
 </p>
 <p align="center">
-  <img src="docs/sideways.png" width="62%" alt="Held sideways: the galley a little nearer, the photograph going on softly at the sides of the wide screen, behind the kal-toh on its table">
+  <img src="docs/sideways.png" width="62%" alt="Held sideways: the galley nearer, the photograph going on softly at the sides of the wide screen, behind the kal-toh on its table">
 </p>
 <p align="center">
   <img src="docs/jumble.png" width="19%" alt="The jumble of the original game, drawn near">
@@ -88,9 +90,9 @@ over an older one without uninstalling.
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read. It is all on one face: the title, and beneath it the shape the game builds (in the original game *two concentric icosidodecahedra*; in many forms, this game's form; in zen, the form it has taken); whose turn it is and the score (in zen, its progress); what just happened (in many forms, and how many loops are closed; in zen, how far it has come); then, under a carved rule, the ways to play, the room, the sound, the voice and vibration; and three glyphs at the foot: *Rules*, *Translate* and *Shake*. *Rules* turns to the rules of the chosen game, short, and the marks under the seats; *Return* comes back. |
 | Play with others | Two players take turns at first, passing the phone; choose one to four in the ways to play (in the original game and many forms; zen is played alone). Whose turn it is is told under the base, and only there: each seat is named (*Player 1*, *Player 2*, ...) over its mark, which is ringed in paint of its colour (red for the first player, a rich green for the second, then deep blue and gold), the mark filled for whose turn it is. Beneath is the score: true joins of those tried (*7/9*). Each player's plays are carved in order under their seat: a dot for a true join, a ringed dot for a great hoop or a loop closed, a cross where t'an fell. The rules show the marks. |
 | Translate | Everything is carved in Standard at first. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it (in Standard, whichever script the rest is in): all of it is smoothed away to bare stone and cut again in Vulcan, as deep - Golic Vulcan, the language itself, not English in Vulcan letters: *tal'uh zek svi'nezhak*, find the order within the chaos; *huta'uh*, shake; a score of 7/9, *steh t'nau*, seven of nine (every word, and where it comes from, in [docs/vulcan.md](docs/vulcan.md)). Touch it again for Standard. The carving reads in whichever script you left it in, the next time too. Touching the carving anywhere else translates nothing. |
-| Ways to play | Carved on the face, under the players, in two columns: each way's name, and its value. First the game itself, with a line beneath on what it is, then its ways (how many players), then **Room** (the mess hall's sound around you), **Sound effects**, **Voice** (Sky's, guiding the play, full at first; silent, it guides no more) and **Vibration**. Touch a way's row to change its value. A change to the game waits for a new one: the rule across the face says *Shake to play this way*, and a ring is cut round *Shake*. Shake the phone, or touch *Shake*, to play that way. **Room**, **Sound effects** and **Voice** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the room's sound pauses). |
+| Ways to play | Carved on the face, under the players, in two columns: each way's name, and its value. First the game itself, with a line beneath on what it is, then its ways (how many players), then **Room** (the mess hall's sound around you), **Sound effects**, **Voice** (Sky's, guiding the play: silent at first, the guide waiting until you turn it up; down to nothing again, it guides no more) and **Vibration**. Touch a way's row to change its value. A change to the game waits for a new one: the rule across the face says *Shake to play this way*, and a ring is cut round *Shake*. Shake the phone, or touch *Shake*, to play that way. **Room**, **Sound effects** and **Voice** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the room's sound pauses). |
 | Begin anew | **Shake the phone for three seconds**, or touch *Shake* under the base. |
-| Be guided | A voice talks you through the game: *Sky*, one of the voices of the Kokoro speech model, every line spoken ahead of time and played from the app, offline. Your very first game is zen, where nothing can go wrong. The voice greets you, and as you go tells you how to take up a t'an with one finger and hold it with two, what blue and amber mean, how to turn the stone, and that there is more under it. It watches what you do and answers it: a t'an left waiting, or dangling from one finger; one let go before its ends were on two pieces, or where it glowed amber; a refusal (the same tip twice, already joined, too far, too near); harmony, discord and what to look for; a wobble, a fling, noise, a loop closed, a form taken, a shake gathering. Turned over, it says that everything is there, and how to choose a way and begin it; and the first time you play each way, what that way is. Each lesson is given once, remembered from one day to the next; a mistake is explained again when it is made again, though not every time. It never speaks over itself, and the room's sound dips beneath it. **Voice**, under the stone, sets how loud it is; slide it to nothing and it falls silent. |
+| Be guided | A voice talks you through the game: *Sky*, one of the voices of the Kokoro speech model, every line spoken ahead of time and played from the app, offline. Your very first game is zen, where nothing can go wrong. The voice starts silent, waiting: turn **Voice** up under the stone and it says how loud it will be, greets you and takes up the game where it stands, and as you go tells you how to take up a t'an with one finger and hold it with two, what blue and amber mean, how to turn the stone, and that there is more under it. It watches what you do and answers it: a t'an left waiting, or dangling from one finger; one let go before its ends were on two pieces, or where it glowed amber; a refusal (the same tip twice, already joined, too far, too near); harmony, discord and what to look for; a wobble, a fling, noise, a loop closed, a form taken, a shake gathering. Turned over, it says that everything is there, and how to choose a way and begin it; and the first time you play each way, what that way is. Each lesson is given once, remembered from one day to the next; a mistake is explained again when it is made again, though not every time. It never speaks over itself, and the room's sound dips beneath it. **Voice**, under the stone, sets how loud it is; slide it back to nothing and it falls silent, and waits. |
 | Draw nearer | Pinch, anywhere. |
 
 ### The kal-toh (the original game)
@@ -229,23 +231,28 @@ build is gathered into the next form.
     the stone: the nest gathering, t'an laid across any two pieces, and each form taken in a wave of
     gliding t'an, those it has no rod for fading into light, new ones settling in, its sound made of
     the synthesizer's own voices), `scene.js` (renderer, lights, the mess hall - the light everything
-    is lit by and the metal mirrors, the galley's photograph stretched twice round the table (ahead
-    as taken, behind mirrored, so its edges meet), dimmed, its ceiling's lights lifted above white,
+    is lit by and the metal mirrors, a photograph of the galley from near its counters stretched
+    twice round the table (ahead as taken, behind mirrored, so its edges meet), dimmed, its
+    ceiling's lights lifted above white,
     each material taking it at its own strength (given it as its own: three.js lights what takes
     only the scene's environment at the scene's strength); the waiting t'an, and the one dangling
     from a finger, mirroring Tuvok, his old panorama whole in place of the galley behind the player;
-    and the room the table stands in: the galley's photograph,
-    measured by its lines (`tools/measure_room.py`: where the floor's, the counters' and the
-    ceiling's lines meet, the room's three directions, and from them its lens and how it was held,
-    4.7 degrees down and 19.6 to the right of the room's length, from an eye 1.18 counters high),
-    projected from where it was taken onto the room's own floor and the counters' and walls' fronts,
-    the room laid along the table, so each ray from the eye takes the photograph's colour where it
-    meets the room, and drawing nearer moves the eye through it; set lower than the table's foot and
-    moved, never turned, so its lines still meet the table's: as far off as the screen allows, the
-    galley whole on a tall one, nearer on a wide one until no more than a fifth of the screen sees
-    past the photograph's sides (and nothing past its top or bottom, or where its camera never
-    saw), the view drawn no nearer or further than keeps to that, found by casting rays across the
-    screen as the shader does, past the table's top; past its edges the photograph goes on
+    and the room the table stands in: another photograph of the galley, from well back in it, its
+    left side (not the galley as it is) cut away, measured by its lines
+    (`tools/measure_room.py`: where the floor's, the counters' and the ceiling's lines meet, the
+    room's three directions, and from them its lens and how it was held, 1.4 degrees down and 17.2
+    to the right of the room's length, from an eye 1.28 counters high, and where the counter, the
+    block, the wall on the right and the back stand), projected from where it was taken onto the
+    room's own floor and the counter's and walls' fronts (the counter and the wall behind it taken
+    on past their ends, so the eye, to the right of where it was taken, never sees round them to
+    what its camera never saw), the room laid along the table, so each ray from the eye takes the
+    photograph's colour where it meets the room, and drawing nearer moves the eye through it; set
+    lower than the table's foot and moved, never turned, so its lines still meet the table's: as
+    far off as the screen allows, from the block to the door on a tall one, nearer on a wide one
+    until no more than a fifth of the screen sees past the photograph's sides or top (and nothing
+    past its bottom, or where its camera never saw), the view drawn no nearer or further than keeps
+    to that, found by casting rays across the screen as the shader does, past the table (its top,
+    and on a tall screen its front below the top's edge); past its edges the photograph goes on
     mirrored, the further past the softer and dimmer - the stone, and the window the screen
     becomes, framed afresh as the screen is turned), `table.js` (the pedestal
     table under the stone, its top at the floor, its near edge out of sight: satin silver (black
@@ -378,8 +385,9 @@ wider than tall to see it held sideways.
 
 - Kal-toh and *Star Trek* belong to Paramount; this is an unofficial fan project for personal use.
 - The Vulcan fonts (*Vulcan Script* for titles, *Modern Vulcan* for everything else), the stone
-  basin and pedestal table models (made with Meshy), the mess-hall pictures (the galley,
-  `assets/room.jpg`, and the panorama with Tuvok at his table, `assets/tuvok.jpg`) and the ambience
+  basin and pedestal table models (made with Meshy), the mess-hall pictures (the galley from near
+  its counters, `assets/room.jpg`, and from further back, `assets/galley.jpg`, and the panorama
+  with Tuvok at his table, `assets/tuvok.jpg`) and the ambience
   (`android/app/src/main/assets/www/assets/music.mp3`, already cut to ten minutes and faded in and
   out; made louder here) were supplied for this project. Their licences are not included; check
   them before distributing the app beyond personal use.

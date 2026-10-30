@@ -343,6 +343,7 @@ function onEngravedAction(name) {
 
 const sliderTenths = {};
 function onEngravedOption(key, value) {
+  if (key === 'voice') settings.voiceSet = true;
   saveSettings(settings);
   const pending = shapeOf(settings) !== begunWith;
   if (pending !== Boolean(engraving.state.pending)) engraving.set({ pending });
@@ -533,8 +534,8 @@ async function start() {
     onAction: onEngravedAction,
     onOption: onEngravedOption,
   });
-  // Never guided before, the first game is zen's, where nothing can go wrong.
-  if (guide.fresh && guide.on) {
+  // Never played before, the first game is zen's, where nothing can go wrong.
+  if (guide.fresh) {
     settings.way = 'zen';
     saveSettings(settings);
   }

@@ -1,6 +1,7 @@
 // The guide: a voice that talks a new player through the game - Kokoro's Sky voice, its lines
-// rendered ahead of time (tools/make_voice.py, tools/voice-lines.json, assets/voice) - until they
-// turn it down to nothing under the stone (the Voice slider). It hears what the game reports (a t'an taken up, held, aimed, let
+// rendered ahead of time (tools/make_voice.py, tools/voice-lines.json, assets/voice). It starts
+// silent, waiting until the player turns it up under the stone (the Voice slider), and falls silent
+// again whenever it is turned down to nothing. It hears what the game reports (a t'an taken up, held, aimed, let
 // go, placed; what the carving says) and watches what it can see for itself (the stone turned
 // over, a player waiting, a t'an left dangling, a shake gathering), and says each thing when it
 // helps: the lessons once (remembered from one day to the next), a mistake again whenever it is
@@ -48,6 +49,7 @@ export class Guide {
     this.flipped = false;
     this.flippedFor = 0; // seconds the underside has been turned up
     this.shaking = 0; // how far a shake to begin anew has gathered (0..1)
+    this.awake = this.on; // whether the voice was up, as last set
     let saved = null;
     try {
       saved = localStorage.getItem(STORE);
@@ -65,7 +67,7 @@ export class Guide {
   }
 
   get on() {
-    return (this.settings.voice ?? 1) > 0.001;
+    return (this.settings.voice ?? 0) > 0.001;
   }
 
   // Say a line now or as soon as the voice is free. once: never again (remembered); gap: not
@@ -98,9 +100,15 @@ export class Guide {
       this.fresh = false;
       this.remember();
     }
+    this.greet();
+  }
+
+  // What is said of the game under way as it begins: a welcome (the first time), what its way is,
+  // and taking turns.
+  greet() {
     this.say('welcome', { once: true });
-    if (WAY_START[way]) this.say(WAY_START[way], { once: true });
-    if (way !== 'zen' && (this.settings.players ?? 1) > 1) this.say('twoPlayers', { once: true });
+    if (WAY_START[this.way]) this.say(WAY_START[this.way], { once: true });
+    if (this.way !== 'zen' && (this.settings.players ?? 1) > 1) this.say('twoPlayers', { once: true });
   }
 
   // Begun anew (shaken, or Shake under the stone).
@@ -205,15 +213,19 @@ export class Guide {
     this.say('translate', { once: true });
   }
 
-  // The Voice slider drawn along: turned down to nothing, the guide falls silent at once;
-  // otherwise it says how loud it will be (a line already being spoken follows the slider).
+  // The Voice slider drawn along. Turned down to nothing, the guide falls silent at once, and
+  // waits; turned up, it says how loud it will be (a line already being spoken follows the slider),
+  // and turned up from nothing, it takes up the game under way where it stands.
   levelled(level) {
-    if (level <= 0.001) {
+    const waited = !this.awake;
+    this.awake = level > 0.001;
+    if (!this.awake) {
       this.queue.length = 0;
       this.sound.hush();
       return;
     }
     if (!this.talking) this.say('voiceLevel', { gap: 8 });
+    if (waited && this.way) this.greet();
   }
 
   // The stone taken by a finger to turn it: that lesson needs no telling.

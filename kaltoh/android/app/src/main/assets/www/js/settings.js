@@ -23,14 +23,16 @@ export const OPTIONS = [
   // The mess hall around the stone: its hum, its air, the voices in it.
   { key: 'music', v: 'tvihal', s: 'Room', slider: true, value: 1 },
   { key: 'sfx', v: 'ralash-daya', s: 'Sound effects', slider: true, value: 0.8 },
-  // The voice guiding the play aloud, for every way; silent, it guides no more.
-  { key: 'voice', v: 'spes', s: 'Voice', slider: true, value: 1 },
+  // The voice guiding the play aloud, for every way: silent at first, the guide waiting until it
+  // is turned up; turned down to nothing again, it guides no more.
+  { key: 'voice', v: 'spes', s: 'Voice', slider: true, value: 0 },
   { key: 'haptics', v: 'bluhmbaya', s: 'Vibration', choices: [[true, 'torupik', 'On'], [false, 'yukupik', 'Off']] },
 ];
 
 // Each option's first value (or the one it names), and the script the carving under the base reads
 // in: Standard at first, then whichever the Starfleet delta last left it in.
-export const DEFAULT_SETTINGS = { ...Object.fromEntries(OPTIONS.map((o) => [o.key, o.value ?? o.choices[0][0]])), script: 'standard' };
+// voiceSet: whether the player has set the voice's level themselves.
+export const DEFAULT_SETTINGS = { ...Object.fromEntries(OPTIONS.map((o) => [o.key, o.value ?? o.choices[0][0]])), script: 'standard', voiceSet: false };
 
 const KEY = 'kaltoh.settings.v2';
 
@@ -50,6 +52,9 @@ export function loadSettings() {
     // One player was once the first value: saved before the voice came, it moves to two.
     if (saved.players === 1 && !('voice' in saved)) out.players = DEFAULT_SETTINGS.players;
     if (saved.script === 'vulcan') out.script = 'vulcan';
+    // The voice was once full at first: until it is set by hand, it starts silent.
+    out.voiceSet = saved.voiceSet === true;
+    if (!out.voiceSet) out.voice = 0;
     return out;
   } catch {
     return { ...DEFAULT_SETTINGS };

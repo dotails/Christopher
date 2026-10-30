@@ -1,8 +1,9 @@
 // Checks the guide (guide.js): it walks a new player through taking up a t'an with one finger,
 // holding it with two, the blue and the amber, letting go too soon or in the wrong place, and
 // placing it; explains what the carving says (a refusal, discord, a transformation); says each
-// lesson once and a repeated mistake again (not too often); says nothing when turned off; and
-// every line it can say is written in voice-lines.json and rendered into assets/voice.
+// lesson once and a repeated mistake again (not too often); says nothing when turned off, and
+// starting silent, waits until it is turned up, then greets the game under way; and every line it
+// can say is written in voice-lines.json and rendered into assets/voice.
 // Run: node kaltoh/tools/guide.test.mjs
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
@@ -149,6 +150,32 @@ guide.released({ placed: false, aim: 'amber' });
 guide.heard(CLASSIC.discord);
 await run(10, { trayWaiting: true });
 ok(spoken.length === quiet, 'turned down to nothing: it says nothing more');
+settings.voice = 0.8;
+guide.levelled(0.8);
+await run(6);
+ok(spoken[quiet] === 'voiceLevel', 'turned up again: first how loud it will be');
+
+// As at first: the voice at nothing, the guide waits, saying nothing of the game begun; turned up,
+// it says how loud it will be, welcomes the player, and takes up the game where it stands.
+stored.clear();
+const hushed = { voice: 0, players: 2 };
+const waiting = new Guide({ sound, settings: hushed });
+const heard = spoken.length;
+waiting.begin('classic');
+for (let t = 0; t < 10; t += 1 / 30) {
+  waiting.update(1 / 30, { playing: true, trayWaiting: true, flipped: false });
+  await Promise.resolve();
+}
+ok(spoken.length === heard && !waiting.on, 'at first the voice is at nothing: the guide says nothing, and waits');
+hushed.voice = 0.6;
+waiting.levelled(0.6);
+for (let t = 0; t < 60; t += 1 / 30) {
+  waiting.update(1 / 30, { playing: true, trayWaiting: false, flipped: false });
+  await Promise.resolve();
+}
+const woke = spoken.slice(heard);
+ok(woke[0] === 'voiceLevel' && woke.includes('welcome') && woke.includes('startKaltoh') && woke.includes('twoPlayers'),
+  `turned up, how loud it will be, a welcome, and the game under way (${woke.join(', ')})`);
 
 // Every line it may ask for is written, and rendered.
 const lines = JSON.parse(readFileSync(new URL('./voice-lines.json', import.meta.url)));

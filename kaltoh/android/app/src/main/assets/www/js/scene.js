@@ -86,7 +86,7 @@ export function createScene(canvas) {
     zoom: 1, // the distance drawn nearer (less than 1) or further back (more), as the fingers pinch
     zoomRange: [0.45, 1], // how near, and how far back (fitZoom)
     framed: 1, // the zoom the view is first framed at (fitZoom)
-    room: 1, // how far off the room stands, from 0 (near) to 1 (far: fitZoom)
+    room: 1, // how far off the room stands, from 0 (near) through 1 (far) to 2 (further: fitZoom)
     focus: { x: 0.5, y: 0.4 }, // where the target sits on screen (fractions of width, height)
     // The pivot as the stone rests on the floor, level (motion.js): tipped, it rises above it.
     target: new THREE.Vector3(PIVOT.x, PIVOT.y + FLOOR, PIVOT.z),
@@ -214,47 +214,64 @@ export function createScene(canvas) {
   // Where the room stands, how near the view may be drawn and how far back, around the table's top
   // `top` (table.js TOP: a rounded square level with FLOOR about the stone's axis), looked for all
   // across the screen with the base at rest. Never so that the room is seen past the photograph's
-  // top or bottom, or where its camera never saw; past its sides (a screen wider than it is), on no
-  // more than a fifth of the screen, where it goes on mirrored and soft (makeRoom). The room as far
-  // off as the view as laid out (zoom 1) allows, or as near as it comes; the view first framed as
-  // laid out, or, if that shows too much past the photograph, as far back as shows little enough.
+  // bottom, or where its camera never saw; past its sides (a screen wider than it is) or its top
+  // (the room far off on a tall one), where it goes on mirrored and soft (makeRoom), on no more than
+  // a fifth of the screen, and past its top on no more than a tenth. The room as far off as the view
+  // as laid out (zoom 1) allows, or as near as it comes; the view first framed as laid out, or, if
+  // that shows too much past the photograph, as far back as shows little enough.
   const ZOOM = [0.45, 1.6]; // the nearest and the furthest ever
-  const SIDES = 0.2; // how much of the screen may see past the photograph's sides
+  const PAST = 0.2; // how much of the screen may see past the photograph's sides or top
+  const ABOVE = 0.1; // and past its top
   const probe = new THREE.Ray();
   const seen = new THREE.Vector2();
-  // How much of the screen sees the room past the photograph: past its sides alone (`sides`), or
-  // past its top or bottom, or where its camera never saw (`other`), as fractions of the screen;
-  // `beyond`, if given, gathers where (and what of the photograph is seen there).
+  // How much of the screen sees the room past the photograph: past its sides alone (`sides`), past
+  // its top (`above`), or past its bottom, or where its camera never saw (`other`), as fractions of
+  // the screen; `beyond`, if given, gathers where (and what of the photograph is seen there). Where
+  // the table stands (its top, or its sides down to its foot, below its top's edges on a tall
+  // screen), the room is not seen.
   function pastPhotograph(top, beyond = null) {
     const inner = top.half - top.corner;
+    // Whether a ray going down passes within the table's top's outline anywhere from its top's
+    // height to its foot's.
+    const table = (o, d) => {
+      for (let k = 0; k <= 16; k++) {
+        const t = (FLOOR - (FLOOR - FOOT) * (k / 16) - o.y) / d.y;
+        const x = Math.max(Math.abs(o.x + d.x * t) - inner, 0);
+        const z = Math.max(Math.abs(o.z + d.z * t) - inner, 0);
+        if (x * x + z * z <= top.corner * top.corner) return true;
+      }
+      return false;
+    };
     let sides = 0;
+    let above = 0;
     let other = 0;
     let samples = 0;
     for (let j = 0; j <= 24; j++) {
       for (let i = 0; i <= 12; i++) {
         samples += 1;
         const { origin: o, direction: d } = rayAt((i / 12) * size.width, (j / 24) * size.height, probe);
-        if (d.y < 0) {
-          const t = (FLOOR - o.y) / d.y;
-          const x = Math.max(Math.abs(o.x + d.x * t) - inner, 0);
-          const z = Math.max(Math.abs(o.z + d.z * t) - inner, 0);
-          if (x * x + z * z <= top.corner * top.corner) continue; // the table's top, not the room
-        }
+        if (d.y < 0 && table(o, d)) continue; // the table, not the room
         photographed(o, d, seen);
         const across = seen.x >= 0 && seen.x <= 1;
         const upright = seen.y >= 0 && seen.y <= 1;
         if (across && upright) continue;
         if (upright) sides += 1;
+        else if (seen.y > 1) above += 1;
         else other += 1;
         beyond?.push({ x: i / 12, y: j / 24, u: seen.x, v: seen.y });
       }
     }
-    return { sides: sides / samples, other: other / samples };
+    return { sides: sides / samples, above: above / samples, other: other / samples };
+  }
+  // Where in the photograph the room is seen at a point on the screen (CSS pixels).
+  function photographedAt(x, y) {
+    const { origin: o, direction: d } = rayAt(x, y, probe);
+    return photographed(o, d, new THREE.Vector2());
   }
   // Whether the view, as it is now, sees as little past the photograph as it may.
   function photographAllows(top) {
     const past = pastPhotograph(top);
-    return past.other === 0 && past.sides <= SIDES;
+    return past.other === 0 && past.above <= ABOVE && past.sides + past.above <= PAST;
   }
   function fitZoom(top) {
     const { zoom } = view;
@@ -278,19 +295,25 @@ export function createScene(canvas) {
       placeRoom(away);
       return allows(1);
     };
-    let away = 1;
-    if (!fits(1)) {
-      let short = 1;
-      away = 0;
-      if (fits(0)) {
-        for (let i = 0; i < 6; i++) {
-          const s = (away + short) / 2;
-          if (fits(s)) away = s;
-          else short = s;
-        }
-      }
-      placeRoom(away);
+    // Looked for from as far as it goes, nearer by steps (not everywhere nearer fits: on a tall
+    // screen the floor past the photograph shows on the way in), then between the step that fits
+    // and the one before it.
+    let away = FURTHEST;
+    let short = away;
+    let fit = fits(away);
+    while (!fit && away > 0) {
+      short = away;
+      away = Math.max(0, away - 0.125);
+      fit = fits(away);
     }
+    if (fit && away < short) {
+      for (let i = 0; i < 6; i++) {
+        const s = (away + short) / 2;
+        if (fits(s)) away = s;
+        else short = s;
+      }
+    }
+    placeRoom(away);
     view.room = away;
     let framed = 1;
     while (framed > ZOOM[0] && !allows(framed)) framed = Math.max(ZOOM[0], framed - 0.05);
@@ -310,30 +333,30 @@ export function createScene(canvas) {
     update();
   }
 
-  return { renderer, scene, camera, key, rim, ambient, baseRoot, assemblyRoot, size, view, screen, optics, eye, glass, layout, update, toScreen, fromScreen, onGlass, rayAt, fitZoom, pastPhotograph, photographAllows, placeRoom };
+  return { renderer, scene, camera, key, rim, ambient, baseRoot, assemblyRoot, size, view, screen, optics, eye, glass, layout, update, toScreen, fromScreen, onGlass, rayAt, fitZoom, pastPhotograph, photographAllows, placeRoom, photographedAt };
 }
 
-// The light the stone and the table are lit by, and what the metal mirrors: the galley itself, its
-// photograph stretched twice round the table - ahead as it was taken, behind mirrored, so that its
-// edges meet - and from its floor to its ceiling. The photograph is of low dynamic range, so it is
-// dimmed, and only its ceiling's lights are lifted above white before filtering: the table and the
-// stone take it quietly, and the t'an, mirroring it as bright as polished aluminium (rodmesh.js),
-// catch real highlights. The t'an waiting in the tray, and dangling from a finger, mirror Tuvok,
-// at his table behind the player: behind them, his panorama, whole, in place of the galley's
-// mirrored half, which meets it at the sides (stage.tuvokEnvironment); their faces turned away
-// still catch the galley ahead. Beyond the kal-toh stands the galley (makeRoom).
+// The light the stone and the table are lit by, and what the metal mirrors: the galley itself, a
+// photograph taken nearer its counters (assets/room.jpg), stretched twice round the table - ahead
+// as it was taken, behind mirrored, so that its edges meet - and from its floor to its ceiling.
+// (The galley seen beyond the kal-toh is another, from further back: makeRoom.) It is of low
+// dynamic range, so it is dimmed, and only its ceiling's lights are lifted above white before
+// filtering: the table and the stone take it quietly, and the t'an, mirroring it as bright as
+// polished aluminium (rodmesh.js), catch real highlights. The t'an waiting in the tray, and
+// dangling from a finger, mirror Tuvok, at his table behind the player: behind them, his
+// panorama, whole, in place of the galley's mirrored half, which meets it at the sides
+// (stage.tuvokEnvironment); their faces turned away still catch the galley ahead.
 const LIGHT = { level: 0.3, lift: 8, tuvok: 0.6 };
 export async function loadEnvironment(stage) {
   const { renderer, scene } = stage;
-  const [galley, tuvok] = await Promise.all([loadTexture('assets/room.jpg', true), loadTexture('assets/tuvok.jpg', true)]);
-  // The room first: it sets how the photograph is sampled before it is first drawn from.
+  const [galley, light, tuvok] = await Promise.all(['galley', 'room', 'tuvok'].map((name) => loadTexture(`assets/${name}.jpg`, true)));
   stage.sky = makeRoom(galley);
   scene.add(stage.sky);
   tuvok.wrapS = THREE.RepeatWrapping; // turned, the panorama goes round
   const pmrem = new THREE.PMREMGenerator(renderer);
   const lifter = new THREE.ShaderMaterial({
     uniforms: {
-      map: { value: galley },
+      map: { value: light },
       tuvok: { value: tuvok },
       turn: { value: TUVOK_AT.u - 0.75 },
       withTuvok: { value: 0 },
@@ -382,76 +405,92 @@ export async function loadEnvironment(stage) {
   stage.skyEnvironment = scene.environment;
   stage.tuvokEnvironment = lit(true);
   pmrem.dispose();
+  light.dispose();
   tuvok.dispose();
   lifter.dispose();
 }
 
-// The room the table stands in: the galley, a photograph, projected from where it was taken onto
-// the room's own floor and walls. The photograph was measured by its lines (the floor's, the
-// counters', the ceiling's: tools/measure_room.py): where they meet, the room's three directions,
-// and from them its lens and how it was held - looking 4.7 degrees down and 19.6 degrees to the
-// right of the room's length, from an eye 1.18 counters high - and where its counters stand. The
-// room is laid out by those measures in the world, its length along the table's, so the table's
-// edges run with the floor's lines. Each ray from the eye finds what it meets (the floor, the right
-// counter's front, the wall of the pass-through block and of the galley behind the counter, or the
-// corridor beyond) and takes the photograph's colour there. Drawn nearer, the eye moves through the
-// room, as it would.
+// The room the table stands in: the galley, a photograph (assets/galley.jpg: taken from well back
+// in it, ceiling, floor and the far wall on the right in view; its left side, which is not the
+// galley as it is, cut away), projected from where it was taken onto the room's own floor and
+// walls. The photograph was measured by its lines (the floor's, the counters', the ceiling's:
+// tools/measure_room.py): where they meet, the room's three directions, and from them its lens and
+// how it was held - looking 1.4 degrees down and 17.2 degrees to the right of the room's length,
+// from an eye 1.28 counters high - and where its counters and walls stand. The room is laid out by
+// those measures in the world, its length along the table's, so the table's edges run with the
+// floor's lines. Each ray from the eye finds what it meets (the floor, the right counter's front,
+// the wall of the pass-through block and of the galley behind the counter, the wall on the right,
+// or the back of the galley behind the block) and takes the photograph's colour there. Drawn
+// nearer, the eye moves through the room, as it would. (The wall behind the counter is taken on to
+// the wall on the right, and the counter past its end to the sink beyond it, as the photograph has
+// them in front of what lies beyond: the eye, off to the right of where it was taken, would
+// otherwise see round their ends to what its camera never saw.)
 const GALLEY = {
-  size: new THREE.Vector2(2400, 1792), // pixels
-  focal: 1906.3, // pixels
+  size: new THREE.Vector2(1776, 1792), // pixels
+  centre: new THREE.Vector2(576, 896), // where its camera looked, in pixels from its left and top
+  focal: 1685.6, // pixels
   // The room's directions in the photograph camera's frame (x right, y down, z ahead).
-  across: new THREE.Vector3(0.94262, -0.02969, 0.33255),
-  up: new THREE.Vector3(-0.00255, -0.99665, -0.08177),
-  ahead: new THREE.Vector3(-0.33387, -0.07623, 0.93953),
-  // In heights of its camera above the floor: how far ahead the right counter's front stands, the
-  // pass-through block's front (and the galley wall behind the counter), and the corridor's end;
-  // where across the block begins and the right counter begins; and how high the counters are.
-  rightFront: 2.92,
-  blockFront: 3.93,
-  corridor: 6.37,
-  blockFrom: -0.05,
-  counterFrom: 1.48,
-  counterTop: 0.847,
+  across: new THREE.Vector3(0.95518, -0.0081, 0.2959),
+  up: new THREE.Vector3(-0.00114, -0.99972, -0.02369),
+  ahead: new THREE.Vector3(-0.29601, -0.02229, 0.95492),
+  // In heights of its camera above the floor, ahead of it and across to its right: the right
+  // counter's front, where it begins and ends across, and its top's height; the front of the
+  // pass-through block and of the galley's wall behind the counter, and where it begins; the wall
+  // on the right (the door, the replicator); and the back of the galley behind the block.
+  counter: { front: 5.27, from: 1.71, to: 3.9, top: 0.78 },
+  block: { front: 6.1, from: 0.48 },
+  side: 5.9,
+  back: 7.96,
+  level: 0.4, // how bright it is drawn (it was taken brightly lit)
 };
 // Where the room stands: moved, never turned, so its lines still run to the table's own vanishing
-// points. Set well below the table's foot and far off, it shows the galley whole, up to its
-// ceiling's lights, as the photograph does, with room to spare - on a tall screen. A wide screen
-// sees past the photograph's sides from there: the room is drawn nearer, until little enough is
-// past them (fitZoom), and less of it shows above the counters. Between NEAR and FAR: how far below
-// the table's foot its floor is, how far beyond the table's middle its camera stands, and how far
-// to the left. (Where the table's foot meets the floor is never seen: the table's top hides the
-// floor about it.)
-const NEAR = { below: 3, ahead: -14.3, left: 22 };
-const FAR = { below: 13.5, ahead: 75.7, left: 11.5 };
+// points. On a tall screen, far off and well below the table's foot (FURTHER), the galley shows
+// from the block to the door on the right, its ceiling's lights above, the floor hidden by the
+// table's top until the photograph's own; nearer (FAR), less of it, larger. A wide screen sees past
+// the photograph's sides from there, and most of all past its left, cut away: the room is drawn
+// nearer (NEAR), until little enough is past them (fitZoom), more of its floor in view and less
+// of it above the counters. From NEAR through FAR to FURTHER: how far below the table's foot its
+// floor is, how far beyond the table's middle its camera stands, and how far to the left. (Where
+// the table's foot meets the floor is never seen: the table's top hides the floor about it.)
+const NEAR = { below: 2, ahead: -20, left: 26 };
+const FAR = { below: 16, ahead: 90, left: 29 };
+const FURTHER = { below: 27.5, ahead: 140, left: 31 };
+const PLACES = [NEAR, FAR, FURTHER];
+// How far off the room may stand: the last of PLACES.
+const FURTHEST = PLACES.length - 1;
 // The table's foot (its top is at FLOOR, 1.7182 of its model's units above its foot, scaled 3.7
 // times: table.js), and the photograph camera's height above the room's floor.
 const FOOT = FLOOR - 1.7182 * 3.7;
-const ROOM_HEIGHT = 9.15;
+const ROOM_HEIGHT = 9.94;
 // From the world's directions to the photograph camera's (x right, y down, z ahead).
 const TO_PHOTO = new THREE.Matrix3().set(
   GALLEY.across.x, GALLEY.up.x, -GALLEY.ahead.x,
   GALLEY.across.y, GALLEY.up.y, -GALLEY.ahead.y,
   GALLEY.across.z, GALLEY.up.z, -GALLEY.ahead.z,
 );
-// The room as placed (placeRoom): its floor's height; the photograph's camera; the world's z of
-// the right counter's front, the block's and the wall behind, and the corridor's end; where across
-// the block begins and the right counter begins, and the counters' tops; and the shader's uniforms.
-const room = { floor: 0, eye: new THREE.Vector3(), fronts: new THREE.Vector3(), bounds: new THREE.Vector3(), uniforms: null };
-// s from 0, as near as it stands, to 1, as far.
+// The room as placed (placeRoom), in the world: its floor's height; the photograph's camera; the
+// right counter (its front's z, its ends' x, its top's y); the walls (the z of the block's front
+// and the wall behind the counter, the x where the block begins, the x of the wall on the right,
+// the z of the back); and the shader's uniforms.
+const room = { floor: 0, eye: new THREE.Vector3(), counter: new THREE.Vector4(), walls: new THREE.Vector4(), uniforms: null };
+// s from 0, as near as it stands, through 1, far, to FURTHEST, as far.
 function placeRoom(s) {
-  const at = (key) => NEAR[key] + (FAR[key] - NEAR[key]) * s;
-  room.floor = FOOT - at('below');
-  room.eye.set(-at('left'), room.floor + ROOM_HEIGHT, -at('ahead'));
-  room.fronts.set(
-    room.eye.z - GALLEY.rightFront * ROOM_HEIGHT,
-    room.eye.z - GALLEY.blockFront * ROOM_HEIGHT,
-    room.eye.z - GALLEY.corridor * ROOM_HEIGHT,
-  );
-  room.bounds.set(
-    room.eye.x + GALLEY.blockFrom * ROOM_HEIGHT,
-    room.eye.x + GALLEY.counterFrom * ROOM_HEIGHT,
-    room.floor + GALLEY.counterTop * ROOM_HEIGHT,
-  );
+  const i = Math.min(Math.max(Math.floor(s), 0), FURTHEST - 1);
+  const from = PLACES[i];
+  const to = PLACES[i + 1];
+  const at = (key) => from[key] + (to[key] - from[key]) * (s - i);
+  placeRoomAt(at('below'), at('ahead'), at('left'));
+}
+// Or as given: its floor `below` the table's foot, its camera `ahead` of the table's middle and to
+// its `left`.
+function placeRoomAt(below, ahead, left) {
+  const { counter, block } = GALLEY;
+  room.floor = FOOT - below;
+  room.eye.set(-left, room.floor + ROOM_HEIGHT, -ahead);
+  const z = (k) => room.eye.z - k * ROOM_HEIGHT;
+  const x = (k) => room.eye.x + k * ROOM_HEIGHT;
+  room.counter.set(z(counter.front), x(counter.from), x(counter.to), room.floor + counter.top * ROOM_HEIGHT);
+  room.walls.set(z(block.front), x(block.from), x(GALLEY.side), z(GALLEY.back));
   if (room.uniforms) room.uniforms.floorY.value = room.floor;
 }
 placeRoom(1);
@@ -461,21 +500,24 @@ placeRoom(1);
 // that, and (-1, -1) for what its camera never saw at all.
 const met = new THREE.Vector3();
 function photographed(o, d, out) {
-  const { fronts, bounds } = room;
+  const { counter, walls } = room;
   let t = Infinity;
   if (d.y < 0) t = (room.floor - o.y) / d.y;
+  if (d.x > 0 && o.x < walls.z) t = Math.min(t, (walls.z - o.x) / d.x); // the wall on the right
   if (d.z < 0) {
-    let wall = (fronts.z - o.z) / d.z; // the corridor's end, unless something nearer
-    const block = (fronts.y - o.z) / d.z;
-    if (o.x + d.x * block >= bounds.x) wall = block;
-    const counter = (fronts.x - o.z) / d.z;
-    if (o.x + d.x * counter >= bounds.y && o.y + d.y * counter < bounds.z) wall = counter;
+    let wall = (walls.w - o.z) / d.z; // the back, unless something nearer
+    const block = (walls.x - o.z) / d.z;
+    if (o.x + d.x * block >= walls.y) wall = block;
+    const front = (counter.x - o.z) / d.z;
+    const x = o.x + d.x * front;
+    if (x >= counter.y && x <= counter.z && o.y + d.y * front < counter.w) wall = front;
     t = Math.min(t, wall);
   }
   if (!Number.isFinite(t)) return out.set(-1, -1);
   met.copy(d).multiplyScalar(t).add(o).sub(room.eye).applyMatrix3(TO_PHOTO);
   if (met.z < 1e-3) return out.set(-1, -1);
-  return out.set(0.5 + (GALLEY.focal * met.x) / (met.z * GALLEY.size.x), 0.5 - (GALLEY.focal * met.y) / (met.z * GALLEY.size.y));
+  const { size, centre, focal } = GALLEY;
+  return out.set((centre.x + (focal * met.x) / met.z) / size.x, 1 - (centre.y + (focal * met.y) / met.z) / size.y);
 }
 
 function makeRoom(texture) {
@@ -488,17 +530,18 @@ function makeRoom(texture) {
   const material = new THREE.ShaderMaterial({
     uniforms: {
       map: { value: texture },
-      level: { value: 0.8 },
+      level: { value: GALLEY.level },
       // Past the photograph's edges: how many pixels past for each halving of its sharpness, how dim
       // it grows far past, and over how many pixels.
       fill: { value: new THREE.Vector3(40, 0.6, 1500) },
       size: { value: GALLEY.size },
+      centre: { value: GALLEY.centre },
       focal: { value: GALLEY.focal },
       eye: { value: room.eye },
       toPhoto: { value: TO_PHOTO },
       floorY: { value: room.floor },
-      fronts: { value: room.fronts },
-      bounds: { value: room.bounds },
+      counter: { value: room.counter },
+      walls: { value: room.walls },
     },
     vertexShader: /* glsl */ `
       varying vec3 vRay;
@@ -514,29 +557,31 @@ function makeRoom(texture) {
       uniform float level;
       uniform vec3 fill;
       uniform vec2 size;
+      uniform vec2 centre;
       uniform float focal;
       uniform vec3 eye;
       uniform mat3 toPhoto;
       uniform float floorY;
-      uniform vec3 fronts;
-      uniform vec3 bounds;
+      uniform vec4 counter;
+      uniform vec4 walls;
       varying vec3 vRay;
       void main() {
         vec3 d = normalize(vRay);
         vec3 o = cameraPosition;
-        // What the ray meets first: the floor, or the room's fronts, nearest first.
+        // What the ray meets first: the floor, the wall on the right, or the room's fronts.
         float t = 1e6;
         if (d.y < 0.0) t = (floorY - o.y) / d.y;
+        if (d.x > 0.0 && o.x < walls.z) t = min(t, (walls.z - o.x) / d.x); // the wall on the right
         if (d.z < 0.0) {
-          float wall = (fronts.z - o.z) / d.z; // the corridor's end, unless something nearer
-          vec3 p = o + d * ((fronts.y - o.z) / d.z);
-          if (p.x >= bounds.x) wall = (fronts.y - o.z) / d.z;
-          p = o + d * ((fronts.x - o.z) / d.z);
-          if (p.x >= bounds.y && p.y < bounds.z) wall = (fronts.x - o.z) / d.z;
+          float wall = (walls.w - o.z) / d.z; // the back, unless something nearer
+          vec3 p = o + d * ((walls.x - o.z) / d.z);
+          if (p.x >= walls.y) wall = (walls.x - o.z) / d.z;
+          p = o + d * ((counter.x - o.z) / d.z);
+          if (p.x >= counter.y && p.x <= counter.z && p.y < counter.w) wall = (counter.x - o.z) / d.z;
           t = min(t, wall);
         }
         vec3 c = toPhoto * (o + d * t - eye);
-        vec2 px = 0.5 * size + focal * c.xy / max(c.z, 1e-3);
+        vec2 px = centre + focal * c.xy / max(c.z, 1e-3);
         // Past the photograph's edges (a wide screen's sides, or what its camera never saw), the room
         // goes on as the photograph mirrored there, the further past the softer and the dimmer.
         vec2 inside = clamp(px, vec2(0.5), size - 0.5);
