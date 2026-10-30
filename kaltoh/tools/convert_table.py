@@ -5,7 +5,7 @@ Usage: python3 -I convert_table.py <model.obj> <texture.png> <out_dir>
 Writes:
   table.bin   quantized mesh: int16 positions, int8 normals, uint16 uvs, uint32 indices (aligned)
   table.json  sizes: the top's half-widths and the depth of its groove, in model units
-  table.jpg   2048px colour texture
+  table.jpg   2048px colour texture (the game draws the table plain silver and does not ship it)
 
 The model is centred on the vertical axis with y = 0 at its top plates (where the stone stands).
 """

@@ -7,8 +7,9 @@
 // many forms: a new form's jumble with a sample of its loops true and noise among it, a true join,
 // noise touched falling away, the inner form whole with struts at every junction and a longer t'an
 // in the tray, and a join on the struts' tips. Then (turning the ways' pages by the arrows at the
-// rim) the game of rings: a two-finger lift and placement, the Vulcan's reply (the light behind
-// turning the second player's green, the plays carved under the seats), a spin test, a ring,
+// rim) the game of rings: a two-finger lift and placement, the Vulcan's reply (whose turn it is
+// told only under the board, the scene's light the same for both; the plays carved under the
+// seats), a spin test, a ring,
 // a drag on open space turning nothing, turning the base by the stone (the t'an lag, catch up, and
 // then hold perfectly still on it), spinning the
 // t'an by dragging their area, t'an never passing into the stone, turning the base over to read
@@ -625,7 +626,13 @@ function check(condition, message) {
       return held;
     }
 
-    // 1. A plain move.
+    // 1. A plain move. Whose turn it is is told only under the board: the scene's light is the same
+    // for every player.
+    const sceneLight = () => page.evaluate(() => {
+      const s = window.__kaltoh.stage;
+      return [s.rim.color.getHex(), s.ambient.groundColor.getHex(), document.querySelectorAll('.tint').length].join();
+    });
+    const lightBefore = await sceneLight();
     const first = await findMove(false);
     check(first, 'a placement within reach can be found on screen');
     const held = await place(first, '2-holding.png');
@@ -633,14 +640,13 @@ function check(condition, message) {
     await page.waitForFunction(() => window.__kaltoh.game.moves >= 1, null, { timeout: 60000 });
     check(true, 'releasing places the t\'an');
     await page.waitForFunction(() => window.__kaltoh.game.current === 1, null, { timeout: 60000 });
-    const lit = (seat) => page.waitForFunction((seat) => [...document.querySelectorAll('.tint')].every((el, i) => el.classList.contains('on') === (i + 1 === seat)),
-      seat, { timeout: 10000 }).then(() => true, () => false);
-    check(await lit(1), 'on the second player\'s turn the light behind turns green');
+    await sleep(1500);
+    check(await sceneLight() === lightBefore, 'on the second player\'s turn the scene\'s light is as it was: the turn is told under the board');
     // 2. The Vulcan replies.
     await page.waitForFunction(() => window.__kaltoh.phase === 'play' && window.__kaltoh.game.current === 0, null, { timeout: 240000 });
     s = await state();
     check(s.moves >= 2 || s.revealed, `the Vulcan takes its turn (${s.moves} moves)`);
-    check(await lit(0), 'and back to red on the first player\'s');
+    check(await sceneLight() === lightBefore, 'and so on the first player\'s');
     const carvedPlays = await page.evaluate(() => (window.__kaltoh.engraving.state.plays ?? []).map((p) => p.player));
     check(carvedPlays.includes(0) && carvedPlays.includes(1), `each player's plays are kept for the carving under their seat (${carvedPlays.length})`);
     check(await carved('name0') && await carved('name1'), 'and each seat is named over its mark');

@@ -1,6 +1,7 @@
 // The table the kal-toh stands on: a silver pedestal table (from the compact mesh written by
 // tools/convert_table.py), its top plates level with the floor the stone rests on, turned so the
-// groove down its middle runs across the view. Its satin metal mirrors the room as the eye sees it
+// groove down its middle runs across the view. Plain silver (the model's own texture is left
+// aside: its patches looked speckled). Its satin metal mirrors the room as the eye sees it
 // beyond the kal-toh, out of focus (stage.skyEnvironment); and in its top, the stone and the t'an
 // on it - drawn a second time each frame as the top would show them, a little softened.
 import * as THREE from '../vendor/three.module.min.js';
@@ -20,10 +21,7 @@ const FLIP = new THREE.Matrix4().set(1, 0, 0, 0, 0, -1, 0, 2 * FLOOR, 0, 0, 1, 0
 const MIRROR_X = new THREE.Matrix4().makeScale(-1, 1, 1);
 
 export async function loadTable(stage) {
-  const [bin, map] = await Promise.all([
-    fetch('assets/table.bin').then((r) => r.arrayBuffer()),
-    new Promise((resolve, reject) => new THREE.TextureLoader().load('assets/table.jpg', resolve, undefined, reject)),
-  ]);
+  const bin = await fetch('assets/table.bin').then((r) => r.arrayBuffer());
   const view = new DataView(bin);
   const magic = String.fromCharCode(...new Uint8Array(bin, 0, 4));
   if (magic !== 'KTT1') throw new Error('table.bin: bad header');
@@ -35,40 +33,33 @@ export async function loadTable(stage) {
   offset += count * 6;
   const qn = new Int8Array(bin, offset, count * 4);
   offset += count * 4;
-  const qt = new Uint16Array(bin, offset, count * 2);
-  offset += count * 4;
+  offset += count * 4; // texture coordinates, not needed: the table is plain silver
   offset = (offset + 3) & ~3; // the indices start on a four-byte boundary
   const index = new Uint32Array(bin, offset, indexCount);
 
   const position = new Float32Array(count * 3);
   const normal = new Float32Array(count * 3);
-  const uv = new Float32Array(count * 2);
   for (let i = 0; i < count; i++) {
     for (let k = 0; k < 3; k++) {
       position[i * 3 + k] = (qp[i * 3 + k] / 32767) * extent[k];
       normal[i * 3 + k] = qn[i * 4 + k] / 127;
     }
-    uv[i * 2] = qt[i * 2] / 65535;
-    uv[i * 2 + 1] = qt[i * 2 + 1] / 65535;
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(position, 3));
   geometry.setAttribute('normal', new THREE.BufferAttribute(normal, 3));
-  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   geometry.setIndex(new THREE.BufferAttribute(index, 1));
   geometry.computeBoundingSphere();
 
-  map.colorSpace = THREE.SRGBColorSpace;
-  map.anisotropy = Math.min(8, stage.renderer.capabilities.getMaxAnisotropy());
   const target = new THREE.WebGLRenderTarget(1, 1, {
     generateMipmaps: true,
     minFilter: THREE.LinearMipmapLinearFilter,
   });
   const screen = new THREE.Vector2(1, 1);
   const material = new THREE.MeshStandardMaterial({
-    map,
-    metalness: 0.7,
-    roughness: 0.32,
+    color: 0xc9ccd1,
+    metalness: 0.8,
+    roughness: 0.3,
     envMap: stage.skyEnvironment,
     envMapIntensity: 1.2,
   });
@@ -96,7 +87,7 @@ export async function loadTable(stage) {
 }`,
       );
   };
-  material.customProgramCacheKey = () => 'kaltoh-table-v1';
+  material.customProgramCacheKey = () => 'kaltoh-table-v2';
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.scale.setScalar(SCALE);

@@ -23,12 +23,11 @@ the underside of the stone: tip the base over to read them, from whichever side 
 it is engraved black, like the frame round it; only the rings round the players' marks are painted,
 each in its player's colour. Ten minutes of ambience loop quietly beneath the play, starting with
 your first touch; they play along with whatever else the phone is playing, never pausing it.
-The stone stands on a silver pedestal table in Voyager's mess hall: the room is seen out of focus
-beyond it, and the table's satin top mirrors it softly, with the stone and the t'an standing on
-it. The t'an are mirror-polished, with a touch of aluminium's grey: a face turned toward you
-mirrors the mess hall behind you, where Tuvok sits at his table, and the waiting t'an in the tray,
-its faces gently domed, holds his face. With others at the board, the room takes the colour of
-whoever's turn it is.
+The stone stands on a plain silver pedestal table in Voyager's mess hall: beyond it, out of focus
+and seen wide, is the bar where Picard sits, and the table's satin top mirrors the room softly,
+with the stone and the t'an standing on it. The t'an are mirror-polished, with a touch of
+aluminium's grey: a face turned toward you mirrors the mess hall behind you, where Tuvok sits at
+his table, and the waiting t'an in the tray, its faces gently domed, holds his face.
 
 <p align="center">
   <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table in the mess hall, the stone and t'an mirrored in the table's top">
@@ -44,7 +43,7 @@ whoever's turn it is.
   <img src="docs/nest.png" width="19%" alt="The starting nest of rings">
   <img src="docs/ring.png" width="19%" alt="A ring forming">
   <img src="docs/complete.png" width="19%" alt="A completed globe of rings">
-  <img src="docs/green.png" width="19%" alt="Two players: the light behind turns green on the second player's turn">
+  <img src="docs/green.png" width="19%" alt="Two players, as it was before the mess hall: the light behind turned green on the second player's turn">
   <img src="docs/underside.png" width="19%" alt="The carved underside of the base: each seat named, its mark ringed in its colour, its plays marked beneath">
 </p>
 <p align="center">
@@ -74,7 +73,7 @@ over an older one without uninstalling.
 | Turn the t'an | Drag anywhere within the t'an's outline, even between them (two fingers turn it as you see it, as for the stone). The assembly turns on the base and stays wherever you leave it. It has its own weight: when the base turns it lags behind and catches up, and flung, it coasts to a stop. Left alone it never moves on the base at all. It never cuts into the stone. While it turns, the stone gives way just enough; when the stone is turned into it, the t'an are bumped aside and settle against it. |
 | Place a t'an | Touch the t'an lying at the foot of the screen with **one finger** to take it up: it slides across the glass under your finger, drawing in to the size it will be at the kal-toh as you raise it. Put a **second finger** down anywhere and it is held by both. Two fingers on the tray at once lift it too. Held so, the t'an lies between your fingers at its own length, and **where its ends are is where it lands**: spread your fingers wide of the pieces, out of your own way, and lay its ends on them - in the original game and many forms, on the tips you mean to join (each end picks the tip nearest it, which lights up); in rings, anywhere on a piece. The pieces glow blue, and the held t'an shows exactly where it will rest (amber where it cannot, and the carving says why). Let go to place it; let go of a t'an held by one finger only and it goes back to the tray. The t'an waiting at the foot of the screen lies on the glass itself: it stays put however you move your head or draw the view nearer, and while the kal-toh spins. |
 | Read | **Tip the base over**, from any side. The carving is found with its top up whichever side it came up from, and as the underside comes to face you it draws near to be read: the title, whose turn it is and the score, what just happened, and how to play. |
-| Play with others | Choose two to four players (or a Vulcan, in rings) in the ways to play. The light behind the kal-toh takes the colour of whoever's turn it is: red for the first player, a rich green for the second, then deep blue and gold. A finished game keeps its winner's colour. Under the base each seat is named (*Player 1*, *Player 2*, ... or *The Vulcan*) over its mark, which is ringed in paint of its colour, the mark filled for whose turn it is. Beneath is the score: in the original game and many forms, true joins of those tried (*7/9*); in rings, points. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop, a loop closed or a ring, a cross where t'an fell, a circle for a spin test. The rules page shows the marks. |
+| Play with others | Choose two to four players (or a Vulcan, in rings) in the ways to play. Whose turn it is is told under the base, and only there: each seat is named (*Player 1*, *Player 2*, ... or *The Vulcan*) over its mark, which is ringed in paint of its colour (red for the first player, a rich green for the second, then deep blue and gold), the mark filled for whose turn it is. Beneath is the score: in the original game and many forms, true joins of those tried (*7/9*); in rings, points. Each player's plays are carved in order under their seat: a dot for a true join (or a t'an placed), a ringed dot for a great hoop, a loop closed or a ring, a cross where t'an fell, a circle for a spin test. The rules page shows the marks. |
 | Translate | Everything is carved in Vulcan. Touch the **Starfleet delta** carved among the glyphs, *Translate* beneath it (in Standard, whichever script the rest is in): all of it is smoothed away to bare stone and cut again in Standard, as deep. Touch it again for Vulcan. Touching the carving anywhere else translates nothing. |
 | Test the spin | **Tap the t'an twice**, or touch the spiral carved under the base. The kal-toh spins on its hidden axis: in the original game and many forms an unbalanced one wobbles; in rings, strained t'an glow amber. The t'an waiting in the tray stays there. |
 | Ways to play | Touch the circle carved under the base. The first way is the game itself. Touch a value to change it; some say beneath what they mean. Where there are more ways than fit, a large **arrow carved at the rim** turns the page, and one on the other side turns back. A change to the game waits for a new one: the carving says so and a ring is cut round *begin anew*. Touch it to play that way. **Music** and **Sound effects** are sliders: touch along the groove, or draw a finger along it, from silent to full (silenced, the music pauses). The lens with rays there opens the hologram's tuning. |
@@ -312,9 +311,10 @@ instead.
     small position-based solver as each junction finds its order, the inner shell settling into
     place, joining, the spin test and the end), `forms.js` (many forms on the stone, in the same
     way: loops closing, struts growing out, noise falling away, the outer shell), `scene.js` (renderer, lights, the mess hall -
-    sharp in the metal, out of focus beyond the kal-toh, turned so that Tuvok, at his table, is
-    behind the player - the stone, and the window the screen becomes), `table.js` (the pedestal
-    table under the stone, its top at the floor: satin metal mirroring the blurred room, and the
+    sharp in the metal; out of focus beyond the kal-toh, seen through a lens wider than the window
+    so more of the room shows; turned so that the bar where Picard sits is beyond it and Tuvok,
+    at his table, behind the player - the stone, and the window the screen becomes), `table.js` (the pedestal
+    table under the stone, its top at the floor: plain satin silver mirroring the blurred room, and the
     stone and t'an on it drawn a second time each frame, the eye turned over in the plane of the
     top, softened in the mirror's smaller mipmaps), `motion.js` (base and assembly dynamics, and every t'an kept clear of
     the stone along its length), `rodmesh.js` (polished metal t'an: flat mirror faces, nothing
@@ -376,9 +376,9 @@ instead.
     into the stone. It turns the base over to read it (top up whichever way it was turned); a drag
     within the carving's circle turns nothing and a touch there does not translate it, but the
     Starfleet delta does. It draws a finger along the music's slider. It covers the carved ways to play and the hologram's
-    tuning, fallen t'an staying until a new game, and shaking to begin anew. It checks that the
-    light behind turns green on the second player's turn, that each player's plays are kept for
-    the carving, and that each seat is named. With a stand-in for the Android shell reporting a swaying face, it checks the
+    tuning, fallen t'an staying until a new game, and shaking to begin anew. It checks that whose
+    turn it is is told only under the board (the scene's light the same on each player's turn),
+    that each player's plays are kept for the carving, and that each seat is named. With a stand-in for the Android shell reporting a swaying face, it checks the
     view follows the head as on the phone, and that the t'an at the foot of the screen stays put
     as the head moves and the view draws near. Given a Y4M video of a face as a second argument, Chromium fakes the
     front camera with it, and the page's own eye finder is checked too.

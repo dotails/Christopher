@@ -18,9 +18,10 @@ export const FLOOR = -0.62;
 // The layout's vertical field of view (degrees): the screen subtends this from the distance the
 // scene is framed for.
 export const FOV = 30;
-// The room is turned so that Tuvok, seated at the mess-hall table in the panorama, is behind the
-// player: seen in the metal, never beyond the kal-toh.
-const ROOM = new THREE.Euler(0, 3.69, 0);
+// The room is turned so that beyond the kal-toh is the bar, where Picard sits (u 0.73 in the
+// panorama), and Tuvok, seated at the mess-hall table, is behind the player, a little to one side:
+// seen in the metal, never beyond the kal-toh.
+const ROOM = new THREE.Euler(0, 3.3, 0);
 // The direction of his face, as the room is turned (it is at u 0.337, v 0.478 in the panorama;
 // three.js shows the panorama's direction e at the room's turn applied to e).
 export const TUVOK = (() => {
@@ -58,14 +59,14 @@ export function createScene(canvas) {
   key.shadow.radius = 3;
   key.target.position.copy(PIVOT).setY(0.6);
   scene.add(key, key.target);
-  // A red rim from below and behind, as if the gradient behind glowed; and a cool fill.
-  const rim = new THREE.DirectionalLight(0xff5a4a, 1.3);
+  // A warm rim from below and behind, as from the mess hall's lights beyond; and a cool fill.
+  const rim = new THREE.DirectionalLight(0xffd8c0, 1.1);
   rim.position.set(2.2, -0.6, -4);
   scene.add(rim);
   const fill = new THREE.DirectionalLight(0xbcd4ff, 0.7);
   fill.position.set(3.5, 2.5, 2);
   scene.add(fill);
-  const ambient = new THREE.HemisphereLight(0x3a3e48, 0x2a0a08, 0.55);
+  const ambient = new THREE.HemisphereLight(0x3a3e48, 0x1c1a18, 0.55);
   scene.add(ambient);
 
   // The base turns about the pivot; the base mesh hangs below it so its foot meets the floor.
@@ -251,7 +252,7 @@ export async function loadEnvironment(stage) {
   scene.environmentRotation.copy(ROOM);
   blurred.mapping = THREE.EquirectangularReflectionMapping;
   stage.skyEnvironment = pmrem.fromEquirectangular(blurred).texture;
-  stage.sky = makeSky(blurred);
+  stage.sky = makeSky(blurred, stage.glass);
   scene.add(stage.sky);
   pmrem.dispose();
   target.dispose();
@@ -261,28 +262,45 @@ export async function loadEnvironment(stage) {
 }
 
 // The room beyond the kal-toh, at any distance: a box about the eye, drawn first and behind
-// everything, each pixel looking out into the panorama the way the room is turned. Its tint takes
-// the colour of whoever's turn it is, with others at the board (main.js).
-function makeSky(texture) {
+// everything, each pixel looking out into the panorama the way the room is turned. It is seen
+// as through a lens WIDE times wider than the window itself, so that more of the room is on the
+// screen and less enlarged; the eye moving still shifts it as much as a room seen through a window
+// would shift (only the spread across the glass is widened, not the eye's offset from its middle).
+const WIDE = 4.5;
+const glassSeen = new THREE.Vector3();
+function makeSky(texture, glass) {
   const turn = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(ROOM)).transpose();
   const material = new THREE.ShaderMaterial({
-    uniforms: { map: { value: texture }, turn: { value: turn }, tint: { value: new THREE.Color(1, 1, 1) }, level: { value: 0.75 } },
+    uniforms: {
+      map: { value: texture },
+      turn: { value: turn },
+      level: { value: 0.75 },
+      wide: { value: WIDE },
+      glassMiddle: { value: new THREE.Vector2() },
+      glassDepth: { value: 1 },
+    },
     vertexShader: /* glsl */ `
-      uniform mat3 turn;
-      varying vec3 vLook;
+      varying vec3 vSeen;
       void main() {
-        vLook = turn * position;
+        vSeen = mat3(viewMatrix) * position;
         vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         gl_Position = p.xyww;
       }`,
     fragmentShader: /* glsl */ `
       #include <common>
       uniform sampler2D map;
-      uniform vec3 tint;
+      uniform mat3 turn;
       uniform float level;
-      varying vec3 vLook;
+      uniform float wide;
+      uniform vec2 glassMiddle;
+      uniform float glassDepth;
+      varying vec3 vSeen;
       void main() {
-        gl_FragColor = vec4(texture2D(map, equirectUv(normalize(vLook))).rgb * tint * level, 1.0);
+        // Where this pixel's ray crosses the glass, spread out from the glass's middle.
+        vec2 onGlass = vSeen.xy * (glassDepth / max(-vSeen.z, 1e-4));
+        vec3 seen = normalize(vec3(glassMiddle + wide * (onGlass - glassMiddle), -glassDepth));
+        vec3 look = turn * inverseTransformDirection(seen, viewMatrix);
+        gl_FragColor = vec4(texture2D(map, equirectUv(look)).rgb * level, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
@@ -296,6 +314,10 @@ function makeSky(texture) {
   sky.onBeforeRender = (renderer, scene, camera) => {
     sky.position.setFromMatrixPosition(camera.matrixWorld);
     sky.updateMatrixWorld();
+    // The glass's middle as the eye sees it, and how far off the glass lies.
+    glassSeen.copy(glass.centre).applyMatrix4(camera.matrixWorldInverse);
+    material.uniforms.glassMiddle.value.set(glassSeen.x, glassSeen.y);
+    material.uniforms.glassDepth.value = Math.max(1e-3, -glassSeen.z);
   };
   return sky;
 }

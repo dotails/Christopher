@@ -1108,50 +1108,10 @@ function frame(now) {
   }
 }
 
-// With others at the board, the room beyond the kal-toh is washed with the colour of whoever's turn
-// it is, and so is the rim light from behind: red, then green, blue and gold. Alone, the room is
-// as it is and the rim red. A finished game keeps its winner's.
-const SEAT_LIGHT = [
-  { rim: new THREE.Color(0xff5a4a), ground: new THREE.Color(0x2a0a08), sky: new THREE.Color(0xffa69c) },
-  { rim: new THREE.Color(0x46ff86), ground: new THREE.Color(0x082a12), sky: new THREE.Color(0x9cffb8) },
-  { rim: new THREE.Color(0x4f8dff), ground: new THREE.Color(0x08142c), sky: new THREE.Color(0xa4bcff) },
-  { rim: new THREE.Color(0xffc74a), ground: new THREE.Color(0x2a2008), sky: new THREE.Color(0xffdc9c) },
-];
-const PLAIN_SKY = new THREE.Color(1, 1, 1);
-const tints = [...document.querySelectorAll('.tint')];
-let shownSeat = 0;
-
-function seatNow() {
-  if (shaped()) {
-    const g = shaped().game;
-    if (!g || g.players < 2) return 0;
-    return g.complete ? Math.max(0, g.winner) : g.current;
-  }
-  if (!game || game.players.length < 2) return 0;
-  return game.over && game.winner >= 0 ? game.winner : game.current;
-}
-
-function together() {
-  return shaped() ? (shaped().game?.players ?? 1) > 1 : (game?.players.length ?? 1) > 1;
-}
-
-function colourSeat(dt) {
-  const seat = seatNow() % SEAT_LIGHT.length;
-  if (seat !== shownSeat) {
-    shownSeat = seat;
-    tints.forEach((el, i) => el.classList.toggle('on', i + 1 === seat));
-  }
-  const k = 1 - Math.exp(-dt / 0.45);
-  stage.rim.color.lerp(SEAT_LIGHT[seat].rim, k);
-  stage.ambient.groundColor.lerp(SEAT_LIGHT[seat].ground, k);
-  stage.sky?.material.uniforms.tint.value.lerp(together() ? SEAT_LIGHT[seat].sky : PLAIN_SKY, k);
-}
-
 function step(dt) {
   time += dt;
   tickTimers(dt);
   holograph(dt);
-  colourSeat(dt);
   readingView(dt);
   stage.update();
   if (shaped()) shaped().update(dt);
