@@ -430,6 +430,36 @@ function onEngravedOption(key, value) {
   haptic('tick');
   if (key === 'way') guide.chose(value);
   if (key === 'haptics') native.vibration(value);
+  if (key === 'base') standOn(value);
+}
+
+// Another base for the kal-toh to stand on, at once: once it is loaded, the carving smooths away,
+// and with it bare the base becomes the other, and the carving is cut again in that - the game
+// going on upon it, the t'an lifted clear of it where they would pass into it. (Chosen again
+// before it is done, the last chosen is the one stood on.)
+async function standOn(kind) {
+  if (kind === baseModel.kind) return;
+  const next = await loadBase(stage, kind);
+  next.mesh.material.envMap = stage.scene.environment;
+  if (settings.base !== kind) {
+    next.mesh.geometry.dispose();
+    next.mesh.material.map?.dispose();
+    next.mesh.material.dispose();
+    return;
+  }
+  engraving.recut(() => {
+    const old = baseModel.mesh;
+    stage.baseRoot.remove(old);
+    old.geometry.dispose();
+    old.material.map?.dispose();
+    old.material.bumpMap?.dispose();
+    old.material.dispose();
+    stage.baseRoot.add(next.mesh);
+    // The same base everything holds, given the other's shape.
+    Object.assign(baseModel, next);
+    motion.reshape();
+    engraving.dress(baseModel);
+  });
 }
 
 // --- Shaking ------------------------------------------------------------------------------
@@ -604,7 +634,8 @@ async function start() {
     document.fonts.load('21px ModernVulcan'),
     document.fonts.load('30px VulcanScript'),
   ]).catch(() => {});
-  const [base, laid] = await Promise.all([loadBase(stage), loadEnvironment(stage).then(() => loadTable(stage))]);
+  const [base, laid] = await Promise.all([loadBase(stage, settings.base), loadEnvironment(stage).then(() => loadTable(stage))]);
+  stage.baseRoot.add(base.mesh);
   // The stone and the t'an take the scene's light each at its own strength: given it as their own
   // (three.js lights what takes only the scene's environment at the scene's strength, whatever
   // its own).
@@ -625,8 +656,7 @@ async function start() {
   zen = new ZenGame(shapeContext);
   engraving = new Engraving(stage, {
     settings,
-    stone: base.mesh.material.map?.image,
-    baseMesh: base.mesh,
+    base,
     onAction: onEngravedAction,
     onOption: onEngravedOption,
   });

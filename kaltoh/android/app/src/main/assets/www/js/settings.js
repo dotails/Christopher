@@ -19,6 +19,9 @@ export const OPTIONS = [
     choices: [[1, 'wuh', '1'], [2, 'dah', '2'], [3, 'reh', '3'], [4, 'keh', '4']],
     value: 2, // at first: two, passing and playing
   },
+  // What the kal-toh stands on: the stone basin, or an altar of obsidian (zul-makh, volcanic glass),
+  // its carving cut pale into the black glass. Changed at once, the game going on upon it.
+  { key: 'base', v: 'nen', s: 'Base', choices: [['stone', 'kov', 'Stone'], ['obsidian', 'zul-makh', 'Obsidian']] },
   // Sliders: drawn along their groove under the base, from silent to full.
   // The mess hall around the stone: its hum, its air, the voices in it.
   { key: 'music', v: 'tvihal', s: 'Room', slider: true, value: 1 },
@@ -71,10 +74,10 @@ export function saveSettings(settings) {
   }
 }
 
-// The settings a game was begun with, as one string: the ways shown that shape the game (not
-// sound, voice, music or vibration, which the carving keeps at its foot). A change shows as a
+// The settings a game was begun with, as one string: the ways shown that shape the game (not the
+// base, sound, voice, music or vibration, which the carving keeps at its foot). A change shows as a
 // different string.
-export const UNSHAPING = new Set(['music', 'sfx', 'voice', 'theme', 'haptics']);
+export const UNSHAPING = new Set(['base', 'music', 'sfx', 'voice', 'theme', 'haptics']);
 export function shapeOf(settings) {
   return JSON.stringify(OPTIONS.filter((o) => !UNSHAPING.has(o.key) && (!o.when || o.when(settings))).map((o) => settings[o.key]));
 }

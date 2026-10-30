@@ -119,6 +119,7 @@ joined or changed by the grammar above; *built*: a new word made of theirs.
 | `ki'an` |  | nest | dictionary |
 | `kim-shah` |  | last | dictionary |
 | `kohlan` |  | meditation: zen | dictionary |
+| `kov` |  | a stone: the basin the kal-toh stands on | dictionary |
 | `kril'es` |  | harmony | dictionary |
 | `k'wuhli` |  | apart | dictionary |
 | `leh-keh-muk` | leh-keh- + muk | the solid of fourteen faces: the cuboctahedron | built |
@@ -134,6 +135,7 @@ joined or changed by the grammar above; *built*: a new word made of theirs.
 | `natya-t'an` | natya- + t'an | different t'an | grammar |
 | `natya-um` | natya- + um | different tips | grammar |
 | `nem-tor` |  | take | dictionary |
+| `nen` |  | base, foot, foundation: what the kal-toh stands on | dictionary |
 | `nezhak` |  | chaos: the jumble | dictionary |
 | `oh-vla` |  | octagon (by the others: not in the dictionary) | built |
 | `oh-vlaik` |  | octagonal | built |
@@ -227,6 +229,7 @@ joined or changed by the grammar above; *built*: a new word made of theirs.
 | `yukupik` |  | inactive: off | dictionary |
 | `zek` |  | order | dictionary |
 | `zhagra` |  | game | dictionary |
+| `zul-makh` |  | volcanic glass: obsidian | dictionary |
 
 ## Every line
 
@@ -257,6 +260,9 @@ Printed by `tools/vulcan-lines.mjs` from the game's own texts (a few with sample
 | dah | 2 |
 | reh | 3 |
 | keh | 4 |
+| nen | Base |
+| kov | Stone |
+| zul-makh | Obsidian |
 | tvihal | Room |
 | ralash-daya | Sound effects |
 | spes | Voice |

@@ -1,9 +1,9 @@
 // Nothing is written on the screen. Everything the kal-toh says is carved into the underside of
 // its stone base, in a medallion, all on one face: its name and the shape the game builds, the
-// players and whose turn it is, what last happened, the ways to play (the game first), the room,
-// the sound, the voice, the music and vibration, and the glyphs that act - the rules, translating,
-// and beginning anew (Shake). Turn the base over to read it: whichever way it is tipped, the carving
-// is found with its top up.
+// players and whose turn it is, what last happened, the ways to play (the game first), the base,
+// the room, the sound, the voice, the music and vibration, and the glyphs that act - the rules,
+// translating, and beginning anew (Shake). Turn the base over to read it: whichever way it is
+// tipped, the carving is found with its top up.
 //
 // It is carved in Standard at first. The Starfleet delta among the glyphs translates all of it: the
 // carving smooths away to bare stone, and the other script (Vulcan) is cut in its place, as deep;
@@ -13,9 +13,9 @@
 //
 // The medallion's frame is cut into the stone for good. Its words and glyphs are a second layer
 // whose depth the shader can scale (relief and darkened grooves alike), so they can be smoothed
-// away and recut. All of it is engraved alike: dark grooves in the stone, without light of their own,
-// their walls crisp - the words' relief found by the shader itself, at each pixel, from the depth
-// cut at the canvas's full resolution.
+// away and recut. All of it is engraved alike: dark grooves in the stone (frosted pale in an
+// obsidian base's black glass), without light of their own, their walls crisp - the words' relief
+// found by the shader itself, at each pixel, from the depth cut at the canvas's full resolution.
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT } from './scene.js';
 import { OPTIONS, UNSHAPING } from './settings.js';
@@ -37,14 +37,14 @@ const STANDARD_FONT = "'Roboto', 'Helvetica Neue', system-ui, sans-serif";
 const TITLE_Y = 92;
 const SHAPE_Y = 138;
 const SEATS_Y = 212;
-const EVENT_Y = 350;
-const RULE_Y = 424;
-const WAYS_Y = 459; // the first of the ways: the game itself
+const EVENT_Y = 340;
+const RULE_Y = 400;
+const WAYS_Y = 433; // the first of the ways: the game itself
 const ROW = 50; // from one way to the next
 const HINT = 34; // the line beneath the game saying what it is
-const FOOT_Y = 766; // the last row, clear of the glyphs: the sound, voice, music and vibration end here
+const FOOT_Y = 786; // the last row, clear of the glyphs: the base, sound, voice, music and vibration end here
 const FOOT_ROW = 44; // from one to the next of those, a little closer
-const GLYPHS_Y = 840; // the row of glyphs at the foot of every page, their names beneath, clear of the frame
+const GLYPHS_Y = 860; // the row of glyphs at the foot of every page, their names beneath, clear of the frame
 const GUTTER = 16; // either side of the centre line: a way's name ends, its value begins
 // The solid triangles either side of a value chosen from a list, pointing away from it: how tall
 // and how wide each is, and the room between it and the value.
@@ -72,6 +72,14 @@ const RECUT = 0.42; // ... and to be cut again
 // How squarely the underside must face the eye to count as seen (and so be set upright).
 const SEEN = 0.08;
 const UNSEEN = 0.02;
+// How the carving is cut, under either base: in the basin's rough stone, dark grooves with a worn,
+// pale lip; in polished obsidian, grooves frosted pale into the black glass, matt where it shines.
+// Their colour (and the lip's), as rgba, and how rough the face is, and the grooves.
+const LOOKS = {
+  stone: { groove: [10, 6, 5, 0.9], lip: [255, 240, 230, 0.22], roughness: 0.86, rough: 0.86 },
+  obsidian: { groove: [216, 208, 200, 0.94], lip: null, roughness: 0.3, rough: 0.92 },
+};
+const rgba = ([r, g, b, a], depth) => `rgba(${r}, ${g}, ${b}, ${a * depth})`;
 // Each seat's colour, as the light behind turns on their turn (main.js), painted into the ring about
 // their mark.
 const SEAT_PAINT = ['#d0261c', '#14a04a', '#2a64e0', '#e0a614'];
@@ -90,15 +98,18 @@ const qTurn = new THREE.Quaternion();
 const qLay = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
 const Y = new THREE.Vector3(0, 1, 0);
 
-// The carving's layer, blended into MeshStandardMaterial: its colour over the stone, and its relief
-// added to the frame's - the slope of the depth cut (the mask's alpha) across a texel either side,
-// so its walls are as crisp as the canvas is fine - both scaled by carveDepth.
+// The carving's layer, blended into MeshStandardMaterial: its colour over the stone, its grooves'
+// roughness (carveRough), and its relief added to the frame's - the slope of the depth cut (the
+// mask's alpha) across a texel either side, so its walls are as crisp as the canvas is fine - all
+// scaled by carveDepth.
 function carveShader(shader, uniforms) {
   Object.assign(shader.uniforms, uniforms);
-  shader.fragmentShader = `uniform sampler2D carveColor;\nuniform sampler2D carveMask;\nuniform float carveDepth;\n${shader.fragmentShader}`
+  shader.fragmentShader = `uniform sampler2D carveColor;\nuniform sampler2D carveMask;\nuniform float carveDepth;\nuniform float carveRough;\n${shader.fragmentShader}`
     .replace('#include <map_fragment>', `#include <map_fragment>
       vec4 carveTint = texture2D( carveColor, vMapUv );
       diffuseColor.rgb = mix( diffuseColor.rgb, carveTint.rgb, carveTint.a * carveDepth );`)
+    .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+      roughnessFactor = mix( roughnessFactor, carveRough, texture2D( carveMask, vMapUv ).a * carveDepth );`)
     .replace('#include <normal_fragment_maps>', `
       const float carveTexel = ${WALL.toFixed(2)} / ${SIZE.toFixed(1)};
       vec2 carveSlope = vec2(
@@ -113,23 +124,18 @@ function carveShader(shader, uniforms) {
 }
 
 export class Engraving {
-  constructor(stage, { settings, stone, baseMesh, onAction, onOption }) {
+  constructor(stage, { settings, base, onAction, onOption }) {
     this.stage = stage;
     this.settings = settings;
-    this.baseMesh = baseMesh;
     this.onAction = onAction;
     this.onOption = onOption;
 
-    // The frame, cut for good: stone colour and relief.
-    this.stone = this.makeBackground(stone);
-    const frameMask = canvasOf(SIZE);
+    // The frame, cut for good (dress): stone colour and relief.
+    this.stone = canvasOf(SIZE);
+    this.frameMask = canvasOf(SIZE);
+    this.frameRelief = canvasOf(SIZE);
     const frameGlow = canvasOf(SIZE);
     frameGlow.getContext('2d').fillRect(0, 0, SIZE, SIZE);
-    this.layer = { color: this.stone, mask: frameMask };
-    this.ring(C - 12, 7, 0.2);
-    this.ring(C - 30, 2.5, 0.25);
-    const frameRelief = canvasOf(SIZE);
-    buildRelief(frameMask, frameRelief);
 
     // The words and glyphs: a layer of their own, its colour and its depth.
     this.carve = { color: canvasOf(SIZE), mask: canvasOf(SIZE) };
@@ -141,11 +147,12 @@ export class Engraving {
       return t;
     };
     const map = texture(this.stone, true);
-    const normalMap = texture(frameRelief, false);
+    const normalMap = texture(this.frameRelief, false);
     const emissiveMap = texture(frameGlow, true);
     this.carveColor = texture(this.carve.color, true);
     this.carveMask = texture(this.carve.mask, false);
     this.depth = { value: 1 }; // the shader's, eased from `cutting`
+    this.rough = { value: LOOKS.stone.rough }; // how rough the grooves are (dress)
     this.cutting = 1; // how deep the words are cut, 0 (smoothed away) to 1
     const material = new THREE.MeshStandardMaterial({
       map,
@@ -162,8 +169,9 @@ export class Engraving {
       carveColor: { value: this.carveColor },
       carveMask: { value: this.carveMask },
       carveDepth: this.depth,
+      carveRough: this.rough,
     });
-    material.customProgramCacheKey = () => 'kaltoh-carving-v2';
+    material.customProgramCacheKey = () => 'kaltoh-carving-v3';
     this.mesh = new THREE.Mesh(new THREE.CircleGeometry(MEDALLION_RADIUS, 96), material);
     // Facing down, just proud of the foot.
     this.mesh.quaternion.copy(qLay);
@@ -181,6 +189,30 @@ export class Engraving {
     this.phase = 'still'; // still | smoothing | cutting
     this.seen = false; // the underside faces the eye
     this.raycaster = new THREE.Raycaster();
+    this.dress(base);
+  }
+
+  // Dressed for the base it is under (and again whenever that changes): the frame cut for good in
+  // its stone - or its black glass - the carving cut as that takes it, and the medallion the size of
+  // the circle its foot gives it, the eye coming as much nearer to read a smaller one (scene.js).
+  dress({ kind, mesh, foot }) {
+    this.baseMesh = mesh;
+    this.look = LOOKS[kind] ?? LOOKS.stone;
+    this.makeBackground(mesh.material.map?.image, this.stone);
+    this.frameMask.getContext('2d').clearRect(0, 0, SIZE, SIZE);
+    this.layer = { color: this.stone, mask: this.frameMask };
+    this.ring(C - 12, 7, 0.2);
+    this.ring(C - 30, 2.5, 0.25);
+    buildRelief(this.frameMask, this.frameRelief);
+    const { material } = this.mesh;
+    material.map.needsUpdate = true;
+    material.normalMap.needsUpdate = true;
+    material.roughness = this.look.roughness;
+    this.rough.value = this.look.rough;
+    const size = (foot ?? MEDALLION_RADIUS) / MEDALLION_RADIUS;
+    this.mesh.scale.setScalar(size);
+    this.stage.view.read.size = size;
+    this.dirty = true;
   }
 
   set(state) {
@@ -258,9 +290,20 @@ export class Engraving {
 
   // --- Drawing -------------------------------------------------------------------------------
 
-  makeBackground(stone) {
-    const bg = canvasOf(SIZE);
+  makeBackground(stone, bg = canvasOf(SIZE)) {
     const g = bg.getContext('2d');
+    g.clearRect(0, 0, SIZE, SIZE);
+    if (this.look === LOOKS.obsidian) {
+      // Black glass, polished flat: the faintest warmth at its heart, darker to its rim.
+      g.fillStyle = '#0d0b0c';
+      g.fillRect(0, 0, SIZE, SIZE);
+      const sheen = g.createRadialGradient(C, C, C * 0.1, C, C, C);
+      sheen.addColorStop(0, 'rgba(70, 40, 44, 0.16)');
+      sheen.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+      g.fillStyle = sheen;
+      g.fillRect(0, 0, SIZE, SIZE);
+      return bg;
+    }
     if (stone) {
       // The basin's own stone, a little smoothed where the medallion was dressed flat.
       g.filter = 'blur(1.5px)';
@@ -309,12 +352,15 @@ export class Engraving {
   // own (`lit`, from when they did, is let be). A shallower cut (`depth` below 1) is fainter.
   cut(draw, lit, depth = 1) {
     const { color, mask } = this.layer;
+    const { groove, lip } = this.look;
     const g = color.getContext('2d');
-    g.save();
-    g.translate(1.6, 1.6);
-    draw(g, `rgba(255, 240, 230, ${0.22 * depth})`);
-    g.restore();
-    draw(g, `rgba(10, 6, 5, ${0.9 * depth})`);
+    if (lip) {
+      g.save();
+      g.translate(1.6, 1.6);
+      draw(g, rgba(lip, depth));
+      g.restore();
+    }
+    draw(g, rgba(groove, depth));
     const m = mask.getContext('2d');
     m.save();
     m.globalAlpha = depth;
@@ -522,8 +568,8 @@ export class Engraving {
   }
 
   // The face: the name, the players, what just happened, and the ways to play - the game, its
-  // ways, then what neither shapes the game nor waits for a new one (the room, the sound, the
-  // voice, the music and vibration) at the foot.
+  // ways, then what neither shapes the game nor waits for a new one (the base, the room, the sound,
+  // the voice, the music and vibration) at the foot.
   drawMain(pages) {
     const { event, status, shape } = this.state;
     this.line('title', TEXT.title, C, TITLE_Y, { size: 66, script: true, max: 400, caps: true });

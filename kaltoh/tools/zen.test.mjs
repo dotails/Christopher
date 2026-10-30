@@ -9,7 +9,7 @@ import * as G from '../android/app/src/main/assets/www/js/geom.js';
 import * as R from '../android/app/src/main/assets/www/js/rules.js';
 import * as Z from '../android/app/src/main/assets/www/js/zen-rules.js';
 import { buildForm, FORM_KEYS } from '../android/app/src/main/assets/www/js/forms-rules.js';
-import { OPTIONS, loadSettings } from '../android/app/src/main/assets/www/js/settings.js';
+import { OPTIONS, UNSHAPING, loadSettings } from '../android/app/src/main/assets/www/js/settings.js';
 import { zenStatusText } from '../android/app/src/main/assets/www/js/texts.js';
 
 let checks = 0;
@@ -41,7 +41,7 @@ const eye = [0, 0.4, 3];
   ok(old.way === 'classic' && old.players === 2 && old.music === 0.4 && !('opponent' in old), 'saved settings that chose rings fall back to the kal-toh, the rest kept');
   saved.set('kaltoh.settings.v2', JSON.stringify({ way: 'zen' }));
   const zen = loadSettings();
-  ok(zen.way === 'zen' && OPTIONS.filter((o) => !o.slider && (!o.when || o.when(zen))).every((o) => ['way', 'haptics', 'language'].includes(o.key)),
+  ok(zen.way === 'zen' && OPTIONS.filter((o) => !UNSHAPING.has(o.key) && (!o.when || o.when(zen))).every((o) => o.key === 'way'),
     'zen is played alone: of the ways that shape a game, only the game itself is shown');
   delete globalThis.localStorage;
 }

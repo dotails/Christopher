@@ -84,6 +84,17 @@ function rotationTo(q, target, out) {
   return out.set(qErr.x, qErr.y, qErr.z).multiplyScalar(angle / s);
 }
 
+// Points round the stone's foot and its lip, about the pivot: its lowest point, however it is
+// turned, is among them (close enough together that the groove's walls fall between none).
+function hullOf(base) {
+  const hull = [];
+  for (let i = 0; i < 64; i++) {
+    const a = (i / 64) * Math.PI * 2;
+    for (const y of [0, base.top]) hull.push(new THREE.Vector3(Math.cos(a) * base.radius, y - PIVOT.y, Math.sin(a) * base.radius));
+  }
+  return hull;
+}
+
 export class Motion {
   constructor(base) {
     this.base = base; // { surface(r), slope(r), radius }
@@ -118,13 +129,7 @@ export class Motion {
     this.tipW = 0; // how fast, on its edge, it is tipping over to lie flush
     this.landed = 0; // how hard it last came to rest on the floor (for its sound), until taken
     this.centre = PIVOT.clone(); // the pivot, as far down as the stone has come
-    // Points round the stone's foot and its lip, about the pivot: its lowest point, however it is
-    // turned, is among them (close enough together that the groove's walls fall between none).
-    this.hull = [];
-    for (let i = 0; i < 64; i++) {
-      const a = (i / 64) * Math.PI * 2;
-      for (const y of [0, base.top]) this.hull.push(new THREE.Vector3(Math.cos(a) * base.radius, y - PIVOT.y, Math.sin(a) * base.radius));
-    }
+    this.hull = hullOf(base);
     // It begins as it rests, level on the floor.
     this.drop = this.dropTarget = this.room();
     this.centre.setY(PIVOT.y - this.drop);
@@ -133,6 +138,14 @@ export class Motion {
   // The t'an (assembly-local ends, THREE.Vector3 pairs) that must stay clear of the stone.
   setRods(rods) {
     this.rods = rods;
+  }
+
+  // Another base to stand on (main.js, the same `base` given its new shape): its foot and lip found
+  // afresh, and all woken, to settle on it as it is.
+  reshape() {
+    this.hull = hullOf(this.base);
+    this.asleep = false;
+    this.stillFor = 0;
   }
 
   // A finger turns the base (world axis, angle in radians over dt seconds).

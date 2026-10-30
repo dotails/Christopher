@@ -6,7 +6,8 @@
 // is the table's top as it is (table.js): the stone's foot rests on its plates, spanning the groove
 // down its middle; and a t'an turned down toward the top lifts the stone clear of it. And zen's
 // nests, some of them reaching down through the stone, come to rest on it, turned over and back
-// and levelled: lifted out of the stone, never shuttled down through it and back up for ever.
+// and levelled: lifted out of the stone, never shuttled down through it and back up for ever - on
+// the obsidian altar as on the stone; and a stone made the altar in play settles flush on the top.
 // Run: node kaltoh/tools/ground.test.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -23,22 +24,26 @@ const ok = (cond, msg) => {
   console.log(`ok - ${msg}`);
 };
 
-// The stone's shape as the game has it (assets/base.json's profile, as scene.js reads it).
-const meta = JSON.parse(readFileSync(new URL('../android/app/src/main/assets/www/assets/base.json', import.meta.url)));
-const { profile, profileStep: step } = meta;
-const base = {
-  surface: (r) => {
-    const f = r / step;
-    const i = Math.floor(f);
-    return i >= profile.length - 1 ? 0 : profile[i] + (profile[i + 1] - profile[i]) * (f - i);
-  },
-  slope: (r) => {
-    const i = Math.min(profile.length - 2, Math.max(0, Math.floor(r / step)));
-    return (profile[i + 1] - profile[i]) / step;
-  },
-  radius: (profile.length - 1) * step,
-  top: Math.max(...profile),
+// A base's shape as the game has it (assets/<file>.json's profile, as scene.js reads it): the
+// stone's (base.json), or the obsidian altar's (altar.json).
+const shapeOf = (file) => {
+  const meta = JSON.parse(readFileSync(new URL(`../android/app/src/main/assets/www/assets/${file}.json`, import.meta.url)));
+  const { profile, profileStep: step } = meta;
+  return {
+    surface: (r) => {
+      const f = r / step;
+      const i = Math.floor(f);
+      return i >= profile.length - 1 ? 0 : profile[i] + (profile[i + 1] - profile[i]) * (f - i);
+    },
+    slope: (r) => {
+      const i = Math.min(profile.length - 2, Math.max(0, Math.floor(r / step)));
+      return (profile[i + 1] - profile[i]) / step;
+    },
+    radius: (profile.length - 1) * step,
+    top: Math.max(...profile),
+  };
 };
+const base = shapeOf('base');
 
 const motion = new Motion(base);
 const run = (seconds) => {
@@ -46,10 +51,10 @@ const run = (seconds) => {
 };
 // How far the stone, as it is turned and as far down as it has come, stands clear of the top at its
 // nearest (none: resting on it; less than none: in it).
-const lowest = () => {
+const lowest = (m = motion) => {
   let y = Infinity;
-  for (const p of motion.hull) {
-    const w = p.clone().applyQuaternion(motion.baseQ).add(motion.centre);
+  for (const p of m.hull) {
+    const w = p.clone().applyQuaternion(m.baseQ).add(m.centre);
     if (onTop(w.x, w.z)) y = Math.min(y, w.y - topHeight(w.x, w.z));
   }
   return y;
@@ -137,29 +142,49 @@ ok(rodLow.y - topHeight(rodLow.x, rodLow.z) > 0.02 - 1e-6 && lowest() > 0.04,
   `a t'an hanging below the stone's foot holds it up off the top, never into it (${(rodLow.y - topHeight(rodLow.x, rodLow.z)).toFixed(3)} clear)`);
 motion.setRods([]);
 
-// Zen's nests (the first forty), on the stone: turned over to be read, turned back, levelled.
-const restless = [];
-let slowest = 0;
-for (let seed = 1; seed <= 40; seed++) {
-  const nest = Z.createGame({ seed, radius: 0.44 });
-  const m = new Motion(base);
-  m.setRods(nest.rods.map((r) => [new THREE.Vector3(...r.a), new THREE.Vector3(...r.b)]));
-  for (const angle of [Math.PI, -Math.PI]) {
-    for (let t = 0; t < 0.6; t += 1 / 60) {
-      m.turnBase(new THREE.Vector3(1, 0, 0), angle / 36, 1 / 60);
-      m.update(1 / 60);
+// Zen's nests (the first forty), on the stone and on the altar: turned over to be read, turned back,
+// levelled.
+for (const [name, file] of [['the stone', 'base'], ['the obsidian altar', 'altar']]) {
+  const restless = [];
+  let slowest = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const nest = Z.createGame({ seed, radius: 0.44 });
+    const m = new Motion(shapeOf(file));
+    m.setRods(nest.rods.map((r) => [new THREE.Vector3(...r.a), new THREE.Vector3(...r.b)]));
+    for (const angle of [Math.PI, -Math.PI]) {
+      for (let t = 0; t < 0.6; t += 1 / 60) {
+        m.turnBase(new THREE.Vector3(1, 0, 0), angle / 36, 1 / 60);
+        m.update(1 / 60);
+      }
+      m.baseDragged = false;
+      for (let t = 0; t < 3; t += 1 / 60) m.update(1 / 60);
     }
-    m.baseDragged = false;
-    for (let t = 0; t < 3; t += 1 / 60) m.update(1 / 60);
+    m.baseQ.identity();
+    m.baseW.set(0, 0, 0);
+    m.resetPlace();
+    let t = 0;
+    for (; t < 5 && !m.asleep; t += 1 / 60) m.update(1 / 60);
+    slowest = Math.max(slowest, t);
+    if (!m.asleep) restless.push(seed);
   }
-  m.baseQ.identity();
-  m.baseW.set(0, 0, 0);
-  m.resetPlace();
+  ok(restless.length === 0, `zen's nests, turned over and back and levelled, come to rest on ${name} (the slowest in ${slowest.toFixed(1)} s)${restless.length ? `: not ${restless}` : ''}`);
+}
+
+// The stone made the altar in play (main.js gives the same base the altar's shape): its foot and lip
+// found afresh, it settles flush on the top, the nest on it lifted clear of the altar.
+{
+  const nest = Z.createGame({ seed: 3, radius: 0.44 });
+  const m = new Motion(shapeOf('base'));
+  m.setRods(nest.rods.map((r) => [new THREE.Vector3(...r.a), new THREE.Vector3(...r.b)]));
+  for (let t = 0; t < 5 && !m.asleep; t += 1 / 60) m.update(1 / 60);
+  const altar = shapeOf('altar');
+  Object.assign(m.base, altar);
+  m.reshape();
   let t = 0;
   for (; t < 5 && !m.asleep; t += 1 / 60) m.update(1 / 60);
-  slowest = Math.max(slowest, t);
-  if (!m.asleep) restless.push(seed);
+  const rim = Math.max(...m.hull.map((p) => Math.hypot(p.x, p.z)));
+  ok(m.asleep && Math.abs(lowest(m)) < 1e-4 && Math.abs(rim - altar.radius) < 1e-9 && m.collide(1 / 60, true) < 0.003,
+    `the stone made the altar in play settles flush on the top in ${t.toFixed(1)} s, the nest on it clear of it (${lowest(m).toExponential(1)} off the top)`);
 }
-ok(restless.length === 0, `zen's nests, turned over and back and levelled, come to rest on the stone (the slowest in ${slowest.toFixed(1)} s)${restless.length ? `: not ${restless}` : ''}`);
 
 console.log(`ground: ${checks} checks passed`);

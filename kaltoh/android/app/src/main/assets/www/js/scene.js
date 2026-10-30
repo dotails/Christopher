@@ -99,9 +99,10 @@ export function createScene(canvas) {
     focus: { x: 0.5, y: 0.4 }, // where the target sits on screen (fractions of width, height)
     // The pivot as the stone rests on the floor, level (motion.js): tipped, it rises above it.
     target: new THREE.Vector3(PIVOT.x, PIVOT.y + FLOOR, PIVOT.z),
-    // Turning the base over to read its underside brings the eye to it: k from 0 to 1, and the
-    // point to look at.
-    read: { k: 0, center: PIVOT.clone() },
+    // Turning the base over to read its underside brings the eye to it: k from 0 to 1, the point to
+    // look at, and how large its carving is (as the stone's is 1): a smaller one is come nearer, so
+    // it reads as large.
+    read: { k: 0, center: PIVOT.clone(), size: 1 },
   };
   // The window: the screen, at its true size in millimetres, is a pane of glass with the kal-toh's
   // centre `optics.depth` mm behind it (in front of it, standing out of the screen, when negative:
@@ -140,7 +141,7 @@ export function createScene(canvas) {
   function update() {
     const k = view.read.k;
     target.copy(view.target).lerp(view.read.center, k);
-    const d = view.distance * view.zoom * (1 - 0.3 * k);
+    const d = view.distance * view.zoom * (1 - k * (1 - 0.7 * view.read.size));
     const focusY = view.focus.y + (0.48 - view.focus.y) * k;
     camera.position.set(target.x, target.y + Math.sin(ELEVATION) * d, target.z + Math.cos(ELEVATION) * d);
     camera.lookAt(target);
@@ -614,18 +615,29 @@ function makeRoom(texture) {
   return box;
 }
 
-// The stone basin, from the compact mesh written by tools/convert_base.py. Returns the mesh and
-// its profile: the height of its upper surface at each distance from its axis.
-export async function loadBase(stage) {
+// What the kal-toh can stand on, each from the compact mesh written by tools/convert_base.py: the
+// stone basin, rough and matt, its grain raised from its colour; and the altar of obsidian, black
+// volcanic glass on a red plinth, its filigree pale, polished to catch the galley (its own relief
+// is in its mesh).
+const BASES = {
+  stone: { file: 'base', roughness: 0.78, envMapIntensity: 0.5, bumpScale: 2.2 },
+  obsidian: { file: 'altar', roughness: 0.3, envMapIntensity: 0.9, bumpScale: 0 },
+};
+
+// A base, from its compact mesh: the mesh (for the caller to stand on the base's root), its
+// profile - the height of its upper surface at each distance from its axis - and its foot, the
+// circle the carving under it may take (none given, the stone's).
+export async function loadBase(stage, kind = 'stone') {
+  const look = BASES[kind] ?? BASES.stone;
   const [bin, meta, map, bump] = await Promise.all([
-    fetch('assets/base.bin').then((r) => r.arrayBuffer()),
-    fetch('assets/base.json').then((r) => r.json()),
-    loadTexture('assets/base.jpg', true),
-    loadTexture('assets/base-bump.jpg', false),
+    fetch(`assets/${look.file}.bin`).then((r) => r.arrayBuffer()),
+    fetch(`assets/${look.file}.json`).then((r) => r.json()),
+    loadTexture(`assets/${look.file}.jpg`, true),
+    look.bumpScale ? loadTexture(`assets/${look.file}-bump.jpg`, false) : null,
   ]);
   const view = new DataView(bin);
   const magic = String.fromCharCode(...new Uint8Array(bin, 0, 4));
-  if (magic !== 'KTB1') throw new Error('base.bin: bad header');
+  if (magic !== 'KTB1') throw new Error(`${look.file}.bin: bad header`);
   const count = view.getUint32(4, true);
   const indexCount = view.getUint32(8, true);
   const extent = [view.getFloat32(12, true), view.getFloat32(16, true), view.getFloat32(20, true)];
@@ -660,17 +672,16 @@ export async function loadBase(stage) {
   const material = new THREE.MeshStandardMaterial({
     map,
     bumpMap: bump,
-    bumpScale: 2.2,
-    roughness: 0.78,
+    bumpScale: look.bumpScale,
+    roughness: look.roughness,
     metalness: 0,
-    // The room's light on it kept low: it is the t'an that should catch the eye.
-    envMapIntensity: 0.5,
+    // The room's light on the stone kept low: it is the t'an that should catch the eye.
+    envMapIntensity: look.envMapIntensity,
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   mesh.position.y = -PIVOT.y;
-  stage.baseRoot.add(mesh);
 
   const profile = meta.profile;
   const step = meta.profileStep;
@@ -687,7 +698,7 @@ export async function loadBase(stage) {
   };
   const radius = (profile.length - 1) * step;
   const top = Math.max(...profile); // nothing of the stone stands higher
-  return { mesh, meta, surface, slope, radius, top };
+  return { kind, mesh, meta, surface, slope, radius, top, foot: meta.foot ?? null };
 }
 
 function loadTexture(url, color) {

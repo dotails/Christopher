@@ -340,16 +340,16 @@ function check(condition, message) {
     };
     await turnOver();
     // One face holds it all: the name and the shape the game builds, the players (two at first,
-    // passing and playing), what just happened, the game and its ways, the room, the sound, the
-    // voice, the music and vibration, and the glyphs - none of them over another.
+    // passing and playing), what just happened, the game and its ways, the base, the room, the
+    // sound, the voice, the music and vibration, and the glyphs - none of them over another.
     check(await page.evaluate(() => {
       const e = window.__kaltoh.engraving;
-      const rows = ['row:way', 'row:players', 'slider:music', 'slider:sfx', 'slider:voice', 'slider:theme', 'row:haptics']
+      const rows = ['row:way', 'row:players', 'row:base', 'slider:music', 'slider:sfx', 'slider:voice', 'slider:theme', 'row:haptics']
         .map((id) => e.regions.find((r) => r.id === id && r.kind !== 'line'));
       const apart = rows.every((r, i) => r && (i === 0 || r.y >= rows[i - 1].y + rows[i - 1].h - 1e-6));
       return e.page === 'main' && e.state.shape?.s === 'Two concentric icosidodecahedra' && window.__kaltoh.classic.game.players === 2 && apart
         && ['title', 'shape', 'name0', 'name1', 'event', 'rules', 'translate', 'anew'].every((id) => e.regions.some((r) => r.id === id));
-    }), 'turned over, one carved face holds the name, the shape it builds, the two players, what happened, the ways, the room, the sound, the voice, the music and vibration, each row clear of the next');
+    }), 'turned over, one carved face holds the name, the shape it builds, the two players, what happened, the ways, the base, the room, the sound, the voice, the music and vibration, each row clear of the next');
     check(!(await carved('more')) && !(await carved('prev')) && !(await carved('row:language')), 'all of it, with no page to turn to (and no row for the script)');
     // Each value chosen from a list lies between two solid triangles cut into the stone, saying it
     // can be changed: the one before it turns to the choice before; the one after (as anywhere else
@@ -362,7 +362,7 @@ function check(condition, message) {
         const { data } = mask.getImageData(Math.round(x0), Math.round(y), Math.max(1, Math.round(x1 - x0)), 1);
         return Math.max(...data.filter((_, i) => i % 4 === 3));
       };
-      return ['way', 'players', 'haptics'].every((key) => {
+      return ['way', 'players', 'base', 'haptics'].every((key) => {
         const [name, value] = e.regions.filter((r) => r.id === `row:${key}` && r.kind === 'line');
         const prev = e.regions.find((r) => r.id === `prev:${key}`);
         const next = e.regions.find((r) => r.id === `next:${key}`);
@@ -371,7 +371,42 @@ function check(condition, message) {
         return name.x + name.w - 14 < prev.x && prev.x + prev.w <= value.x + 14 && next.x >= value.x + value.w - 14
           && deepest(prev.x, prev.x + prev.w - 4, y) > 250 && deepest(next.x + 4, next.x + next.w, y) > 250;
       });
-    }), 'each value chosen from a list (the game, the players, vibration) lies between two solid triangles cut into the stone');
+    }), 'each value chosen from a list (the game, the players, the base, vibration) lies between two solid triangles cut into the stone');
+    // The base: the stone, or an altar of obsidian, changed at once - the carving smoothed away and
+    // cut again in black glass, frosted pale, on the altar's foot, read as large - with the jumble
+    // standing on it clear of it; and back.
+    const stoodOn = () => page.evaluate(() => {
+      const k = window.__kaltoh;
+      const e = k.engraving;
+      const { base } = k.motion;
+      // The title's grooves as cut: their colour, from black (0) to white (255).
+      const title = e.regions.find((r) => r.id === 'title');
+      const { data } = e.carve.color.getContext('2d').getImageData(Math.round(title.x), Math.round(title.y), Math.round(title.w), Math.round(title.h));
+      let groove = 0;
+      for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 200) groove = Math.max(groove, (data[i] + data[i + 1] + data[i + 2]) / 3);
+      return {
+        chosen: k.settings.base, kind: base.kind, meshes: k.stage.baseRoot.children.length, standing: k.stage.baseRoot.children.includes(base.mesh),
+        rim: Math.max(...k.motion.hull.map((p) => Math.hypot(p.x, p.z))), radius: base.radius, foot: base.foot ?? 0.8,
+        size: e.mesh.scale.x, read: k.stage.view.read.size, groove, rough: e.mesh.material.roughness, raycast: e.baseMesh === base.mesh,
+      };
+    });
+    await tap(await where('next:base', 'value'));
+    await page.waitForFunction(() => window.__kaltoh.motion.base.kind === 'obsidian', null, { timeout: 60000, polling: 200 });
+    await recut();
+    await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
+    const altar = await stoodOn();
+    check(altar.chosen === 'obsidian' && altar.meshes === 2 && altar.standing && altar.raycast && Math.abs(altar.rim - altar.radius) < 1e-9 && altar.radius < 0.97
+      && Math.abs(altar.size * 0.8 - altar.foot) < 1e-6 && altar.read === altar.size && altar.groove > 170 && altar.rough < 0.5,
+      `the triangle after the stone makes the base the obsidian altar at once, its carving cut pale (${altar.groove.toFixed(0)}) in polished black glass on its foot, read as large`);
+    const onAltar = await page.evaluate(() => window.nearest(window.classicRods()));
+    check(onAltar > -0.002, `the jumble stands on the altar clear of it (closest ${onAltar.toFixed(3)})`);
+    await tap(await where('prev:base', 'value'));
+    await page.waitForFunction(() => window.__kaltoh.motion.base.kind === 'stone', null, { timeout: 60000, polling: 200 });
+    await recut();
+    await page.waitForFunction(() => window.__kaltoh.motion.asleep, null, { timeout: 90000, polling: 100 });
+    const stone = await stoodOn();
+    check(stone.chosen === 'stone' && stone.meshes === 2 && stone.standing && stone.raycast && stone.size === 1 && stone.read === 1 && stone.groove < 60 && stone.rough > 0.8,
+      `and the triangle before it, the stone again, its carving dark (${stone.groove.toFixed(0)}) in the rough stone`);
     await tap(await where('next:way', 'value'));
     await sleep(500);
     check(await page.evaluate(() => window.__kaltoh.settings.way === 'forms' && window.__kaltoh.engraving.state.pending), 'touching the triangle after the game changes it to the next, to begin anew: many forms');
