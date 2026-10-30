@@ -18,9 +18,9 @@
 // the face (the room's and the voice's sliders, a value touched, Shake to begin anew), fallen t'an
 // lying where they fell until a new game, and shaking to begin anew. A t'an let go of as it dangles
 // falling into the room, another rising in the tray; flicked, thrown onto the table. Held sideways
-// and back: the room drawn nearer to fill the wide screen, the view framed afresh and pinched no
-// nearer or further than its photograph allows, the stone clear of the tray, and its carving all
-// on the screen. Nothing may be written on the screen itself. Screenshots land in the directory
+// and back: the room drawn nearer on the wide screen, the view framed afresh and pinched no nearer
+// or further than its photograph allows, the stone clear of the tray, and its carving all on the
+// screen. Nothing may be written on the screen itself. Screenshots land in the directory
 // given as the first argument.
 //
 // Run: node kaltoh/tools/browser-check.cjs [out-dir]
@@ -924,11 +924,12 @@ function check(condition, message) {
     check(true, 'and the fallen t\'an fade with the old game');
     await page.screenshot({ path: path.join(OUT, '11-anew.png') });
 
-    // Held sideways and back. On the tall screen the room stands far off, the galley whole to its
-    // ceiling's lights; on the wide one it comes nearer, until its photograph fills the screen. The
-    // view is framed afresh each way round, and however it is pinched it never shows the room
-    // beyond the photograph; the tray's t'an is as long either way, the stone stands clear of where
-    // a finger takes it up, and turned over, the stone's carving is all on the screen.
+    // Held sideways and back. On the tall screen the room stands far back, the galley whole to its
+    // ceiling's lights; on the wide one it comes nearer, until little enough is seen past the
+    // photograph's sides. The view is framed afresh each way round, and however it is pinched it
+    // never sees past the photograph's top or bottom, nor more than a fifth past its sides; the
+    // tray's t'an is as long either way, the stone stands clear of where a finger takes it up, and
+    // turned over, the stone's carving is all on the screen.
     const turned = await browser.newContext({ viewport: { width: 412, height: 892 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
     await turned.addInitScript(() => localStorage.setItem('kaltoh.guide.v1', '[]'));
     const side = await turned.newPage();
@@ -944,19 +945,19 @@ function check(condition, message) {
       const k = window.__kaltoh;
       const s = k.stage;
       const v = s.view;
-      const covers = (z) => {
+      const allows = (z) => {
         const keep = v.zoom;
         v.zoom = z;
         s.update();
-        const all = s.photographCovers(TOP);
+        const fine = s.photographAllows(TOP);
         v.zoom = keep;
         s.update();
-        return all;
+        return fine;
       };
       const foot = s.toScreen(new (s.camera.position.constructor)(0, -0.62, 0.9));
       return {
         room: v.room, zoom: v.zoom, range: v.zoomRange, framed: v.framed, span: k.tray.span,
-        covers: covers(v.zoom) && covers(v.zoomRange[0]) && covers(v.zoomRange[1]),
+        allows: allows(v.zoom) && allows(v.zoomRange[0]) && allows(v.zoomRange[1]),
         clear: foot.y < k.tray.y - TRAY_REACH - 16,
       };
     });
@@ -979,8 +980,8 @@ function check(condition, message) {
       await sleep(300);
     };
     const upright = await framing();
-    check(upright.room === 1 && upright.zoom === upright.framed && upright.covers && upright.clear,
-      `upright, the room stands far off, the galley whole, and the view shows only its photograph, from as near as it may be drawn to as far back (zoom ${upright.range.map((z) => z.toFixed(2)).join(' to ')})`);
+    check(upright.room > 0.8 && upright.zoom === upright.framed && upright.allows && upright.clear,
+      `upright, the room stands far back (${upright.room.toFixed(2)}), the galley whole, and from as near as the view may be drawn to as far back it sees nothing past the photograph's top or bottom, and little past its sides (zoom ${upright.range.map((z) => z.toFixed(2)).join(' to ')})`);
     await pinch({ x: 206, y: 120 }, 60, 260);
     const nearest = await side.evaluate(() => window.__kaltoh.stage.view.zoom);
     await pinch({ x: 206, y: 120 }, 260, 20);
@@ -1046,8 +1047,8 @@ function check(condition, message) {
     await side.waitForFunction(() => window.__kaltoh.stage.size.width === 892, null, { timeout: 30000 });
     await sleep(800);
     const sideways = await framing();
-    check(sideways.room < 1 && sideways.zoom === sideways.framed && sideways.covers && sideways.clear && sideways.span === upright.span,
-      `held sideways, the room comes nearer (${sideways.room.toFixed(2)}), the view is framed afresh and shows only the photograph however pinched, the tray's t'an as long, the stone clear of it`);
+    check(sideways.room < upright.room && sideways.zoom === sideways.framed && sideways.allows && sideways.clear && sideways.span === upright.span,
+      `held sideways, the room comes nearer (${sideways.room.toFixed(2)}), the view is framed afresh, and however pinched sees nothing past the photograph's top or bottom and little past its sides; the tray's t'an as long, the stone clear of it`);
     await side.screenshot({ path: path.join(OUT, '12-sideways.png') });
     const sideSpot = await side.evaluate(() => {
       const k = window.__kaltoh;
@@ -1081,7 +1082,7 @@ function check(condition, message) {
     await side.waitForFunction(() => window.__kaltoh.stage.size.width === 412, null, { timeout: 30000 });
     await sleep(800);
     const back = await framing();
-    check(back.room === 1 && back.zoom === back.framed, 'and upright again, the room stands far off again, framed afresh');
+    check(back.room === upright.room && back.zoom === back.framed, 'and upright again, the room stands as far back again, framed afresh');
     await turned.close();
 
     // Never guided before (nothing remembered), the very first game is zen's, the guide welcoming.

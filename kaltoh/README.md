@@ -29,9 +29,10 @@ pausing it. A voice guides you through your first game, and each way to play the
 play it, answering what you do, until you turn it down under the stone.
 The stone stands on a silver pedestal table in Voyager's mess hall, seen from a seat at it: the
 galley before you, its floor's lines running with the table's edges, and drawing nearer moves you
-through the room. Held upright, the galley stands back, whole up to its ceiling's lights; turned
-sideways, either way, it comes nearer, until its photograph fills the wider screen. Pinch to draw
-nearer or back: never so far, either way, that you would see past the photograph's edges. The
+through the room. Held upright, the galley stands well back, whole up to its ceiling's lights;
+turned sideways, either way, it comes a little nearer, the photograph going on softly, mirrored,
+at the sides of the wider screen. Pinch to draw nearer or back: never so far, either way, that you
+would see past the photograph's top or bottom. The
 table's satin top mirrors the room softly, at half strength, with the stone and the t'an standing
 on it. The galley lights them too, its photograph stretched all round the table and kept dim on
 the table and the stone, while the t'an mirror it brightly, like polished aluminium, its ceiling's
@@ -43,7 +44,7 @@ faces turned away catch the galley ahead.
   <img src="docs/table.png" width="38%" alt="The kal-toh on its pedestal table in the mess hall, the galley beyond it whole up to its ceiling's lights, the stone and t'an mirrored in the table's top">
 </p>
 <p align="center">
-  <img src="docs/sideways.png" width="62%" alt="Held sideways: the galley nearer, its photograph filling the wide screen behind the kal-toh on its table">
+  <img src="docs/sideways.png" width="62%" alt="Held sideways: the galley a little nearer, the photograph going on softly at the sides of the wide screen, behind the kal-toh on its table">
 </p>
 <p align="center">
   <img src="docs/jumble.png" width="19%" alt="The jumble of the original game, drawn near">
@@ -241,11 +242,12 @@ build is gathered into the next form.
     the room laid along the table, so each ray from the eye takes the photograph's colour where it
     meets the room, and drawing nearer moves the eye through it; set lower than the table's foot and
     moved, never turned, so its lines still meet the table's: as far off as the screen allows, the
-    galley whole on a tall one, nearer on a wide one until the photograph fills it, and the view
-    drawn no nearer or further than shows only the photograph, found by casting rays across the
-    screen as the shader does, past the table's top; past the photograph's edges, where a screen
-    cannot help but see past them, its edge goes on out of focus - the stone, and the window the
-    screen becomes, framed afresh as the screen is turned), `table.js` (the pedestal
+    galley whole on a tall one, nearer on a wide one until no more than a fifth of the screen sees
+    past the photograph's sides (and nothing past its top or bottom, or where its camera never
+    saw), the view drawn no nearer or further than keeps to that, found by casting rays across the
+    screen as the shader does, past the table's top; past its edges the photograph goes on
+    mirrored, the further past the softer and dimmer - the stone, and the window the screen
+    becomes, framed afresh as the screen is turned), `table.js` (the pedestal
     table under the stone, its top at the floor, its near edge out of sight: satin silver (black
     where the model is) mirroring the mess hall at half strength, and the
     stone and t'an on it drawn a second time each frame, the eye turned over in the plane of the
@@ -327,9 +329,9 @@ build is gathered into the next form.
     voice's level on its own slider, and changes the ways on the face for a new game. It covers
     fallen t'an staying until a new game, and shaking to begin anew. A t'an let go of as it
     dangles falls into the room, a new one rising in the tray, and flicked, it is thrown and comes
-    down on the table. Held sideways and back, the room comes nearer to fill the wide screen and
-    stands back again, the view is framed afresh, and
-    pinched it goes no nearer or further than shows only the photograph; the stone stands clear of
+    down on the table. Held sideways and back, the room comes nearer on the wide screen and stands
+    back again, the view is framed afresh, and pinched it goes no nearer or further than the
+    photograph allows; the stone stands clear of
     the tray, and turned over its carving is all on the screen. It checks that the stone stands on the table, its top at the
     floor, mirroring what stands on it (and then puts the table out of sight: drawing its metal
     makes the software renderer several times slower).

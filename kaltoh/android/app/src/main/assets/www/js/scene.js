@@ -211,21 +211,28 @@ export function createScene(canvas) {
     return ray.intersectPlane(plane, out) ?? out.copy(anchor);
   }
 
-  // Where the room stands, how near the view may be drawn and how far back: never so that the room
-  // is seen beyond the photograph's edges, around the table's top `top` (table.js TOP: a rounded
-  // square level with FLOOR about the stone's axis), looked for all across the screen with the base
-  // at rest. The room as far off as the view as laid out (zoom 1) sees only the photograph, or as
-  // near as it comes; the view first framed as laid out, or, if that still shows beyond the
-  // photograph, as far back as shows none of it.
+  // Where the room stands, how near the view may be drawn and how far back, around the table's top
+  // `top` (table.js TOP: a rounded square level with FLOOR about the stone's axis), looked for all
+  // across the screen with the base at rest. Never so that the room is seen past the photograph's
+  // top or bottom, or where its camera never saw; past its sides (a screen wider than it is), on no
+  // more than a fifth of the screen, where it goes on mirrored and soft (makeRoom). The room as far
+  // off as the view as laid out (zoom 1) allows, or as near as it comes; the view first framed as
+  // laid out, or, if that shows too much past the photograph, as far back as shows little enough.
   const ZOOM = [0.45, 1.6]; // the nearest and the furthest ever
+  const SIDES = 0.2; // how much of the screen may see past the photograph's sides
   const probe = new THREE.Ray();
   const seen = new THREE.Vector2();
-  // Whether all the room seen is within the photograph; `beyond`, if given, gathers where on the
-  // screen it is not (and what of the photograph is seen there).
-  function photographCovers(top, beyond = null) {
+  // How much of the screen sees the room past the photograph: past its sides alone (`sides`), or
+  // past its top or bottom, or where its camera never saw (`other`), as fractions of the screen;
+  // `beyond`, if given, gathers where (and what of the photograph is seen there).
+  function pastPhotograph(top, beyond = null) {
     const inner = top.half - top.corner;
+    let sides = 0;
+    let other = 0;
+    let samples = 0;
     for (let j = 0; j <= 24; j++) {
       for (let i = 0; i <= 12; i++) {
+        samples += 1;
         const { origin: o, direction: d } = rayAt((i / 12) * size.width, (j / 24) * size.height, probe);
         if (d.y < 0) {
           const t = (FLOOR - o.y) / d.y;
@@ -234,43 +241,51 @@ export function createScene(canvas) {
           if (x * x + z * z <= top.corner * top.corner) continue; // the table's top, not the room
         }
         photographed(o, d, seen);
-        if (seen.x >= 0 && seen.x <= 1 && seen.y >= 0 && seen.y <= 1) continue;
-        if (!beyond) return false;
-        beyond.push({ x: i / 12, y: j / 24, u: seen.x, v: seen.y });
+        const across = seen.x >= 0 && seen.x <= 1;
+        const upright = seen.y >= 0 && seen.y <= 1;
+        if (across && upright) continue;
+        if (upright) sides += 1;
+        else other += 1;
+        beyond?.push({ x: i / 12, y: j / 24, u: seen.x, v: seen.y });
       }
     }
-    return !beyond?.length;
+    return { sides: sides / samples, other: other / samples };
+  }
+  // Whether the view, as it is now, sees as little past the photograph as it may.
+  function photographAllows(top) {
+    const past = pastPhotograph(top);
+    return past.other === 0 && past.sides <= SIDES;
   }
   function fitZoom(top) {
     const { zoom } = view;
     const reading = view.read.k;
     view.read.k = 0;
-    const covers = (z) => {
+    const allows = (z) => {
       view.zoom = z;
       update();
-      return photographCovers(top);
+      return photographAllows(top);
     };
-    // Between a zoom that shows only the photograph and one that does not, where it begins to.
+    // Between a zoom that is allowed and one that is not, where it stops being.
     const edge = (inside, beyond) => {
       for (let i = 0; i < 7; i++) {
         const z = (inside + beyond) / 2;
-        if (covers(z)) inside = z;
+        if (allows(z)) inside = z;
         else beyond = z;
       }
       return inside;
     };
-    const fills = (away) => {
+    const fits = (away) => {
       placeRoom(away);
-      return covers(1);
+      return allows(1);
     };
     let away = 1;
-    if (!fills(1)) {
+    if (!fits(1)) {
       let short = 1;
       away = 0;
-      if (fills(0)) {
+      if (fits(0)) {
         for (let i = 0; i < 6; i++) {
           const s = (away + short) / 2;
-          if (fills(s)) away = s;
+          if (fits(s)) away = s;
           else short = s;
         }
       }
@@ -278,16 +293,16 @@ export function createScene(canvas) {
     }
     view.room = away;
     let framed = 1;
-    while (framed > ZOOM[0] && !covers(framed)) framed = Math.max(ZOOM[0], framed - 0.05);
-    if (!covers(framed)) {
-      // Nowhere does it show only the photograph: as near or far as ever.
+    while (framed > ZOOM[0] && !allows(framed)) framed = Math.max(ZOOM[0], framed - 0.05);
+    if (!allows(framed)) {
+      // Nowhere does it see little enough past the photograph: as near or far as ever.
       framed = 1;
       view.zoomRange = [ZOOM[0], 1];
     } else {
       let far;
       if (framed < 1) far = framed = edge(framed, framed + 0.05);
-      else far = covers(ZOOM[1]) ? ZOOM[1] : edge(1, ZOOM[1]);
-      view.zoomRange = [covers(ZOOM[0]) ? ZOOM[0] : edge(framed, ZOOM[0]), far];
+      else far = allows(ZOOM[1]) ? ZOOM[1] : edge(1, ZOOM[1]);
+      view.zoomRange = [allows(ZOOM[0]) ? ZOOM[0] : edge(framed, ZOOM[0]), far];
     }
     view.framed = framed;
     view.zoom = Math.min(view.zoomRange[1], Math.max(view.zoomRange[0], zoom));
@@ -295,7 +310,7 @@ export function createScene(canvas) {
     update();
   }
 
-  return { renderer, scene, camera, key, rim, ambient, baseRoot, assemblyRoot, size, view, screen, optics, eye, glass, layout, update, toScreen, fromScreen, onGlass, rayAt, fitZoom, photographCovers };
+  return { renderer, scene, camera, key, rim, ambient, baseRoot, assemblyRoot, size, view, screen, optics, eye, glass, layout, update, toScreen, fromScreen, onGlass, rayAt, fitZoom, pastPhotograph, photographAllows, placeRoom };
 }
 
 // The light the stone and the table are lit by, and what the metal mirrors: the galley itself, its
@@ -400,14 +415,14 @@ const GALLEY = {
 };
 // Where the room stands: moved, never turned, so its lines still run to the table's own vanishing
 // points. Set well below the table's foot and far off, it shows the galley whole, up to its
-// ceiling's lights, as the photograph does - on a tall screen. A wide screen needs more of the
-// photograph across it than that leaves: the room is drawn nearer, the photograph's camera behind
-// the player, and less of it shows above the counters. Each screen has it as far off as still
-// fills it (fitZoom), between NEAR and FAR: how far below the table's foot its floor is, how far
-// beyond the table's middle its camera stands, and how far to the left. (Where the table's foot
-// meets the floor is never seen: the table's top hides the floor about it.)
+// ceiling's lights, as the photograph does, with room to spare - on a tall screen. A wide screen
+// sees past the photograph's sides from there: the room is drawn nearer, until little enough is
+// past them (fitZoom), and less of it shows above the counters. Between NEAR and FAR: how far below
+// the table's foot its floor is, how far beyond the table's middle its camera stands, and how far
+// to the left. (Where the table's foot meets the floor is never seen: the table's top hides the
+// floor about it.)
 const NEAR = { below: 3, ahead: -14.3, left: 22 };
-const FAR = { below: 10, ahead: 45.7, left: 15 };
+const FAR = { below: 13.5, ahead: 75.7, left: 11.5 };
 // The table's foot (its top is at FLOOR, 1.7182 of its model's units above its foot, scaled 3.7
 // times: table.js), and the photograph camera's height above the room's floor.
 const FOOT = FLOOR - 1.7182 * 3.7;
@@ -474,6 +489,9 @@ function makeRoom(texture) {
     uniforms: {
       map: { value: texture },
       level: { value: 0.8 },
+      // Past the photograph's edges: how many pixels past for each halving of its sharpness, how dim
+      // it grows far past, and over how many pixels.
+      fill: { value: new THREE.Vector3(40, 0.6, 1500) },
       size: { value: GALLEY.size },
       focal: { value: GALLEY.focal },
       eye: { value: room.eye },
@@ -494,6 +512,7 @@ function makeRoom(texture) {
     fragmentShader: /* glsl */ `
       uniform sampler2D map;
       uniform float level;
+      uniform vec3 fill;
       uniform vec2 size;
       uniform float focal;
       uniform vec3 eye;
@@ -518,12 +537,15 @@ function makeRoom(texture) {
         }
         vec3 c = toPhoto * (o + d * t - eye);
         vec2 px = 0.5 * size + focal * c.xy / max(c.z, 1e-3);
-        // Past the photograph's edges (a wide screen's sides, or what its camera never saw), its edge
-        // goes on, the further past it the further out of focus.
+        // Past the photograph's edges (a wide screen's sides, or what its camera never saw), the room
+        // goes on as the photograph mirrored there, the further past the softer and the dimmer.
         vec2 inside = clamp(px, vec2(0.5), size - 0.5);
-        float blur = min(log2(1.0 + length(px - inside) / 6.0), 9.0);
-        vec2 uv = vec2(inside.x / size.x, 1.0 - inside.y / size.y);
-        gl_FragColor = vec4(texture2D(map, uv, blur).rgb * level, 1.0);
+        float beyond = c.z > 1e-3 ? length(px - inside) : 1e5;
+        vec2 at = beyond < 1e4 ? px : inside;
+        float blur = min(log2(1.0 + beyond / fill.x), 9.0);
+        vec3 seen = texture2D(map, vec2(at.x / size.x, 1.0 - at.y / size.y), blur).rgb;
+        seen *= mix(1.0, fill.y, smoothstep(0.0, fill.z, beyond));
+        gl_FragColor = vec4(seen * level, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
