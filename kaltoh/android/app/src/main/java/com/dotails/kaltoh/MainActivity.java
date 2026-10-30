@@ -13,6 +13,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.media.audiofx.LoudnessEnhancer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -198,6 +199,10 @@ public class MainActivity extends Activity implements SensorEventListener {
     @Override
     protected void onDestroy() {
         musicFade.removeCallbacksAndMessages(null);
+        if (louder != null) {
+            louder.release();
+            louder = null;
+        }
         if (music != null) {
             music.release();
             music = null;
@@ -293,6 +298,10 @@ public class MainActivity extends Activity implements SensorEventListener {
     // --- Music ----------------------------------------------------------------------------------
 
     private MediaPlayer music;
+    // The music raised past what the player's own volume allows: by this much (millibels), with
+    // the effect's own limiting to keep it clean.
+    private static final int MUSIC_BOOST_MB = 400;
+    private LoudnessEnhancer louder;
     private boolean musicReady;
     private boolean musicAway; // the game is out of sight
     private float musicLevel; // as the page asks, 0 to 1
@@ -324,6 +333,13 @@ public class MainActivity extends Activity implements SensorEventListener {
             });
             player.prepareAsync();
             music = player;
+            try {
+                louder = new LoudnessEnhancer(player.getAudioSessionId());
+                louder.setTargetGain(MUSIC_BOOST_MB);
+                louder.setEnabled(true);
+            } catch (RuntimeException unsupported) {
+                louder = null; // a phone without the effect plays the music as loud as it is
+            }
         } catch (IOException | RuntimeException failed) {
             music = null; // without it the game is simply quieter
         }

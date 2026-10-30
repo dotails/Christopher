@@ -15,7 +15,8 @@ const BAR_GAIN = [1, 0.45, 0.22, 0.1];
 // Just-intonation pentatonic: the simplest ratios, as a Vulcan instrument maker might choose.
 const SCALE = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2];
 // The recording: ten minutes of ambience, faded in and out, so its loop is seamless (made some
-// 4.5 dB louder than it was given, its peaks held under a limiter).
+// 6 dB louder than it was given, its peaks held under a limiter; on the phone the shell raises it
+// further).
 const MUSIC = 'assets/music.mp3';
 const MUSIC_FULL = 1; // the music's gain at full: as loud as the player can play it
 const SFX_FULL = 0.6;

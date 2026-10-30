@@ -61,7 +61,7 @@ export const OPTIONS = [
   },
   { key: 'lives', v: 'lives', s: 'Lives, when surviving', when: (s) => rings(s) && s.mode === 'collapse', choices: [[3, 'three', '3'], [1, 'one', '1'], [5, 'five', '5']] },
   // Sliders: drawn along their groove under the base, from silent to full.
-  { key: 'music', v: 'music', s: 'Music', slider: true, value: 0.85 },
+  { key: 'music', v: 'music', s: 'Music', slider: true, value: 1 },
   { key: 'sfx', v: 'the sound of the tan', s: 'Sound effects', slider: true, value: 0.8 },
   { key: 'haptics', v: 'touch', s: 'Vibration', choices: [[true, 'on', 'On'], [false, 'off', 'Off']] },
   { key: 'language', v: 'script', s: 'Carving first reads in', choices: [['vulcan', 'vulcan', 'Vulcan'], ['standard', 'standard', 'Standard']] },
@@ -81,8 +81,8 @@ export function loadSettings() {
     }
     // Sound was once simply on or off.
     if (saved.sound === false && !('sfx' in saved)) out.sfx = 0;
-    // The music was once quieter by default (0.6): left where it was put, it rises with it.
-    if (saved.music === 0.6) out.music = DEFAULT_SETTINGS.music;
+    // The music was once quieter by default (0.6, then 0.85): left where it was put, it rises with it.
+    if (saved.music === 0.6 || saved.music === 0.85) out.music = DEFAULT_SETTINGS.music;
     return out;
   } catch {
     return { ...DEFAULT_SETTINGS };
