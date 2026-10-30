@@ -1,11 +1,13 @@
 // The guide: a voice that talks a new player through the game - Kokoro's Sky voice, its lines
 // rendered ahead of time (tools/make_voice.py, tools/voice-lines.json, assets/voice). It starts
 // silent, waiting until the player turns it up under the stone (the Voice slider), and falls silent
-// again whenever it is turned down to nothing. It hears what the game reports (a t'an taken up, held, aimed, let
-// go, placed; what the carving says) and watches what it can see for itself (the stone turned
-// over, a player waiting, a t'an left dangling, a shake gathering), and says each thing when it
-// helps: the lessons once (remembered from one day to the next), a mistake again whenever it is
-// made again (but not too often), never two lines at once.
+// again whenever it is turned down to nothing; turned up from nothing, it begins again from the
+// first lesson. It hears what the game reports (a t'an taken up, held, aimed, let go, placed; what
+// the carving says) and watches what it can see for itself (the stone turned over, a player
+// waiting, a t'an left dangling, a shake gathering), and says each thing when it helps: the lessons
+// once (remembered from one day to the next), a mistake again whenever it is made again (but not
+// too often), never two lines at once. It never says how to turn the stone over to find what is
+// under it: whoever hears it has done so, to turn it up.
 import { CLASSIC, MANY, ZEN } from './texts.js';
 import { FAMILIES } from './forms-rules.js';
 
@@ -161,7 +163,6 @@ export class Guide {
       if (this.way === 'zen' && this.placements >= 2) this.say('zenTen', { once: true });
       if (this.way === 'classic' && this.placements >= 3) this.say('lookKaltoh', { once: true });
       if (this.placements >= 3) this.say('turnStone', { once: true });
-      if (this.placements >= 6) this.say('flipHint', { once: true, still: () => !this.flipped });
       return;
     }
     if (dropped) this.say('droppedDangling', { gap: AGAIN });
@@ -199,7 +200,6 @@ export class Guide {
   transformed(formKey) {
     if (formKey) this.say(`form_${formKey}`, { gap: 10 });
     this.say('zenTen', { once: true });
-    this.say('flipHint', { once: true, still: () => !this.flipped });
   }
 
   // Another way chosen under the stone, waiting for a new game.
@@ -215,7 +215,7 @@ export class Guide {
 
   // The Voice slider drawn along. Turned down to nothing, the guide falls silent at once, and
   // waits; turned up, it says how loud it will be (a line already being spoken follows the slider),
-  // and turned up from nothing, it takes up the game under way where it stands.
+  // and turned up from nothing, it begins again and takes up the game under way where it stands.
   levelled(level) {
     const waited = !this.awake;
     this.awake = level > 0.001;
@@ -224,8 +224,21 @@ export class Guide {
       this.sound.hush();
       return;
     }
+    if (waited) this.restart();
     if (!this.talking) this.say('voiceLevel', { gap: 8 });
     if (waited && this.way) this.greet();
+  }
+
+  // Begun again, as for a new player: every lesson to be given again, the underside (where the
+  // voice was turned up) told of as it is found - all but how to turn the stone, which whoever turned
+  // the voice up has just done.
+  restart() {
+    this.learnt = new Set(['turnStone']);
+    this.remember();
+    this.last.clear();
+    this.placements = 0;
+    this.flipped = false;
+    this.flippedFor = 0;
   }
 
   // The stone taken by a finger to turn it: that lesson needs no telling.
@@ -268,16 +281,14 @@ export class Guide {
     if (shaking > 0.3) this.say('shaking', { once: true, still: () => this.shaking > 0 });
     // The underside turned up: what is there; left up a long while, how to turn it back.
     if (flipped && !this.flipped) {
-      this.remember('flipHint');
       this.say('flipped', { once: true, still: () => this.flipped });
       this.say('chooseWay', { once: true, still: () => this.flipped });
     }
     this.flipped = flipped;
     this.flippedFor = flipped ? this.flippedFor + dt : 0;
     if (this.flippedFor > 30) this.say('flippedBack', { once: true, still: () => this.flipped });
-    // After a few placements, how to turn it with two fingers, and to look under it, if not found.
+    // After a few placements, how to turn it with two fingers.
     if (this.placements >= 8 && !this.learnt.has('twoFingerTurn')) this.say('twoFingerTurn', { once: true });
-    if (this.placements >= 10 && !this.learnt.has('flipped')) this.say('flipHint', { gap: 120, still: () => !this.flipped });
     // One line at a time, with a breath between; none while it could not be heard (before the
     // page may play sound, or with the app put away), the lines waiting till it can.
     if (this.talking || !this.sound.canSpeak) return;
@@ -300,7 +311,7 @@ export class Guide {
 // The lines it can say, for tests: every key it may ask for has a file (tools/voice-lines.json).
 export const GUIDE_KEYS = [...new Set([
   'welcome', 'touchTray', 'dangling', 'danglingAgain', 'holding', 'blue', 'amber', 'amberAgain', 'droppedDangling',
-  'droppedOne', 'missed', 'placedFirst', ...PRAISE, 'idle', 'turnStone', 'twoFingerTurn', 'flipHint', 'flipped',
+  'droppedOne', 'missed', 'placedFirst', ...PRAISE, 'idle', 'turnStone', 'twoFingerTurn', 'flipped',
   'flippedBack', 'chooseWay', ...Object.values(WAY_NEXT), 'translate', 'shakeHint', 'shaking', 'newGame',
   ...Object.values(WAY_START), 'zenTen', 'zenTransform', 'zenComplete', 'harmony', 'discord', 'lookKaltoh',
   ...new Set(REFUSALS.values()), 'noise', 'eases', 'flung', 'wobble', 'loopClosed', 'struts', 'complete',

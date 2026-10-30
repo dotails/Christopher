@@ -612,7 +612,7 @@ class InnerShell {
 // --- The game on the stone ----------------------------------------------------------------------
 
 export class ClassicGame {
-  // ctx: { stage, motion, falling, tray, hand, sound, haptic, say, engraving, settings, after, base }
+  // ctx: { stage, motion, falling, tray, hand, sound, say, engraving, settings, after, base }
   constructor(ctx) {
     this.ctx = ctx;
     const { base } = ctx;
@@ -788,7 +788,7 @@ export class ClassicGame {
 
   // Carried over two t'an: blue and in place when it can join their tips, amber when it cannot.
   aim([ta, tb], f1, f2) {
-    const { hand, sound, haptic, stage, say } = this.ctx;
+    const { hand, sound, stage, say } = this.ctx;
     const s = this.structure;
     const u = ta?.tip ?? null;
     const v = tb?.tip ?? null;
@@ -817,14 +817,13 @@ export class ClassicGame {
       this.aimKey = key;
       if (u !== null || v !== null) {
         sound.hover();
-        haptic('tick');
       }
       if (why) say(why);
     }
   }
 
   release(cancelled = false) {
-    const { hand, tray, sound, haptic } = this.ctx;
+    const { hand, tray, sound } = this.ctx;
     const chosen = cancelled ? null : this.aimed;
     this.aimed = null;
     this.aimKey = '';
@@ -839,7 +838,6 @@ export class ClassicGame {
     hand.fly(hand.a, hand.b, chosen.pose.a, chosen.pose.b, 0.15, () => {
       hand.holding = false;
       sound.place();
-      haptic('place');
       this.resolve(K.play(this.game, chosen.u, chosen.v));
     });
   }
@@ -859,7 +857,7 @@ export class ClassicGame {
   }
 
   resolve(r) {
-    const { sound, haptic, say, after, motion, tray } = this.ctx;
+    const { sound, say, after, motion, tray } = this.ctx;
     const s = this.structure;
     let settle = 0.9;
     this.plays.push({ player: r.player, mark: r.kind === 'harmony' ? (r.hoops.length ? 'ring' : 'join') : 'fall' });
@@ -867,7 +865,6 @@ export class ClassicGame {
       s.join(r.edge);
       s.pulse([r.edge], { strength: 0.8 });
       sound.harmony(K.harmony(this.game));
-      haptic('harmony');
       if (r.complete) {
         this.celebrate();
         return;
@@ -889,7 +886,6 @@ export class ClassicGame {
       }
     } else if (r.kind === 'discord') {
       sound.discord();
-      haptic('discord');
       // Where the first tip truly belongs: its neighbours in the sphere not yet joined to it.
       const tips = lattice.neighbours[r.u].filter((w) => !K.isJoined(this.game, r.u, w));
       s.lesson = { tips, at: s.time + 0.4 };
@@ -903,7 +899,6 @@ export class ClassicGame {
       settle = 1.1;
     } else if (r.kind === 'flung') {
       sound.fling();
-      haptic('fling');
       // The spin jolts it as it throws the t'an off; its place on the base draws it back.
       motion.w.add(new THREE.Vector3().fromArray(K.imbalance(this.game, r.edge)).normalize().applyQuaternion(this.ctx.stage.assemblyRoot.quaternion).multiplyScalar(0.9));
       motion.wake();
@@ -921,13 +916,12 @@ export class ClassicGame {
   }
 
   celebrate() {
-    const { tray, sound, haptic, say, after } = this.ctx;
+    const { tray, sound, say, after } = this.ctx;
     this.phase = 'complete';
     tray.hide();
     after(0.5, () => {
       this.structure.pulse([...this.structure.views.keys()].slice(0, 1), { strength: 0.75, step: 0.05 });
       sound.complete();
-      haptic('complete');
     });
     this.carve();
     say(classicCompleteText(this.game));

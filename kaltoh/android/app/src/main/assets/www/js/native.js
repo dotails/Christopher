@@ -31,11 +31,20 @@ export const native = {
       return null;
     }
   },
-  haptic(kind) {
+  // A sound felt: its signature (audio.js feel), played by the shell's vibrator; and whether
+  // vibration is on at all (the shell makes the music's notes felt only then).
+  feel(kind, strength) {
     try {
-      bridge?.haptic(kind);
+      bridge?.feel?.(kind, strength);
     } catch {
       // Haptics are a courtesy; never let them interrupt play.
+    }
+  },
+  vibration(on) {
+    try {
+      bridge?.vibration?.(Boolean(on));
+    } catch {
+      // As above.
     }
   },
 };

@@ -2,8 +2,10 @@
 // holding it with two, the blue and the amber, letting go too soon or in the wrong place, and
 // placing it; explains what the carving says (a refusal, discord, a transformation); says each
 // lesson once and a repeated mistake again (not too often); says nothing when turned off, and
-// starting silent, waits until it is turned up, then greets the game under way; and every line it
-// can say is written in voice-lines.json and rendered into assets/voice.
+// starting silent, waits until it is turned up, then greets the game under way; turned down to
+// nothing and up again, begins again; never says how to turn the stone over (whoever hears it has
+// done so, to turn it up); and every line it can say is written in voice-lines.json and rendered
+// into assets/voice.
 // Run: node kaltoh/tools/guide.test.mjs
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
@@ -154,6 +156,15 @@ settings.voice = 0.8;
 guide.levelled(0.8);
 await run(6);
 ok(spoken[quiet] === 'voiceLevel', 'turned up again: first how loud it will be');
+await run(40);
+ok(count('welcome') === 2 && count('startKaltoh') === 2 && count('twoPlayers') === 2,
+  'and turned up from nothing, it begins again: a welcome, what the game is, taking turns');
+const begunAgain = spoken.length;
+for (let i = 0; i < 12; i++) guide.released({ placed: true });
+await run(90);
+const again = since(begunAgain);
+ok(again.includes('placedFirst') && !again.includes('turnStone') && !spoken.includes('flipHint') && !GUIDE_KEYS.includes('flipHint'),
+  'every lesson given again, but never how to turn the stone, or over to find what is under it: whoever hears it has done so, to turn it up');
 
 // As at first: the voice at nothing, the guide waits, saying nothing of the game begun; turned up,
 // it says how loud it will be, welcomes the player, and takes up the game where it stands.

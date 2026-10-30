@@ -448,7 +448,7 @@ function segmentDistance(x, y, a, b) {
 // --- The game on the stone ----------------------------------------------------------------------
 
 export class FormsGame {
-  // ctx: { stage, motion, falling, tray, hand, sound, haptic, say, engraving, settings, after, base }
+  // ctx: { stage, motion, falling, tray, hand, sound, say, engraving, settings, after, base }
   constructor(ctx) {
     this.ctx = ctx;
     const { base } = ctx;
@@ -652,7 +652,7 @@ export class FormsGame {
 
   // Carried over two tips: blue and in place when it can join them, amber when it cannot.
   aim([ta, tb], f1, f2) {
-    const { hand, sound, haptic, stage, say } = this.ctx;
+    const { hand, sound, stage, say } = this.ctx;
     const s = this.structure;
     const u = ta?.tip ?? null;
     const v = tb?.tip ?? null;
@@ -681,14 +681,13 @@ export class FormsGame {
       this.aimKey = key;
       if (u !== null || v !== null) {
         sound.hover();
-        haptic('tick');
       }
       if (why) say(why);
     }
   }
 
   release(cancelled = false) {
-    const { hand, tray, sound, haptic } = this.ctx;
+    const { hand, tray, sound } = this.ctx;
     const chosen = cancelled ? null : this.aimed;
     this.aimed = null;
     this.aimKey = '';
@@ -703,7 +702,6 @@ export class FormsGame {
     hand.fly(hand.a, hand.b, chosen.pose.a, chosen.pose.b, 0.15, () => {
       hand.holding = false;
       sound.place();
-      haptic('place');
       this.resolve(F.play(this.game, chosen.u, chosen.v));
     });
   }
@@ -725,7 +723,7 @@ export class FormsGame {
   }
 
   resolve(r) {
-    const { sound, haptic, say, after, tray } = this.ctx;
+    const { sound, say, after, tray } = this.ctx;
     const s = this.structure;
     const game = this.game;
     let settle = 0.9;
@@ -735,7 +733,6 @@ export class FormsGame {
       s.join(key, r.a, r.b, this.rodOf(r.layer));
       s.pulse([key], { strength: 0.8 });
       sound.harmony(F.harmony(game));
-      haptic('harmony');
       if (r.complete) {
         this.celebrate();
         return;
@@ -766,7 +763,6 @@ export class FormsGame {
       }
     } else {
       sound.discord();
-      haptic('discord');
       // Where the first tip of the shell truly belongs: its neighbours in the form not yet joined.
       const real = [r.a, r.b].find((t) => F.tipKind(game, t) === r.layer);
       if (real !== undefined && !r.noise.length) s.lesson = { tips: this.trueNeighbours(real), at: s.time + 0.4 };
@@ -796,13 +792,12 @@ export class FormsGame {
   }
 
   celebrate() {
-    const { tray, sound, haptic, say, after } = this.ctx;
+    const { tray, sound, say, after } = this.ctx;
     this.phase = 'complete';
     tray.hide();
     after(0.5, () => {
       this.structure.pulse([...this.structure.views.keys()].slice(0, 1), { strength: 0.75, step: 0.05 });
       sound.complete();
-      haptic('complete');
     });
     this.carve();
     say(manyCompleteText(this.game, this.form));

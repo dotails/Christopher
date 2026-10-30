@@ -4,7 +4,9 @@
 // come down, and let go it falls straight down to its edge first, then tips flush, knocking each time.
 // Resting there, a t'an spun into it is lifted clear rather than pushing it into the floor. The floor
 // is the table's top as it is (table.js): the stone's foot rests on its plates, spanning the groove
-// down its middle; and a t'an turned down toward the top lifts the stone clear of it.
+// down its middle; and a t'an turned down toward the top lifts the stone clear of it. And zen's
+// nests, some of them reaching down through the stone, come to rest on it, turned over and back
+// and levelled: lifted out of the stone, never shuttled down through it and back up for ever.
 // Run: node kaltoh/tools/ground.test.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,6 +14,7 @@ import * as THREE from '../android/app/src/main/assets/www/vendor/three.module.m
 import { Motion } from '../android/app/src/main/assets/www/js/motion.js';
 import { PIVOT } from '../android/app/src/main/assets/www/js/scene.js';
 import { onTop, topHeight } from '../android/app/src/main/assets/www/js/table.js';
+import * as Z from '../android/app/src/main/assets/www/js/zen-rules.js';
 
 let checks = 0;
 const ok = (cond, msg) => {
@@ -133,5 +136,30 @@ const rodLow = new THREE.Vector3(0.1, hang, out).multiplyScalar(1.5).applyQuater
 ok(rodLow.y - topHeight(rodLow.x, rodLow.z) > 0.02 - 1e-6 && lowest() > 0.04,
   `a t'an hanging below the stone's foot holds it up off the top, never into it (${(rodLow.y - topHeight(rodLow.x, rodLow.z)).toFixed(3)} clear)`);
 motion.setRods([]);
+
+// Zen's nests (the first forty), on the stone: turned over to be read, turned back, levelled.
+const restless = [];
+let slowest = 0;
+for (let seed = 1; seed <= 40; seed++) {
+  const nest = Z.createGame({ seed, radius: 0.44 });
+  const m = new Motion(base);
+  m.setRods(nest.rods.map((r) => [new THREE.Vector3(...r.a), new THREE.Vector3(...r.b)]));
+  for (const angle of [Math.PI, -Math.PI]) {
+    for (let t = 0; t < 0.6; t += 1 / 60) {
+      m.turnBase(new THREE.Vector3(1, 0, 0), angle / 36, 1 / 60);
+      m.update(1 / 60);
+    }
+    m.baseDragged = false;
+    for (let t = 0; t < 3; t += 1 / 60) m.update(1 / 60);
+  }
+  m.baseQ.identity();
+  m.baseW.set(0, 0, 0);
+  m.resetPlace();
+  let t = 0;
+  for (; t < 5 && !m.asleep; t += 1 / 60) m.update(1 / 60);
+  slowest = Math.max(slowest, t);
+  if (!m.asleep) restless.push(seed);
+}
+ok(restless.length === 0, `zen's nests, turned over and back and levelled, come to rest on the stone (the slowest in ${slowest.toFixed(1)} s)${restless.length ? `: not ${restless}` : ''}`);
 
 console.log(`ground: ${checks} checks passed`);

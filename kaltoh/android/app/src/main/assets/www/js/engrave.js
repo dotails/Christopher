@@ -13,7 +13,9 @@
 //
 // The medallion's frame is cut into the stone for good. Its words and glyphs are a second layer
 // whose depth the shader can scale (relief and darkened grooves alike), so they can be smoothed
-// away and recut. All of it is engraved alike: dark grooves in the stone, without light of their own.
+// away and recut. All of it is engraved alike: dark grooves in the stone, without light of their own,
+// their walls crisp - the words' relief found by the shader itself, at each pixel, from the depth
+// cut at the canvas's full resolution.
 import * as THREE from '../vendor/three.module.min.js';
 import { PIVOT } from './scene.js';
 import { OPTIONS, UNSHAPING } from './settings.js';
@@ -21,7 +23,12 @@ import { TEXT, vulcanOnly, rulesText, playerText } from './texts.js';
 
 const SIZE = 1024;
 const C = SIZE / 2;
-const NORMAL_SIZE = 512;
+// How steep a groove's walls are, from its depth across a pixel either side; and, for the words,
+// how far either side the shader looks (in canvas pixels): a little more than one, so a wall is
+// wide enough to catch the light and still crisp.
+const STEEP = 2.6;
+const WALL = 1.5;
+const WALL_STEEP = 3.4;
 export const MEDALLION_RADIUS = 0.8; // in the base's own units, inside its foot
 const STANDARD_FONT = "'Roboto', 'Helvetica Neue', system-ui, sans-serif";
 // The face, top to bottom (texture pixels): the name and the shape the game builds, the players
@@ -78,22 +85,26 @@ const qTurn = new THREE.Quaternion();
 const qLay = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
 const Y = new THREE.Vector3(0, 1, 0);
 
-// The carving's layer, blended into MeshStandardMaterial: its colour over the stone, its relief
-// added to the frame's, and its glow - all scaled by carveDepth.
+// The carving's layer, blended into MeshStandardMaterial: its colour over the stone, and its relief
+// added to the frame's - the slope of the depth cut (the mask's alpha) across a texel either side,
+// so its walls are as crisp as the canvas is fine - both scaled by carveDepth.
 function carveShader(shader, uniforms) {
   Object.assign(shader.uniforms, uniforms);
-  shader.fragmentShader = `uniform sampler2D carveColor;\nuniform sampler2D carveRelief;\nuniform float carveDepth;\n${shader.fragmentShader}`
+  shader.fragmentShader = `uniform sampler2D carveColor;\nuniform sampler2D carveMask;\nuniform float carveDepth;\n${shader.fragmentShader}`
     .replace('#include <map_fragment>', `#include <map_fragment>
       vec4 carveTint = texture2D( carveColor, vMapUv );
       diffuseColor.rgb = mix( diffuseColor.rgb, carveTint.rgb, carveTint.a * carveDepth );`)
     .replace('#include <normal_fragment_maps>', `
-      vec4 carveCut = texture2D( carveRelief, vNormalMapUv );
+      const float carveTexel = ${WALL.toFixed(2)} / ${SIZE.toFixed(1)};
+      vec2 carveSlope = vec2(
+        texture2D( carveMask, vNormalMapUv + vec2( carveTexel, 0.0 ) ).a - texture2D( carveMask, vNormalMapUv - vec2( carveTexel, 0.0 ) ).a,
+        texture2D( carveMask, vNormalMapUv + vec2( 0.0, carveTexel ) ).a - texture2D( carveMask, vNormalMapUv - vec2( 0.0, carveTexel ) ).a
+      ) * ${WALL_STEEP.toFixed(2)};
+      carveSlope /= sqrt( 1.0 + dot( carveSlope, carveSlope ) );
       vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;
       mapN.xy *= normalScale;
-      mapN.xy += ( carveCut.xy * 2.0 - 1.0 ) * normalScale * carveDepth;
-      normal = normalize( tbn * mapN );`)
-    .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-      totalEmissiveRadiance += emissive * pow( carveCut.b, 2.2 ) * carveDepth;`);
+      mapN.xy += carveSlope * normalScale * carveDepth;
+      normal = normalize( tbn * mapN );`);
 }
 
 export class Engraving {
@@ -104,20 +115,19 @@ export class Engraving {
     this.onAction = onAction;
     this.onOption = onOption;
 
-    // The frame, cut for good: stone colour, relief and glow.
+    // The frame, cut for good: stone colour and relief.
     this.stone = this.makeBackground(stone);
     const frameMask = canvasOf(SIZE);
     const frameGlow = canvasOf(SIZE);
     frameGlow.getContext('2d').fillRect(0, 0, SIZE, SIZE);
-    this.layer = { color: this.stone, mask: frameMask, glow: frameGlow };
+    this.layer = { color: this.stone, mask: frameMask };
     this.ring(C - 12, 7, 0.2);
     this.ring(C - 30, 2.5, 0.25);
-    const frameRelief = canvasOf(NORMAL_SIZE);
-    buildRelief(frameMask, null, frameRelief, true);
+    const frameRelief = canvasOf(SIZE);
+    buildRelief(frameMask, frameRelief);
 
-    // The words and glyphs: a layer of their own.
-    this.carve = { color: canvasOf(SIZE), mask: canvasOf(SIZE), glow: canvasOf(SIZE) };
-    this.relief = canvasOf(NORMAL_SIZE);
+    // The words and glyphs: a layer of their own, its colour and its depth.
+    this.carve = { color: canvasOf(SIZE), mask: canvasOf(SIZE) };
 
     const texture = (canvas, srgb) => {
       const t = new THREE.CanvasTexture(canvas);
@@ -129,7 +139,7 @@ export class Engraving {
     const normalMap = texture(frameRelief, false);
     const emissiveMap = texture(frameGlow, true);
     this.carveColor = texture(this.carve.color, true);
-    this.carveRelief = texture(this.relief, false);
+    this.carveMask = texture(this.carve.mask, false);
     this.depth = { value: 1 }; // the shader's, eased from `cutting`
     this.cutting = 1; // how deep the words are cut, 0 (smoothed away) to 1
     const material = new THREE.MeshStandardMaterial({
@@ -145,10 +155,10 @@ export class Engraving {
     });
     material.onBeforeCompile = (shader) => carveShader(shader, {
       carveColor: { value: this.carveColor },
-      carveRelief: { value: this.carveRelief },
+      carveMask: { value: this.carveMask },
       carveDepth: this.depth,
     });
-    material.customProgramCacheKey = () => 'kaltoh-carving';
+    material.customProgramCacheKey = () => 'kaltoh-carving-v2';
     this.mesh = new THREE.Mesh(new THREE.CircleGeometry(MEDALLION_RADIUS, 96), material);
     // Facing down, just proud of the foot.
     this.mesh.quaternion.copy(qLay);
@@ -268,18 +278,14 @@ export class Engraving {
   render() {
     if (!this.dirty) return;
     this.dirty = false;
-    const { color, mask, glow } = this.carve;
+    const { color, mask } = this.carve;
     color.getContext('2d').clearRect(0, 0, SIZE, SIZE);
     mask.getContext('2d').clearRect(0, 0, SIZE, SIZE);
-    const gl = glow.getContext('2d');
-    gl.fillStyle = '#000';
-    gl.fillRect(0, 0, SIZE, SIZE);
     this.layer = this.carve;
     this.regions = [];
     this.drawPage();
-    buildRelief(mask, glow, this.relief, false);
     this.carveColor.needsUpdate = true;
-    this.carveRelief.needsUpdate = true;
+    this.carveMask.needsUpdate = true;
   }
 
   drawPage() {
@@ -712,16 +718,13 @@ export class Engraving {
       this.dirty = true;
       return;
     }
-    const { color, mask, glow } = this.carve;
+    const { color, mask } = this.carve;
     color.getContext('2d').clearRect(x, y, w, h);
     mask.getContext('2d').clearRect(x, y, w, h);
-    const gl = glow.getContext('2d');
-    gl.fillStyle = '#000';
-    gl.fillRect(x, y, w, h);
     const keep = this.regions;
     this.regions = [];
     this.layer = this.carve;
-    const g = [color, mask, glow].map((c) => c.getContext('2d'));
+    const g = [color, mask].map((c) => c.getContext('2d'));
     for (const c of g) {
       c.save();
       c.beginPath();
@@ -731,9 +734,8 @@ export class Engraving {
     this.drawPage();
     for (const c of g) c.restore();
     this.regions = keep;
-    buildRelief(mask, glow, this.relief, false, { x: x - 4, y: y - 4, w: w + 8, h: h + 8 });
     this.carveColor.needsUpdate = true;
-    this.carveRelief.needsUpdate = true;
+    this.carveMask.needsUpdate = true;
   }
 
   // Where a carved region shows on screen (for tests): its centre in CSS pixels.
@@ -848,62 +850,46 @@ export class Engraving {
   }
 }
 
-// The relief (and, for the words, the glow) from a depth mask: the carving is cut into the
-// stone, so light catches the lower lip of each stroke and shades the upper. The frame's relief is
-// a full normal map; the words' keeps only the slope (red, green) and carries the glow in blue.
-// `rect`, in mask pixels, limits the work to a strip.
-function buildRelief(mask, glow, out, full, rect = null) {
-  const n = NORMAL_SIZE;
-  const f = SIZE / n;
-  const x0 = rect ? Math.max(0, Math.floor(rect.x / f)) : 0;
-  const y0 = rect ? Math.max(0, Math.floor(rect.y / f)) : 0;
-  const x1 = rect ? Math.min(n, Math.ceil((rect.x + rect.w) / f)) : n;
-  const y1 = rect ? Math.min(n, Math.ceil((rect.y + rect.h) / f)) : n;
-  const w = x1 - x0;
-  const h = y1 - y0;
-  const scratch = buildRelief.scratch ??= canvasOf(n).getContext('2d', { willReadFrequently: true });
-  scratch.clearRect(0, 0, n, n);
+// The frame's relief from its depth mask, as a normal map at the map's own resolution: the frame
+// is cut into the stone, so light catches the lower lip of each ring and shades the upper. (The
+// words' relief is found by the shader, from their mask: carveShader.)
+function buildRelief(mask, out) {
+  const n = out.width;
+  const scratch = canvasOf(n).getContext('2d', { willReadFrequently: true });
   scratch.drawImage(mask, 0, 0, n, n);
-  const src = scratch.getImageData(x0, y0, w, h).data;
-  let light = null;
-  if (glow) {
-    scratch.clearRect(0, 0, n, n);
-    scratch.drawImage(glow, 0, 0, n, n);
-    light = scratch.getImageData(x0, y0, w, h).data;
-  }
-  const depth = new Float32Array(w * h);
-  for (let i = 0; i < w * h; i++) depth[i] = src[i * 4 + 3] / 255;
+  const src = scratch.getImageData(0, 0, n, n).data;
+  const depth = new Float32Array(n * n);
+  for (let i = 0; i < n * n; i++) depth[i] = src[i * 4 + 3] / 255;
   // Soften the walls a little.
-  const soft = new Float32Array(w * h);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      soft[i] = x > 0 && x < w - 1 && y > 0 && y < h - 1
-        ? (depth[i] * 4 + depth[i - 1] + depth[i + 1] + depth[i - w] + depth[i + w]) / 8
+  const soft = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const i = y * n + x;
+      soft[i] = x > 0 && x < n - 1 && y > 0 && y < n - 1
+        ? (depth[i] * 4 + depth[i - 1] + depth[i + 1] + depth[i - n] + depth[i + n]) / 8
         : depth[i];
     }
   }
   const g = out.getContext('2d');
-  const img = g.createImageData(w, h);
-  const k = 2.6;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      const dx = x > 0 && x < w - 1 ? soft[i + 1] - soft[i - 1] : 0;
-      const dy = y > 0 && y < h - 1 ? soft[i + w] - soft[i - w] : 0;
+  const img = g.createImageData(n, n);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const i = y * n + x;
+      const dx = x > 0 && x < n - 1 ? soft[i + 1] - soft[i - 1] : 0;
+      const dy = y > 0 && y < n - 1 ? soft[i + n] - soft[i - n] : 0;
       // Height is minus depth; v runs up the texture while canvas rows run down.
-      let nx = dx * k;
-      let ny = -dy * k;
+      let nx = dx * STEEP;
+      let ny = -dy * STEEP;
       const len = Math.hypot(nx, ny, 1);
       nx /= len;
       ny /= len;
       img.data[i * 4] = Math.round((nx * 0.5 + 0.5) * 255);
       img.data[i * 4 + 1] = Math.round((ny * 0.5 + 0.5) * 255);
-      img.data[i * 4 + 2] = full ? Math.round((0.5 / len + 0.5) * 255) : light ? light[i * 4] : 0;
+      img.data[i * 4 + 2] = Math.round((0.5 / len + 0.5) * 255);
       img.data[i * 4 + 3] = 255;
     }
   }
-  g.putImageData(img, x0, y0);
+  g.putImageData(img, 0, 0);
 }
 
 // The glyphs, drawn about their centre.

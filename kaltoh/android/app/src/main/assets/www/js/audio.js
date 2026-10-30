@@ -7,7 +7,9 @@
 // Beneath it, two recordings looping (LOOPS): the room, and music. Each has a level of its own,
 // from silent to full (the sliders carved under the base). On the phone the Android shell plays
 // them, so other apps' sound plays on with them (a page's media would pause them); the sound of the
-// t'an is the page's own, which takes nothing from them either.
+// t'an is the page's own, which takes nothing from them either. Every sound of the t'an and the
+// stone is felt as well (vibration on): each has a signature of its own (`feel`), as strong as the
+// sound, felt even with the sound effects silenced; the music's notes the shell itself makes felt.
 import { native } from './native.js';
 
 const BAR = [1, 2.756, 5.404, 8.933];
@@ -37,6 +39,12 @@ export class Sound {
     this.voices = new Map(); // the guide's lines, decoded, by file
     this.speaking = null; // the line being spoken: { source, gain }
     this.voiceLevel = 1;
+    this.onFeel = null; // (kind, strength): a sound's signature, to be felt (main.js)
+  }
+
+  // A sound felt: its signature (see MainActivity.feel), 0 to 1.
+  feel(kind, strength = 1) {
+    this.onFeel?.(kind, Math.max(0, Math.min(1, strength)));
   }
 
   // The levels of the room, the sound effects, the guide's voice and the music, each from 0
@@ -314,6 +322,7 @@ export class Sound {
   // t'an a little different. Against metal it rings on and the other answers, a little lower;
   // against rock it is damped at once, and the stone gives a short gritty knock.
   metal(strength, against = 'metal') {
+    if (strength >= 0.02) this.feel('tap', strength);
     if (!this.ready || strength < 0.02 || this.crowded()) return;
     const s = Math.min(1, strength);
     const f0 = 2300 + Math.random() * 1500;
@@ -334,6 +343,7 @@ export class Sound {
   // Rock on rock, the stone set down on the floor: a low knock, the crack of the meeting, and grit
   // scattering after it.
   rock(strength) {
+    if (strength >= 0.02) this.feel('knock', strength);
     if (!this.ready || strength < 0.02) return;
     const s = Math.min(1, strength);
     this.tone(55 + Math.random() * 15, 0.3 * s, 0.22, { attack: 0.003, room: 0.25 });
@@ -347,11 +357,14 @@ export class Sound {
   // 'metal', metal on metal - a thin bright whine, rough; 'rockMetal', rock on metal - grit, with
   // a faint ring; 'rock', rock on rock - a low grinding. Speed 0..1.
   slide(kind, speed) {
-    if (!this.ready || speed < 0.05) return;
-    const now = this.ctx.currentTime;
+    if (speed < 0.05) return;
+    const now = this.ctx?.currentTime ?? performance.now() / 1000;
     this.slides ??= {};
     if (now - (this.slides[kind] ?? 0) < 0.07) return;
     this.slides[kind] = now;
+    // Felt grain by grain: metal along metal a fine texture, the stone's grit and grinding coarser.
+    this.feel(kind === 'metal' ? 'slide' : 'grind', speed);
+    if (!this.ready) return;
     const s = Math.min(1, speed);
     if (kind === 'metal') {
       this.burst(0.03 * s, 0.09, { type: 'bandpass', freq: 3000 + Math.random() * 3000, q: 12, attack: 0.02, room: 0.15 });
@@ -368,15 +381,18 @@ export class Sound {
 
   // Taken up from the tray: the lightest touch of metal.
   lift() {
+    this.feel('lift');
     this.metal(0.18, 'metal');
   }
 
   hover() {
+    this.feel('tick', 0.6);
     this.tone(3400, 0.018, 0.05, { room: 0 });
   }
 
   // A t'an set in place meets two others: metal on metal, twice.
   place() {
+    this.feel('place');
     this.metal(0.8, 'metal');
     if (this.ready) setTimeout(() => this.metal(0.6, 'metal'), 18);
   }
@@ -396,8 +412,9 @@ export class Sound {
     this.metal(0.2 + 0.8 * strength, against);
   }
 
-  // Rises with the structure's harmony: progress is audible.
+  // Rises with the structure's harmony: progress is audible, and felt.
   harmony(level) {
+    this.feel('harmony', 0.5 + 0.5 * level);
     const root = 196 * Math.pow(2, level * 1.1);
     [0, 2, 3, 5].forEach((step, i) => {
       this.tone(root * SCALE[step], 0.07, 2.4, { delay: i * 0.055, attack: 0.02, room: 0.7 });
@@ -406,32 +423,42 @@ export class Sound {
   }
 
   hoop() {
+    this.feel('hoop');
     [0, 2, 4, 5, 7].forEach((step, i) => this.strike(660 * SCALE[step], 0.06, 1.6, 0.25 + i * 0.07, 0.6));
   }
 
   discord() {
+    this.feel('discord');
     this.tone(98, 0.16, 0.9, { type: 'sawtooth', attack: 0.01, room: 0.2 });
     this.tone(103.5, 0.14, 0.9, { type: 'sawtooth', attack: 0.01, room: 0.2 });
     this.hiss(0.08, 0.35, { from: 900, to: 200, q: 0.6 });
   }
 
-  // A t'an thrown: the air it cuts, as hard as it was flicked (0 to 1); merely let fall, nothing.
+  // A t'an thrown: the air it cuts, as hard as it was flicked (0 to 1); merely let fall, only a
+  // tick felt.
   toss(strength) {
-    if (strength < 0.15) return;
+    if (strength < 0.15) {
+      this.feel('tick', 0.5);
+      return;
+    }
+    this.feel('toss', strength);
     this.hiss(0.1 * strength, 0.35, { from: 1800, to: 500, q: 1.2 });
   }
 
   fling() {
+    this.feel('fling');
     this.hiss(0.16, 0.55, { from: 2400, to: 260, q: 1.4 });
     this.tone(150, 0.1, 0.5, { type: 'triangle', attack: 0.01, room: 0.2 });
   }
 
   wobbleWarning() {
+    this.feel('wobble');
     this.tone(130.8, 0.05, 1.2, { attack: 0.2, room: 0.4 });
     this.tone(132.6, 0.05, 1.2, { attack: 0.2, room: 0.4 });
   }
 
   complete() {
+    this.feel('complete');
     const root = 261.6;
     [0, 1, 2, 3, 4, 5, 6, 7].forEach((step, i) => this.strike(root * 2 * SCALE[step], 0.07, 2.2, i * 0.11, 0.7));
     [0, 3, 5].forEach((step) => this.tone(root * SCALE[step] / 2, 0.06, 4.5, { attack: 0.6, delay: 0.3, room: 0.8 }));
@@ -455,6 +482,7 @@ export class Sound {
   // Everything falls away: a rush of air, and t'an knocking against one another as they go (their
   // landing is heard as they land).
   dissolve() {
+    this.feel('dissolve');
     this.hiss(0.1, 1.2, { from: 4000, to: 400, q: 0.5 });
     for (let i = 0; i < 7; i++) setTimeout(() => this.metal(0.3 + Math.random() * 0.4, 'metal'), 150 + Math.random() * 800);
   }

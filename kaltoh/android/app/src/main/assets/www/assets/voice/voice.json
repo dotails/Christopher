@@ -89,11 +89,6 @@
   "seconds": 5.65,
   "level": -14
  },
- "flipHint": {
-  "text": "There's more under the stone. Drag the stone up, all the way over, until its underside faces you.",
-  "seconds": 5.59,
-  "level": -14
- },
  "flipped": {
   "text": "This is the underside of the stone. Everything is here: the ways to play, the players, the room, the sound effects, and my voice. Touch any option to change it.",
   "seconds": 9.11,

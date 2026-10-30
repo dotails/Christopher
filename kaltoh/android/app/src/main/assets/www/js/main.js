@@ -50,13 +50,29 @@ const shaped = () => (way === 'classic' ? classic : way === 'forms' ? forms : wa
 let begunWith = ''; // the ways the game was begun with (settings.js shapeOf)
 
 const insets = { top: 0, bottom: 0 };
-const quality = { maxDpr: 2, time: 0, frames: 0 };
+const quality = { maxDpr: 2, time: 0, frames: 0, calm: 0 };
 let phase = 'loading'; // until the first game begins; then each game keeps its own
 let shaking = 0; // how far a shake to begin anew has gone (0..1)
 
-const haptic = (kind) => {
-  if (settings.haptics) native.haptic(kind);
+// Felt as well as heard, vibration on: each sound's signature (audio.js), played by the shell. What
+// is being felt is never cut short by something slighter, and a crowd of contacts in one instant is
+// felt as its strongest. Per kind: its rank, and how long it is felt (ms).
+const FEEL = {
+  slide: [1, 25], grind: [1, 45], tick: [1, 25], tap: [2, 30], toss: [2, 60], lift: [3, 40], knock: [3, 60],
+  place: [3, 70], harmony: [4, 260], hoop: [4, 600], wobble: [4, 900], discord: [5, 240], fling: [5, 220],
+  dissolve: [5, 300], complete: [6, 1300],
 };
+let felt = { rank: -1, until: 0, at: 0, strength: 0 };
+const haptic = (kind, strength = 1) => {
+  if (!settings.haptics || !FEEL[kind]) return;
+  const [rank, ms] = FEEL[kind];
+  const now = performance.now();
+  if (now < felt.until && rank < felt.rank) return;
+  if (now - felt.at < 35 && rank === felt.rank && strength <= felt.strength) return;
+  felt = { rank, until: now + ms, at: now, strength };
+  native.feel(kind, strength);
+};
+sound.onFeel = haptic;
 sound.setVolumes(settings);
 // What the kal-toh says goes into its stone, and the guide hears it.
 const say = (text) => {
@@ -306,7 +322,6 @@ const input = new Input(canvas, {
     sound.wake();
     hand.lift(x, y);
     sound.lift();
-    haptic('lift');
     guide.lifted();
   },
   onCarry(x, y) {
@@ -351,7 +366,6 @@ function letFall(fling) {
   const { a, b, va, vb, up, flick } = hand.drop(fling);
   falling.spawn(a, b, va, { velocityB: vb, up, spin: 0.3 });
   sound.toss(Math.min(1, flick / 2500));
-  haptic(flick > 900 ? 'fling' : 'tick');
   tray.renew();
 }
 
@@ -371,7 +385,6 @@ function restart() {
   timers.length = 0;
   shaped().dissolve();
   sound.dissolve();
-  haptic('restart');
   after(1.6, () => newGame(true));
 }
 
@@ -416,6 +429,7 @@ function onEngravedOption(key, value) {
   }
   haptic('tick');
   if (key === 'way') guide.chose(value);
+  if (key === 'haptics') native.vibration(value);
 }
 
 // --- Shaking ------------------------------------------------------------------------------
@@ -482,12 +496,20 @@ function readingView(dt) {
 function adapt(dt) {
   quality.time += dt;
   quality.frames += 1;
+  quality.calm += dt;
   if (quality.time < 2.5) return;
   const average = quality.time / quality.frames;
   quality.time = 0;
   quality.frames = 0;
   if (average > 0.024 && quality.maxDpr > 1) {
     quality.maxDpr = Math.max(1, quality.maxDpr - 0.25);
+    quality.calm = 0;
+    layout();
+  } else if (average < 0.0185 && quality.maxDpr < 2 && quality.calm > 20) {
+    // Drawn quickly again a good while (its first slow moments past, the stone at rest): finer again,
+    // a step at a time, so that what is carved under the stone is crisp.
+    quality.maxDpr = Math.min(2, quality.maxDpr + 0.25);
+    quality.calm = 0;
     layout();
   }
 }
@@ -521,7 +543,6 @@ function step(dt) {
   // Stone meeting the floor.
   if (motion.landed) {
     sound.thud(Math.min(1, motion.landed / 3));
-    haptic('place');
     motion.landed = 0;
   }
   if (motion.scrape > 0.25) sound.scrape(motion.scrape);
@@ -594,7 +615,7 @@ async function start() {
   motion = new Motion(base);
   falling = new Falling(motion, base, sound);
   const shapeContext = {
-    stage, motion, falling, tray, hand, sound, haptic, say, settings, after, base,
+    stage, motion, falling, tray, hand, sound, say, settings, after, base,
     get engraving() {
       return engraving;
     },
@@ -614,9 +635,11 @@ async function start() {
     settings.way = 'zen';
     saveSettings(settings);
   }
-  // The sound readied at once, so the guide can greet the player (in a browser, from the first
-  // touch).
+  // The sound readied at once, so the guide can greet the player, and the room and the music begin
+  // at once (in a browser, all of it from the first touch).
   sound.open();
+  sound.startMusic();
+  native.vibration(settings.haptics);
   // The game left when the app was last closed goes on; or a new one begins.
   if (seedParam !== null || !resumeGame()) newGame();
   document.getElementById('veil').classList.add('gone');

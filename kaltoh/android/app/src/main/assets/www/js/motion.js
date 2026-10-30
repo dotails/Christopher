@@ -54,6 +54,7 @@ const endA = new THREE.Vector3();
 const endB = new THREE.Vector3();
 const sample = new THREE.Vector3();
 const sampleNormal = new THREE.Vector3();
+const hung = new THREE.Vector3(); // the kal-toh's centre, in the stone's frame
 const contactNormal = new THREE.Vector3();
 const contactAt = new THREE.Vector3();
 
@@ -91,6 +92,7 @@ export class Motion {
     this.baseOffset = new THREE.Vector3();
     this.pos = new THREE.Vector3(); // the assembly's displacement from the pivot
     this.vel = new THREE.Vector3();
+    this.speed = 0; // how fast it has gone, lately
     this.q = new THREE.Quaternion();
     this.w = new THREE.Vector3();
     this.anchor = new THREE.Quaternion(); // its place on the base: orientation relative to the stone
@@ -445,8 +447,11 @@ export class Motion {
     this.clearFloor();
 
     // Settled - in its place on a base at rest, hardly moving - it goes still entirely.
+    // (How fast it goes over a moment, not in each step: resting on the stone, it is drawn toward its
+    // place and stopped by the stone every other step, going nowhere.)
+    this.speed += (this.vel.length() - this.speed) * (1 - Math.exp(-h / 0.1));
     const settled = this.mode === 'held' && !this.baseDragged && this.baseW.lengthSq() === 0 && !this.grounding &&
-      this.baseOffset.lengthSq() === 0 && this.vel.length() < 0.004 && this.w.length() < 0.004 &&
+      this.baseOffset.lengthSq() === 0 && this.speed < 0.004 && this.w.length() < 0.004 &&
       rotationTo(this.q, qTarget.copy(this.baseQ).multiply(this.anchor), v1).length() < 0.001;
     this.stillFor = settled ? this.stillFor + h : 0;
     if (this.stillFor > 0.3) {
@@ -474,6 +479,10 @@ export class Motion {
     qInv.copy(this.baseQ).invert();
     const origin = v2.copy(this.centre).add(this.baseOffset);
     const high = base.top + CLEAR;
+    // A kal-toh about the pivot, over the basin, is only ever lifted out of the stone: pushed down
+    // through its foot, the t'an on the far side of it would be pushed back up the next step, and
+    // down again, for ever. Only one beneath the stone is pushed out through its foot.
+    const beneath = hung.copy(this.centre).add(this.pos).sub(origin).applyQuaternion(qInv).y + PIVOT.y < 0;
     for (const [pa, pb] of this.rods) {
       // Into the base's own frame: foot at y = 0, axis along y.
       const a = this.toWorld(pa, endA).sub(origin).applyQuaternion(qInv);
@@ -492,7 +501,7 @@ export class Motion {
       for (let i = 0; i <= steps; i++) {
         const t = s0 + ((s1 - s0) * i) / steps;
         sample.lerpVectors(a, b, t);
-        const depth = this.depthAt(sample, sampleNormal);
+        const depth = this.depthAt(sample, sampleNormal, beneath);
         if (depth > deepest) {
           deepest = depth;
           normal.copy(sampleNormal);
@@ -532,8 +541,8 @@ export class Motion {
   }
 
   // How far a point in the base's frame (foot at y = 0) lies inside the stone, and the way out
-  // (into `out`): up through its upper surface, or down through its foot.
-  depthAt(p, out) {
+  // (into `out`): up through its upper surface, or (`down`) down through its foot, if nearer.
+  depthAt(p, out, down = true) {
     const { base } = this;
     const r = Math.hypot(p.x, p.z);
     if (r >= base.radius || p.y < -CLEAR) return 0;
@@ -542,7 +551,7 @@ export class Motion {
     const slope = base.slope(r);
     out.set(r > 1e-6 ? (-slope * p.x) / r : 0, 1, r > 1e-6 ? (-slope * p.z) / r : 0).normalize();
     let depth = (top - p.y) * out.y;
-    if (p.y + CLEAR < depth) {
+    if (down && p.y + CLEAR < depth) {
       depth = p.y + CLEAR;
       out.set(0, -1, 0);
     }

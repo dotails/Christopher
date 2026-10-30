@@ -21,6 +21,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.VibrationAttributes;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.DisplayCutout;
@@ -35,14 +36,21 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Locale;
 
 /**
  * Hosts the game - a WebGL page in assets/www - full screen, and lends it the phone's senses:
- * the accelerometer for shake-to-begin-anew and the vibrator for touch feedback.
+ * the accelerometer for shake-to-begin-anew, and the vibrator, so that every sound is felt.
  *
  * Pages are served from the APK's assets under a private https origin, so the game's ES
  * modules, textures and fonts load as same-origin content without touching the network.
@@ -57,9 +65,11 @@ public class MainActivity extends Activity implements SensorEventListener {
     // Linear acceleration (m/s^2) worth reporting; the page decides what counts as a shake.
     private static final float SHAKE_FLOOR = 6f;
     private static final long SHAKE_INTERVAL_MS = 33;
-    // Where the game in play is kept between sessions.
+    // Where the game in play is kept between sessions, with the levels of the room and the music
+    // (so they begin at once, before the page is loaded) and whether vibration is on.
     private static final String KEPT = "kaltoh";
     private static final String KEPT_GAME = "game";
+    private static final String KEPT_FEEL = "vibration";
 
     private WebView web;
     private SensorManager sensors;
@@ -120,6 +130,14 @@ public class MainActivity extends Activity implements SensorEventListener {
             if (motion == null) motion = sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         }
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        readHaptics();
+        readNotes();
+        // The room and the music begin at once, as they were last left (onResume): not only once
+        // the page is loaded and asks for them.
+        SharedPreferences kept = getSharedPreferences(KEPT, MODE_PRIVATE);
+        room.recall(kept);
+        theme.recall(kept);
+        feeling = kept.getBoolean(KEPT_FEEL, true);
 
         web.loadUrl(START);
     }
@@ -243,54 +261,198 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     // --- Haptics ------------------------------------------------------------------------------
 
-    @SuppressWarnings("deprecation")
-    private void buzz(String kind) {
-        if (vibrator == null || !vibrator.hasVibrator()) return;
-        long[] timings;
-        int[] amplitudes;
+    // Every sound felt as well as heard (feel, from the page; the music's notes, here): a signature
+    // for each kind, as strong as the sound. Where the phone has tuned haptic primitives - crisp
+    // clicks and ticks, thuds, swells - they are composed; elsewhere the motor is driven in pulses
+    // long and strong enough to be felt on any phone (a few milliseconds, as some once were, are felt
+    // on none). Felt as a game's are, with its media.
+    private static final int CLICK = 0, TICK = 1, LOW = 2, THUD = 3, RISE = 4, FALL = 5, SWELL = 6;
+    private static final AudioAttributes FELT_AS = new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_GAME)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build();
+    private boolean composes; // the phone's tuned primitives: click, tick and low tick
+    private boolean thuds; // ... and a thud
+    private boolean swells; // ... and rises and falls
+    private volatile boolean feeling = true; // vibration on (the page's setting)
+    private long feltUntil; // a signature felt until then (uptime ms): the music's notes wait for it
+
+    private void readHaptics() {
+        if (vibrator != null && !vibrator.hasVibrator()) vibrator = null;
+        if (vibrator == null || Build.VERSION.SDK_INT < 31) return;
+        composes = vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_CLICK,
+                VibrationEffect.Composition.PRIMITIVE_TICK, VibrationEffect.Composition.PRIMITIVE_LOW_TICK);
+        thuds = composes && vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_THUD);
+        swells = composes && vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
+                VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, VibrationEffect.Composition.PRIMITIVE_QUICK_FALL);
+    }
+
+    // A sound's signature, at its strength (0 to 1).
+    private void feel(String kind, float strength) {
+        if (vibrator == null) return;
+        float s = Math.max(0f, Math.min(1f, strength));
+        Signature f = new Signature();
         switch (kind) {
-            case "tick":
-                timings = new long[] {0, 7};
-                amplitudes = new int[] {0, 45};
-                break;
-            case "lift":
-                timings = new long[] {0, 14};
-                amplitudes = new int[] {0, 90};
-                break;
-            case "place":
-                timings = new long[] {0, 18};
-                amplitudes = new int[] {0, 140};
-                break;
+            case "tick": f.beat(TICK, 0.5f + 0.5f * s, 20); break;
+            case "tap": f.beat(CLICK, 0.3f + 0.7f * s, 22); break;
+            case "lift": f.beat(CLICK, 0.75f, 30); break;
+            case "place": f.beat(CLICK, 1f, 35).pause(25).beat(CLICK, 0.75f, 25); break;
+            case "knock": f.beat(THUD, 0.45f + 0.55f * s, 45); break;
+            case "slide": f.beat(LOW, 0.3f + 0.6f * s, 16); break;
+            case "grind": f.beat(LOW, 0.35f + 0.6f * s, 22).pause(20).beat(LOW, 0.3f + 0.5f * s, 18); break;
+            case "toss": f.beat(FALL, 0.35f + 0.65f * s, 45); break;
             case "harmony":
-                timings = new long[] {0, 22, 70, 30};
-                amplitudes = new int[] {0, 110, 0, 70};
+                // Rising, as the chord does, note by note.
+                for (int i = 0; i < 4; i++) f.pause(i == 0 ? 0 : 45).beat(CLICK, (0.45f + 0.15f * i) * (0.6f + 0.4f * s), 22);
                 break;
-            case "discord":
-                timings = new long[] {0, 60, 45, 90};
-                amplitudes = new int[] {0, 200, 0, 150};
+            case "hoop":
+                // A ring of strikes, a moment after.
+                f.pause(240);
+                for (int i = 0; i < 5; i++) f.pause(i == 0 ? 0 : 45).beat(i < 4 ? TICK : CLICK, 0.6f + 0.1f * i, 20);
                 break;
-            case "fling":
-                timings = new long[] {0, 110};
-                amplitudes = new int[] {0, 190};
+            case "wobble":
+                for (int i = 0; i < 3; i++) f.pause(i == 0 ? 0 : 260).beat(LOW, 0.8f, 70);
                 break;
+            case "discord": f.beat(THUD, 1f, 70).pause(50).beat(THUD, 0.85f, 100); break;
+            case "fling": f.beat(SWELL, 1f, 90).beat(FALL, 0.85f, 70); break;
+            case "dissolve": f.beat(RISE, 0.9f, 80).beat(FALL, 0.75f, 120); break;
             case "complete":
-                timings = new long[] {0, 30, 60, 30, 60, 90};
-                amplitudes = new int[] {0, 140, 0, 160, 0, 255};
+                // Whole: strikes rising, then a swell and a knock.
+                for (int i = 0; i < 8; i++) f.pause(i == 0 ? 0 : 80).beat(CLICK, 0.5f + 0.07f * i, 25);
+                f.pause(160).beat(SWELL, 1f, 150).beat(THUD, 1f, 80);
                 break;
-            case "restart":
-                timings = new long[] {0, 80, 40, 80};
-                amplitudes = new int[] {0, 180, 0, 120};
-                break;
-            default:
-                return;
+            case "note": f.beat(s > 0.55f ? CLICK : TICK, 0.25f + 0.6f * s, 18); break;
+            default: return;
         }
-        if (Build.VERSION.SDK_INT >= 26) {
-            vibrator.vibrate(vibrator.hasAmplitudeControl()
-                    ? VibrationEffect.createWaveform(timings, amplitudes, -1)
-                    : VibrationEffect.createWaveform(timings, -1));
-        } else {
-            vibrator.vibrate(timings, -1);
+        if (!"note".equals(kind)) feltUntil = SystemClock.uptimeMillis() + f.length;
+        f.play();
+    }
+
+    private int primitive(int kind) {
+        switch (kind) {
+            case TICK: return VibrationEffect.Composition.PRIMITIVE_TICK;
+            case LOW: return VibrationEffect.Composition.PRIMITIVE_LOW_TICK;
+            case THUD: return thuds ? VibrationEffect.Composition.PRIMITIVE_THUD : VibrationEffect.Composition.PRIMITIVE_CLICK;
+            case RISE: return swells ? VibrationEffect.Composition.PRIMITIVE_QUICK_RISE : VibrationEffect.Composition.PRIMITIVE_CLICK;
+            case SWELL: return swells ? VibrationEffect.Composition.PRIMITIVE_SLOW_RISE : VibrationEffect.Composition.PRIMITIVE_CLICK;
+            case FALL: return swells ? VibrationEffect.Composition.PRIMITIVE_QUICK_FALL : VibrationEffect.Composition.PRIMITIVE_TICK;
+            default: return VibrationEffect.Composition.PRIMITIVE_CLICK;
         }
+    }
+
+    /** Beats felt one after another: tuned primitives where the phone has them, pulses elsewhere. */
+    private final class Signature {
+        private final Object composition; // a VibrationEffect.Composition, on phones that compose
+        private final long[] timings = new long[64];
+        private final int[] amplitudes = new int[64];
+        private int count;
+        private long pause;
+        long length; // ms, as pulses
+
+        Signature() {
+            composition = composes && Build.VERSION.SDK_INT >= 31 ? VibrationEffect.startComposition() : null;
+        }
+
+        Signature pause(long ms) {
+            pause += ms;
+            return this;
+        }
+
+        // A beat of the given kind and strength; as a pulse, `ms` long (and never shorter than a
+        // motor can be felt to turn).
+        Signature beat(int kind, float strength, long ms) {
+            if (count + 2 > timings.length) return this;
+            if (Build.VERSION.SDK_INT >= 31 && composition != null) {
+                ((VibrationEffect.Composition) composition).addPrimitive(primitive(kind), strength, (int) pause);
+            }
+            long on = Math.max(ms, kind == THUD || kind == SWELL ? 40 : 20);
+            timings[count] = pause;
+            amplitudes[count++] = 0;
+            timings[count] = on;
+            amplitudes[count++] = Math.round(70 + 185 * strength);
+            length += pause + on;
+            pause = 0;
+            return this;
+        }
+
+        @SuppressWarnings("deprecation")
+        void play() {
+            if (count == 0) return;
+            try {
+                long[] t = Arrays.copyOf(timings, count);
+                if (Build.VERSION.SDK_INT < 26) {
+                    vibrator.vibrate(t, -1);
+                    return;
+                }
+                VibrationEffect effect = Build.VERSION.SDK_INT >= 31 && composition != null
+                        ? ((VibrationEffect.Composition) composition).compose()
+                        : vibrator.hasAmplitudeControl()
+                                ? VibrationEffect.createWaveform(t, Arrays.copyOf(amplitudes, count), -1)
+                                : VibrationEffect.createWaveform(t, -1);
+                if (Build.VERSION.SDK_INT >= 33) {
+                    vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_MEDIA));
+                } else {
+                    vibrator.vibrate(effect, FELT_AS);
+                }
+            } catch (RuntimeException refused) {
+                // A phone that will not have it: the game is simply not felt.
+            }
+        }
+    }
+
+    // The music felt as well as heard: each note the piano strikes (assets/theme-notes.json, found
+    // in the recording by tools/make_theme_notes.py) a light tap as it sounds, as hard as it was
+    // played and as loud as the music is heard - never over a signature still being felt.
+    private int[] noteAt = new int[0]; // ms into the recording
+    private float[] noteForce = new float[0];
+    private int nextNote;
+    private int noteWas = -1; // where the music was when last looked at (ms)
+    private final Runnable noteStep = this::stepNotes;
+
+    private void readNotes() {
+        try (InputStream in = getAssets().open("www/assets/theme-notes.json")) {
+            ByteArrayOutputStream text = new ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            for (int n; (n = in.read(chunk)) > 0; ) text.write(chunk, 0, n);
+            JSONArray notes = new JSONObject(new String(text.toByteArray(), StandardCharsets.UTF_8)).getJSONArray("notes");
+            int[] at = new int[notes.length()];
+            float[] force = new float[notes.length()];
+            for (int i = 0; i < at.length; i++) {
+                JSONArray note = notes.getJSONArray(i);
+                at[i] = note.getInt(0);
+                force[i] = (float) note.getDouble(1);
+            }
+            noteAt = at;
+            noteForce = force;
+        } catch (IOException | JSONException | RuntimeException none) {
+            noteAt = new int[0]; // the music is only heard
+            noteForce = new float[0];
+        }
+    }
+
+    private void stepNotes() {
+        fade.removeCallbacks(noteStep);
+        MediaPlayer player = theme.player;
+        if (!feeling || vibrator == null || player == null || !theme.ready || noteAt.length == 0) return;
+        int at;
+        try {
+            if (!player.isPlaying()) return;
+            at = player.getCurrentPosition();
+        } catch (IllegalStateException letGo) {
+            return;
+        }
+        // Begun, come round again, or taken up somewhere new: from the notes still to come.
+        if (noteWas < 0 || at < noteWas || at - noteWas > 500) {
+            nextNote = 0;
+            while (nextNote < noteAt.length && noteAt[nextNote] < at - 20) nextNote++;
+        }
+        while (nextNote < noteAt.length && noteAt[nextNote] <= at) {
+            float force = noteForce[nextNote] * theme.now;
+            if (force > 0.05f && SystemClock.uptimeMillis() >= feltUntil) feel("note", force);
+            nextNote++;
+        }
+        noteWas = at;
+        fade.postDelayed(noteStep, 15);
     }
 
     // --- Music ----------------------------------------------------------------------------------
@@ -299,8 +461,8 @@ public class MainActivity extends Activity implements SensorEventListener {
     // music. Each is raised past what its player's own volume allows, by this much (millibels),
     // with the effect's own limiting to keep it clean.
     private static final int LOOP_BOOST_MB = 400;
-    private final Loop room = new Loop("www/assets/music.mp3");
-    private final Loop theme = new Loop("www/assets/theme.mp3");
+    private final Loop room = new Loop("www/assets/music.mp3", "room", 1f);
+    private final Loop theme = new Loop("www/assets/theme.mp3", "theme", 0.5f);
     private boolean away; // the game is out of sight
     private final Handler fade = new Handler(Looper.getMainLooper());
 
@@ -319,9 +481,10 @@ public class MainActivity extends Activity implements SensorEventListener {
         theme.resume();
     }
 
-    /** One recording, looping, at the level the page asks for. */
+    /** One recording, looping, at the level the page asks for (kept, to begin at next time). */
     private final class Loop {
         private final String asset;
+        private final String key;
         private MediaPlayer player;
         private LoudnessEnhancer louder;
         private boolean ready;
@@ -330,12 +493,20 @@ public class MainActivity extends Activity implements SensorEventListener {
         private float now; // as heard, easing toward it
         private final Runnable step = this::step;
 
-        Loop(String asset) {
+        Loop(String asset, String key, float level) {
             this.asset = asset;
+            this.key = key;
+            this.level = level;
+        }
+
+        void recall(SharedPreferences kept) {
+            level = Math.max(0f, Math.min(1f, kept.getFloat(key, level)));
         }
 
         void set(float asked) {
+            float was = level;
             level = Math.max(0f, Math.min(1f, asked));
+            if (level != was) getSharedPreferences(KEPT, MODE_PRIVATE).edit().putFloat(key, level).apply();
             if (level > 0 && player == null) open();
             fade.removeCallbacks(step);
             fade.post(step);
@@ -391,6 +562,10 @@ public class MainActivity extends Activity implements SensorEventListener {
                 player.setVolume(0f, 0f);
                 player.start();
                 fade.postDelayed(step, 30);
+                if (this == theme) {
+                    noteWas = -1;
+                    fade.post(noteStep);
+                }
                 return;
             }
             now += (target - now) * 0.1f;
@@ -441,9 +616,22 @@ public class MainActivity extends Activity implements SensorEventListener {
             runOnUiThread(() -> theme.set(level));
         }
 
+        // A sound felt (its kind and strength, from audio.js).
         @JavascriptInterface
-        public void haptic(String kind) {
-            runOnUiThread(() -> buzz(kind));
+        public void feel(String kind, float strength) {
+            runOnUiThread(() -> MainActivity.this.feel(kind, strength));
+        }
+
+        // Vibration on or off: the music's notes are felt only while it is on.
+        @JavascriptInterface
+        public void vibration(boolean on) {
+            runOnUiThread(() -> {
+                if (feeling == on) return;
+                feeling = on;
+                getSharedPreferences(KEPT, MODE_PRIVATE).edit().putBoolean(KEPT_FEEL, on).apply();
+                noteWas = -1;
+                fade.post(noteStep);
+            });
         }
 
         // The game in play (keep.js), written down as soon as it is given: the page's own storage

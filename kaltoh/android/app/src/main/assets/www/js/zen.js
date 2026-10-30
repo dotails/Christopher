@@ -63,7 +63,7 @@ const centre = new THREE.Vector3();
 const ray = new THREE.Ray();
 
 export class ZenGame {
-  // ctx: { stage, motion, falling, tray, hand, sound, haptic, say, engraving, settings, after, base }
+  // ctx: { stage, motion, falling, tray, hand, sound, say, engraving, settings, after, base }
   constructor(ctx) {
     this.ctx = ctx;
     this.game = null;
@@ -361,7 +361,7 @@ export class ZenGame {
 
   // Carried with its ends on two pieces: blue and where it will rest across them; amber on one only.
   aim([ta, tb], f1, f2) {
-    const { hand, sound, haptic, stage, say, motion } = this.ctx;
+    const { hand, sound, stage, say, motion } = this.ctx;
     let pose = null;
     let refused = false;
     if (ta && tb) {
@@ -379,7 +379,6 @@ export class ZenGame {
       this.aimKey = key;
       if (ta || tb) {
         sound.hover();
-        haptic('tick');
       }
       if (refused) say(ZEN.aimSame);
     }
@@ -407,11 +406,10 @@ export class ZenGame {
   // A t'an comes to rest where placement() found it would (also for tests: as if laid there by
   // hand). The tenth since the last form brings the next.
   commit(pose) {
-    const { sound, haptic, say, after, tray } = this.ctx;
+    const { sound, say, after, tray } = this.ctx;
     const result = Z.place(this.game, pose);
     if (!result) return null;
     sound.place();
-    haptic('place');
     // (Where it was laid: the tenth goes on from there to its rod of the next form.)
     const v = this.addView({ id: result.rod, a: pose.a, b: pose.b, kind: 'placed' });
     v.flash = 0.6;
@@ -516,7 +514,7 @@ export class ZenGame {
   // Every t'an home: a wave of light runs across the new form and it rings; or, the last form
   // taken, it is fully formed.
   arrive(t, form, hop) {
-    const { sound, haptic, say, tray } = this.ctx;
+    const { sound, say, tray } = this.ctx;
     if (this.phase !== 'transforming') return;
     for (const v of this.views.values()) {
       const e = Z.rodOf(this.game, v.id)?.edge ?? 0;
@@ -526,14 +524,12 @@ export class ZenGame {
       this.phase = 'complete';
       tray.hide();
       sound.complete();
-      haptic('complete');
       say(zenWholeText(form));
       this.carve();
       return;
     }
     sound.hoop();
     sound.harmony(t.stage / this.game.forms.length);
-    haptic('harmony');
     say(zenBecomesText(form));
     this.phase = 'play';
     tray.length = this.game.length * SCALE;
