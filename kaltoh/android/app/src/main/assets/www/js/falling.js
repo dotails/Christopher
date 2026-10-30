@@ -1,11 +1,12 @@
 // T'an that have fallen from the kal-toh. Each is two particles held a t'an's length apart, so it
 // tumbles; it strikes and slides over the stone (which may itself be turning), glances off the
-// t'an still standing and off the fallen ones, and comes to rest on the floor beneath the stone or
-// in its basin. Fallen t'an stay where they lie until a new game begins; then they fade away.
+// t'an still standing and off the fallen ones, and comes to rest on the floor beneath the stone (the
+// table's top: across its groove, or down in it) or in its basin. Fallen t'an stay where they lie
+// until a new game begins; then they fade away.
 import * as THREE from '../vendor/three.module.min.js';
 import * as G from './geom.js';
 import { FLOOR } from './scene.js';
-import { TOP } from './table.js';
+import { onTop, topHeight } from './table.js';
 import { ROD_WIDTH } from './rodmesh.js';
 
 const STEP = 1 / 120;
@@ -14,7 +15,7 @@ const GRAVITY = 6.5;
 // (however it lies) and a hair, so no edge of it ever passes into the stone or its basin's lip.
 const CLEAR = ROD_WIDTH / 2 + 0.002;
 const LIE = ROD_WIDTH / 2;
-const SAMPLE = 0.02; // tested against the stone this often along its length
+const SAMPLE = 0.02; // tested against the stone and the floor this often along its length
 const T = 0.03; // a t'an's thickness against another (the rules' 0.02, drawn at scene.SCALE)
 const SETTLE = 0.6; // seconds lying still before a t'an sleeps
 const NEAR_STONE = 1.5; // a sleeping t'an this close to the pivot wakes when the stone moves
@@ -35,12 +36,6 @@ const previous = new THREE.Vector3();
 const mid = new THREE.Vector3();
 const flat = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
-
-// Whether a point lies over the table's top (a square with rounded corners about the stone's axis).
-function onTable(p) {
-  const inner = TOP.half - TOP.corner;
-  return Math.hypot(Math.max(0, Math.abs(p.x) - inner), Math.max(0, Math.abs(p.z) - inner)) < TOP.corner;
-}
 
 export class Falling {
   constructor(motion, base, sound) {
@@ -78,6 +73,7 @@ export class Falling {
       still: 0,
       asleep: false,
       onFloor: false,
+      ground: new THREE.Vector3(0, 1, 0), // the floor's normal where it last lay on it
       leaving: 0,
       amber,
       blue,
@@ -158,8 +154,8 @@ export class Falling {
     if ((r.onFloor || r.onStone) && speed > 0.08) this.sliding.rock = Math.max(this.sliding.rock, speed);
     r.still = speed < 0.05 ? r.still + STEP : Math.max(0, r.still - STEP * 0.5);
     if (r.onFloor) {
-      // Lying on the floor it comes to rest on its broad face.
-      flat.copy(UP).addScaledVector(tmp.subVectors(r.b, r.a).normalize(), -tmp.dot(UP));
+      // Lying on the floor it comes to rest on its broad face (against the groove's wall, along it).
+      flat.copy(r.ground).addScaledVector(tmp.subVectors(r.b, r.a).normalize(), -tmp.dot(r.ground));
       if (flat.lengthSq() > 1e-6) r.up.lerp(flat.normalize(), 0.02).normalize();
     }
     if (impact > 0.4 && r.age - r.lastClink > 0.07) {
@@ -168,22 +164,51 @@ export class Falling {
     }
   }
 
-  // The floor - the table's top - lifted out of it, with a little bounce and a good deal of
-  // friction. Off its edge there is nothing: an end out there falls on, and so the t'an tips over
-  // the edge and away.
+  // The floor - the table's top, its plates and the groove down its middle (table.js) - met along
+  // the t'an's whole length: lifted out where it lies deepest (turning about its ends as it would),
+  // with a little bounce and a good deal of friction, so that it lies across the groove, or down in
+  // it against its walls. Off the top's edge there is nothing: what lies out there falls on, and so
+  // the t'an tips over the edge and away; and what is beneath the top, falling away, it lets be.
   floor(r) {
     let impact = 0;
     r.onFloor = false;
-    for (const [x, p] of [[r.a, r.pa], [r.b, r.pb]]) {
-      const depth = FLOOR + LIE - x.y;
-      if (depth <= 0 || depth > 0.2 || !onTable(x)) continue;
+    if (Math.min(r.a.y, r.b.y) > FLOOR + 0.05) return 0; // above the highest of the plates
+    const steps = Math.max(1, Math.ceil(r.length / SAMPLE));
+    for (let pass = 0; pass < 2; pass++) {
+      let best = null;
+      for (let i = 0; i <= steps; i++) {
+        const s = i / steps;
+        point.lerpVectors(r.a, r.b, s);
+        if (!onTop(point.x, point.z)) continue;
+        const h = topHeight(point.x, point.z, local);
+        if (point.y < h - 0.2) continue;
+        const depth = LIE - (point.y - h) * local.y;
+        if (depth > 0 && (!best || depth > best.depth)) {
+          best = { s, depth };
+          out.copy(local);
+        }
+      }
+      if (!best) break;
       r.onFloor = true;
-      const vy = (x.y - p.y) / STEP;
-      x.y += depth;
-      const vx = (x.x - p.x) * 0.97;
-      const vz = (x.z - p.z) * 0.97;
-      p.set(x.x - vx, x.y - Math.max(0, -vy) * 0.25 * STEP, x.z - vz);
-      impact = Math.max(impact, -vy);
+      r.ground.copy(out);
+      const { s, depth } = best;
+      const n = out;
+      va.subVectors(r.a, r.pa).divideScalar(STEP);
+      vb.subVectors(r.b, r.pb).divideScalar(STEP);
+      dv.copy(va).multiplyScalar(1 - s).addScaledVector(vb, s);
+      const vn = dv.dot(n);
+      move(r, [n.x, n.y, n.z], s, depth);
+      if (vn < 0) {
+        // Into it: out again with a quarter of the speed, and friction along it.
+        const along = dv.addScaledVector(n, -vn).multiplyScalar(-0.03);
+        along.addScaledVector(n, -vn * 1.25);
+        const k = 1 / ((1 - s) * (1 - s) + s * s);
+        va.addScaledVector(along, (1 - s) * k);
+        vb.addScaledVector(along, s * k);
+        impact = Math.max(impact, -vn);
+      }
+      r.pa.copy(r.a).addScaledVector(va, -STEP);
+      r.pb.copy(r.b).addScaledVector(vb, -STEP);
     }
     return impact;
   }

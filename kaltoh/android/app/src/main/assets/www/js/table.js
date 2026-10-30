@@ -16,6 +16,31 @@ const SCALE = 3.7;
 // The top in world units, about the stone's axis: half its width (0.95 in the model, table.json)
 // and the radius of its rounded corners. Fallen t'an lie on it, and off its edge they fall away.
 export const TOP = { half: 0.95 * SCALE, corner: 0.3 * SCALE };
+// Its surface, as what lies on it meets it (heights above FLOOR, measured by rays straight down at
+// the model): the plates a shallow saddle, rising toward the table's ends and falling toward its
+// front and back, and the groove down the middle, across the view, its floor flat and its walls
+// sloping up to the plates.
+const PLATES = { x: 0.00145, z: -0.00276, at: 0.00653 };
+const GROOVE = { floor: -0.12, from: 0.565, to: 0.765 };
+
+// Whether a point (x, z) lies over the top: a square with rounded corners about the stone's axis.
+export function onTop(x, z) {
+  const inner = TOP.half - TOP.corner;
+  return Math.hypot(Math.max(0, Math.abs(x) - inner), Math.max(0, Math.abs(z) - inner)) < TOP.corner;
+}
+
+// The top's height at (x, z), and its normal there in `normal` (a THREE.Vector3), if given.
+export function topHeight(x, z, normal = null) {
+  const plate = PLATES.x * x * x + PLATES.z * z * z + PLATES.at;
+  const f = Math.min(1, Math.max(0, (Math.abs(z) - GROOVE.from) / (GROOVE.to - GROOVE.from)));
+  if (normal) {
+    const dx = 2 * PLATES.x * x * f;
+    let dz = 2 * PLATES.z * z * f;
+    if (f > 0 && f < 1) dz += ((plate - GROOVE.floor) * Math.sign(z)) / (GROOVE.to - GROOVE.from);
+    normal.set(-dx, 1, -dz).normalize();
+  }
+  return FLOOR + GROOVE.floor + (plate - GROOVE.floor) * f;
+}
 
 // The mirror in the top: everything drawn again from the eye turned over in the plane of the top
 // (the view reflected, and the image flipped left to right so that faces still face the same way

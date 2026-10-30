@@ -17,9 +17,14 @@
 // comes down, only rises as it must: tipped further, toward the eye or away, it is lifted back to turn
 // freely about the pivot; tipped a little while it rests, it rocks up onto its edge, never into the
 // floor. Resting there, a t'an turned into it is lifted clear: the stone does not give way into the
-// floor.
+// floor. The floor is the table's top as it is (table.js): its plates, and the groove down its
+// middle, which the stone's foot spans; and neither the stone nor any t'an on it ever passes into
+// it, however fast it is spun: turned down toward it, or knocked down by the stone tumbling end
+// over end, the t'an lift the stone clear - above the pivot, if they must - and it comes back down
+// as they let it.
 import * as THREE from '../vendor/three.module.min.js';
-import { PIVOT, SCALE, FLOOR } from './scene.js';
+import { PIVOT, SCALE } from './scene.js';
+import { onTop, topHeight } from './table.js';
 
 const STEP = 1 / 120;
 const BASE_GLIDE = 0.6; // seconds for a released base to slow ...
@@ -34,6 +39,7 @@ const LEVEL = Math.cos((20 * Math.PI) / 180); // within twenty degrees of uprigh
 const FALL = 9; // how fast it falls to the floor (world units/s^2)
 const LIFT = 45; // how firmly it is lifted back (1/s^2, critically damped)
 const TIP = 7; // how fast, resting on its edge, it tips over to lie flush (rad/s^2)
+const RAISED = 0.12; // seconds for a stone lifted above the pivot by its t'an to come back down
 const Y = new THREE.Vector3(0, 1, 0);
 const upNow = new THREE.Vector3();
 
@@ -103,14 +109,18 @@ export class Motion {
     this.drop = 0;
     this.dropV = 0;
     this.dropTarget = 0;
+    // And how far the t'an on it hold it up above the pivot, where they reach the floor (and how
+    // far they must).
+    this.raise = 0;
+    this.raiseNeed = 0;
     this.tipW = 0; // how fast, on its edge, it is tipping over to lie flush
     this.landed = 0; // how hard it last came to rest on the floor (for its sound), until taken
     this.centre = PIVOT.clone(); // the pivot, as far down as the stone has come
     // Points round the stone's foot and its lip, about the pivot: its lowest point, however it is
-    // turned, is among them.
+    // turned, is among them (close enough together that the groove's walls fall between none).
     this.hull = [];
-    for (let i = 0; i < 32; i++) {
-      const a = (i / 32) * Math.PI * 2;
+    for (let i = 0; i < 64; i++) {
+      const a = (i / 64) * Math.PI * 2;
       for (const y of [0, base.top]) this.hull.push(new THREE.Vector3(Math.cos(a) * base.radius, y - PIVOT.y, Math.sin(a) * base.radius));
     }
     // It begins as it rests, level on the floor.
@@ -210,18 +220,37 @@ export class Motion {
     return out.copy(world).sub(this.centre).sub(this.pos).applyQuaternion(qInv.copy(this.q).invert()).divideScalar(SCALE);
   }
 
-  // How far the stone, turned as it is, could come down before its lowest point met the floor.
+  // How far the stone, turned as it is (and given way as it has), and the t'an on it could come
+  // down from the pivot's height before any of them met the floor beneath; less than none, how far
+  // they must rise above it. (The stone only ever comes down straight above the table's middle.)
   room() {
-    let lowest = Infinity;
-    for (const p of this.hull) lowest = Math.min(lowest, v1.copy(p).applyQuaternion(this.baseQ).y);
-    return Math.max(0, PIVOT.y + lowest - FLOOR);
+    let room = Infinity;
+    for (const p of this.hull) {
+      v1.copy(p).applyQuaternion(this.baseQ).add(this.baseOffset);
+      if (onTop(v1.x, v1.z)) room = Math.min(room, PIVOT.y + v1.y - topHeight(v1.x, v1.z));
+    }
+    for (const ends of this.rods) {
+      for (const p of ends) {
+        v1.copy(p).multiplyScalar(SCALE).applyQuaternion(this.q).add(this.pos);
+        if (onTop(v1.x, v1.z)) room = Math.min(room, PIVOT.y + v1.y - topHeight(v1.x, v1.z) - CLEAR);
+      }
+    }
+    return Number.isFinite(room) ? room : 0;
+  }
+
+  // Held up above the pivot by the t'an on it as far as they must (`room`, less than none): at once
+  // as far as that, back down as they let it. Returns the room left to come down, so raised.
+  raised(room, h) {
+    this.raiseNeed = Math.max(0, -room);
+    this.raise = this.raise <= this.raiseNeed ? this.raiseNeed : this.raiseNeed + (this.raise - this.raiseNeed) * Math.exp(-h / RAISED);
+    return room + this.raise;
   }
 
   // Let go level, the stone comes down to the floor, then tips flush; held or tipped, it only rises.
   ground(h) {
     const up = upNow.set(0, 1, 0).applyQuaternion(this.baseQ);
     const level = up.y >= LEVEL;
-    let room = this.room();
+    let room = this.raised(this.room(), h);
     this.flushing = false;
     if (this.baseDragged || !level) {
       // Held, it never comes down: it only rises as it must (tipped past twenty degrees, lifted back to
@@ -265,7 +294,7 @@ export class Motion {
           if (knock > 0.3) this.landed = Math.max(this.landed, knock);
           this.tipW = 0;
         }
-        room = this.room();
+        room = this.room() + this.raise;
       }
       this.drop = room;
       this.dropTarget = room;
@@ -282,17 +311,32 @@ export class Motion {
       this.drop = this.dropTarget;
       this.dropV = 0;
     }
-    this.centre.copy(PIVOT).setY(PIVOT.y - this.drop);
+    this.centre.copy(PIVOT).setY(PIVOT.y - this.drop + this.raise);
+  }
+
+  // Whatever moved this step, none of it stands in the floor: what the t'an, or a stone given way,
+  // would push into it is lifted out at once.
+  clearFloor() {
+    const room = this.room() + this.raise;
+    if (this.drop <= room) return;
+    if (room < 0) {
+      this.raise -= room;
+      this.raiseNeed = this.raise;
+    }
+    this.drop = Math.max(0, room);
+    this.dropV = Math.min(0, this.dropV);
+    this.centre.setY(PIVOT.y - this.drop + this.raise);
   }
 
   // Resting on the floor (not held up above it).
   get onFloor() {
-    return this.drop > 0.01 && this.drop >= this.room() - 1e-4;
+    return this.drop > 0.01 && this.drop >= this.room() + this.raise - 1e-4;
   }
 
   // Still coming down to the floor, or going up from it.
   get grounding() {
-    return this.flushing || Math.abs(this.drop - this.dropTarget) > 1e-5 || Math.abs(this.dropV) > 1e-3;
+    return this.flushing || Math.abs(this.drop - this.dropTarget) > 1e-5 || Math.abs(this.dropV) > 1e-3 ||
+      this.raise - this.raiseNeed > 1e-5;
   }
 
   update(dt) {
@@ -373,6 +417,7 @@ export class Motion {
     if (this.baseOffset.lengthSq() < 1e-10) this.baseOffset.set(0, 0, 0);
 
     this.collide(h);
+    this.clearFloor();
 
     // Settled - in its place on a base at rest, hardly moving - it goes still entirely.
     const settled = this.mode === 'held' && !this.baseDragged && this.baseW.lengthSq() === 0 && !this.grounding &&

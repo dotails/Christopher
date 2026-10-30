@@ -2,13 +2,16 @@
 // little while held it rocks up onto its edge, never into the floor, and let go it tips over to lie
 // flush; tipped past twenty degrees it lifts to turn freely about the pivot; held near level it does not
 // come down, and let go it falls straight down to its edge first, then tips flush, knocking each time.
-// Resting there, a t'an spun into it is lifted clear rather than pushing it into the floor.
+// Resting there, a t'an spun into it is lifted clear rather than pushing it into the floor. The floor
+// is the table's top as it is (table.js): the stone's foot rests on its plates, spanning the groove
+// down its middle; and a t'an turned down toward the top lifts the stone clear of it.
 // Run: node kaltoh/tools/ground.test.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from '../android/app/src/main/assets/www/vendor/three.module.min.js';
 import { Motion } from '../android/app/src/main/assets/www/js/motion.js';
-import { PIVOT, FLOOR } from '../android/app/src/main/assets/www/js/scene.js';
+import { PIVOT } from '../android/app/src/main/assets/www/js/scene.js';
+import { onTop, topHeight } from '../android/app/src/main/assets/www/js/table.js';
 
 let checks = 0;
 const ok = (cond, msg) => {
@@ -38,15 +41,27 @@ const motion = new Motion(base);
 const run = (seconds) => {
   for (let t = 0; t < seconds; t += 1 / 60) motion.update(1 / 60);
 };
-// The stone's lowest point in the world, as it is turned and as far down as it has come.
+// How far the stone, as it is turned and as far down as it has come, stands clear of the top at its
+// nearest (none: resting on it; less than none: in it).
 const lowest = () => {
   let y = Infinity;
-  for (const p of motion.hull) y = Math.min(y, p.clone().applyQuaternion(motion.baseQ).y + motion.centre.y);
+  for (const p of motion.hull) {
+    const w = p.clone().applyQuaternion(motion.baseQ).add(motion.centre);
+    if (onTop(w.x, w.z)) y = Math.min(y, w.y - topHeight(w.x, w.z));
+  }
   return y;
 };
+const FLOOR = 0; // lowest() measures from the top itself
 const tip = (degrees) => motion.baseQ.setFromAxisAngle(new THREE.Vector3(1, 0, 0), (degrees * Math.PI) / 180);
 
-ok(Math.abs(lowest() - FLOOR) < 1e-6 && motion.drop > 0.5, `level at first, the stone rests on the floor (${motion.drop.toFixed(2)} down)`);
+ok(Math.abs(lowest() - FLOOR) < 1e-6 && motion.drop > 0.5, `level at first, the stone rests on the table's top (${motion.drop.toFixed(3)} down)`);
+// Where its foot rests: on the plates either side of the groove, the highest of them under it.
+let plates = -Infinity;
+for (const p of motion.hull) {
+  if (p.y > -PIVOT.y + 1e-6) continue;
+  if (onTop(p.x, p.z)) plates = Math.max(plates, topHeight(p.x, p.z));
+}
+ok(plates > topHeight(0, 0) + 0.1, `its foot spans the groove, resting on the plates either side (${(plates - topHeight(0, 0)).toFixed(3)} above the groove's floor)`);
 const tilt = () => (Math.acos(Math.min(1, new THREE.Vector3(0, 1, 0).applyQuaternion(motion.baseQ).y)) * 180) / Math.PI;
 let deepest = Infinity;
 motion.baseDragged = true;
@@ -106,6 +121,17 @@ motion.setRods([]);
 run(2);
 // Its frame for other bodies comes down with it.
 const foot = motion.baseWorld(new THREE.Vector3(0, 0, 0), new THREE.Vector3());
-ok(Math.abs(foot.y - FLOOR) < 1e-6, 'and its foot is on the floor for what lies about it too');
+ok(Math.abs(foot.y - plates) < 1e-6, 'and its foot is on the plates for what lies about it too');
+// The t'an on it, turned down past the stone's foot toward the top (over the plates, in front of
+// the groove), lift the stone clear of it.
+const hang = (plates - 0.05 - motion.centre.y) / 1.5;
+const out = 0.62; // in front, over the plates
+motion.setRods([[new THREE.Vector3(-0.1, hang, out), new THREE.Vector3(0.1, hang, out)]]);
+motion.wake();
+run(1);
+const rodLow = new THREE.Vector3(0.1, hang, out).multiplyScalar(1.5).applyQuaternion(motion.q).add(motion.pos).add(motion.centre);
+ok(rodLow.y - topHeight(rodLow.x, rodLow.z) > 0.02 - 1e-6 && lowest() > 0.04,
+  `a t'an hanging below the stone's foot holds it up off the top, never into it (${(rodLow.y - topHeight(rodLow.x, rodLow.z)).toFixed(3)} clear)`);
+motion.setRods([]);
 
 console.log(`ground: ${checks} checks passed`);
