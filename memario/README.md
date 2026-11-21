@@ -10,14 +10,16 @@ unlock makes the game glitchier and less stable. Reach the EXIT at the end of th
 | --- | --- |
 | D-pad ◀ ▶ / left stick | Move |
 | A | Jump |
-| B (or D-pad down) | Breakpoint: slows time; then press ◀, ▶ or A to write the digit you stand on |
+| ◀ / ▶ / A on a register's next digit | Writes that digit into the register (and still moves or jumps) |
+| B (or D-pad down) | Force-write: slows time; then ◀, ▶ or A writes whatever digit you stand on |
 | X | Flip gravity (after GRAVITY FLIP is unlocked) |
 | Y | Grid overlay on/off |
 | Right stick | Look ahead |
-| SELECT / START | Sound on/off / pause |
+| SELECT / START | Sound on/off / menu (pause, sound, grid, reboot) |
 | Phone back button | Pause menu (quits only from the title screen) |
 
-Tapping a register row also writes the current digit into it.
+The badge over the hero turns green when the digit you stand on is some register's next digit.
+Tapping a register row also force-writes the current digit into it.
 
 ## Registers
 

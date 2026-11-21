@@ -39,11 +39,6 @@ button{font:inherit;color:inherit}
 /* ---------- game screen ---------- */
 .stage{position:relative;flex:0 0 auto;width:100%;aspect-ratio:16/10.4;max-height:46%;background:#000;overflow:hidden;container-type:size}
 #cv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);image-rendering:pixelated;image-rendering:crisp-edges;display:block}
-.menu-btn{position:absolute;z-index:6;top:10px;left:max(10px,var(--sal));
-  width:48px;height:48px;border-radius:50%;border:0;background:radial-gradient(circle at 40% 35%,#34338a,#1e1d5a 70%);
-  box-shadow:0 6px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);display:grid;place-items:center;cursor:pointer;padding:0}
-.menu-btn i{display:block;width:20px;height:2px;background:#e6e6ff;border-radius:2px;box-shadow:0 -6px 0 #e6e6ff,0 6px 0 #e6e6ff}
-
 .ov{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:rgba(8,7,15,.78);padding:14px 16px;overflow:auto;text-align:center}
 .ov-box{display:grid;gap:10px;justify-items:center;max-width:540px}
 .ov h2{font-family:var(--f-pix);font-weight:400;font-size:clamp(30px,10cqw,68px);line-height:1;margin:0;color:#fff;
@@ -183,8 +178,10 @@ button{font:inherit;color:inherit}
 @media (orientation:landscape) and (max-height:560px){
   .app{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) auto;background:var(--shell)}
   .pad{display:contents;--w:min(23vh,21vw,150px)}
-  .pad-m{display:none}
-  .pad-l,.pad-r{grid-row:1/span 2;align-content:space-evenly;padding-inline:max(10px,var(--sal)) 10px;gap:6px}
+  .pad-m,.smalls{display:contents} .grille{display:none}
+  .swell{width:calc(var(--w)*.46);height:calc(var(--w)*.46);align-self:center;justify-self:center;margin-bottom:max(6px,var(--sab))}
+  .swell:first-child{grid-column:1;grid-row:2} .swell:last-child{grid-column:3;grid-row:2}
+  .pad-l,.pad-r{grid-row:1;align-content:space-evenly;padding-inline:max(10px,var(--sal)) 10px;gap:6px}
   .pad-l{grid-column:1} .pad-r{grid-column:3;padding-inline:10px max(14px,var(--sar));position:relative}
   .stickw{width:calc(var(--w)*.95);height:calc(var(--w)*.95)}
   .stage{grid-column:2;grid-row:1;height:100%;max-height:none;aspect-ratio:auto}
@@ -193,6 +190,7 @@ button{font:inherit;color:inherit}
   .regs{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px}
   .reg{padding:3px 6px;gap:6px} .reg .ctl{width:20px;height:20px;font-size:10px} .slot{width:18px;height:18px;font-size:11px}
   .reg .name em,.reg .name .full{display:none} .reg .name .short{display:inline}
+  .reg .st{display:none} .reg .name{flex:0 0 auto}
   .led{display:none}
 }
 @media (prefers-reduced-motion:reduce){ .reg.flash{animation:none} .dpad{transform:none!important} }
@@ -202,7 +200,6 @@ button{font:inherit;color:inherit}
 <div class="app" id="app">
   <div class="stage" id="stage">
     <canvas id="cv" width="384" height="240" aria-label="Memario game screen"></canvas>
-    <button class="menu-btn" id="menuBtn" aria-label="Menu"><i></i></button>
     <div class="ov" id="ov"><div class="ov-box" id="ovBox"></div></div>
   </div>
 
@@ -222,10 +219,10 @@ button{font:inherit;color:inherit}
       <div class="stat"><span>CRASHES</span><b id="sCrash">0</b></div>
     </div>
     <div class="regs" id="regs"></div>
-    <div class="ticker" id="ticker">Press B, then ◀ ▶ or A to write the value under you.</div>
+    <div class="ticker" id="ticker">Stand on a register's next digit and press its control: ◀, ▶ or A.</div>
     <ol class="log" id="log"></ol>
     <div class="keys">
-      <kbd>←</kbd><kbd>→</kbd> move · <kbd>Space</kbd> jump (A) · <kbd>X</kbd> inject (B)<br>
+      <kbd>←</kbd><kbd>→</kbd> move · <kbd>Space</kbd> jump (A) · <kbd>X</kbd> force-write (B)<br>
       <kbd>G</kbd> flip gravity (X) · <kbd>H</kbd> grid (Y) · <kbd>1</kbd>–<kbd>5</kbd> write register · <kbd>Esc</kbd> menu
     </div>
   </aside>
@@ -242,7 +239,7 @@ button{font:inherit;color:inherit}
       <div class="grille" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="smalls">
         <div class="swell"><button class="small" id="bSel" aria-label="Select: sound on or off"></button></div>
-        <div class="swell"><button class="small" id="bStart" aria-label="Start: pause"></button></div>
+        <div class="swell"><button class="small" id="bStart" aria-label="Start: menu"></button></div>
       </div>
     </div>
     <div class="pad-r">
@@ -859,9 +856,14 @@ function update() {
   // breakpoint / injection
   if (edges.inj) {
     if (armedT > 0) { armedT = 0; log('BREAKPOINT CLEARED', 'sys'); }
-    else { armedT = 5; SFX.arm(); log(`BREAKPOINT — VALUE ${digitNow}. PRESS ◀ ▶ OR A TO WRITE`, 'sys'); }
+    else { armedT = 5; SFX.arm(); log(`BREAKPOINT — FORCE-WRITE ${digitNow} WITH ◀ ▶ OR A`, 'sys'); }
   }
-  for (const k of ['left', 'right', 'jump']) if (edges[k] && armedT > 0) { injectCtrl(k); consumed[k] = true; edges[k] = false; armedT = 0; }
+  for (const k of ['left', 'right', 'jump']) {
+    if (!edges[k]) continue;
+    if (armedT > 0) { injectCtrl(k); consumed[k] = true; edges[k] = false; armedT = 0; continue; }
+    // A control pressed while standing on its register's next digit writes it (and still moves/jumps).
+    if (!consumed[k]) { const r = regs.find((q) => q.ctrl === k && !q.unlocked && q.seq[q.slots.length] === digitNow); if (r) inject(r); }
+  }
   if (edges.flip) {
     if (abil.grav) { p.flip = !p.flip; p.grounded = false; SFX.flip(); haptic(20); }
     else { log('GRAVITY REGISTER LOCKED — WRITE 7 3 1 5 0 FIRST', 'bad'); SFX.bad(); }
@@ -1130,7 +1132,7 @@ function postFX(C) {
 }
 function drawHUD(C) {
   if (state === 'title') return;
-  const L = 64; // clear of the round menu button
+  const L = 4;
   ctx.fillStyle = 'rgba(10,8,22,0.72)'; ctx.fillRect(L, 6, 94, 24);
   drawText('STB', L + 4, 10, '#8a93b4');
   const stab = 1 - C, segs = 14;
@@ -1146,7 +1148,7 @@ function drawHUD(C) {
     ctx.fillStyle = 'rgba(8,7,15,0.85)'; ctx.fillRect(x, 34, w, 24);
     ctx.fillStyle = '#4ff0ff'; ctx.fillRect(x, 34, w, 1); ctx.fillRect(x, 57, w, 1);
     drawText('BREAKPOINT  VALUE ' + digitNow, VW / 2, 38, '#4ff0ff', 1, 'center');
-    drawText('PRESS LEFT  RIGHT  OR  A', VW / 2, 48, '#ffffff', 1, 'center');
+    drawText('FORCE WRITE: LEFT RIGHT OR A', VW / 2, 48, '#ffffff', 1, 'center');
   }
   if (desyncT > 0 && (frame >> 3) % 2) drawText('INPUT DESYNC', VW / 2, 64, '#ff3d8a', 2, 'center');
 }
@@ -1155,7 +1157,8 @@ function drawHUD(C) {
 const ov = $('ov'), ovBox = $('ovBox');
 const HOWTO = `<ol class="steps">
   <li>Every 16px cell holds a digit. Yours shows on your chest and overhead.</li>
-  <li>Stand where a register's <b>next digit</b> shows, press <b>B</b>, then that register's control: <b>◀</b>, <b>▶</b> or <b>A</b>. Or tap the register.</li>
+  <li>Stand where a register's <b>next digit</b> shows and press that register's control: <b>◀</b>, <b>▶</b> or <b>A</b>. The badge over your head turns green when you can.</li>
+  <li>To force any digit in, press <b>B</b> first, or tap the register.</li>
   <li>Finish a sequence to unlock its ability. Each unlock corrupts the game more. A wrong sequence segfaults.</li>
 </ol>`;
 function showTitle() {
@@ -1163,13 +1166,13 @@ function showTitle() {
     <p>Hack your own memory with numbers you find in the world, then reach the EXIT before reality falls apart.</p>
     ${HOWTO}
     <button class="act" id="boot">BOOT ▸</button>
-    <p class="hide-short" style="color:var(--muted);font-size:11px">A jump · B inject · X flip gravity · Y grid · START pause · SELECT sound</p>`;
+    <p class="hide-short" style="color:var(--muted);font-size:11px">A jump · B force-write · X flip gravity · Y grid · START menu · SELECT sound</p>`;
   ov.hidden = false; $('boot').addEventListener('click', () => { ensureAudio(); startGame(); });
 }
 function startGame() {
   state = 'play'; ov.hidden = true; SFX.save();
   log('MEMARIO KERNEL 0.9 — 5 REGISTERS LOCKED', 'sys');
-  log(`BREAKPOINT: B · WRITE: ◀ ▶ A · YOU ARE ON VALUE ${digitNow}`, 'sys');
+  log(`STAND ON A REGISTER'S NEXT DIGIT, PRESS ITS CONTROL (◀ ▶ A) · START = MENU`, 'sys');
   renderRegs(); updateStats();
 }
 function reboot() { resetRun(false); digitNow = cellDigit(Math.floor((p.x + 6) / 16), Math.floor((p.y + 8) / 16)); cellNow = [-1, -1]; logEl.innerHTML = ''; startGame(); }
@@ -1187,7 +1190,6 @@ function openMenu() {
 }
 function closeMenu() { if (state !== 'pause') return; state = 'play'; ov.hidden = true; }
 function toggleSound() { muted = !muted; if (!muted) { ensureAudio(); SFX.click(); } log('SOUND ' + (muted ? 'OFF' : 'ON'), 'sys'); }
-$('menuBtn').addEventListener('click', () => { ensureAudio(); if (state === 'play') openMenu(); else if (state === 'pause') closeMenu(); });
 function win() {
   state = 'win'; SFX.win();
   const secs = playFrames / 60, n = unlockedCount(), stab = Math.round((1 - corruption()) * 100);
