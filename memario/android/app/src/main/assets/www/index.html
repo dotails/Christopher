@@ -285,6 +285,13 @@ const BUG = [
   spriteFromRows([...BUG_TOP, '...k.k.kk.k.k...', '..k...k..k...k..'], BUG_PAL),
 ];
 
+// The hero: the player's own character sheet. 34x34 frames, facing right, feet on the bottom row.
+// Rows: idle(5) walk(6) jump(5: crouch, rise, apex, fall, land) action(5: point) hurt(4: hit, hit, KO, KO).
+const HERO_IMG = new Image(), FACES_IMG = new Image();
+const HF = 34, HERO_CX = 16;                 // frame size, body centre column
+const HROW = { idle: 0, walk: 1, jump: 2, action: 3, hurt: 4 };
+const heroReady = Promise.all([[HERO_IMG, 'img/hero.png'], [FACES_IMG, 'img/faces.png']].map(([img, src]) =>
+  new Promise((res) => { img.onload = res; img.onerror = res; img.src = src; })));
 const TEX = {};
 function buildTiles() {
   const R = mulberry32(99);
@@ -500,6 +507,7 @@ let frame = 0, playFrames = 0;
 let p, enemies, fireballs, items, bits, saves, particles, floaters, artifacts, bumps;
 let checkpoint = 0, camX = 0, peek = 0, bytes = 0, crashes = 0, injections = 0;
 let volatileC = 0, hue = 0, burstT = 0, shakeT = 0, desyncT = 0, flashT = 0, armedT = 0, fireCd = 0;
+let faceT = { happy: 0, shock: 0, hurt: 0 };
 let coyote = 0, jumpBuf = 0, digitNow = 0, cellNow = [0, 0], showGrid = true;
 const visited = new Set();
 const unlockedCount = () => goodCount();
@@ -507,7 +515,9 @@ const corruption = () => clamp(unlockedCount() * 0.16 + volatileC, 0, 1);
 
 function resetRun(keepRegs) {
   buildLevel();
-  p = { x: SAVES[0] * 16 + 24, y: 192, w: 12, h: 16, vx: 0, vy: 0, face: 1, grounded: false, flip: false, inv: 0, anim: 0 };
+  p = { x: SAVES[0] * 16 + 24, y: 208 - 26, w: 14, h: 26, vx: 0, vy: 0, face: 1, grounded: false, flip: false, inv: 0, anim: 0,
+        dead: 0, deadMax: 0, landT: 0, actT: 0, idleT: 0 };
+  faceT = { happy: 0, shock: 0, hurt: 0 };
   enemies = BUGS.map((tx) => ({ x: tx * 16 + 1, y: 208 - 12, w: 14, h: 12, s: 1, vy: 0, dir: -1, hp: 1, dead: 0, fly: false, grounded: false }));
   fireballs = []; items = []; particles = []; floaters = []; artifacts = []; bumps = new Map();
   bits = BITS.map(([tx, ty]) => ({ x: tx * 16 + 4, y: ty * 16 + 4, taken: false }));
@@ -660,9 +670,12 @@ function drawMem() {
   // header: stability, current value, stats
   const stab = Math.round((1 - corruption()) * 100);
   const scol = stab < 35 ? '#ff3d8a' : stab < 65 ? '#ffc23d' : '#39ff88';
-  T('STABILITY', 8, 7, '#8a93b4');
-  for (let i = 0; i < 20; i++) { g.fillStyle = i < Math.round(stab / 5) ? scol : '#211c3d'; g.fillRect(8 + i * 7, 16, 6, 8); }
-  T(stab + '%', 150, 15, scol, 2);
+  const face = p.dead || faceT.hurt > 0 ? 3 : faceT.shock > 0 ? 2 : faceT.happy > 0 ? 1 : stab < 35 ? 3 : 0;
+  g.fillStyle = '#262046'; g.fillRect(6, 5, 30, 30); g.fillStyle = '#1b2440'; g.fillRect(7, 6, 28, 28);
+  if (FACES_IMG.naturalWidth) g.drawImage(FACES_IMG, face * 28, 0, 28, 24, 7, 9, 28, 24);
+  T('STABILITY', 42, 7, '#8a93b4');
+  for (let i = 0; i < 16; i++) { g.fillStyle = i < Math.round(stab / 6.25) ? scol : '#211c3d'; g.fillRect(42 + i * 7, 16, 6, 8); }
+  T(stab + '%', 158, 15, scol, 2);
   const vc = VERDICT_COL[verdict()];
   g.fillStyle = vc; g.fillRect(194, 5, 30, 30); g.fillStyle = '#101018'; g.fillRect(196, 7, 26, 26);
   T(String(digitNow), 203, 10, vc, 4);
@@ -741,17 +754,19 @@ function injectCtrl(k) {
   inject(cands.find((r) => r.good && nextMatches(r)) || cands.find(nextMatches) || cands.find((r) => r.good) || cands[0]);
 }
 function inject(r) {
-  if (!r || state !== 'play') return;
+  if (!r || state !== 'play' || p.dead) return;
   if (r.unlocked) { log(`${r.name} IS ALREADY ${r.good ? 'ONLINE' : 'ACTIVE'}`, 'sys'); return; }
   if (!isOpen(r)) { log(`${r.name} IS CLOSED: ${r.cond.label}`, 'sys'); SFX.bad(); r.flashT = 8; return; }
   const d = digitNow, i = r.slots.length, ok = d === r.seq[i];
   r.slots.push({ d, ok }); injections++;
+  if (p.grounded) p.actT = 20;
+  if (r.good && ok) faceT.happy = 70; else faceT.shock = 70;
   volatileC += ok ? 0.006 : 0.02;
   armedT = 0;
   (ok && r.good ? SFX.ok : SFX.bad)(); haptic(ok && r.good ? 12 : 30);
   if (r.good) log(`MOV ${r.addr}[${i}], ${d}  ${ok ? 'OK' : 'MISMATCH (want ' + r.seq[i] + ')'}`, ok ? 'ok' : 'bad');
   else log(`!! CURSE ${r.name} ${ok ? 'FED' : 'JAMMED'} (${r.slots.length}/${r.seq.length})`, 'bad');
-  floaters.push({ x: p.x + 6, y: p.y - 18, t: 50, text: (ok ? '+' : 'X') + d, col: !r.good ? '#ff3d8a' : ok ? '#39ff88' : '#ffffff' });
+  floaters.push({ x: p.x + 7, y: p.y - 26, t: 50, text: (ok ? '+' : 'X') + d, col: !r.good ? '#ff3d8a' : ok ? '#39ff88' : '#ffffff' });
   r.flashT = 16;
   if (Math.random() < 0.10) glitch();
   if (r.slots.length === r.seq.length) {
@@ -760,22 +775,24 @@ function inject(r) {
   renderRegs();
 }
 function unlock(r) {
+  faceT.happy = 150;
   r.unlocked = true; abil[r.id] = true; r.activeAt = frame;
   SFX.unlock(); haptic(60);
   burstT = 70; flashT = 18; shakeT = Math.max(shakeT, 24);
   log(`${r.name} ONLINE: ${r.desc}`, 'ok');
   log(`STABILITY DROPPING: ${Math.round((1 - corruption()) * 100)}%`, 'warn');
   spawnArtifacts(14 + unlockedCount() * 4, false, true); spawnArtifacts(3 + unlockedCount() * 2, true, true);
-  floaters.push({ x: p.x + 6, y: p.y - 30, t: 90, text: r.name + ' ONLINE', col: '#ffc23d' });
+  floaters.push({ x: p.x + 7, y: p.y - 36, t: 90, text: r.name + ' ONLINE', col: '#ffc23d' });
   if (goodCount() === 5) log('ALL ABILITIES ONLINE. REALITY IS OPTIONAL NOW.', 'warn');
 }
 function curse(r) {
+  faceT.shock = 150;
   r.unlocked = true; abil[r.id] = true; r.activeAt = frame;
   volatileC += 0.05;
   SFX.segv(); haptic(120);
   burstT = 60; shakeT = Math.max(shakeT, 30);
   log(`CURSE ACTIVE: ${r.name}. ${r.desc}. A PATCH CAN PURGE IT.`, 'bad');
-  floaters.push({ x: p.x + 6, y: p.y - 30, t: 100, text: 'CURSED: ' + r.short, col: '#ff3d8a' });
+  floaters.push({ x: p.x + 7, y: p.y - 36, t: 100, text: 'CURSED: ' + r.short, col: '#ff3d8a' });
   spawnArtifacts(6, true, false);
 }
 function segfault(r) {
@@ -815,13 +832,13 @@ function applyPatch() {
   const near = artifacts.map((a, i) => [Math.abs(a.x - p.x) - (a.front ? 400 : 0), i]).sort((a, b) => a[0] - b[0]).slice(0, 8).map((v) => v[1]).sort((a, b) => b - a);
   near.forEach((i) => artifacts.splice(i, 1));
   enemies.forEach((e) => { if (!e.dead && e.s !== 1 && Math.abs(e.x - p.x) < 260) setScale(e, 1); });
-  SFX.patch(); log('PATCH APPLIED: CORRUPTION REDUCED', 'ok');
+  SFX.patch(); faceT.happy = 90; log('PATCH APPLIED: CORRUPTION REDUCED', 'ok');
   let flushed = 0;
   regs.forEach((r) => { if (!r.good && !r.unlocked && r.slots.length) { r.slots = []; flushed++; } });
   const active = regs.filter((r) => !r.good && r.unlocked).sort((a, b) => b.activeAt - a.activeAt)[0];
   if (active) { active.unlocked = false; active.slots = []; abil[active.id] = false; log(`PATCH PURGED THE ${active.name} CURSE`, 'ok'); }
   else if (flushed) log(`PATCH FLUSHED ${flushed} CURSE REGISTER${flushed > 1 ? 'S' : ''}`, 'ok');
-  floaters.push({ x: p.x + 6, y: p.y - 20, t: 60, text: 'PATCHED', col: '#39ff88' });
+  floaters.push({ x: p.x + 7, y: p.y - 26, t: 60, text: 'PATCHED', col: '#39ff88' });
 }
 
 /* ================= physics ================= */
@@ -870,13 +887,17 @@ function killEnemy(e, fly) {
   for (let i = 0; i < 10; i++) particles.push({ x: e.x + e.w / 2, y: e.y + e.h / 2, vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.8) * 3, t: 24, c: ['#ff3d8a', '#39ff88', '#3a2350'][i % 3] });
 }
 function die(reason) {
-  if (state !== 'play' || p.inv > 0) return;
-  crashes++; SFX.die(); haptic(120);
-  for (let i = 0; i < 24; i++) particles.push({ x: p.x + 6, y: p.y + 8, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5, t: 34, c: ['#4ff0ff', '#4d41a0', '#ff3d8a', '#f2b48a'][i % 4] });
-  burstT = 30; shakeT = Math.max(shakeT, 18);
-  log(`CORE DUMPED (${reason}) — RESTORED FROM SAVE ${checkpoint}`, 'bad');
+  if (state !== 'play' || p.inv > 0 || p.dead) return;
+  crashes++; SFX.die(); haptic(120); faceT.hurt = 200;
+  const offscreen = p.y > VH || p.y < -20;
+  for (let i = 0; i < 18; i++) particles.push({ x: p.x + 7, y: p.y + 13, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5, t: 30, c: ['#4ff0ff', '#1b2238', '#ff3d8a', '#facd6e'][i % 4] });
+  burstT = 30; shakeT = Math.max(shakeT, 18); armedT = 0;
+  log(`CORE DUMPED (${reason}). RESTORING SAVE ${checkpoint}`, 'bad');
+  p.dead = p.deadMax = offscreen ? 26 : 72; p.vx = 0; p.vy = 0;
+}
+function respawn() {
   const s = saves[checkpoint];
-  p.x = s.x + 2; p.y = 192; p.vx = p.vy = 0; p.flip = false; p.inv = 100; armedT = 0;
+  p.x = s.x + 1; p.y = 208 - p.h; p.vx = p.vy = 0; p.flip = false; p.inv = 100; p.dead = 0; p.landT = 0; p.actT = 0;
 }
 
 /* ================= update ================= */
@@ -930,6 +951,9 @@ function update() {
 function clearEdges() { KEYS.forEach((k) => { edges[k] = false; }); }
 
 function updatePlayer(L, Rt, J) {
+  for (const k in faceT) if (faceT[k] > 0) faceT[k]--;
+  if (p.dead) { if (--p.dead <= 0) respawn(); return; }
+  if (p.landT > 0) p.landT--; if (p.actT > 0) p.actT--;
   const g = p.flip ? -1 : 1;
   let dir = (Rt ? 1 : 0) - (L ? 1 : 0); if ((desyncT > 0) !== !!abil.mirror) dir = -dir;
   if (!dir && Math.abs(stickVec.L[0]) > 0.35) dir = 0; // stick already mapped via keys
@@ -943,10 +967,11 @@ function updatePlayer(L, Rt, J) {
   p.vy += g * (rising && J ? 0.24 : rising ? 0.6 : 0.4);
   if (p.vy * g > 7) p.vy = 7 * g;
   moveX(p, solidP);
+  const wasGrounded = p.grounded;
   p.grounded = false;
   const hy = moveY(p, solidP);
   if (hy) {
-    if (hy.dir === g) p.grounded = true;
+    if (hy.dir === g) { p.grounded = true; if (!wasGrounded) p.landT = 6; }
     else {
       const pc = p.x + p.w / 2;
       const tx = hy.hits.reduce((b, t) => Math.abs(t * 16 + 8 - pc) < Math.abs(b * 16 + 8 - pc) ? t : b, hy.hits[0]);
@@ -955,6 +980,7 @@ function updatePlayer(L, Rt, J) {
   }
   if (p.inv > 0) p.inv--;
   p.anim += Math.abs(p.vx);
+  p.idleT = p.grounded && Math.abs(p.vx) < 0.2 && !p.actT ? p.idleT + 1 : 0;
   if (p.y > VH + 24) die('FELL OUT OF BOUNDS');
   if (p.y < -48) die('FELL INTO THE VOID');
   // saves
@@ -981,7 +1007,7 @@ function updateEnemies() {
       if (!solidE(tileAt(Math.floor(fx / 16), Math.floor((e.y + e.h + 1) / 16)))) e.dir *= -1;
     }
     if (e.y > VH + 40) { enemies.splice(i, 1); continue; }
-    if (state === 'play' && overlap(p, e, 2)) {
+    if (state === 'play' && !p.dead && overlap(p, e, 2)) {
       const stomp = g > 0 ? (p.vy > 0 && p.y + p.h - p.vy <= e.y + e.h * 0.5) : (p.vy < 0 && p.y - p.vy >= e.y + e.h * 0.5);
       if (stomp) { killEnemy(e, false); p.vy = -g * 4.6; haptic(15); }
       else if (p.inv <= 0) die('BUG CONTACT');
@@ -991,7 +1017,7 @@ function updateEnemies() {
 function updateFire() {
   if (abil.fire) {
     if (fireCd > 0) fireCd--;
-    else if (fireballs.length < 3) { fireballs.push({ x: p.x + 6 + p.face * 6, y0: p.y + 6, y: p.y + 6, vx: p.face * 4.2 + p.vx * 0.4, t: 0 }); fireCd = 34; SFX.fire(); }
+    else if (fireballs.length < 3) { fireballs.push({ x: p.x + 7 + p.face * 7, y0: p.y + 12, y: p.y + 12, vx: p.face * 4.2 + p.vx * 0.4, t: 0 }); fireCd = 34; SFX.fire(); }
   }
   for (let i = fireballs.length - 1; i >= 0; i--) {
     const f = fireballs[i]; f.t++; f.x += f.vx; f.y = f.y0 + Math.sin(f.t * 0.45) * 3;
@@ -1094,7 +1120,7 @@ function render() {
   // front artifacts
   drawArtifacts(true, cx0);
   if (abil.dark && state !== 'title') {   // the BLACKOUT curse
-    const lx = p.x + 6 - cx0, ly = p.y + 8, gr = ctx.createRadialGradient(lx, ly, 22, lx, ly, 74);
+    const lx = p.x + 7 - cx0, ly = p.y + 13, gr = ctx.createRadialGradient(lx, ly, 22, lx, ly, 74);
     gr.addColorStop(0, 'rgba(3,2,8,0)'); gr.addColorStop(1, 'rgba(3,2,8,0.95)');
     ctx.fillStyle = gr; ctx.fillRect(-8, -8, VW + 16, VH + 16);
   }
@@ -1130,22 +1156,39 @@ function drawExit(x, y) {
   ctx.fillStyle = '#0d0b18'; ctx.fillRect(x + 1, y - 10, 30, 8);
   drawText('EXIT', x + 16, y - 9, frame % 40 < 30 ? '#39ff88' : '#1d5c3c', 1, 'center');
 }
+function heroFrame() {
+  if (p.dead) {
+    const t = p.deadMax - p.dead;
+    return [HROW.hurt, p.deadMax < 40 ? 1 : t < 10 ? 0 : t < 22 ? 1 : t < 34 ? 2 : 3];
+  }
+  const g = p.flip ? -1 : 1;
+  if (!p.grounded) { const v = p.vy * g; return [HROW.jump, v < -2.5 ? 1 : v < 1.2 ? 2 : 3]; }
+  if (p.actT > 0) return [HROW.action, [1, 2, 2, 2, 4][Math.min(4, ((20 - p.actT) / 4) | 0)]];
+  if (p.landT > 0) return [HROW.jump, 4];
+  if (Math.abs(p.vx) > 0.2) return [HROW.walk, ((p.anim / 7) | 0) % 6];
+  if (p.idleT > 300) return [HROW.idle, 3];                       // turns to face you after a while
+  return [HROW.idle, [0, 0, 0, 1, 0, 4][((p.idleT / 22) | 0) % 6]];
+}
 function drawPlayer(cx0) {
-  if (p.inv > 0 && (frame >> 2) % 2) return;
+  if (p.inv > 0 && !p.dead && (frame >> 2) % 2) return;
   const sx = Math.round(p.x - cx0), sy = Math.round(p.y);
-  const spr = !p.grounded ? HERO.w1 : Math.abs(p.vx) > 0.2 ? (((p.anim / 10) | 0) % 2 ? HERO.w1 : HERO.w2) : HERO.idle;
-  ctx.save(); ctx.translate(sx + 6, sy + 8); ctx.scale(p.face < 0 ? -1 : 1, p.flip ? -1 : 1); ctx.drawImage(spr, -6, -8); ctx.restore();
-  // the number lives on the hero's chest
-  const flick = corruption() > 0.5 && Math.random() < 0.08;
-  drawDigit(flick ? (Math.random() * 10) | 0 : digitNow, sx + (p.face > 0 ? 5 : 4), sy + (p.flip ? 3 : 8), '#4ff0ff');
-  // ...and on a badge overhead
+  const [row, col] = heroFrame();
+  const fx = sx + (p.w >> 1);                                     // body centre on screen
+  ctx.save();
+  if (p.flip) { ctx.translate(fx, sy); ctx.scale(p.face < 0 ? -1 : 1, -1); }
+  else { ctx.translate(fx, sy + p.h); ctx.scale(p.face < 0 ? -1 : 1, 1); }
+  if (HERO_IMG.naturalWidth) ctx.drawImage(HERO_IMG, col * HF, row * HF, HF, HF, -HERO_CX, -HF, HF, HF);
+  else ctx.drawImage(HERO.idle, -6, -16);
+  ctx.restore();
+  if (p.dead && p.deadMax - p.dead > 30) return;                 // no number tag on a knocked-out hero
+  // the number tag over the hero's head; its colour says where a press would send the digit
   const vcol = VERDICT_COL[verdict()];
-  const bx = sx + 1, by = p.flip ? sy + p.h + 5 : sy - 19;
-  const edge = vcol;
-  ctx.fillStyle = edge; ctx.fillRect(bx + 1, by, 8, 14); ctx.fillRect(bx, by + 1, 10, 12);
-  ctx.fillStyle = '#101018'; ctx.fillRect(bx + 1, by + 1, 8, 12);
-  ctx.fillStyle = edge; ctx.fillRect(bx + 4, p.flip ? by - 3 : by + 14, 2, 3);
-  drawDigit(digitNow, bx + 2, by + 2, vcol, 2);
+  const bx = fx - 5, by = p.flip ? sy + p.h + 6 : sy - 22;
+  ctx.fillStyle = '#0b0b12'; ctx.fillRect(bx + 1, by, 8, 14); ctx.fillRect(bx, by + 1, 10, 12);
+  if (vcol !== '#ffffff') { ctx.fillStyle = vcol; ctx.fillRect(bx + 1, by, 8, 1); ctx.fillRect(bx + 1, by + 13, 8, 1); ctx.fillRect(bx, by + 1, 1, 12); ctx.fillRect(bx + 9, by + 1, 1, 12); }
+  ctx.fillStyle = '#0b0b12'; ctx.fillRect(fx - 1, p.flip ? by - 4 : by + 14, 1, 4);
+  const flick = corruption() > 0.5 && Math.random() < 0.06;
+  drawDigit(flick ? (Math.random() * 10) | 0 : digitNow, bx + 2, by + 2, vcol, 2);
   if (showGrid) { ctx.strokeStyle = 'rgba(57,255,136,0.75)'; ctx.lineWidth = 1; ctx.strokeRect(cellNow[0] * 16 - cx0 + 0.5, cellNow[1] * 16 + 0.5, 15, 15); }
 }
 function postFX(C) {
@@ -1287,7 +1330,7 @@ window.memarioPause = () => {
   if (actx && actx.state === 'running') actx.suspend().catch(() => {});
 };
 window.memarioResume = () => { if (actx && !muted) actx.resume().catch(() => {}); };
-boot({});
+heroReady.then(() => boot({}));
 })();
 </script>
 </body>

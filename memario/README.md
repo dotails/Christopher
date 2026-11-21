@@ -4,6 +4,14 @@ A corrupted side-scroller for Android. Every 16-pixel cell of the world holds a 
 Stand on the digits a register needs, write them into memory, and unlock abilities, while each
 unlock makes the game glitchier and less stable. Reach the EXIT at the end of the level.
 
+## The hero
+
+The hero is the player's own character (cap, black hoodie with pink strings, backpack), cut from
+their sprite sheet into 34×34 frames in `android/app/src/main/assets/www/img/hero.png`:
+idle, walk, jump/fall, a pointing action played whenever a digit is written, and hurt/KO played
+before respawning. `img/faces.png` holds four portraits (normal, grin, shocked, bruised) that react
+on the bottom screen. The number tag over the hero's head shows the digit underfoot.
+
 ## Layout
 
 Like a dual-screen handheld emulator: the game on the top screen, the register bank on the bottom
