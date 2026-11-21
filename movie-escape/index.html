@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#120a1c" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon-192.png" />
+  <title>Reel Escape</title>
+</head>
+<body>
+  <div id="app">
+    <canvas id="game"></canvas>
+
+    <div id="ui">
+      <!-- Loading -->
+      <div id="loading" class="screen show">
+        <div class="load-logo"><span class="reel"></span>REEL ESCAPE</div>
+        <div class="load-bar"><div id="load-fill"></div></div>
+        <div class="load-tip" id="load-tip">Rewinding the film...</div>
+      </div>
+
+      <!-- Main menu -->
+      <div id="menu" class="screen">
+        <div class="menu-logo">
+          <div class="logo-strip top"></div>
+          <h1><span>REEL</span><span class="b">ESCAPE</span></h1>
+          <div class="logo-sub">YOU'RE IN THE MOVIE NOW</div>
+          <div class="logo-strip bot"></div>
+        </div>
+        <div class="menu-buttons">
+          <button class="btn big pink" id="btn-play">PLAY</button>
+          <button class="btn yellow" id="btn-continue">CONTINUE</button>
+          <div class="row">
+            <button class="btn teal small" id="btn-settings">SETTINGS</button>
+            <button class="btn purple small" id="btn-howto">HOW TO PLAY</button>
+          </div>
+        </div>
+        <div class="menu-foot">v1.0 · Tap or click to begin</div>
+      </div>
+
+      <!-- HUD -->
+      <div id="hud">
+        <button id="btn-pause" class="icon-btn" aria-label="Pause"><span></span><span></span></button>
+        <div id="scene-tag"><span class="clap"></span><span id="scene-name">SCENE 1</span><span id="take-count">TAKE 1</span></div>
+        <div id="paper-wrap">
+          <div id="paper" class="paper old"></div>
+          <div class="paper-hint">tap to squint</div>
+        </div>
+        <div id="toast"></div>
+        <div id="boss-bar"><div class="boss-name">THE REEL MONSTER</div><div class="boss-hp"><i></i><i></i><i></i></div></div>
+        <div id="touch">
+          <div id="stick"><div id="knob"></div></div>
+          <button id="btn-dive" class="tbtn">DIVE</button>
+          <button id="btn-jump" class="tbtn">JUMP</button>
+        </div>
+      </div>
+
+      <div id="dialog">
+        <div class="avatar">
+          <svg viewBox="0 0 64 64"><path d="M10 26h10l26-14v40L20 38H10z" fill="#ffd23f" stroke="#2b1640" stroke-width="4" stroke-linejoin="round"/><path d="M20 38l4 14h8l-4-14" fill="#ff5d8f" stroke="#2b1640" stroke-width="4" stroke-linejoin="round"/><path d="M52 24c4 4 4 12 0 16" fill="none" stroke="#2b1640" stroke-width="4" stroke-linecap="round"/></svg>
+        </div>
+        <div class="dlg-body"><div class="who">THE DIRECTOR</div><div class="text" id="dialog-text"></div></div>
+      </div>
+
+      <div id="paper-big" class="modal-bg"><div id="paper-big-inner" class="paper"></div><div class="close-hint">tap anywhere to close</div></div>
+      <div id="crumble-layer"></div>
+
+      <div id="slate">
+        <div class="slate-top"><div class="slate-arm"></div></div>
+        <div class="slate-body">
+          <div class="slate-row"><b>PROD.</b><span>REEL ESCAPE</span></div>
+          <div class="slate-row big" id="slate-title">THE HEIST</div>
+          <div class="slate-grid">
+            <div><b>SCENE</b><span id="slate-scene">1</span></div>
+            <div><b>TAKE</b><span id="slate-take">1</span></div>
+            <div><b>ROLL</b><span>A</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="letterbox"><div class="lb top"></div><div class="lb bot"></div><div id="caption"></div></div>
+      <button id="btn-skip">SKIP ▸▸</button>
+
+      <!-- Pause -->
+      <div id="pause" class="modal-bg">
+        <div class="card">
+          <h2>PAUSED</h2>
+          <button class="btn pink" id="btn-resume">RESUME</button>
+          <button class="btn teal" id="btn-respawn">RESTART TAKE</button>
+          <button class="btn yellow" id="btn-pause-settings">SETTINGS</button>
+          <button class="btn purple" id="btn-quit">MAIN MENU</button>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div id="settings" class="modal-bg">
+        <div class="card wide">
+          <h2>SETTINGS</h2>
+          <label class="set"><span>Music</span><input type="range" id="set-music" min="0" max="1" step="0.05" /></label>
+          <label class="set"><span>Sound FX</span><input type="range" id="set-sfx" min="0" max="1" step="0.05" /></label>
+          <label class="set"><span>Camera speed</span><input type="range" id="set-sens" min="0.3" max="2.5" step="0.1" /></label>
+          <div class="set"><span>Graphics</span>
+            <div class="seg" id="set-quality"><button data-v="low">LOW</button><button data-v="medium">MED</button><button data-v="high">HIGH</button></div>
+          </div>
+          <div class="set"><span>Auto camera</span><div class="seg" id="set-autocam"><button data-v="off">OFF</button><button data-v="on">ON</button></div></div>
+          <div class="set"><span>Invert look</span><div class="seg" id="set-invert"><button data-v="off">OFF</button><button data-v="on">ON</button></div></div>
+          <div class="set"><span>Bean colour</span><div class="swatches" id="set-color"></div></div>
+          <button class="btn pink" id="btn-settings-close">DONE</button>
+        </div>
+      </div>
+
+      <!-- How to play -->
+      <div id="howto" class="modal-bg">
+        <div class="card wide">
+          <h2>HOW TO PLAY</h2>
+          <div class="howto-grid">
+            <div><b>MOVE</b><span>Left stick · WASD / Arrows</span></div>
+            <div><b>CAMERA</b><span>Drag right side · Mouse</span></div>
+            <div><b>JUMP</b><span>JUMP button · Space</span></div>
+            <div><b>DIVE</b><span>DIVE button · Shift</span></div>
+          </div>
+          <p>Finish every task on your old script to unlock the next scene. The paper is ancient — tap it to squint. Follow the <b>golden arrow</b> at your feet if you can't read it!</p>
+          <p>Gamepads are supported too.</p>
+          <button class="btn pink" id="btn-howto-close">GOT IT</button>
+        </div>
+      </div>
+
+      <!-- Credits / Ending -->
+      <div id="credits" class="modal-bg">
+        <div class="card wide credits-card">
+          <div class="end-title">THE END</div>
+          <div class="end-sub">...or the beginning?</div>
+          <div class="stats" id="end-stats"></div>
+          <div class="roll">
+            <p><b>STARRING</b>You</p>
+            <p><b>DIRECTED BY</b>The Director (reluctantly)</p>
+            <p><b>VILLAIN</b>The Reel Monster</p>
+            <p><b>STUNTS</b>Also you. Many, many takes.</p>
+            <p><b>SPECIAL THANKS</b>The popcorn machine</p>
+          </div>
+          <div class="row">
+            <button class="btn teal" id="btn-explore">KEEP EXPLORING</button>
+            <button class="btn pink" id="btn-end-menu">MAIN MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="fade"></div>
+      <div id="rotate-hint"><div class="phone"></div>Rotate your device for the best experience</div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

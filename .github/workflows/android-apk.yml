@@ -1,0 +1,44 @@
+name: Build Reel Escape APK
+
+# Builds the Reel Escape Android game (movie-escape/) into an installable APK.
+# Download it from the Actions tab -> this run -> Artifacts -> ReelEscape-apk.
+on:
+  push:
+    paths:
+      - "movie-escape/**"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch: {}
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: movie-escape
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: movie-escape/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web game + Android APK
+        run: bash scripts/build-apk.sh debug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ReelEscape-apk
+          path: movie-escape/dist-apk/*.apk
+          if-no-files-found: error

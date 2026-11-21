@@ -1,0 +1,11 @@
+{
+  "appId": "com.reelescape.game",
+  "appName": "Reel Escape",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#120a1c",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}
