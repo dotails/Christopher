@@ -1,9 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
 <title>Memario</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=JetBrains+Mono:wght@400;700&display=swap">
 <style>
+@font-face{font-family:'Silkscreen';src:url(fonts/silkscreen.woff2) format('woff2');font-weight:400;font-display:block}
+@font-face{font-family:'JetBrains Mono';src:url(fonts/jbmono-400.woff2) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'JetBrains Mono';src:url(fonts/jbmono-700.woff2) format('woff2');font-weight:700;font-display:swap}
 /* Layout: phone portrait = game screen / register bank / handheld controller, stacked like a handheld.
    Wide screens = game + controller on the left, register bank as a terminal column on the right. */
 :root{
@@ -17,6 +22,8 @@
   --f-mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
   --f-btn:ui-rounded,'SF Pro Rounded','Segoe UI',Roboto,system-ui,sans-serif;
   color-scheme:dark;
+  --sat:var(--sat); --sab:var(--sab);
+  --sal:var(--sal); --sar:var(--sar);
 }
 *,*::before,*::after{box-sizing:border-box}
 html,body{height:100%}
@@ -27,12 +34,12 @@ button{font:inherit;color:inherit}
 [hidden]{display:none!important}
 :focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 
-.app{height:100%;display:flex;flex-direction:column}
+.app{height:100%;display:flex;flex-direction:column;padding-top:var(--sat)}
 
 /* ---------- game screen ---------- */
 .stage{position:relative;flex:0 0 auto;width:100%;aspect-ratio:16/10.4;max-height:46%;background:#000;overflow:hidden;container-type:size}
 #cv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);image-rendering:pixelated;image-rendering:crisp-edges;display:block}
-.menu-btn{position:absolute;z-index:6;top:calc(10px + env(safe-area-inset-top,0px));left:max(10px,env(safe-area-inset-left,0px));
+.menu-btn{position:absolute;z-index:6;top:10px;left:max(10px,var(--sal));
   width:48px;height:48px;border-radius:50%;border:0;background:radial-gradient(circle at 40% 35%,#34338a,#1e1d5a 70%);
   box-shadow:0 6px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);display:grid;place-items:center;cursor:pointer;padding:0}
 .menu-btn i{display:block;width:20px;height:2px;background:#e6e6ff;border-radius:2px;box-shadow:0 -6px 0 #e6e6ff,0 6px 0 #e6e6ff}
@@ -54,7 +61,7 @@ button{font:inherit;color:inherit}
 
 /* ---------- register bank ---------- */
 .mem{flex:1 1 auto;min-height:0;overflow-y:auto;background:var(--term);display:flex;flex-direction:column;gap:8px;
-  padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:10px;padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar));
   border-top:1px solid var(--rule)}
 .mem-head{display:none;align-items:center;justify-content:space-between;gap:10px}
 .logo{font-family:var(--f-pix);font-weight:400;font-size:18px;margin:0;color:#fff;text-shadow:2px 0 var(--hot),-2px 0 var(--cyan)}
@@ -104,8 +111,8 @@ button{font:inherit;color:inherit}
 .pad{flex:0 0 auto;--w:min(calc((100vw - 40px)/2.7),19vh,210px);position:relative;background:var(--shell);
   border-radius:22px 22px 0 0;box-shadow:inset 0 1px 0 var(--shell-hi);
   display:grid;grid-template-columns:1fr auto 1fr;align-items:start;touch-action:none;
-  padding-top:14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
-  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+  padding-top:14px;padding-bottom:calc(10px + var(--sab));
+  padding-left:max(12px,var(--sal));padding-right:max(12px,var(--sar))}
 .pad *{touch-action:none}
 .pad-l,.pad-r{display:grid;gap:10px;justify-items:center}
 .pad-m{display:grid;grid-template-rows:var(--w) calc(var(--w)*1.1 + 10px);justify-items:center;width:calc(var(--w)*.6);position:relative;z-index:2}
@@ -136,7 +143,7 @@ button{font:inherit;color:inherit}
 .fb.b{left:36.5%;top:64%;background:radial-gradient(circle at 45% 35%,#f7d046,var(--bb) 65%);color:#7a5a05}
 .fb.down,.small.down{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.28),0 2px 4px rgba(0,0,0,.3),inset 0 2px 3px rgba(255,255,255,.2);filter:brightness(1.15)}
 .fb.b.armed{box-shadow:0 0 0 3px var(--cyan),0 4px 0 rgba(0,0,0,.28)}
-.led{position:absolute;pointer-events:none;right:max(0px,env(safe-area-inset-right,0px));width:10px;border-radius:3px 0 0 3px}
+.led{position:absolute;pointer-events:none;right:max(0px,var(--sar));width:10px;border-radius:3px 0 0 3px}
 .led.r1{top:calc(14px + var(--w)*.18);height:26px;background:#5a1420;box-shadow:none;transition:background .1s}
 .led.r1.on{background:#ff2a3a;box-shadow:0 0 10px #ff2a3a}
 .led.r2{top:calc(14px + var(--w)*.18 + 34px);height:24px;background:#1f1e55}
@@ -158,7 +165,7 @@ button{font:inherit;color:inherit}
 
 /* ---------- wide screens ---------- */
 @media (min-width:820px) and (min-height:560px){
-  body{padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  body{padding-block:14px;padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar))}
   .app{display:grid;grid-template-columns:minmax(0,1fr) clamp(260px,27vw,340px);grid-template-rows:minmax(0,1fr) auto;gap:12px;max-width:1500px;margin:0 auto}
   .stage{grid-column:1;grid-row:1;height:100%;max-height:none;aspect-ratio:auto;border-radius:8px;border:1px solid var(--rule)}
   .mem{grid-column:2;grid-row:1/span 2;border:1px solid var(--rule);border-radius:8px;padding:14px;gap:12px}
@@ -177,8 +184,8 @@ button{font:inherit;color:inherit}
   .app{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) auto;background:var(--shell)}
   .pad{display:contents;--w:min(23vh,21vw,150px)}
   .pad-m{display:none}
-  .pad-l,.pad-r{grid-row:1/span 2;align-content:space-evenly;padding-inline:max(10px,env(safe-area-inset-left,0px)) 10px;gap:6px}
-  .pad-l{grid-column:1} .pad-r{grid-column:3;padding-inline:10px max(14px,env(safe-area-inset-right,0px));position:relative}
+  .pad-l,.pad-r{grid-row:1/span 2;align-content:space-evenly;padding-inline:max(10px,var(--sal)) 10px;gap:6px}
+  .pad-l{grid-column:1} .pad-r{grid-column:3;padding-inline:10px max(14px,var(--sar));position:relative}
   .stickw{width:calc(var(--w)*.95);height:calc(var(--w)*.95)}
   .stage{grid-column:2;grid-row:1;height:100%;max-height:none;aspect-ratio:auto}
   .mem{grid-column:2;grid-row:2;max-height:44vh;padding:6px 10px;gap:5px;border-top:0}
@@ -190,7 +197,8 @@ button{font:inherit;color:inherit}
 }
 @media (prefers-reduced-motion:reduce){ .reg.flash{animation:none} .dpad{transform:none!important} }
 </style>
-
+</head>
+<body>
 <div class="app" id="app">
   <div class="stage" id="stage">
     <canvas id="cv" width="384" height="240" aria-label="Memario game screen"></canvas>
@@ -523,7 +531,10 @@ const SFX = {
   win: () => [392, 523, 659, 784, 659, 784, 1046].forEach((f, i) => tone(f, 0.16, 'square', 0.045, 0, i * 0.11)),
   click: () => tone(1200, 0.02, 'square', 0.02),
 };
-function haptic(ms = 8) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* not allowed here */ } }
+const NATIVE = window.MemarioAndroid || null;
+function haptic(ms = 8) {
+  try { if (NATIVE) NATIVE.vibrate(ms); else if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* no vibrator */ }
+}
 
 /* ================= registers ================= */
 const CTRL_GLYPH = { jump: 'A', left: '◀', right: '▶' };
@@ -1228,10 +1239,21 @@ function boot(data) {
   if (data.state === 'play') startGame(); else showTitle();
   requestAnimationFrame((t) => { last = t; loop(t); });
 }
-const hot = window.claude && window.claude.hot;
-if (hot && typeof hot.snapshot === 'function') {
-  try { hot.snapshot(() => ({ state: state === 'title' ? 'title' : 'play', regs: regs.map((r) => ({ slots: r.slots, unlocked: r.unlocked })), volatileC, hue, bytes, crashes })); } catch (e) { /* older viewer */ }
-}
-if (hot && typeof hot.ready === 'function') hot.ready(boot); else boot(hot && hot.data);
+// Hooks for the Android host: the back button and the app leaving the screen.
+window.memarioBack = () => {
+  if (state === 'play') { openMenu(); return 'menu'; }
+  if (state === 'pause') { closeMenu(); return 'resume'; }
+  if (state === 'win') { reboot(); return 'reboot'; }
+  return 'exit';
+};
+window.memarioPause = () => {
+  for (const s2 in src) for (const k of KEYS) setKey(s2, k, false);
+  if (state === 'play') openMenu();
+  if (actx && actx.state === 'running') actx.suspend().catch(() => {});
+};
+window.memarioResume = () => { if (actx && !muted) actx.resume().catch(() => {}); };
+boot({});
 })();
 </script>
+</body>
+</html>
