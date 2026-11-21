@@ -9,8 +9,8 @@
 @font-face{font-family:'Silkscreen';src:url(fonts/silkscreen.woff2) format('woff2');font-weight:400;font-display:block}
 @font-face{font-family:'JetBrains Mono';src:url(fonts/jbmono-400.woff2) format('woff2');font-weight:400;font-display:swap}
 @font-face{font-family:'JetBrains Mono';src:url(fonts/jbmono-700.woff2) format('woff2');font-weight:700;font-display:swap}
-/* Layout: phone portrait = game screen / register bank / handheld controller, stacked like a handheld.
-   Wide screens = game + controller on the left, register bank as a terminal column on the right. */
+/* Layout: a dual-screen handheld. Two 4:3 screens (game on top, register bank below) sit in the shell
+   above the controller; script sizes them stacked or side by side, whichever is larger. Nothing scrolls. */
 :root{
   --void:#08070f; --term:#0d0b18; --term2:#151229; --rule:#262046;
   --ink:#e8fff2; --muted:#8a93b4; --phos:#39ff88; --phos-dim:#1d5c3c; --hot:#ff3d8a; --cyan:#4ff0ff; --gold:#ffc23d;
@@ -22,8 +22,8 @@
   --f-mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
   --f-btn:ui-rounded,'SF Pro Rounded','Segoe UI',Roboto,system-ui,sans-serif;
   color-scheme:dark;
-  --sat:var(--sat); --sab:var(--sab);
-  --sal:var(--sal); --sar:var(--sar);
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
 }
 *,*::before,*::after{box-sizing:border-box}
 html,body{height:100%}
@@ -34,11 +34,16 @@ button{font:inherit;color:inherit}
 [hidden]{display:none!important}
 :focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 
-.app{height:100%;display:flex;flex-direction:column;padding-top:var(--sat)}
+.app{height:100%;display:flex;flex-direction:column;background:var(--shell);padding-top:var(--sat)}
 
-/* ---------- game screen ---------- */
-.stage{position:relative;flex:0 0 auto;width:100%;aspect-ratio:16/10.4;max-height:46%;background:#000;overflow:hidden;container-type:size}
-#cv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+/* ---------- the two screens ---------- */
+.screens{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;gap:12px;
+  padding:12px max(12px,var(--sal)) 8px max(12px,var(--sar))}
+.screens.stack{flex-direction:column} .screens.side{flex-direction:row}
+.scr{position:relative;flex:0 0 auto;width:320px;height:240px;background:#000;border-radius:2px;overflow:hidden;container-type:size;
+  box-shadow:0 0 0 3px #14134a,0 0 0 5px #3b3a92,0 8px 16px rgba(0,0,0,.45)}
+.scr canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#cv2{cursor:pointer}
 .ov{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:rgba(8,7,15,.78);padding:14px 16px;overflow:auto;text-align:center}
 .ov-box{display:grid;gap:10px;justify-items:center;max-width:540px}
 .ov h2{font-family:var(--f-pix);font-weight:400;font-size:clamp(30px,10cqw,68px);line-height:1;margin:0;color:#fff;
@@ -54,57 +59,9 @@ button{font:inherit;color:inherit}
 .ov .rank{font-family:var(--f-pix);color:var(--gold);font-size:18px}
 @container (max-height:290px){ .ov .steps,.ov .hide-short{display:none} .ov h2{font-size:clamp(26px,9cqw,44px)} }
 
-/* ---------- register bank ---------- */
-.mem{flex:1 1 auto;min-height:0;overflow-y:auto;background:var(--term);display:flex;flex-direction:column;gap:8px;
-  padding-block:10px;padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar));
-  border-top:1px solid var(--rule)}
-.mem-head{display:none;align-items:center;justify-content:space-between;gap:10px}
-.logo{font-family:var(--f-pix);font-weight:400;font-size:18px;margin:0;color:#fff;text-shadow:2px 0 var(--hot),-2px 0 var(--cyan)}
-.stab{flex:1;display:grid;gap:3px;max-width:240px}
-.stab-row{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.1em;color:var(--muted)}
-.stab-row b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
-.bar{display:grid;grid-template-columns:repeat(20,1fr);gap:2px;height:8px}
-.bar i{background:var(--phos)} .bar i.off{background:#211c3d}
-.bar.warn i:not(.off){background:var(--gold)} .bar.crit i:not(.off){background:var(--hot)}
-.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
-.stat{display:grid;gap:1px}
-.stat span{color:var(--muted);letter-spacing:.1em;font-size:9px}
-.stat b{font-family:var(--f-pix);font-weight:400;font-size:14px;color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap}
-.regs{display:grid;gap:5px}
-.reg{all:unset;box-sizing:border-box;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;
-  padding:4px 8px;background:var(--term2);border:1px solid var(--rule);border-radius:6px;cursor:pointer;position:relative}
-.reg:focus-visible{outline:2px solid var(--cyan)}
-.reg .ctl{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:700 12px var(--f-btn);color:#fff;background:#2b2858;border:2px solid #3b3878}
-.reg .ctl.a{background:var(--ba);border-color:#8f1313}
-.reg .mid{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
-.reg .name{display:flex;gap:8px;align-items:baseline;font-size:10px;letter-spacing:.08em;color:var(--muted);white-space:nowrap;overflow:hidden}
-.reg .name b{color:var(--ink);font-weight:700}
-.reg .name .short{display:none}
-.reg .name em{font-style:normal;color:#5a5f85;display:none}
-.slots{display:flex;gap:4px}
-.slot{width:22px;height:22px;display:grid;place-items:center;font-family:var(--f-pix);font-size:13px;border:1px solid #2d2852;color:#4a4478;background:#0a0816;border-radius:3px;font-variant-numeric:tabular-nums}
-.slot.ok{color:var(--phos);border-color:var(--phos);background:#0b2618}
-.slot.bad{color:#fff;border-color:#9a96bb;background:#1c1932}
-.slot.next{border-color:var(--cyan);color:#7fb6c9}
-.reg .st{font-family:var(--f-pix);font-size:10px;color:#5a5f85;letter-spacing:.05em;text-align:right;min-width:50px}
-.reg.match{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
-.reg.match .st{color:var(--cyan)}
-.reg.online{background:#0c1f16;border-color:var(--phos-dim)}
-.reg.online .st{color:var(--phos)}
-.reg.online .name b{color:var(--phos)}
-.reg.flash{animation:flash .35s steps(3)}
-@keyframes flash{50%{background:#20406a}}
-.ticker{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:1.4em}
-.ticker.ok{color:var(--phos)} .ticker.bad{color:var(--hot)} .ticker.warn{color:var(--gold)}
-.log{list-style:none;margin:0;padding:8px;display:none;flex-direction:column;gap:2px;font-size:11px;background:#07060d;border:1px solid var(--rule);border-radius:4px;min-height:0}
-.log li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
-.log li.ok{color:var(--phos)} .log li.bad{color:var(--hot)} .log li.warn{color:var(--gold)} .log li.sys{color:var(--cyan)}
-.keys{display:none;font-size:11px;color:var(--muted);line-height:1.6}
-.keys kbd{font:inherit;color:var(--ink);background:var(--term2);border:1px solid var(--rule);border-radius:3px;padding:0 4px}
-
 /* ---------- handheld controller ---------- */
 .pad{flex:0 0 auto;--w:min(calc((100vw - 40px)/2.7),19vh,210px);position:relative;background:var(--shell);
-  border-radius:22px 22px 0 0;box-shadow:inset 0 1px 0 var(--shell-hi);
+  box-shadow:inset 0 1px 0 var(--shell-hi);
   display:grid;grid-template-columns:1fr auto 1fr;align-items:start;touch-action:none;
   padding-top:14px;padding-bottom:calc(10px + var(--sab));
   padding-left:max(12px,var(--sal));padding-right:max(12px,var(--sar))}
@@ -158,25 +115,13 @@ button{font:inherit;color:inherit}
   will-change:transform}
 .stick .cap::after{content:"";position:absolute;inset:9%;border-radius:50%;border:2px solid rgba(255,255,255,.18)}
 
-/* ---------- wide screens ---------- */
-@media (min-width:820px) and (min-height:560px){
-  body{padding-block:14px;padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar))}
-  .app{display:grid;grid-template-columns:minmax(0,1fr) clamp(260px,27vw,340px);grid-template-rows:minmax(0,1fr) auto;gap:12px;max-width:1500px;margin:0 auto}
-  .stage{grid-column:1;grid-row:1;height:100%;max-height:none;aspect-ratio:auto;border-radius:8px;border:1px solid var(--rule)}
-  .mem{grid-column:2;grid-row:1/span 2;border:1px solid var(--rule);border-radius:8px;padding:14px;gap:12px}
-  .logo{font-size:24px}
-  .mem-head{display:flex} .stats{grid-template-columns:repeat(4,minmax(0,1fr))} .stats .stat:first-child{display:none}
-  .reg .mid{display:grid;gap:3px;justify-content:stretch} .reg .name em{display:inline} .reg{padding:6px 8px}
-  .pad{grid-column:1;grid-row:2;--w:min(150px,17vh);border-radius:22px;padding:14px 22px}
-  body:not(.touch) .pad{display:none}
-  .log{display:flex;flex:1 1 auto;overflow:hidden;min-height:90px}
-  .ticker{display:none}
-  body:not(.touch) .keys{display:block}
-  .slot{width:24px;height:24px}
-}
-/* ---------- phone held sideways: controller halves flank the screen ---------- */
+/* ---------- keyboard-only screens: no controller ---------- */
+body:not(.touch) .pad{display:none}
+@media (min-width:820px){ .pad{--w:min(150px,17vh)} }
+/* ---------- phone held sideways: controller halves flank the screens ---------- */
 @media (orientation:landscape) and (max-height:560px){
-  .app{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) auto;background:var(--shell)}
+  .app{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) auto}
+  .screens{grid-column:2;grid-row:1/span 2;padding:8px 6px max(8px,var(--sab))}
   .pad{display:contents;--w:min(23vh,21vw,150px)}
   .pad-m,.smalls{display:contents} .grille{display:none}
   .swell{width:calc(var(--w)*.46);height:calc(var(--w)*.46);align-self:center;justify-self:center;margin-bottom:max(6px,var(--sab))}
@@ -184,48 +129,22 @@ button{font:inherit;color:inherit}
   .pad-l,.pad-r{grid-row:1;align-content:space-evenly;padding-inline:max(10px,var(--sal)) 10px;gap:6px}
   .pad-l{grid-column:1} .pad-r{grid-column:3;padding-inline:10px max(14px,var(--sar));position:relative}
   .stickw{width:calc(var(--w)*.95);height:calc(var(--w)*.95)}
-  .stage{grid-column:2;grid-row:1;height:100%;max-height:none;aspect-ratio:auto}
-  .mem{grid-column:2;grid-row:2;max-height:44vh;padding:6px 10px;gap:5px;border-top:0}
-  .mem-head,.stats,.ticker{display:none}
-  .regs{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px}
-  .reg{padding:3px 6px;gap:6px} .reg .ctl{width:20px;height:20px;font-size:10px} .slot{width:18px;height:18px;font-size:11px}
-  .reg .name em,.reg .name .full{display:none} .reg .name .short{display:inline}
-  .reg .st{display:none} .reg .name{flex:0 0 auto}
   .led{display:none}
 }
-@media (prefers-reduced-motion:reduce){ .reg.flash{animation:none} .dpad{transform:none!important} }
+@media (prefers-reduced-motion:reduce){ .dpad{transform:none!important} }
 </style>
 </head>
 <body>
 <div class="app" id="app">
-  <div class="stage" id="stage">
-    <canvas id="cv" width="384" height="240" aria-label="Memario game screen"></canvas>
-    <div class="ov" id="ov"><div class="ov-box" id="ovBox"></div></div>
+  <div class="screens stack" id="screens">
+    <div class="scr" id="stage">
+      <canvas id="cv" width="320" height="240" aria-label="Memario game screen"></canvas>
+      <div class="ov" id="ov"><div class="ov-box" id="ovBox"></div></div>
+    </div>
+    <div class="scr" id="stage2">
+      <canvas id="cv2" width="320" height="240" aria-label="Memory registers. Tap a register to force-write the current digit."></canvas>
+    </div>
   </div>
-
-  <aside class="mem" id="mem" aria-label="Memory registers">
-    <div class="mem-head">
-      <h1 class="logo">MEMARIO</h1>
-      <div class="stab">
-        <div class="stab-row"><span>STABILITY</span><b id="stabPct">100%</b></div>
-        <div class="bar" id="stabBar"></div>
-      </div>
-    </div>
-    <div class="stats">
-      <div class="stat"><span>STABILITY</span><b id="sStab">100%</b></div>
-      <div class="stat"><span>CELL</span><b id="sCell">0,0</b></div>
-      <div class="stat"><span>VALUE</span><b id="sVal">0</b></div>
-      <div class="stat"><span>BYTES</span><b id="sBytes">000</b></div>
-      <div class="stat"><span>CRASHES</span><b id="sCrash">0</b></div>
-    </div>
-    <div class="regs" id="regs"></div>
-    <div class="ticker" id="ticker">Stand on a register's next digit and press its control: ◀, ▶ or A.</div>
-    <ol class="log" id="log"></ol>
-    <div class="keys">
-      <kbd>←</kbd><kbd>→</kbd> move · <kbd>Space</kbd> jump (A) · <kbd>X</kbd> force-write (B)<br>
-      <kbd>G</kbd> flip gravity (X) · <kbd>H</kbd> grid (Y) · <kbd>1</kbd>–<kbd>5</kbd> write register · <kbd>Esc</kbd> menu
-    </div>
-  </aside>
 
   <div class="pad" id="pad">
     <div class="pad-l">
@@ -289,16 +208,18 @@ const FONT = {
   S:'011100010001110',T:'111010010010010',U:'101101101101111',V:'101101101101010',W:'101101111111101',X:'101101010101101',
   Y:'101101010010010',Z:'111001010100111',' ':'000000000000000','.':'000000000000010',':':'000010000010000','-':'000000111000000',
   '%':'101001010100101','/':'001001010100100','>':'100010001010100','<':'001010100010001','!':'010010010000010','?':'110001010000010',
-  '+':'000010111010000','[':'110100100100110',']':'011001001001011','=':'000111000111000',"'":'010010000000000'
+  '+':'000010111010000',',':'000000000010100','(':'010100100100010',')':'010001001001010','#':'101111101111101',
+  '[':'110100100100110',']':'011001001001011','=':'000111000111000',"'":'010010000000000'
 };
-function drawText(s, x, y, col, sc = 1, align = 'left') {
-  s = String(s).toUpperCase();
+const CHMAP = { '—': '-', '–': '-', '◀': '<', '▶': '>', '·': '.', '°': '', '×': 'X', '▸': '>' };
+function drawText(s, x, y, col, sc = 1, align = 'left', g = ctx) {
+  s = String(s).toUpperCase().replace(/[—–◀▶·°×▸]/g, (c) => CHMAP[c]);
   const w = s.length * 4 * sc - sc;
   if (align === 'center') x -= (w / 2) | 0; else if (align === 'right') x -= w;
-  ctx.fillStyle = col;
+  g.fillStyle = col;
   for (let i = 0; i < s.length; i++) {
-    const g = FONT[s[i]]; if (!g) continue;
-    for (let j = 0; j < 15; j++) if (g.charCodeAt(j) === 49) ctx.fillRect(x + i * 4 * sc + (j % 3) * sc, y + ((j / 3) | 0) * sc, sc, sc);
+    const gl = FONT[s[i]]; if (!gl) continue;
+    for (let j = 0; j < 15; j++) if (gl.charCodeAt(j) === 49) g.fillRect(x + i * 4 * sc + (j % 3) * sc, y + ((j / 3) | 0) * sc, sc, sc);
   }
   return w;
 }
@@ -660,62 +581,114 @@ bindStick($('stickL'), 'L'); bindStick($('stickR'), 'R');
 if (('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
 addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') document.body.classList.add('touch'); }, { passive: true });
 
-/* ================= register panel ================= */
-const regsEl = $('regs'), logEl = $('log'), tickerEl = $('ticker');
-const regEls = regs.map((r, i) => {
-  const b = document.createElement('button');
-  b.className = 'reg'; b.type = 'button';
-  b.setAttribute('aria-label', `${r.name} register. Tap to write the current value.`);
-  b.innerHTML = `<span class="ctl${r.ctrl === 'jump' ? ' a' : ''}">${CTRL_GLYPH[r.ctrl]}</span>
-    <span class="mid"><span class="name"><b class="full">${r.name}</b><b class="short">${r.short}</b><em>${r.addr}</em></span><span class="slots"></span></span><span class="st">LOCKED</span>`;
-  b.addEventListener('click', (e) => { e.preventDefault(); ensureAudio(); if (state === 'play') inject(r); b.blur(); });
-  regsEl.appendChild(b);
-  return { root: b, slots: b.querySelector('.slots'), st: b.querySelector('.st') };
-});
-function renderRegs() {
-  regs.forEach((r, i) => {
-    const el = regEls[i];
-    el.slots.innerHTML = r.seq.map((d, j) => {
-      const s = r.slots[j];
-      if (r.unlocked) return `<span class="slot ok">${d}</span>`;
-      if (s) return `<span class="slot ${s.ok ? 'ok' : 'bad'}">${s.d}</span>`;
-      return `<span class="slot${j === r.slots.length ? ' next' : ''}">${d}</span>`;
-    }).join('');
-    el.root.classList.toggle('online', r.unlocked);
-  });
-  updateMatch(true);
+/* ================= bottom screen: the register bank ================= */
+const cv2 = $('cv2'), ctx2 = cv2.getContext('2d', { alpha: false });
+const SW = 320, SH = 240, ROW_Y = 42, ROW_H = 33;
+const logLines = [];
+const LOG_COL = { ok: '#39ff88', bad: '#ff3d8a', warn: '#ffc23d', sys: '#4ff0ff', '': '#c9cfe6' };
+function renderRegs() { /* the bottom screen redraws every frame */ }
+function updateMatch() {}
+function updateStats() {}
+function log(msg, cls = '') { logLines.push({ msg, cls }); if (logLines.length > 6) logLines.shift(); }
+function pcircle(g, cx, cy, r, col) {
+  g.fillStyle = col;
+  for (let dy = -r; dy <= r; dy++) { const w = Math.floor(Math.sqrt(r * r - dy * dy)); g.fillRect(cx - w, cy + dy, 2 * w + 1, 1); }
 }
-let lastMatchKey = '';
-function updateMatch(force) {
-  const key = digitNow + ':' + regs.map((r) => r.slots.length + (r.unlocked ? 'u' : '')).join(',');
-  if (!force && key === lastMatchKey) return; lastMatchKey = key;
-  regs.forEach((r, i) => {
-    const m = !r.unlocked && r.seq[r.slots.length] === digitNow;
-    const el = regEls[i];
-    el.root.classList.toggle('match', m && state === 'play');
-    el.st.textContent = r.unlocked ? 'ONLINE' : m ? `WRITE ${digitNow}` : `${r.slots.length}/${r.seq.length}`;
-  });
+function ptri(g, cx, cy, dir, col) { // dir -1 points left, 1 points right
+  g.fillStyle = col;
+  for (let i = 0; i < 5; i++) g.fillRect(cx + dir * (2 - i), cy - i, 1, 2 * i + 1);
 }
-function log(msg, cls = '') {
-  const li = document.createElement('li'); li.textContent = msg; if (cls) li.className = cls;
-  logEl.appendChild(li); while (logEl.children.length > 40) logEl.removeChild(logEl.firstChild);
-  tickerEl.textContent = msg; tickerEl.className = 'ticker' + (cls ? ' ' + cls : '');
-}
-const stabBar = $('stabBar');
-for (let i = 0; i < 20; i++) stabBar.appendChild(document.createElement('i'));
-let lastStab = -1;
-function updateStats() {
-  const stab = Math.round((1 - corruption()) * 100);
-  if (stab !== lastStab) {
-    lastStab = stab; $('stabPct').textContent = stab + '%'; $('sStab').textContent = stab + '%'; $('sStab').style.color = stab < 35 ? 'var(--hot)' : stab < 65 ? 'var(--gold)' : '';
-    [...stabBar.children].forEach((c, i) => c.classList.toggle('off', i >= Math.round(stab / 5)));
-    stabBar.className = 'bar' + (stab < 35 ? ' crit' : stab < 65 ? ' warn' : '');
+const HELP = [
+  ['EVERY 16PX CELL OF THE WORLD HOLDS A DIGIT.', '#c9cfe6'],
+  ['YOURS SHOWS ON YOUR CHEST AND OVER YOUR HEAD.', '#c9cfe6'],
+  ['', ''],
+  ["STAND ON A REGISTER'S NEXT DIGIT AND PRESS", '#ffffff'],
+  ['ITS CONTROL: < > OR A. THE BADGE TURNS GREEN', '#ffffff'],
+  ['WHEN THE DIGIT WILL COUNT.', '#ffffff'],
+  ['B FORCE-WRITES ANY DIGIT. WRONG SEQUENCES SEGFAULT.', '#8a93b4'],
+  ['', ''],
+  ['A FULL SEQUENCE UNLOCKS AN ABILITY, BUT EVERY', '#ffc23d'],
+  ['UNLOCK CORRUPTS THE GAME A LITTLE MORE.', '#ffc23d'],
+  ['REACH THE EXIT AT THE END OF THE LEVEL.', '#39ff88'],
+];
+function drawMem() {
+  const g = ctx2;
+  g.fillStyle = '#0d0b18'; g.fillRect(0, 0, SW, SH);
+  g.fillStyle = '#131026';
+  for (let x = 0; x < SW; x += 16) g.fillRect(x, 0, 1, SH);
+  for (let y = 0; y < SH; y += 16) g.fillRect(0, y, SW, 1);
+  const T = (t, x, y, c, sc = 1, al = 'left') => drawText(t, x, y, c, sc, al, g);
+
+  if (state === 'title') {
+    T('HOW TO PLAY', SW / 2, 10, '#ffffff', 2, 'center');
+    HELP.forEach(([t, c], i) => { if (t) T(t, 14, 34 + i * 11, c); });
+    g.fillStyle = '#262046'; g.fillRect(8, 162, SW - 16, 1);
+    const touch = document.body.classList.contains('touch');
+    T(touch ? 'A JUMP   B FORCE-WRITE   X FLIP   Y GRID' : 'ARROWS MOVE  SPACE JUMP  X FORCE  G FLIP', SW / 2, 172, '#c9cfe6', 1, 'center');
+    T(touch ? 'START MENU   SELECT SOUND   R-STICK LOOK' : 'H GRID   M SOUND   ESC MENU   1-5 WRITE', SW / 2, 184, '#c9cfe6', 1, 'center');
+    if ((frame >> 5) % 2 === 0) T(touch ? 'PRESS START OR A TO BOOT' : 'PRESS ENTER OR SPACE TO BOOT', SW / 2, 212, '#39ff88', 2, 'center');
+    return;
   }
-  $('sCell').textContent = cellNow[0] + ',' + cellNow[1];
-  $('sVal').textContent = digitNow;
-  $('sBytes').textContent = String(bytes).padStart(3, '0');
-  $('sCrash').textContent = crashes;
+
+  // header: stability, current value, stats
+  const stab = Math.round((1 - corruption()) * 100);
+  const scol = stab < 35 ? '#ff3d8a' : stab < 65 ? '#ffc23d' : '#39ff88';
+  T('STABILITY', 8, 7, '#8a93b4');
+  for (let i = 0; i < 20; i++) { g.fillStyle = i < Math.round(stab / 5) ? scol : '#211c3d'; g.fillRect(8 + i * 7, 16, 6, 8); }
+  T(stab + '%', 150, 15, scol, 2);
+  const match = regs.some((r) => !r.unlocked && r.seq[r.slots.length] === digitNow);
+  const vc = match ? '#39ff88' : '#ffffff';
+  g.fillStyle = vc; g.fillRect(194, 5, 30, 30); g.fillStyle = '#101018'; g.fillRect(196, 7, 26, 26);
+  T(String(digitNow), 203, 10, vc, 4);
+  T('CELL ' + cellNow[0] + ',' + cellNow[1], 232, 7, '#8a93b4');
+  T('BYTES ' + String(bytes).padStart(3, '0'), 232, 17, '#ffffff');
+  T('CRASH ' + crashes, 232, 27, crashes ? '#ff3d8a' : '#ffffff');
+  g.fillStyle = '#262046'; g.fillRect(6, 38, SW - 12, 1);
+
+  // registers
+  regs.forEach((r, i) => {
+    const y = ROW_Y + i * ROW_H;
+    const m = state === 'play' && !r.unlocked && r.seq[r.slots.length] === digitNow;
+    if (r.flashT > 0) r.flashT--;
+    const border = r.unlocked ? '#1d5c3c' : m ? '#4ff0ff' : '#262046';
+    const bg = r.flashT > 0 && (r.flashT >> 2) % 2 ? '#20406a' : r.unlocked ? '#0c1f16' : m ? '#10283a' : '#151229';
+    g.fillStyle = border; g.fillRect(6, y, SW - 12, 30);
+    g.fillStyle = bg; g.fillRect(7, y + 1, SW - 14, 28);
+    if (r.ctrl === 'jump') { pcircle(g, 21, y + 15, 10, '#7d1010'); pcircle(g, 21, y + 14, 9, '#d42626'); drawText('A', 18, y + 9, '#ffffff', 2, 'left', g); }
+    else { pcircle(g, 21, y + 15, 10, '#3b3878'); pcircle(g, 21, y + 14, 9, '#2b2858'); ptri(g, 21, y + 14, r.ctrl === 'left' ? -1 : 1, '#ffffff'); }
+    T(r.name, 37, y + 7, r.unlocked ? '#39ff88' : '#ffffff');
+    T(r.addr, 37, y + 18, '#5a5f85');
+    r.seq.forEach((d, j) => {
+      const bx = 112 + j * 25, by = y + 4, sl = r.slots[j];
+      let edge = '#2d2852', fill = '#0a0816', txt = '#4a4478', ch = d;
+      if (r.unlocked) { edge = '#39ff88'; fill = '#0b2618'; txt = '#39ff88'; }
+      else if (sl) { ch = sl.d; if (sl.ok) { edge = '#39ff88'; fill = '#0b2618'; txt = '#39ff88'; } else { edge = '#9a96bb'; fill = '#1c1932'; txt = '#ffffff'; } }
+      else if (j === r.slots.length) { edge = m ? '#39ff88' : '#4ff0ff'; txt = m ? '#39ff88' : '#7fb6c9'; }
+      g.fillStyle = edge; g.fillRect(bx, by, 22, 22); g.fillStyle = fill; g.fillRect(bx + 1, by + 1, 20, 20);
+      drawText(String(ch), bx + 8, by + 6, txt, 2, 'left', g);
+    });
+    const st = r.unlocked ? 'ONLINE' : m ? 'WRITE ' + digitNow : r.slots.length + '/' + r.seq.length;
+    T(st, SW - 12, y + 12, r.unlocked ? '#39ff88' : m ? '#4ff0ff' : '#5a5f85', 1, 'right');
+  });
+
+  // ticker: the latest two log lines
+  g.fillStyle = '#262046'; g.fillRect(6, 209, SW - 12, 1);
+  const clip = (t) => (t.length > 76 ? t.slice(0, 75) + '.' : t);
+  const a = logLines[logLines.length - 1], b = logLines[logLines.length - 2];
+  if (b) { g.globalAlpha = 0.55; T(clip(b.msg), 8, 215, LOG_COL[b.cls] || LOG_COL['']); g.globalAlpha = 1; }
+  if (a) T(clip(a.msg), 8, 226, LOG_COL[a.cls] || LOG_COL['']);
 }
+// Tap a register on the bottom screen to force-write the current digit into it.
+cv2.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); ensureAudio();
+  const rc = cv2.getBoundingClientRect();
+  const x = (e.clientX - rc.left) / rc.width * SW, y = (e.clientY - rc.top) / rc.height * SH;
+  if (state === 'title') { startGame(); return; }
+  if (state !== 'play') return;
+  const i = Math.floor((y - ROW_Y) / ROW_H);
+  if (i >= 0 && i < regs.length && y - ROW_Y - i * ROW_H < 30 && x > 6 && x < SW - 6) { haptic(); inject(regs[i]); }
+});
+cv2.addEventListener('contextmenu', (e) => e.preventDefault());
 
 /* ================= injection ================= */
 function injectCtrl(k) {
@@ -732,7 +705,7 @@ function inject(r) {
   (ok ? SFX.ok : SFX.bad)(); haptic(ok ? 12 : 30);
   log(`MOV ${r.addr}[${i}], ${d}  ${ok ? 'OK' : 'MISMATCH (want ' + r.seq[i] + ')'}`, ok ? 'ok' : 'bad');
   floaters.push({ x: p.x + 6, y: p.y - 18, t: 50, text: (ok ? '+' : 'X') + d, col: ok ? '#39ff88' : '#ffffff' });
-  const el = regEls[regs.indexOf(r)].root; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  r.flashT = 16;
   if (Math.random() < 0.10) glitch();
   if (r.slots.length === r.seq.length) {
     if (r.slots.every((s) => s.ok)) unlock(r); else segfault(r);
@@ -1132,12 +1105,6 @@ function postFX(C) {
 }
 function drawHUD(C) {
   if (state === 'title') return;
-  const L = 4;
-  ctx.fillStyle = 'rgba(10,8,22,0.72)'; ctx.fillRect(L, 6, 94, 24);
-  drawText('STB', L + 4, 10, '#8a93b4');
-  const stab = 1 - C, segs = 14;
-  for (let i = 0; i < segs; i++) { ctx.fillStyle = i < Math.round(stab * segs) ? (stab < 0.35 ? '#ff3d8a' : stab < 0.65 ? '#ffc23d' : '#39ff88') : '#2a2448'; ctx.fillRect(L + 20 + i * 5, 10, 4, 5); }
-  drawText('BYTES ' + String(bytes).padStart(3, '0'), L + 4, 20, '#ffffff');
   const secs = Math.floor(playFrames / 60);
   drawText(`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`, VW - 6, 8, '#ffffff', 1, 'right');
   let ry = 16;
@@ -1155,18 +1122,10 @@ function drawHUD(C) {
 
 /* ================= overlays & flow ================= */
 const ov = $('ov'), ovBox = $('ovBox');
-const HOWTO = `<ol class="steps">
-  <li>Every 16px cell holds a digit. Yours shows on your chest and overhead.</li>
-  <li>Stand where a register's <b>next digit</b> shows and press that register's control: <b>◀</b>, <b>▶</b> or <b>A</b>. The badge over your head turns green when you can.</li>
-  <li>To force any digit in, press <b>B</b> first, or tap the register.</li>
-  <li>Finish a sequence to unlock its ability. Each unlock corrupts the game more. A wrong sequence segfaults.</li>
-</ol>`;
 function showTitle() {
   ovBox.innerHTML = `<h2>MEMARIO</h2>
     <p>Hack your own memory with numbers you find in the world, then reach the EXIT before reality falls apart.</p>
-    ${HOWTO}
-    <button class="act" id="boot">BOOT ▸</button>
-    <p class="hide-short" style="color:var(--muted);font-size:11px">A jump · B force-write · X flip gravity · Y grid · START menu · SELECT sound</p>`;
+    <button class="act" id="boot">BOOT ▸</button>`;
   ov.hidden = false; $('boot').addEventListener('click', () => { ensureAudio(); startGame(); });
 }
 function startGame() {
@@ -1175,13 +1134,12 @@ function startGame() {
   log(`STAND ON A REGISTER'S NEXT DIGIT, PRESS ITS CONTROL (◀ ▶ A) · START = MENU`, 'sys');
   renderRegs(); updateStats();
 }
-function reboot() { resetRun(false); digitNow = cellDigit(Math.floor((p.x + 6) / 16), Math.floor((p.y + 8) / 16)); cellNow = [-1, -1]; logEl.innerHTML = ''; startGame(); }
+function reboot() { resetRun(false); digitNow = cellDigit(Math.floor((p.x + 6) / 16), Math.floor((p.y + 8) / 16)); cellNow = [-1, -1]; logLines.length = 0; startGame(); }
 function openMenu() {
   state = 'pause';
   ovBox.innerHTML = `<h2>PAUSED</h2>
     <div class="row"><button class="act" id="mResume">RESUME</button><button class="act alt" id="mReboot">REBOOT RUN</button></div>
-    <div class="row"><button class="act alt" id="mSound">SOUND: ${muted ? 'OFF' : 'ON'}</button><button class="act alt" id="mGrid">GRID: ${showGrid ? 'ON' : 'OFF'}</button></div>
-    ${HOWTO}`;
+    <div class="row"><button class="act alt" id="mSound">SOUND: ${muted ? 'OFF' : 'ON'}</button><button class="act alt" id="mGrid">GRID: ${showGrid ? 'ON' : 'OFF'}</button></div>`;
   ov.hidden = false;
   $('mResume').onclick = closeMenu;
   $('mReboot').onclick = () => reboot();
@@ -1205,14 +1163,19 @@ function win() {
 }
 
 /* ================= sizing & loop ================= */
-const stage = $('stage');
+const screensEl = $('screens'), scrEls = [$('stage'), $('stage2')];
+VW = 320; cv.width = VW; cv.height = VH; ctx.imageSmoothingEnabled = false;
 function resize() {
-  const r = stage.getBoundingClientRect(); if (r.width < 10 || r.height < 10) return;
-  VW = clamp(Math.round(VH * r.width / r.height), 320, 432);
-  cv.width = VW; cv.height = VH; ctx.imageSmoothingEnabled = false;
-  const s = Math.min(r.width / VW, r.height / VH);
-  cv.style.width = Math.floor(VW * s) + 'px'; cv.style.height = Math.floor(VH * s) + 'px';
-  buildSky();
+  const cs = getComputedStyle(screensEl);
+  const aw = screensEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 12;
+  const ah = screensEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 12;
+  if (aw < 20 || ah < 20) return;
+  const gap = 12;
+  const stacked = Math.min(aw, (ah - gap) / 2 * 4 / 3);
+  const side = Math.min((aw - gap) / 2, ah * 4 / 3);
+  const w = Math.floor(Math.max(stacked, side)), h = Math.floor(w * 3 / 4);
+  screensEl.className = 'screens ' + (side > stacked ? 'side' : 'stack');
+  scrEls.forEach((el) => { el.style.width = w + 'px'; el.style.height = h + 'px'; });
 }
 let last = performance.now(), acc = 0;
 function loop(now) {
@@ -1223,6 +1186,7 @@ function loop(now) {
   while (acc >= 1 / 60 && steps < 5) { update(); acc -= 1 / 60; steps++; }
   if (steps === 5) acc = 0;
   render();
+  drawMem();
   $('fbB').classList.toggle('armed', armedT > 0);
   $('led').classList.toggle('on', armedT > 0 || (burstT > 0 && (frame >> 2) % 2 === 0));
   requestAnimationFrame(loop);
@@ -1236,7 +1200,7 @@ function boot(data) {
   if (Array.isArray(data.regs)) data.regs.forEach((d, i) => { if (regs[i] && d) { regs[i].slots = d.slots || []; regs[i].unlocked = !!d.unlocked; abil[regs[i].id] = regs[i].unlocked; } });
   if (typeof data.volatileC === 'number') { volatileC = data.volatileC; hue = data.hue || 0; bytes = data.bytes || 0; crashes = data.crashes || 0; }
   digitNow = cellDigit(Math.floor((p.x + 6) / 16), Math.floor((p.y + 8) / 16));
-  resize(); new ResizeObserver(resize).observe(stage);
+  buildSky(); resize(); new ResizeObserver(resize).observe(screensEl);
   renderRegs(); updateStats();
   if (data.state === 'play') startGame(); else showTitle();
   requestAnimationFrame((t) => { last = t; loop(t); });

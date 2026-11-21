@@ -4,6 +4,12 @@ A corrupted side-scroller for Android. Every 16-pixel cell of the world holds a 
 Stand on the digits a register needs, write them into memory, and unlock abilities, while each
 unlock makes the game glitchier and less stable. Reach the EXIT at the end of the level.
 
+## Layout
+
+Like a dual-screen handheld emulator: the game on the top screen, the register bank on the bottom
+screen, and the controller below. Nothing scrolls. Held sideways, the two screens sit side by side
+between the halves of the controller.
+
 ## Controls (on-screen handheld controller)
 
 | Control | Action |
@@ -19,7 +25,7 @@ unlock makes the game glitchier and less stable. Reach the EXIT at the end of th
 | Phone back button | Pause menu (quits only from the title screen) |
 
 The badge over the hero turns green when the digit you stand on is some register's next digit.
-Tapping a register row also force-writes the current digit into it.
+Tapping a register on the bottom screen also force-writes the current digit into it.
 
 ## Registers
 
