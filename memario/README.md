@@ -14,9 +14,9 @@ on the bottom screen. The number tag over the hero's head shows the digit underf
 
 ## Layout
 
-Like a dual-screen handheld emulator: the game on the top screen, the register bank on the bottom
-screen, and the controller below. Nothing scrolls. Held sideways, the two screens sit side by side
-between the halves of the controller.
+Held upright: the game screen runs edge to edge on top, the register screen fills the space between it
+and the controller, and nothing scrolls. Held sideways (and on desktop), Switch-style: one big game
+screen with a slim 3×3 register strip under it and the controller halves either side.
 
 ## Controls (on-screen handheld controller)
 

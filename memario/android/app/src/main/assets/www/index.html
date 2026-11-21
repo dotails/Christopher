@@ -9,8 +9,9 @@
 @font-face{font-family:'Silkscreen';src:url(fonts/silkscreen.woff2) format('woff2');font-weight:400;font-display:block}
 @font-face{font-family:'JetBrains Mono';src:url(fonts/jbmono-400.woff2) format('woff2');font-weight:400;font-display:swap}
 @font-face{font-family:'JetBrains Mono';src:url(fonts/jbmono-700.woff2) format('woff2');font-weight:700;font-display:swap}
-/* Layout: a dual-screen handheld. Two 4:3 screens (game on top, register bank below) sit in the shell
-   above the controller; script sizes them stacked or side by side, whichever is larger. Nothing scrolls. */
+/* Layout. Portrait: game screen edge to edge on top, register screen filling the space between it and
+   the controller. Landscape and desktop (Switch-style): one big game screen with a slim register strip
+   under it, controller halves either side. Script sizes both screens; nothing scrolls. */
 :root{
   --void:#08070f; --term:#0d0b18; --term2:#151229; --rule:#262046;
   --ink:#e8fff2; --muted:#8a93b4; --phos:#39ff88; --phos-dim:#1d5c3c; --hot:#ff3d8a; --cyan:#4ff0ff; --gold:#ffc23d;
@@ -37,27 +38,13 @@ button{font:inherit;color:inherit}
 .app{height:100%;display:flex;flex-direction:column;background:var(--shell);padding-top:var(--sat)}
 
 /* ---------- the two screens ---------- */
-.screens{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;gap:12px;
-  padding:12px max(12px,var(--sal)) 8px max(12px,var(--sar))}
-.screens.stack{flex-direction:column} .screens.side{flex-direction:row}
-.scr{position:relative;flex:0 0 auto;width:320px;height:240px;background:#000;border-radius:2px;overflow:hidden;container-type:size;
-  box-shadow:0 0 0 3px #14134a,0 0 0 5px #3b3a92,0 8px 16px rgba(0,0,0,.45)}
-.scr canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+.screens{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;background:#000}
+.scr{position:relative;flex:0 0 auto;width:100%;background:#000;overflow:hidden;container-type:size}
+.scr canvas{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+#stage2{border-top:2px solid #05040a}
 #cv2{cursor:pointer}
-.ov{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:rgba(8,7,15,.78);padding:14px 16px;overflow:auto;text-align:center}
-.ov-box{display:grid;gap:10px;justify-items:center;max-width:540px}
-.ov h2{font-family:var(--f-pix);font-weight:400;font-size:clamp(30px,10cqw,68px);line-height:1;margin:0;color:#fff;
-  text-shadow:3px 0 var(--hot),-3px 0 var(--cyan);letter-spacing:.02em}
-.ov p{margin:0;color:#cdd6ea;font-size:clamp(11px,2.6cqw,14px);line-height:1.45;text-wrap:balance;max-width:44ch}
-.ov .steps{margin:0;padding:0 0 0 1.4em;text-align:left;display:grid;gap:4px;color:#cdd6ea;font-size:clamp(10px,2.3cqw,13px);line-height:1.4;max-width:46ch}
-.ov .steps b{color:var(--phos);font-weight:700}
-.ov .act{font-family:var(--f-pix);font-size:16px;background:var(--phos);color:#04130a;border:0;padding:10px 22px;border-radius:4px;cursor:pointer}
-.ov .act.alt{background:transparent;color:var(--ink);border:1px solid var(--rule)}
-.ov .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.ov dl{display:grid;grid-template-columns:auto auto;gap:4px 18px;margin:0;font-size:12px;text-align:left}
-.ov dt{color:var(--muted)} .ov dd{margin:0;color:#fff;font-variant-numeric:tabular-nums}
-.ov .rank{font-family:var(--f-pix);color:var(--gold);font-size:18px}
-@container (max-height:290px){ .ov .steps,.ov .hide-short{display:none} .ov h2{font-size:clamp(26px,9cqw,44px)} }
+.ov .steps{display:none}
+body.mode-switch .ov .steps{display:grid}
 
 /* ---------- handheld controller ---------- */
 .pad{flex:0 0 auto;--w:min(calc((100vw - 40px)/2.7),19vh,210px);position:relative;background:var(--shell);
@@ -72,10 +59,7 @@ button{font:inherit;color:inherit}
   background:radial-gradient(circle,var(--well) 60%,#24236a 100%);box-shadow:0 0 0 3px var(--well-ring),inset 0 2px 8px rgba(0,0,0,.25)}
 /* D-pad */
 .dpad{position:absolute;inset:0;cursor:pointer}
-.dpad .arm{position:absolute;background:linear-gradient(180deg,var(--lav-hi),var(--lav) 55%,var(--lav-lo));border-radius:6px;
-  box-shadow:0 4px 8px rgba(0,0,0,.35),inset 0 -2px 0 rgba(0,0,0,.08)}
-.dpad .h{left:14%;right:14%;top:40%;height:20%}
-.dpad .v{top:14%;bottom:14%;left:40%;width:20%}
+.dpad .cross{position:absolute;inset:14%;width:72%;height:72%;overflow:visible;filter:drop-shadow(0 4px 4px rgba(0,0,0,.35))}
 .dpad .hub{position:absolute;left:43%;top:43%;width:14%;height:14%;border-radius:50%;background:radial-gradient(circle,#a6a5cc,#b4b3d8)}
 .dpad .ar{position:absolute;width:0;height:0;border:calc(var(--w)*.035) solid transparent;transition:border-color .06s}
 .dpad .ar.u{left:50%;top:21%;transform:translate(-50%,-50%);border-bottom:calc(var(--w)*.05) solid var(--arrow);border-top-width:0}
@@ -121,7 +105,7 @@ body:not(.touch) .pad{display:none}
 /* ---------- phone held sideways: controller halves flank the screens ---------- */
 @media (orientation:landscape) and (max-height:560px){
   .app{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) auto}
-  .screens{grid-column:2;grid-row:1/span 2;padding:8px 6px max(8px,var(--sab))}
+  .screens{grid-column:2;grid-row:1/span 2}
   .pad{display:contents;--w:min(23vh,21vw,150px)}
   .pad-m,.smalls{display:contents} .grille{display:none}
   .swell{width:calc(var(--w)*.46);height:calc(var(--w)*.46);align-self:center;justify-self:center;margin-bottom:max(6px,var(--sab))}
@@ -136,7 +120,7 @@ body:not(.touch) .pad{display:none}
 </head>
 <body>
 <div class="app" id="app">
-  <div class="screens stack" id="screens">
+  <div class="screens" id="screens">
     <div class="scr" id="stage">
       <canvas id="cv" width="320" height="240" aria-label="Memario game screen"></canvas>
       <div class="ov" id="ov"><div class="ov-box" id="ovBox"></div></div>
@@ -149,7 +133,10 @@ body:not(.touch) .pad{display:none}
   <div class="pad" id="pad">
     <div class="pad-l">
       <div class="well"><div class="dpad" id="dpad" aria-label="D-pad">
-        <div class="arm h"></div><div class="arm v"></div><div class="hub"></div>
+        <svg class="cross" viewBox="0 0 100 100" aria-hidden="true">
+          <defs><linearGradient id="dpadFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dddcf3"/><stop offset=".55" stop-color="#c9c8e8"/><stop offset="1" stop-color="#a9a8d0"/></linearGradient></defs>
+          <path fill="url(#dpadFill)" d="M36 7Q36 0 43 0H57Q64 0 64 7V36H93Q100 36 100 43V57Q100 64 93 64H64V93Q64 100 57 100H43Q36 100 36 93V64H7Q0 64 0 57V43Q0 36 7 36H36Z"/>
+        </svg><div class="hub"></div>
         <i class="ar u"></i><i class="ar d"></i><i class="ar l"></i><i class="ar r"></i>
       </div></div>
       <div class="well stickw"><div class="stick" id="stickL" aria-label="Left stick"><div class="gate"></div><div class="cap"></div></div></div>
@@ -620,13 +607,14 @@ addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') document
 
 /* ================= bottom screen: the register bank ================= */
 const cv2 = $('cv2'), ctx2 = cv2.getContext('2d', { alpha: false });
-const SW = 320, SH = 240, ROW_Y = 41, ROW_H = 19, ROW_BOX = 17;
+let memMode = 'panel', SW = 320, SH = 240, lastLogAt = -9999;
+const regRects = [];             // where each register was drawn, for taps
 const logLines = [];
 const LOG_COL = { ok: '#39ff88', bad: '#ff3d8a', warn: '#ffc23d', sys: '#4ff0ff', '': '#c9cfe6' };
 function renderRegs() { /* the bottom screen redraws every frame */ }
 function updateMatch() {}
 function updateStats() {}
-function log(msg, cls = '') { logLines.push({ msg, cls }); if (logLines.length > 6) logLines.shift(); }
+function log(msg, cls = '') { logLines.push({ msg, cls }); if (logLines.length > 6) logLines.shift(); lastLogAt = frame; }
 function pcircle(g, cx, cy, r, col) {
   g.fillStyle = col;
   for (let dy = -r; dy <= r; dy++) { const w = Math.floor(Math.sqrt(r * r - dy * dy)); g.fillRect(cx - w, cy + dy, 2 * w + 1, 1); }
@@ -648,6 +636,55 @@ const HELP = [
   ['', ''],
   ['REACH THE EXIT AT THE END OF THE LEVEL.', '#ffffff'],
 ];
+// One register: control icon, name, five digit slots (or the condition that opens it), status.
+function drawReg(g, T, r, i, x, y, w, h, compact) {
+  const open = isOpen(r), m = state === 'play' && nextMatches(r);
+  if (r.flashT > 0) r.flashT--;
+  const flash = r.flashT > 0 && (r.flashT >> 2) % 2;
+  let border, bg, nameCol, st, stCol;
+  if (r.good) {
+    border = r.unlocked ? '#1d5c3c' : m ? '#39ff88' : '#262046';
+    bg = r.unlocked ? '#0c1f16' : m ? '#0f2a1c' : '#151229';
+    nameCol = r.unlocked ? '#39ff88' : open ? '#ffffff' : '#5a5f85';
+    st = r.unlocked ? 'ONLINE' : !open ? r.cond.label : m ? 'WRITE ' + digitNow : r.slots.length + '/' + r.seq.length;
+    stCol = r.unlocked ? '#39ff88' : !open ? '#6b6f95' : m ? '#39ff88' : '#5a5f85';
+  } else {
+    border = r.unlocked || m ? '#ff3d8a' : '#3d1a33';
+    bg = r.unlocked ? '#2a0d1c' : m ? '#2a1022' : '#170f1f';
+    nameCol = r.unlocked ? '#ff3d8a' : open ? '#ff8ab8' : '#5e4060';
+    st = r.unlocked ? 'ACTIVE' : !open ? r.cond.label : m ? 'DANGER ' + digitNow : r.slots.length + '/' + r.seq.length;
+    stCol = r.unlocked || m ? '#ff3d8a' : !open ? '#6b4f6d' : '#7a5a7a';
+  }
+  if (flash) bg = r.good ? '#20406a' : '#4a1030';
+  g.fillStyle = border; g.fillRect(x, y, w, h);
+  g.fillStyle = bg; g.fillRect(x + 1, y + 1, w - 2, h - 2);
+  regRects[i] = [x, y, w, h];
+  const cy = y + (h >> 1), ty = y + ((h - 5) >> 1), rad = Math.min(6, (h >> 1) - 2);
+  g.globalAlpha = open || r.unlocked ? 1 : 0.5;
+  if (r.ctrl === 'jump') { pcircle(g, x + 9, cy, rad, '#d42626'); T('A', x + 8, cy - 2, '#ffffff'); }
+  else { pcircle(g, x + 9, cy, rad, '#2b2858'); ptri(g, x + 9, cy, r.ctrl === 'left' ? -1 : 1, '#ffffff', rad > 4 ? 4 : 3); }
+  const label = compact ? (r.good ? '' : '!') + r.short : (r.good ? '' : '! ') + r.name;
+  T(label, x + 19, ty, nameCol);
+  const s = Math.min(h - 2, 15), pitch = compact ? s + 1 : s + 2;
+  const sx = compact ? x + 19 + 7 * 4 + 4 : x + 106;
+  if (compact && !open && !r.unlocked) { T(r.cond.label, sx, ty, stCol); }
+  else r.seq.forEach((d, j) => {
+    const bx = sx + j * pitch, by = y + ((h - s) >> 1), sl = r.slots[j];
+    let edge = '#2d2852', fill = '#0a0816', txt = r.good ? '#4a4478' : '#5e3a5c', ch = d;
+    if (r.unlocked) { edge = r.good ? '#39ff88' : '#ff3d8a'; fill = r.good ? '#0b2618' : '#3a0d22'; txt = edge; }
+    else if (sl) {
+      ch = sl.d;
+      if (!sl.ok) { edge = '#9a96bb'; fill = '#1c1932'; txt = '#ffffff'; }
+      else if (r.good) { edge = '#39ff88'; fill = '#0b2618'; txt = '#39ff88'; }
+      else { edge = '#ff3d8a'; fill = '#3a0d22'; txt = '#ff3d8a'; }
+    } else if (j === r.slots.length && open) { edge = r.good ? (m ? '#39ff88' : '#4ff0ff') : '#ff3d8a'; txt = r.good ? (m ? '#39ff88' : '#7fb6c9') : '#ff8ab8'; }
+    g.fillStyle = edge; g.fillRect(bx, by, s, s); g.fillStyle = fill; g.fillRect(bx + 1, by + 1, s - 2, s - 2);
+    if (s >= 13) drawText(String(ch), bx + ((s - 6) >> 1), by + ((s - 10) >> 1), txt, 2, 'left', g);
+    else drawText(String(ch), bx + ((s - 3) >> 1), by + ((s - 5) >> 1), txt, 1, 'left', g);
+  });
+  g.globalAlpha = 1;
+  if (!compact) T(st, x + w - 6, ty, stCol, 1, 'right');
+}
 function drawMem() {
   const g = ctx2;
   g.fillStyle = '#0d0b18'; g.fillRect(0, 0, SW, SH);
@@ -655,85 +692,76 @@ function drawMem() {
   for (let x = 0; x < SW; x += 16) g.fillRect(x, 0, 1, SH);
   for (let y = 0; y < SH; y += 16) g.fillRect(0, y, SW, 1);
   const T = (t, x, y, c, sc = 1, al = 'left') => drawText(t, x, y, c, sc, al, g);
+  const touch = document.body.classList.contains('touch');
+  const ctl1 = touch ? 'A JUMP   B FORCE-WRITE   X FLIP   Y GRID' : 'ARROWS MOVE  SPACE JUMP  X FORCE  G FLIP';
+  const ctl2 = touch ? 'START MENU   SELECT SOUND   R-STICK LOOK' : 'H GRID   M SOUND   ESC MENU   1-9 WRITE';
+  const boot = touch ? 'PRESS START OR A TO BOOT' : 'PRESS ENTER OR SPACE TO BOOT';
+  regRects.length = 0;
 
   if (state === 'title') {
-    T('HOW TO PLAY', SW / 2, 10, '#ffffff', 2, 'center');
-    HELP.forEach(([t, c], i) => { if (t) T(t, 14, 34 + i * 11, c); });
-    g.fillStyle = '#262046'; g.fillRect(8, 162, SW - 16, 1);
-    const touch = document.body.classList.contains('touch');
-    T(touch ? 'A JUMP   B FORCE-WRITE   X FLIP   Y GRID' : 'ARROWS MOVE  SPACE JUMP  X FORCE  G FLIP', SW / 2, 172, '#c9cfe6', 1, 'center');
-    T(touch ? 'START MENU   SELECT SOUND   R-STICK LOOK' : 'H GRID   M SOUND   ESC MENU   1-5 WRITE', SW / 2, 184, '#c9cfe6', 1, 'center');
-    if ((frame >> 5) % 2 === 0) T(touch ? 'PRESS START OR A TO BOOT' : 'PRESS ENTER OR SPACE TO BOOT', SW / 2, 212, '#39ff88', 2, 'center');
+    if (memMode === 'strip') {
+      T(ctl1 + '   ' + ctl2, SW / 2, Math.max(6, (SH >> 1) - 16), '#c9cfe6', 1, 'center');
+      if ((frame >> 5) % 2 === 0) T(boot, SW / 2, (SH >> 1) - 2, '#39ff88', 2, 'center');
+      return;
+    }
+    const lines = SH >= 190 ? HELP : HELP.filter(([t]) => t);
+    const lh = SH >= 200 ? 11 : 9;
+    T('HOW TO PLAY', SW / 2, 7, '#ffffff', 2, 'center');
+    lines.forEach(([t, c], i) => { if (t) T(t, 14, 24 + i * lh, c); });
+    const y2 = 24 + lines.length * lh + 2;
+    g.fillStyle = '#262046'; g.fillRect(8, y2, SW - 16, 1);
+    T(ctl1, SW / 2, y2 + 5, '#c9cfe6', 1, 'center');
+    T(ctl2, SW / 2, y2 + 14, '#c9cfe6', 1, 'center');
+    if ((frame >> 5) % 2 === 0) T(boot, SW / 2, Math.min(SH - 13, y2 + 26), '#39ff88', 2, 'center');
     return;
   }
 
-  // header: stability, current value, stats
   const stab = Math.round((1 - corruption()) * 100);
   const scol = stab < 35 ? '#ff3d8a' : stab < 65 ? '#ffc23d' : '#39ff88';
   const face = p.dead || faceT.hurt > 0 ? 3 : faceT.shock > 0 ? 2 : faceT.happy > 0 ? 1 : stab < 35 ? 3 : 0;
-  g.fillStyle = '#262046'; g.fillRect(6, 5, 30, 30); g.fillStyle = '#1b2440'; g.fillRect(7, 6, 28, 28);
-  if (FACES_IMG.naturalWidth) g.drawImage(FACES_IMG, face * 28, 0, 28, 24, 7, 9, 28, 24);
+  const vc = VERDICT_COL[verdict()];
+  const portrait = (x, y) => {
+    g.fillStyle = '#262046'; g.fillRect(x, y, 30, 30); g.fillStyle = '#1b2440'; g.fillRect(x + 1, y + 1, 28, 28);
+    if (FACES_IMG.naturalWidth) g.drawImage(FACES_IMG, face * 28, 0, 28, 24, x + 1, y + 4, 28, 24);
+  };
+
+  if (memMode === 'strip') {
+    // left column: portrait, current digit, stability and stats; then a 3x3 grid of registers
+    portrait(4, 4);
+    g.fillStyle = vc; g.fillRect(38, 4, 30, 30); g.fillStyle = '#101018'; g.fillRect(40, 6, 26, 26);
+    T(String(digitNow), 49, 11, vc, 3);
+    T('STB ' + stab + '%', 4, 39, scol);
+    for (let i = 0; i < 10; i++) { g.fillStyle = i < Math.round(stab / 10) ? scol : '#211c3d'; g.fillRect(4 + i * 7, 47, 6, 5); }
+    T('BYTES ' + String(bytes).padStart(3, '0'), 4, Math.min(SH - 15, 56), '#ffffff');
+    T('CRASH ' + crashes, 4, Math.min(SH - 7, 64), crashes ? '#ff3d8a' : '#ffffff');
+    const gx = 76, cw = Math.floor((SW - gx - 2) / 3), rh = Math.floor((SH - 2) / 3);
+    regs.forEach((r, i) => drawReg(g, T, r, i, gx + Math.floor(i / 3) * cw, 1 + (i % 3) * rh, cw - 2, rh - 2, true));
+    return;
+  }
+
+  // panel: header, nine register rows, and as many log lines as fit
+  portrait(6, 4);
   T('STABILITY', 42, 7, '#8a93b4');
   for (let i = 0; i < 16; i++) { g.fillStyle = i < Math.round(stab / 6.25) ? scol : '#211c3d'; g.fillRect(42 + i * 7, 16, 6, 8); }
   T(stab + '%', 158, 15, scol, 2);
-  const vc = VERDICT_COL[verdict()];
-  g.fillStyle = vc; g.fillRect(194, 5, 30, 30); g.fillStyle = '#101018'; g.fillRect(196, 7, 26, 26);
-  T(String(digitNow), 203, 10, vc, 4);
+  g.fillStyle = vc; g.fillRect(194, 4, 30, 30); g.fillStyle = '#101018'; g.fillRect(196, 6, 26, 26);
+  T(String(digitNow), 203, 9, vc, 4);
   T('CELL ' + cellNow[0] + ',' + cellNow[1], 232, 7, '#8a93b4');
   T('BYTES ' + String(bytes).padStart(3, '0'), 232, 17, '#ffffff');
   T('CRASH ' + crashes, 232, 27, crashes ? '#ff3d8a' : '#ffffff');
-  g.fillStyle = '#262046'; g.fillRect(6, 38, SW - 12, 1);
-
-  // registers: good ones first, then curses
-  regs.forEach((r, i) => {
-    const y = ROW_Y + i * ROW_H, open = isOpen(r);
-    const m = state === 'play' && nextMatches(r);
-    if (r.flashT > 0) r.flashT--;
-    const flash = r.flashT > 0 && (r.flashT >> 2) % 2;
-    let border, bg, nameCol, st, stCol;
-    if (r.good) {
-      border = r.unlocked ? '#1d5c3c' : m ? '#39ff88' : '#262046';
-      bg = r.unlocked ? '#0c1f16' : m ? '#0f2a1c' : '#151229';
-      nameCol = r.unlocked ? '#39ff88' : open ? '#ffffff' : '#5a5f85';
-      st = r.unlocked ? 'ONLINE' : !open ? r.cond.label : m ? 'WRITE ' + digitNow : r.slots.length + '/' + r.seq.length;
-      stCol = r.unlocked ? '#39ff88' : !open ? '#6b6f95' : m ? '#39ff88' : '#5a5f85';
-    } else {
-      border = r.unlocked ? '#ff3d8a' : m ? '#ff3d8a' : '#3d1a33';
-      bg = r.unlocked ? '#2a0d1c' : m ? '#2a1022' : '#170f1f';
-      nameCol = r.unlocked ? '#ff3d8a' : open ? '#ff8ab8' : '#5e4060';
-      st = r.unlocked ? 'ACTIVE' : !open ? r.cond.label : m ? 'DANGER ' + digitNow : r.slots.length + '/' + r.seq.length;
-      stCol = r.unlocked || m ? '#ff3d8a' : !open ? '#6b4f6d' : '#7a5a7a';
-    }
-    if (flash) bg = r.good ? '#20406a' : '#4a1030';
-    g.fillStyle = border; g.fillRect(6, y, SW - 12, ROW_BOX);
-    g.fillStyle = bg; g.fillRect(7, y + 1, SW - 14, ROW_BOX - 2);
-    g.globalAlpha = open || r.unlocked ? 1 : 0.5;
-    if (r.ctrl === 'jump') { pcircle(g, 16, y + 8, 6, '#d42626'); T('A', 15, y + 6, '#ffffff'); }
-    else { pcircle(g, 16, y + 8, 6, '#2b2858'); ptri(g, 16, y + 8, r.ctrl === 'left' ? -1 : 1, '#ffffff', 4); }
-    T((r.good ? '' : '! ') + r.name, 27, y + 6, nameCol);
-    r.seq.forEach((d, j) => {
-      const bx = 112 + j * 17, by = y + 1, sl = r.slots[j];
-      let edge = '#2d2852', fill = '#0a0816', txt = r.good ? '#4a4478' : '#5e3a5c', ch = d;
-      if (r.unlocked) { edge = r.good ? '#39ff88' : '#ff3d8a'; fill = r.good ? '#0b2618' : '#3a0d22'; txt = edge; }
-      else if (sl) {
-        ch = sl.d;
-        if (!sl.ok) { edge = '#9a96bb'; fill = '#1c1932'; txt = '#ffffff'; }
-        else if (r.good) { edge = '#39ff88'; fill = '#0b2618'; txt = '#39ff88'; }
-        else { edge = '#ff3d8a'; fill = '#3a0d22'; txt = '#ff3d8a'; }
-      } else if (j === r.slots.length && open) { edge = r.good ? (m ? '#39ff88' : '#4ff0ff') : '#ff3d8a'; txt = r.good ? (m ? '#39ff88' : '#7fb6c9') : '#ff8ab8'; }
-      g.fillStyle = edge; g.fillRect(bx, by, 15, 15); g.fillStyle = fill; g.fillRect(bx + 1, by + 1, 13, 13);
-      drawText(String(ch), bx + 5, by + 3, txt, 2, 'left', g);
-    });
-    g.globalAlpha = 1;
-    T(st, SW - 12, y + 6, stCol, 1, 'right');
-  });
-
-  // ticker: the latest two log lines
-  g.fillStyle = '#262046'; g.fillRect(6, 212, SW - 12, 1);
-  const clip = (t) => (t.length > 76 ? t.slice(0, 75) + '.' : t);
-  const a = logLines[logLines.length - 1], b = logLines[logLines.length - 2];
-  if (b) { g.globalAlpha = 0.55; T(clip(b.msg), 8, 217, LOG_COL[b.cls] || LOG_COL['']); g.globalAlpha = 1; }
-  if (a) T(clip(a.msg), 8, 228, LOG_COL[a.cls] || LOG_COL['']);
+  g.fillStyle = '#262046'; g.fillRect(6, 37, SW - 12, 1);
+  const free = SH - 40 - 9 * 13;
+  const logN = free >= 30 ? 2 : free >= 14 ? 1 : 0;
+  const rowH = clamp(Math.floor((SH - 40 - logN * 11 - 3) / 9), 12, 20);
+  regs.forEach((r, i) => drawReg(g, T, r, i, 6, 40 + i * rowH, SW - 12, rowH - 2, false));
+  if (logN) {
+    const clip = (t) => (t.length > 76 ? t.slice(0, 75) + '.' : t);
+    const ly = SH - logN * 11 - 1;
+    g.fillStyle = '#262046'; g.fillRect(6, ly - 3, SW - 12, 1);
+    const a = logLines[logLines.length - 1], b = logLines[logLines.length - 2];
+    if (logN === 2 && b) { g.globalAlpha = 0.55; T(clip(b.msg), 8, ly, LOG_COL[b.cls] || LOG_COL['']); g.globalAlpha = 1; }
+    if (a) T(clip(a.msg), 8, ly + (logN === 2 ? 11 : 0), LOG_COL[a.cls] || LOG_COL['']);
+  }
 }
 // Tap a register on the bottom screen to force-write the current digit into it.
 cv2.addEventListener('pointerdown', (e) => {
@@ -742,8 +770,8 @@ cv2.addEventListener('pointerdown', (e) => {
   const x = (e.clientX - rc.left) / rc.width * SW, y = (e.clientY - rc.top) / rc.height * SH;
   if (state === 'title') { startGame(); return; }
   if (state !== 'play') return;
-  const i = Math.floor((y - ROW_Y) / ROW_H);
-  if (i >= 0 && i < regs.length && y - ROW_Y - i * ROW_H < ROW_BOX && x > 6 && x < SW - 6) { haptic(); inject(regs[i]); }
+  const i = regRects.findIndex((q) => q && x >= q[0] && x < q[0] + q[2] && y >= q[1] && y < q[1] + q[3]);
+  if (i >= 0) { haptic(); inject(regs[i]); }
 });
 cv2.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -1215,6 +1243,11 @@ function postFX(C) {
 }
 function drawHUD(C) {
   if (state === 'title') return;
+  if (memMode === 'strip' && logLines.length && frame - lastLogAt < 200) {
+    const l = logLines[logLines.length - 1], t = l.msg.length > 70 ? l.msg.slice(0, 69) + '.' : l.msg;
+    ctx.fillStyle = 'rgba(8,7,15,0.75)'; ctx.fillRect(0, VH - 12, t.length * 4 + 8, 12);
+    drawText(t, 4, VH - 9, LOG_COL[l.cls] || LOG_COL['']);
+  }
   const secs = Math.floor(playFrames / 60);
   drawText(`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`, VW - 6, 8, '#ffffff', 1, 'right');
   let ry = 16;
@@ -1236,6 +1269,12 @@ const ov = $('ov'), ovBox = $('ovBox');
 function showTitle() {
   ovBox.innerHTML = `<h2>MEMARIO</h2>
     <p>Hack your own memory with numbers you find in the world, then reach the EXIT before reality falls apart.</p>
+    <ol class="steps">
+      <li>Every 16px cell holds a digit; yours shows over your head.</li>
+      <li>Stand on a register's <b>next digit</b> and press its control (<b>◀</b>, <b>▶</b> or <b>A</b>) to write it.</li>
+      <li>Green registers grant abilities. Red ones are curses that the same presses fill. Patches purge curses.</li>
+      <li>Some registers only open under a condition. Reach the EXIT.</li>
+    </ol>
     <button class="act" id="boot">BOOT ▸</button>`;
   ov.hidden = false; $('boot').addEventListener('click', () => { ensureAudio(); startGame(); });
 }
@@ -1275,19 +1314,28 @@ function win() {
 }
 
 /* ================= sizing & loop ================= */
-const screensEl = $('screens'), scrEls = [$('stage'), $('stage2')];
+const screensEl = $('screens'), stageEl = $('stage'), stage2El = $('stage2');
 VW = 320; cv.width = VW; cv.height = VH; ctx.imageSmoothingEnabled = false;
 function resize() {
-  const cs = getComputedStyle(screensEl);
-  const aw = screensEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 12;
-  const ah = screensEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 12;
-  if (aw < 20 || ah < 20) return;
-  const gap = 12;
-  const stacked = Math.min(aw, (ah - gap) / 2 * 4 / 3);
-  const side = Math.min((aw - gap) / 2, ah * 4 / 3);
-  const w = Math.floor(Math.max(stacked, side)), h = Math.floor(w * 3 / 4);
-  screensEl.className = 'screens ' + (side > stacked ? 'side' : 'stack');
-  scrEls.forEach((el) => { el.style.width = w + 'px'; el.style.height = h + 'px'; });
+  const W = screensEl.clientWidth, H = screensEl.clientHeight;
+  if (W < 20 || H < 20) return;
+  const stack = innerHeight > innerWidth * 1.05;
+  document.body.classList.toggle('mode-stack', stack);
+  document.body.classList.toggle('mode-switch', !stack);
+  let gh, mh;
+  if (stack) {
+    // game edge to edge (4:3 when it fits); the register screen takes the rest, never less than its compact size
+    const memMin = Math.ceil(W / 320 * 172);
+    gh = Math.floor(Math.min(W * 3 / 4, H - memMin)); mh = H - gh;
+    memMode = 'panel'; SW = 320; SH = Math.max(120, Math.round(320 * (mh - 2) / W));
+  } else {
+    mh = Math.round(Math.min(W * 78 / 480, H * 0.4)); gh = H - mh;
+    memMode = 'strip'; SW = 480; SH = Math.max(56, Math.round(480 * (mh - 2) / W));
+  }
+  stageEl.style.height = gh + 'px'; stage2El.style.height = mh + 'px';
+  if (cv2.width !== SW || cv2.height !== SH) { cv2.width = SW; cv2.height = SH; }
+  const vw = clamp(Math.round(VH * W / gh), 320, 576);   // wide screens see further instead of getting black bars
+  if (vw !== VW) { VW = vw; cv.width = VW; cv.height = VH; ctx.imageSmoothingEnabled = false; buildSky(); }
 }
 let last = performance.now(), acc = 0;
 function loop(now) {
