@@ -259,6 +259,8 @@ const SAVES = [2, 74, 125, 155, 189];
 const BITS = [[69,10],[70,9],[71,10],[102,7],[103,6],[104,6],[105,7],[128,11],[130,11],[132,11],[134,11],[136,11],[138,11],[140,11],
   [177,2],[178,2],[179,2],[180,2],[181,2],[182,2],[183,2],[184,2],[84,4],[85,4],[86,4],[160,3],[162,3]];
 const EXIT_TX = 214;
+// 0x blocks that hold a patch instead of bytes
+const PATCH_BLOCKS = new Set(['21,9', '20,5', '63,8', '91,5', '136,9', '161,5', '193,9']);
 
 /* ================= art ================= */
 function spriteFromRows(rows, pal) {
@@ -457,14 +459,39 @@ function haptic(ms = 8) {
 /* ================= registers ================= */
 const CTRL_GLYPH = { jump: 'A', left: '◀', right: '▶' };
 const CTRL_NAME = { jump: 'A', left: 'LEFT', right: 'RIGHT' };
+// Green registers grant abilities. Red ones are curses: the very same presses fill them, and good
+// registers always take a write first. Some registers only accept writes under a condition.
 const regs = [
-  { id: 'fire',  short: 'FIRE',  name: 'FIRE POWER',   addr: '0x3FF18', seq: [4, 2, 7, 1, 9], ctrl: 'jump',  desc: 'auto-fires plasma' },
-  { id: 'super', short: 'JUMP',  name: 'SUPER JUMP',   addr: '0x2D22E', seq: [3, 8, 5, 2],    ctrl: 'left',  desc: 'jump height ×2' },
-  { id: 'speed', short: 'SPEED', name: 'SPEED BOOST',  addr: '0xC003A', seq: [6, 1, 4, 8, 3], ctrl: 'right', desc: 'run speed ×1.75' },
-  { id: 'phase', short: 'PHASE', name: 'PHASE SHIFT',  addr: '0x0A11C', seq: [9, 9, 0, 1],    ctrl: 'jump',  desc: 'walk through conduits & firewall' },
-  { id: 'grav',  short: 'GRAV',  name: 'GRAVITY FLIP', addr: '0x7E5F0', seq: [7, 3, 1, 5, 0], ctrl: 'left',  desc: 'X flips gravity' },
+  { id: 'fire',   good: true,  short: 'FIRE',   name: 'FIRE POWER',   addr: '0x3FF18', seq: [4, 2, 7, 1, 9], ctrl: 'jump',  desc: 'AUTO-FIRES PLASMA' },
+  { id: 'super',  good: true,  short: 'JUMP',   name: 'SUPER JUMP',   addr: '0x2D22E', seq: [3, 8, 5, 2],    ctrl: 'left',  desc: 'JUMP HEIGHT X2' },
+  { id: 'speed',  good: true,  short: 'SPEED',  name: 'SPEED BOOST',  addr: '0xC003A', seq: [6, 1, 4, 8, 3], ctrl: 'right', desc: 'RUN SPEED X1.75',
+    cond: { label: 'NEEDS 16 BYTES', test: () => bytes >= 16 } },
+  { id: 'phase',  good: true,  short: 'PHASE',  name: 'PHASE SHIFT',  addr: '0x0A11C', seq: [9, 9, 0, 1],    ctrl: 'jump',  desc: 'WALK THROUGH CONDUITS AND FIREWALL',
+    cond: { label: 'MID-AIR ONLY', test: () => !p.grounded } },
+  { id: 'grav',   good: true,  short: 'GRAV',   name: 'GRAVITY FLIP', addr: '0x7E5F0', seq: [7, 3, 1, 5, 0], ctrl: 'left',  desc: 'X FLIPS GRAVITY',
+    cond: { label: 'NEEDS 2 ONLINE', test: () => goodCount() >= 2 } },
+  { id: 'heavy',  good: false, short: 'HEAVY',  name: 'HEAVY BOOTS',  addr: '0xBAD01', seq: [2, 7, 2, 7],    ctrl: 'jump',  desc: 'JUMP HEIGHT CUT' },
+  { id: 'mirror', good: false, short: 'MIRROR', name: 'MIRROR INPUT', addr: '0xBAD02', seq: [1, 6, 6, 1],    ctrl: 'right', desc: 'LEFT AND RIGHT SWAPPED' },
+  { id: 'leak',   good: false, short: 'LEAK',   name: 'MEMORY LEAK',  addr: '0xBAD03', seq: [0, 0, 7, 3],    ctrl: 'left',  desc: 'STABILITY DRAINS OVER TIME',
+    cond: { label: 'AFTER A CRASH', test: () => crashes >= 1 } },
+  { id: 'dark',   good: false, short: 'DARK',   name: 'BLACKOUT',     addr: '0xBAD04', seq: [3, 3, 9, 9],    ctrl: 'jump',  desc: 'THE SCREEN GOES DARK',
+    cond: { label: 'BELOW 60% STB', test: () => corruption() > 0.4 } },
 ];
-regs.forEach((r) => { r.slots = []; r.unlocked = false; });
+regs.forEach((r) => { r.slots = []; r.unlocked = false; r.activeAt = 0; });
+const isOpen = (r) => !r.cond || r.cond.test();
+const canTake = (r) => !r.unlocked && isOpen(r);
+const nextMatches = (r) => canTake(r) && r.seq[r.slots.length] === digitNow;
+const goodCount = () => regs.filter((r) => r.good && r.unlocked).length;
+// Where would a press of each control send the digit under you? good / bad / mixed / none
+function verdict() {
+  let good = false, bad = false;
+  for (const k of ['left', 'right', 'jump']) {
+    const r = regs.find((q) => q.ctrl === k && nextMatches(q));
+    if (r) { if (r.good) good = true; else bad = true; }
+  }
+  return good && bad ? 'mixed' : good ? 'good' : bad ? 'bad' : 'none';
+}
+const VERDICT_COL = { good: '#39ff88', bad: '#ff3d8a', mixed: '#ffc23d', none: '#ffffff' };
 const abil = {};
 
 /* ================= state ================= */
@@ -475,7 +502,7 @@ let checkpoint = 0, camX = 0, peek = 0, bytes = 0, crashes = 0, injections = 0;
 let volatileC = 0, hue = 0, burstT = 0, shakeT = 0, desyncT = 0, flashT = 0, armedT = 0, fireCd = 0;
 let coyote = 0, jumpBuf = 0, digitNow = 0, cellNow = [0, 0], showGrid = true;
 const visited = new Set();
-const unlockedCount = () => regs.filter((r) => r.unlocked).length;
+const unlockedCount = () => goodCount();
 const corruption = () => clamp(unlockedCount() * 0.16 + volatileC, 0, 1);
 
 function resetRun(keepRegs) {
@@ -487,7 +514,7 @@ function resetRun(keepRegs) {
   saves = SAVES.map((tx, i) => ({ x: tx * 16, y: 208 - 32, on: i === 0 }));
   checkpoint = 0; camX = 0; bytes = 0; crashes = 0; injections = 0; playFrames = 0;
   volatileC = 0; hue = 0; burstT = shakeT = desyncT = flashT = armedT = 0; visited.clear();
-  if (!keepRegs) regs.forEach((r) => { r.slots = []; r.unlocked = false; });
+  if (!keepRegs) regs.forEach((r) => { r.slots = []; r.unlocked = false; r.activeAt = 0; });
   regs.forEach((r) => { abil[r.id] = r.unlocked; });
 }
 
@@ -517,7 +544,7 @@ const KB = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right'
 addEventListener('keydown', (e) => {
   const k = KB[e.code];
   if (k) { e.preventDefault(); setKey('kb', k, true); return; }
-  if (/^Digit[1-5]$/.test(e.code) && state === 'play') { e.preventDefault(); ensureAudio(); inject(regs[+e.code.slice(5) - 1]); }
+  if (/^Digit[1-9]$/.test(e.code) && state === 'play') { e.preventDefault(); ensureAudio(); inject(regs[+e.code.slice(5) - 1]); }
 });
 addEventListener('keyup', (e) => { const k = KB[e.code]; if (k) { e.preventDefault(); setKey('kb', k, false); } });
 addEventListener('blur', () => { for (const s in src) for (const k of KEYS) setKey(s, k, false); });
@@ -583,7 +610,7 @@ addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') document
 
 /* ================= bottom screen: the register bank ================= */
 const cv2 = $('cv2'), ctx2 = cv2.getContext('2d', { alpha: false });
-const SW = 320, SH = 240, ROW_Y = 42, ROW_H = 33;
+const SW = 320, SH = 240, ROW_Y = 41, ROW_H = 19, ROW_BOX = 17;
 const logLines = [];
 const LOG_COL = { ok: '#39ff88', bad: '#ff3d8a', warn: '#ffc23d', sys: '#4ff0ff', '': '#c9cfe6' };
 function renderRegs() { /* the bottom screen redraws every frame */ }
@@ -594,22 +621,22 @@ function pcircle(g, cx, cy, r, col) {
   g.fillStyle = col;
   for (let dy = -r; dy <= r; dy++) { const w = Math.floor(Math.sqrt(r * r - dy * dy)); g.fillRect(cx - w, cy + dy, 2 * w + 1, 1); }
 }
-function ptri(g, cx, cy, dir, col) { // dir -1 points left, 1 points right
+function ptri(g, cx, cy, dir, col, n = 5) { // dir -1 points left, 1 points right
   g.fillStyle = col;
-  for (let i = 0; i < 5; i++) g.fillRect(cx + dir * (2 - i), cy - i, 1, 2 * i + 1);
+  for (let i = 0; i < n; i++) g.fillRect(cx + dir * ((n >> 1) - i), cy - i, 1, 2 * i + 1);
 }
 const HELP = [
-  ['EVERY 16PX CELL OF THE WORLD HOLDS A DIGIT.', '#c9cfe6'],
-  ['YOURS SHOWS ON YOUR CHEST AND OVER YOUR HEAD.', '#c9cfe6'],
+  ['EVERY 16PX CELL HOLDS A DIGIT. YOURS SHOWS OVERHEAD.', '#c9cfe6'],
+  ["STAND ON A REGISTER'S NEXT DIGIT AND PRESS ITS", '#ffffff'],
+  ['CONTROL (< > OR A) TO WRITE IT. FILL IT TO ACTIVATE.', '#ffffff'],
   ['', ''],
-  ["STAND ON A REGISTER'S NEXT DIGIT AND PRESS", '#ffffff'],
-  ['ITS CONTROL: < > OR A. THE BADGE TURNS GREEN', '#ffffff'],
-  ['WHEN THE DIGIT WILL COUNT.', '#ffffff'],
-  ['B FORCE-WRITES ANY DIGIT. WRONG SEQUENCES SEGFAULT.', '#8a93b4'],
+  ['GREEN REGISTERS GRANT ABILITIES BUT CORRUPT THE GAME.', '#39ff88'],
+  ['RED REGISTERS ARE CURSES. THE SAME PRESSES FILL THEM.', '#ff3d8a'],
+  ['BADGE: GREEN SAFE  RED CURSE  GOLD DEPENDS ON BUTTON', '#ffc23d'],
+  ['SOME REGISTERS ONLY OPEN UNDER A CONDITION.', '#c9cfe6'],
+  ['PATCHES FROM 0X BLOCKS PURGE CURSES.', '#c9cfe6'],
   ['', ''],
-  ['A FULL SEQUENCE UNLOCKS AN ABILITY, BUT EVERY', '#ffc23d'],
-  ['UNLOCK CORRUPTS THE GAME A LITTLE MORE.', '#ffc23d'],
-  ['REACH THE EXIT AT THE END OF THE LEVEL.', '#39ff88'],
+  ['REACH THE EXIT AT THE END OF THE LEVEL.', '#ffffff'],
 ];
 function drawMem() {
   const g = ctx2;
@@ -636,8 +663,7 @@ function drawMem() {
   T('STABILITY', 8, 7, '#8a93b4');
   for (let i = 0; i < 20; i++) { g.fillStyle = i < Math.round(stab / 5) ? scol : '#211c3d'; g.fillRect(8 + i * 7, 16, 6, 8); }
   T(stab + '%', 150, 15, scol, 2);
-  const match = regs.some((r) => !r.unlocked && r.seq[r.slots.length] === digitNow);
-  const vc = match ? '#39ff88' : '#ffffff';
+  const vc = VERDICT_COL[verdict()];
   g.fillStyle = vc; g.fillRect(194, 5, 30, 30); g.fillStyle = '#101018'; g.fillRect(196, 7, 26, 26);
   T(String(digitNow), 203, 10, vc, 4);
   T('CELL ' + cellNow[0] + ',' + cellNow[1], 232, 7, '#8a93b4');
@@ -645,38 +671,56 @@ function drawMem() {
   T('CRASH ' + crashes, 232, 27, crashes ? '#ff3d8a' : '#ffffff');
   g.fillStyle = '#262046'; g.fillRect(6, 38, SW - 12, 1);
 
-  // registers
+  // registers: good ones first, then curses
   regs.forEach((r, i) => {
-    const y = ROW_Y + i * ROW_H;
-    const m = state === 'play' && !r.unlocked && r.seq[r.slots.length] === digitNow;
+    const y = ROW_Y + i * ROW_H, open = isOpen(r);
+    const m = state === 'play' && nextMatches(r);
     if (r.flashT > 0) r.flashT--;
-    const border = r.unlocked ? '#1d5c3c' : m ? '#4ff0ff' : '#262046';
-    const bg = r.flashT > 0 && (r.flashT >> 2) % 2 ? '#20406a' : r.unlocked ? '#0c1f16' : m ? '#10283a' : '#151229';
-    g.fillStyle = border; g.fillRect(6, y, SW - 12, 30);
-    g.fillStyle = bg; g.fillRect(7, y + 1, SW - 14, 28);
-    if (r.ctrl === 'jump') { pcircle(g, 21, y + 15, 10, '#7d1010'); pcircle(g, 21, y + 14, 9, '#d42626'); drawText('A', 18, y + 9, '#ffffff', 2, 'left', g); }
-    else { pcircle(g, 21, y + 15, 10, '#3b3878'); pcircle(g, 21, y + 14, 9, '#2b2858'); ptri(g, 21, y + 14, r.ctrl === 'left' ? -1 : 1, '#ffffff'); }
-    T(r.name, 37, y + 7, r.unlocked ? '#39ff88' : '#ffffff');
-    T(r.addr, 37, y + 18, '#5a5f85');
+    const flash = r.flashT > 0 && (r.flashT >> 2) % 2;
+    let border, bg, nameCol, st, stCol;
+    if (r.good) {
+      border = r.unlocked ? '#1d5c3c' : m ? '#39ff88' : '#262046';
+      bg = r.unlocked ? '#0c1f16' : m ? '#0f2a1c' : '#151229';
+      nameCol = r.unlocked ? '#39ff88' : open ? '#ffffff' : '#5a5f85';
+      st = r.unlocked ? 'ONLINE' : !open ? r.cond.label : m ? 'WRITE ' + digitNow : r.slots.length + '/' + r.seq.length;
+      stCol = r.unlocked ? '#39ff88' : !open ? '#6b6f95' : m ? '#39ff88' : '#5a5f85';
+    } else {
+      border = r.unlocked ? '#ff3d8a' : m ? '#ff3d8a' : '#3d1a33';
+      bg = r.unlocked ? '#2a0d1c' : m ? '#2a1022' : '#170f1f';
+      nameCol = r.unlocked ? '#ff3d8a' : open ? '#ff8ab8' : '#5e4060';
+      st = r.unlocked ? 'ACTIVE' : !open ? r.cond.label : m ? 'DANGER ' + digitNow : r.slots.length + '/' + r.seq.length;
+      stCol = r.unlocked || m ? '#ff3d8a' : !open ? '#6b4f6d' : '#7a5a7a';
+    }
+    if (flash) bg = r.good ? '#20406a' : '#4a1030';
+    g.fillStyle = border; g.fillRect(6, y, SW - 12, ROW_BOX);
+    g.fillStyle = bg; g.fillRect(7, y + 1, SW - 14, ROW_BOX - 2);
+    g.globalAlpha = open || r.unlocked ? 1 : 0.5;
+    if (r.ctrl === 'jump') { pcircle(g, 16, y + 8, 6, '#d42626'); T('A', 15, y + 6, '#ffffff'); }
+    else { pcircle(g, 16, y + 8, 6, '#2b2858'); ptri(g, 16, y + 8, r.ctrl === 'left' ? -1 : 1, '#ffffff', 4); }
+    T((r.good ? '' : '! ') + r.name, 27, y + 6, nameCol);
     r.seq.forEach((d, j) => {
-      const bx = 112 + j * 25, by = y + 4, sl = r.slots[j];
-      let edge = '#2d2852', fill = '#0a0816', txt = '#4a4478', ch = d;
-      if (r.unlocked) { edge = '#39ff88'; fill = '#0b2618'; txt = '#39ff88'; }
-      else if (sl) { ch = sl.d; if (sl.ok) { edge = '#39ff88'; fill = '#0b2618'; txt = '#39ff88'; } else { edge = '#9a96bb'; fill = '#1c1932'; txt = '#ffffff'; } }
-      else if (j === r.slots.length) { edge = m ? '#39ff88' : '#4ff0ff'; txt = m ? '#39ff88' : '#7fb6c9'; }
-      g.fillStyle = edge; g.fillRect(bx, by, 22, 22); g.fillStyle = fill; g.fillRect(bx + 1, by + 1, 20, 20);
-      drawText(String(ch), bx + 8, by + 6, txt, 2, 'left', g);
+      const bx = 112 + j * 17, by = y + 1, sl = r.slots[j];
+      let edge = '#2d2852', fill = '#0a0816', txt = r.good ? '#4a4478' : '#5e3a5c', ch = d;
+      if (r.unlocked) { edge = r.good ? '#39ff88' : '#ff3d8a'; fill = r.good ? '#0b2618' : '#3a0d22'; txt = edge; }
+      else if (sl) {
+        ch = sl.d;
+        if (!sl.ok) { edge = '#9a96bb'; fill = '#1c1932'; txt = '#ffffff'; }
+        else if (r.good) { edge = '#39ff88'; fill = '#0b2618'; txt = '#39ff88'; }
+        else { edge = '#ff3d8a'; fill = '#3a0d22'; txt = '#ff3d8a'; }
+      } else if (j === r.slots.length && open) { edge = r.good ? (m ? '#39ff88' : '#4ff0ff') : '#ff3d8a'; txt = r.good ? (m ? '#39ff88' : '#7fb6c9') : '#ff8ab8'; }
+      g.fillStyle = edge; g.fillRect(bx, by, 15, 15); g.fillStyle = fill; g.fillRect(bx + 1, by + 1, 13, 13);
+      drawText(String(ch), bx + 5, by + 3, txt, 2, 'left', g);
     });
-    const st = r.unlocked ? 'ONLINE' : m ? 'WRITE ' + digitNow : r.slots.length + '/' + r.seq.length;
-    T(st, SW - 12, y + 12, r.unlocked ? '#39ff88' : m ? '#4ff0ff' : '#5a5f85', 1, 'right');
+    g.globalAlpha = 1;
+    T(st, SW - 12, y + 6, stCol, 1, 'right');
   });
 
   // ticker: the latest two log lines
-  g.fillStyle = '#262046'; g.fillRect(6, 209, SW - 12, 1);
+  g.fillStyle = '#262046'; g.fillRect(6, 212, SW - 12, 1);
   const clip = (t) => (t.length > 76 ? t.slice(0, 75) + '.' : t);
   const a = logLines[logLines.length - 1], b = logLines[logLines.length - 2];
-  if (b) { g.globalAlpha = 0.55; T(clip(b.msg), 8, 215, LOG_COL[b.cls] || LOG_COL['']); g.globalAlpha = 1; }
-  if (a) T(clip(a.msg), 8, 226, LOG_COL[a.cls] || LOG_COL['']);
+  if (b) { g.globalAlpha = 0.55; T(clip(b.msg), 8, 217, LOG_COL[b.cls] || LOG_COL['']); g.globalAlpha = 1; }
+  if (a) T(clip(a.msg), 8, 228, LOG_COL[a.cls] || LOG_COL['']);
 }
 // Tap a register on the bottom screen to force-write the current digit into it.
 cv2.addEventListener('pointerdown', (e) => {
@@ -686,46 +730,58 @@ cv2.addEventListener('pointerdown', (e) => {
   if (state === 'title') { startGame(); return; }
   if (state !== 'play') return;
   const i = Math.floor((y - ROW_Y) / ROW_H);
-  if (i >= 0 && i < regs.length && y - ROW_Y - i * ROW_H < 30 && x > 6 && x < SW - 6) { haptic(); inject(regs[i]); }
+  if (i >= 0 && i < regs.length && y - ROW_Y - i * ROW_H < ROW_BOX && x > 6 && x < SW - 6) { haptic(); inject(regs[i]); }
 });
 cv2.addEventListener('contextmenu', (e) => e.preventDefault());
 
 /* ================= injection ================= */
 function injectCtrl(k) {
-  const cands = regs.filter((r) => r.ctrl === k && !r.unlocked);
-  if (!cands.length) { log(`NO WRITABLE REGISTER ON ${CTRL_NAME[k]}`, 'sys'); SFX.bad(); return; }
-  inject(cands.find((r) => r.seq[r.slots.length] === digitNow) || cands[0]);
+  const cands = regs.filter((r) => r.ctrl === k && canTake(r));
+  if (!cands.length) { log(`NO OPEN REGISTER ON ${CTRL_NAME[k]}`, 'sys'); SFX.bad(); return; }
+  inject(cands.find((r) => r.good && nextMatches(r)) || cands.find(nextMatches) || cands.find((r) => r.good) || cands[0]);
 }
 function inject(r) {
-  if (!r || r.unlocked || state !== 'play') { if (r && r.unlocked) log(`${r.name} IS ALREADY ONLINE`, 'sys'); return; }
+  if (!r || state !== 'play') return;
+  if (r.unlocked) { log(`${r.name} IS ALREADY ${r.good ? 'ONLINE' : 'ACTIVE'}`, 'sys'); return; }
+  if (!isOpen(r)) { log(`${r.name} IS CLOSED: ${r.cond.label}`, 'sys'); SFX.bad(); r.flashT = 8; return; }
   const d = digitNow, i = r.slots.length, ok = d === r.seq[i];
   r.slots.push({ d, ok }); injections++;
   volatileC += ok ? 0.006 : 0.02;
   armedT = 0;
-  (ok ? SFX.ok : SFX.bad)(); haptic(ok ? 12 : 30);
-  log(`MOV ${r.addr}[${i}], ${d}  ${ok ? 'OK' : 'MISMATCH (want ' + r.seq[i] + ')'}`, ok ? 'ok' : 'bad');
-  floaters.push({ x: p.x + 6, y: p.y - 18, t: 50, text: (ok ? '+' : 'X') + d, col: ok ? '#39ff88' : '#ffffff' });
+  (ok && r.good ? SFX.ok : SFX.bad)(); haptic(ok && r.good ? 12 : 30);
+  if (r.good) log(`MOV ${r.addr}[${i}], ${d}  ${ok ? 'OK' : 'MISMATCH (want ' + r.seq[i] + ')'}`, ok ? 'ok' : 'bad');
+  else log(`!! CURSE ${r.name} ${ok ? 'FED' : 'JAMMED'} (${r.slots.length}/${r.seq.length})`, 'bad');
+  floaters.push({ x: p.x + 6, y: p.y - 18, t: 50, text: (ok ? '+' : 'X') + d, col: !r.good ? '#ff3d8a' : ok ? '#39ff88' : '#ffffff' });
   r.flashT = 16;
   if (Math.random() < 0.10) glitch();
   if (r.slots.length === r.seq.length) {
-    if (r.slots.every((s) => s.ok)) unlock(r); else segfault(r);
+    if (r.slots.every((s) => s.ok)) (r.good ? unlock : curse)(r); else segfault(r);
   }
   renderRegs();
 }
 function unlock(r) {
-  r.unlocked = true; abil[r.id] = true;
+  r.unlocked = true; abil[r.id] = true; r.activeAt = frame;
   SFX.unlock(); haptic(60);
   burstT = 70; flashT = 18; shakeT = Math.max(shakeT, 24);
-  log(`${r.name} ONLINE — ${r.desc}`, 'ok');
+  log(`${r.name} ONLINE: ${r.desc}`, 'ok');
   log(`STABILITY DROPPING: ${Math.round((1 - corruption()) * 100)}%`, 'warn');
   spawnArtifacts(14 + unlockedCount() * 4, false, true); spawnArtifacts(3 + unlockedCount() * 2, true, true);
   floaters.push({ x: p.x + 6, y: p.y - 30, t: 90, text: r.name + ' ONLINE', col: '#ffc23d' });
-  if (unlockedCount() === 5) log('ALL REGISTERS ONLINE. REALITY IS OPTIONAL NOW.', 'warn');
+  if (goodCount() === 5) log('ALL ABILITIES ONLINE. REALITY IS OPTIONAL NOW.', 'warn');
+}
+function curse(r) {
+  r.unlocked = true; abil[r.id] = true; r.activeAt = frame;
+  volatileC += 0.05;
+  SFX.segv(); haptic(120);
+  burstT = 60; shakeT = Math.max(shakeT, 30);
+  log(`CURSE ACTIVE: ${r.name}. ${r.desc}. A PATCH CAN PURGE IT.`, 'bad');
+  floaters.push({ x: p.x + 6, y: p.y - 30, t: 100, text: 'CURSED: ' + r.short, col: '#ff3d8a' });
+  spawnArtifacts(6, true, false);
 }
 function segfault(r) {
   r.slots = []; volatileC += 0.06;
   SFX.segv(); haptic(80); burstT = 60; shakeT = Math.max(shakeT, 40);
-  log(`SEGMENTATION FAULT @ ${r.addr} — REGISTER FLUSHED`, 'bad');
+  log(`SEGMENTATION FAULT @ ${r.addr}: ${r.name} FLUSHED`, 'bad');
   spawnArtifacts(6, false, false);
 }
 const GLITCHES = ['hue', 'shake', 'size', 'artifacts'];
@@ -759,7 +815,12 @@ function applyPatch() {
   const near = artifacts.map((a, i) => [Math.abs(a.x - p.x) - (a.front ? 400 : 0), i]).sort((a, b) => a[0] - b[0]).slice(0, 8).map((v) => v[1]).sort((a, b) => b - a);
   near.forEach((i) => artifacts.splice(i, 1));
   enemies.forEach((e) => { if (!e.dead && e.s !== 1 && Math.abs(e.x - p.x) < 260) setScale(e, 1); });
-  SFX.patch(); log('PATCH APPLIED — CORRUPTION REDUCED', 'ok');
+  SFX.patch(); log('PATCH APPLIED: CORRUPTION REDUCED', 'ok');
+  let flushed = 0;
+  regs.forEach((r) => { if (!r.good && !r.unlocked && r.slots.length) { r.slots = []; flushed++; } });
+  const active = regs.filter((r) => !r.good && r.unlocked).sort((a, b) => b.activeAt - a.activeAt)[0];
+  if (active) { active.unlocked = false; active.slots = []; abil[active.id] = false; log(`PATCH PURGED THE ${active.name} CURSE`, 'ok'); }
+  else if (flushed) log(`PATCH FLUSHED ${flushed} CURSE REGISTER${flushed > 1 ? 'S' : ''}`, 'ok');
   floaters.push({ x: p.x + 6, y: p.y - 20, t: 60, text: 'PATCHED', col: '#39ff88' });
 }
 
@@ -797,7 +858,7 @@ function bump(tx, ty, g) {
   if (t === T.HEX) {
     setT(tx, ty, T.USED);
     const ix = tx * 16, iy = g > 0 ? ty * 16 - 10 : ty * 16 + 16;
-    if ((tx * 7 + ty) % 3 === 0) { items.push({ type: 'patch', x: ix + 3, y: g > 0 ? ty * 16 : ty * 16 + 6, w: 10, h: 10, rise: 16, dir: -g, t: 0 }); log('HEX BLOCK DROPPED A PATCH', 'sys'); }
+    if (PATCH_BLOCKS.has(tx + ',' + ty)) { items.push({ type: 'patch', x: ix + 3, y: g > 0 ? ty * 16 : ty * 16 + 6, w: 10, h: 10, rise: 16, dir: -g, t: 0 }); log('HEX BLOCK DROPPED A PATCH', 'sys'); }
     else { bytes += 4; items.push({ type: 'pop', x: ix + 4, y: iy, t: 26, dir: -g }); SFX.bit(); }
   }
   for (const e of enemies) if (!e.dead && Math.abs((e.y + e.h) - ty * 16) < 3 && e.x + e.w > tx * 16 && e.x < tx * 16 + 16) killEnemy(e, true);
@@ -835,7 +896,7 @@ function update() {
     if (!edges[k]) continue;
     if (armedT > 0) { injectCtrl(k); consumed[k] = true; edges[k] = false; armedT = 0; continue; }
     // A control pressed while standing on its register's next digit writes it (and still moves/jumps).
-    if (!consumed[k]) { const r = regs.find((q) => q.ctrl === k && !q.unlocked && q.seq[q.slots.length] === digitNow); if (r) inject(r); }
+    if (!consumed[k]) { const r = regs.find((q) => q.ctrl === k && nextMatches(q)); if (r) inject(r); }
   }
   if (edges.flip) {
     if (abil.grav) { p.flip = !p.flip; p.grounded = false; SFX.flip(); haptic(20); }
@@ -860,6 +921,7 @@ function update() {
   const C = corruption();
   if (C > 0.45 && desyncT <= 0 && Math.random() < (C - 0.4) * 0.004) { desyncT = 110; log('INPUT DESYNC — LEFT AND RIGHT SWAPPED', 'warn'); SFX.glitch(); }
   if (C > 0.25 && Math.random() < C * 0.004) burstT = Math.max(burstT, 10);
+  if (abil.leak) volatileC += 0.00008;  // the MEMORY LEAK curse
   if (burstT > 0) burstT--; if (shakeT > 0) shakeT--; if (desyncT > 0) desyncT--; if (flashT > 0) flashT--;
   for (const [k, v] of bumps) { if (v <= 1) bumps.delete(k); else bumps.set(k, v - 1); }
   if (frame % 6 === 0) updateStats();
@@ -869,14 +931,14 @@ function clearEdges() { KEYS.forEach((k) => { edges[k] = false; }); }
 
 function updatePlayer(L, Rt, J) {
   const g = p.flip ? -1 : 1;
-  let dir = (Rt ? 1 : 0) - (L ? 1 : 0); if (desyncT > 0) dir = -dir;
+  let dir = (Rt ? 1 : 0) - (L ? 1 : 0); if ((desyncT > 0) !== !!abil.mirror) dir = -dir;
   if (!dir && Math.abs(stickVec.L[0]) > 0.35) dir = 0; // stick already mapped via keys
   const maxS = abil.speed ? 2.8 : 1.6;
   if (dir) { const acc = p.grounded ? 0.3 : 0.2; p.vx += clamp(dir * maxS - p.vx, -acc, acc); p.face = dir; }
   else { p.vx *= p.grounded ? 0.72 : 0.94; if (Math.abs(p.vx) < 0.05) p.vx = 0; }
   if (p.grounded) coyote = 6; else if (coyote > 0) coyote--;
   if (jumpBuf > 0) jumpBuf--;
-  if (jumpBuf > 0 && coyote > 0) { p.vy = -g * (abil.super ? 8.4 : 5.9); coyote = 0; jumpBuf = 0; p.grounded = false; SFX.jump(); }
+  if (jumpBuf > 0 && coyote > 0) { p.vy = -g * (abil.super ? 8.4 : 5.9) * (abil.heavy ? 0.78 : 1); coyote = 0; jumpBuf = 0; p.grounded = false; SFX.jump(); }
   const rising = p.vy * g < 0;
   p.vy += g * (rising && J ? 0.24 : rising ? 0.6 : 0.4);
   if (p.vy * g > 7) p.vy = 7 * g;
@@ -1031,6 +1093,11 @@ function render() {
   if (state !== 'title') drawPlayer(cx0);
   // front artifacts
   drawArtifacts(true, cx0);
+  if (abil.dark && state !== 'title') {   // the BLACKOUT curse
+    const lx = p.x + 6 - cx0, ly = p.y + 8, gr = ctx.createRadialGradient(lx, ly, 22, lx, ly, 74);
+    gr.addColorStop(0, 'rgba(3,2,8,0)'); gr.addColorStop(1, 'rgba(3,2,8,0.95)');
+    ctx.fillStyle = gr; ctx.fillRect(-8, -8, VW + 16, VH + 16);
+  }
   // particles & floaters
   for (const q of particles) { ctx.fillStyle = q.c; ctx.fillRect(Math.round(q.x - cx0), Math.round(q.y), 2, 2); }
   for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.t / 20); drawText(f.text, Math.round(f.x - cx0) + 1, Math.round(f.y) + 1, '#000', 1, 'center'); drawText(f.text, Math.round(f.x - cx0), Math.round(f.y), f.col, 1, 'center'); ctx.globalAlpha = 1; }
@@ -1072,13 +1139,13 @@ function drawPlayer(cx0) {
   const flick = corruption() > 0.5 && Math.random() < 0.08;
   drawDigit(flick ? (Math.random() * 10) | 0 : digitNow, sx + (p.face > 0 ? 5 : 4), sy + (p.flip ? 3 : 8), '#4ff0ff');
   // ...and on a badge overhead
-  const match = regs.some((r) => !r.unlocked && r.seq[r.slots.length] === digitNow);
+  const vcol = VERDICT_COL[verdict()];
   const bx = sx + 1, by = p.flip ? sy + p.h + 5 : sy - 19;
-  const edge = match ? '#39ff88' : '#ffffff';
+  const edge = vcol;
   ctx.fillStyle = edge; ctx.fillRect(bx + 1, by, 8, 14); ctx.fillRect(bx, by + 1, 10, 12);
   ctx.fillStyle = '#101018'; ctx.fillRect(bx + 1, by + 1, 8, 12);
   ctx.fillStyle = edge; ctx.fillRect(bx + 4, p.flip ? by - 3 : by + 14, 2, 3);
-  drawDigit(digitNow, bx + 2, by + 2, match ? '#39ff88' : '#ffffff', 2);
+  drawDigit(digitNow, bx + 2, by + 2, vcol, 2);
   if (showGrid) { ctx.strokeStyle = 'rgba(57,255,136,0.75)'; ctx.lineWidth = 1; ctx.strokeRect(cellNow[0] * 16 - cx0 + 0.5, cellNow[1] * 16 + 0.5, 15, 15); }
 }
 function postFX(C) {
@@ -1110,6 +1177,7 @@ function drawHUD(C) {
   let ry = 16;
   if (p.flip) { drawText('GRAV INV', VW - 6, ry, '#ffc23d', 1, 'right'); ry += 8; }
   if (abil.phase) { drawText('PHASE', VW - 6, ry, '#4ff0ff', 1, 'right'); ry += 8; }
+  for (const r of regs) if (!r.good && r.unlocked) { drawText('CURSE ' + r.short, VW - 6, ry, '#ff3d8a', 1, 'right'); ry += 8; }
   if (armedT > 0) {
     const w = 168, x = (VW - w) >> 1;
     ctx.fillStyle = 'rgba(8,7,15,0.85)'; ctx.fillRect(x, 34, w, 24);
@@ -1152,10 +1220,11 @@ function win() {
   state = 'win'; SFX.win();
   const secs = playFrames / 60, n = unlockedCount(), stab = Math.round((1 - corruption()) * 100);
   let best = null; try { best = parseFloat(localStorage.getItem('memario.best')); if (!best || secs < best) localStorage.setItem('memario.best', String(secs)); } catch (e) { /* storage off */ }
-  const rank = n === 5 ? 'ROOT ACCESS' : n >= 3 ? 'KERNEL HACKER' : n >= 1 ? 'SCRIPT KIDDIE' : 'PURIST';
+  const cursed = regs.filter((r) => !r.good && r.unlocked).length;
+  const rank = (n === 5 ? 'ROOT ACCESS' : n >= 3 ? 'KERNEL HACKER' : n >= 1 ? 'SCRIPT KIDDIE' : 'PURIST') + (cursed ? ' (CURSED)' : '');
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   ovBox.innerHTML = `<h2>EXIT 0</h2><div class="rank">${rank}</div>
-    <dl><dt>Time</dt><dd>${fmt(secs)}${best && best < secs ? ` (best ${fmt(best)})` : ''}</dd><dt>Abilities</dt><dd>${n} / 5</dd>
+    <dl><dt>Time</dt><dd>${fmt(secs)}${best && best < secs ? ` (best ${fmt(best)})` : ''}</dd><dt>Abilities</dt><dd>${n} / 5</dd><dt>Curses active</dt><dd>${cursed}</dd>
     <dt>Stability left</dt><dd>${stab}%</dd><dt>Injections</dt><dd>${injections}</dd><dt>Bytes</dt><dd>${bytes}</dd><dt>Crashes</dt><dd>${crashes}</dd></dl>
     <button class="act" id="again">REBOOT ▸</button>`;
   ov.hidden = false; $('again').addEventListener('click', reboot);
