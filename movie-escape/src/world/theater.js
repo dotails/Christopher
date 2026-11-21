@@ -48,7 +48,7 @@ export class Theater {
     this.screenTex.colorSpace = THREE.SRGBColorSpace;
     this.screen = new THREE.Mesh(new THREE.PlaneGeometry(20, 8.44), new THREE.MeshBasicMaterial({ map: this.screenTex, toneMapped: false }));
     this.screen.position.set(0, 6.6, -15.8); g.add(this.screen);
-    const frame = new THREE.Mesh(boxGeo(21, 9.4, 0.3, 2), basic('#0a0508')); frame.position.set(0, 6.6, -15.95); g.add(frame);
+    const frame = new THREE.Mesh(boxGeo(21, 9.4, 0.1, 2), basic('#0a0508')); frame.position.set(0, 6.6, -15.95); g.add(frame);
     // curtains
     const ct = Tex.curtain(); ct.repeat.set(3, 1);
     const curtM = mat('#ffffff', { map: ct, rough: 0.8, side: THREE.DoubleSide });
@@ -116,13 +116,40 @@ export class Theater {
     const booth = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 0.2), basic('#050203')); booth.position.set(0, 10.5, 15.9); g.add(booth);
     const lensGlow = new THREE.Mesh(new THREE.CircleGeometry(0.35, 16), basic('#ffffff')); lensGlow.position.set(0, 10.5, 15.75); lensGlow.rotation.y = Math.PI; g.add(lensGlow);
     const beamLen = new THREE.Vector3(0, 10.5, 15.7).distanceTo(new THREE.Vector3(0, 6.6, -15.6));
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 7.5, beamLen, 24, 1, true), glow('#cfe0ff', 0.045));
-    beam.geometry.translate(0, -beamLen / 2, 0);
-    beam.geometry.rotateX(-Math.PI / 2);
+    // Soft volumetric-looking beam: brightest at the lens, fading along its
+    // length and toward its silhouette edges. Wide end matches the screen shape.
+    const beamGeo = new THREE.CylinderGeometry(0.25, 4.6, beamLen, 32, 1, true);
+    beamGeo.translate(0, -beamLen / 2, 0);
+    beamGeo.rotateX(-Math.PI / 2);
+    beamGeo.scale(2.15, 0.92, 1);
+    this.beamMat = new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: new THREE.Color('#cfe0ff') }, uLen: { value: beamLen }, uFlicker: { value: 1 } },
+      vertexShader: `
+        varying float vK; varying vec3 vN; varying vec3 vV;
+        uniform float uLen;
+        void main() {
+          vK = clamp(position.z / uLen, 0.0, 1.0);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        varying float vK; varying vec3 vN; varying vec3 vV;
+        uniform vec3 uColor; uniform float uFlicker;
+        void main() {
+          float facing = pow(abs(dot(vN, vV)), 1.3);
+          float along = (1.0 - vK * 0.75) * smoothstep(0.0, 0.04, vK);
+          float a = 0.2 * facing * along * uFlicker;
+          gl_FragColor = vec4(uColor * a, 1.0);
+        }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+    });
+    const beam = new THREE.Mesh(beamGeo, this.beamMat);
     beam.position.set(0, 10.5, 15.7);
+    // attach first: lookAt needs the parent's transform (the theater sits far from the origin)
+    g.add(beam);
     g.updateMatrixWorld(true);
     beam.lookAt(new THREE.Vector3(0, 6.6, -15.6).add(THREE_ORIGIN()));
-    g.add(beam);
     this.beam = beam;
     // dust motes in the beam
     const N = 220, arr = new Float32Array(N * 3);
@@ -179,6 +206,8 @@ export class Theater {
       }
     });
     this.dust.rotation.z = Math.sin(t * 0.2) * 0.02;
+    this.beamMat.uniforms.uColor.value.copy(this.screenColor).lerp(new THREE.Color('#ffffff'), 0.5);
+    this.beamMat.uniforms.uFlicker.value = 0.85 + Math.random() * 0.25;
     if (this.vortex.material.opacity > 0) this.vortex.rotation.z -= dt * 6;
   }
 
