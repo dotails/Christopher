@@ -44,6 +44,45 @@ into the hero. Reading a bug means getting close to it; Freeze makes that safe (
 A killed bug leaves its digit behind as a flickering orphaned pointer, so a missing digit can't be
 lost.
 
+## Creatures, the raptor and the level toolbox
+
+Everything is an original design in the hero's own style (dark hood, hot-pink strings and shoes,
+warm skin, heavy outline) with hacking names. Every creature carries a digit on its tag.
+
+| Creature | Behaviour |
+| --- | --- |
+| PROCESS | walks, turns at edges; stomp it |
+| SHELL | stomped, it retreats into a shell that keeps its digit. Touch the shell to kick it; hold Y (or press Y beside it) to pick it up and carry its digit anywhere (even mid-air for Phase Shift); Y throws it, down drops it. A kicked shell mows down creatures, breaks RAM blocks into pixels and bumps 0x boxes. An abandoned shell climbs back out after a while |
+| DRONE | a winged shell that hops; a stomp clips its wings |
+| SPIKE | can't be stomped (except from the raptor); shells, fire and bombs work |
+| SPAMMER | paces and lobs arcing packets at you |
+| FORK BOMB | stomped, it lights; kick it, carry it, throw it. It blows breakable blocks apart into their own pixels, kills nearby creatures and hurts you if you're close |
+| ZOMBIE PROCESS | creeps toward you while you look away, freezes and hides its face when you look at it, passes through walls |
+| DAEMON | chained to a stake; lunges when you come close |
+| SOCKET | rises out of conduits; stays down while you stand on its conduit |
+| STACK SMASH | waits overhead and slams down on whoever is underneath; you can ride its top |
+| PING CANNON | fires pings toward you; stomp a ping to bounce |
+| SPINLOCK | a rotating bar of fire around a hub |
+
+**The raptor** (Boot Sector, Kernel Space, Root Access) wears a cap like the hero's. Land on it to
+ride. Hold A in the air to flutter (a hover, not extra height). Y shoots its tongue: it swallows a
+process, shell, spammer or fork bomb and keeps the creature's digit in its mouth, readable like a held
+shell; Y again spits it out (shells come out spinning). Get hit while riding and the raptor bolts
+instead of you crashing; catch it again. Down hops off.
+
+**Level toolbox:** springs and bounce buffers, one-way scaffolds, page lifts (moving platforms),
+volatile platforms that drop after you stand on them, pipelines (conveyors), cold storage (ice),
+hidden sectors (invisible blocks that appear when bumped, each holding a missing digit), and a bit-flip
+switch that toggles pink BIT-1 and cyan BIT-0 blocks. None of it is placed where it could bypass a
+level's required hacks; every gate was re-checked against springs, platforms and the raptor.
+
+## Look
+
+The levels are dark and lit, in the spirit of Animal Well and Noita: a grainy dark gradient, two
+parallax layers of hanging formations, pillars and server racks with tiny glowing LEDs, drifting
+motes, glowing moss on the ground, and a light map in which the hero, fire, firewalls, spikes, 0x
+boxes, the exit, saves, bombs and explosions cast coloured light. Blackout deepens the dark.
+
 ## A world made of pixels
 
 The world is simulated pixel by pixel, Noita-style. Bugs burst into their own pixels when killed and
@@ -72,9 +111,10 @@ screen with a slim 3×3 register strip under it and the controller halves either
 | D-pad ◀ ▶ / left stick | Move |
 | A | Jump |
 | ◀ / ▶ / A on a register's next digit | Writes that digit into the register (and still moves or jumps) |
-| B (or D-pad down) | Force-write: slows time; then ◀, ▶ or A writes whatever digit you stand on |
-| X | Flip gravity (after GRAVITY FLIP is unlocked) |
-| Y | Grid overlay on/off |
+| B | Force-write: slows time; then ◀, ▶ or A writes whatever digit you stand on |
+| X | Flip gravity (when the level's Gravity Flip is online) |
+| Y | Grab a shell or lit fork bomb (hold Y while touching it, or press Y beside it); press again to throw. On the raptor: tongue / spit |
+| D-pad down | Drop what you hold, or hop off the raptor |
 | Right stick | Look ahead |
 | SELECT / START | Sound on/off / menu (pause, sound, grid, reboot) |
 | Phone back button | Pause menu (quits only from the title screen) |
