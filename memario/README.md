@@ -67,8 +67,33 @@ stability left and right occasionally swap.
 ## Music
 
 Each level has its own original chiptune loop, synthesised live (square lead, triangle bass, noise
-drums). As stability drops, the lead detunes and drops notes. Sound and music toggle separately in
-the START menu.
+drums), and the music is hacked along with the game. Every hack and curse changes it audibly, and
+the log says how when one goes live:
+
+| Register | What it does to the music |
+| --- | --- |
+| Speed Boost | tempo up 18% |
+| Super Jump | melody up an octave |
+| Fire Power | lead turns to a sawtooth |
+| Phase Shift | lead becomes a wavering, ghostly sine |
+| Double Jump | melody doubled an octave up |
+| Hot Reload | a crash rewinds the track to the top |
+| Freeze Bugs | icy staccato notes with a bell two octaves up |
+| Alloc Bridge | the bass gains a fifth |
+| Gravity Flip | while upside down, the melody is inverted |
+| ! Heavy Boots | the track slows and sinks two semitones |
+| ! Mirror Input | the melody plays backwards |
+| ! Packet Lag | the lead plays late against the drums |
+| ! Memory Leak | the pitch slowly sinks (a patch restores it) |
+| ! Blackout | the lead is muffled |
+| ! Bug Swarm | frantic double-time hi-hats |
+| ! Null Pointer | the music drops out whenever the blocks blink out |
+| ! Watchdog | a ticking clock that speeds up in the last 10 seconds |
+
+Every digit you write plays as a note in the level's key (a wrong write clashes), a segfault makes
+the track skip, random glitches shift the key, stutter, slow the tempo or throw notes an octave, and
+as stability drops the lead detunes and drops notes. Sound and music toggle separately in the
+START menu.
 
 ## Building
 

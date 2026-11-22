@@ -595,21 +595,21 @@ const SFX = {
 };
 /* ================= music: original chiptune, one track per level ================= */
 // Each track is four bars of 16th-note steps. Notes are names (C5, F#4, Bb3), '.' is a rest, '-' holds.
-// Drums: k kick, s snare, h hat. The more corrupted the game, the more the lead detunes and drops out.
+// Drums: k kick, s snare, h hat. The music is hacked along with the game: see musicFx below.
 const TRACKS = [
-  { bpm: 150,   // BOOT SECTOR: bright, C major
+  { bpm: 150, root: 72, scale: [0, 2, 4, 5, 7, 9, 11],   // BOOT SECTOR: bright, C major
     lead: 'C5 . E5 . G5 . E5 . C5 . D5 . E5 - - . | F5 . A5 . G5 . F5 . E5 . D5 . C5 - - . | E5 . G5 . C6 . G5 . A5 . G5 . E5 . D5 . | C5 . D5 . E5 . G5 . A5 - G5 - E5 - - .',
     bass: 'C3 . . . C3 . G2 . C3 . . . G2 . . . | F2 . . . F2 . C3 . F2 . . . C3 . . . | A2 . . . A2 . E3 . F2 . . . G2 . . . | C3 . . . G2 . . . C3 . G2 . C3 . . .',
     drum: 'k . h . s . h . k . h . s . h h' },
-  { bpm: 160,   // FIREWALL: driving, A minor
+  { bpm: 160, root: 69, scale: [0, 2, 3, 5, 7, 8, 10],   // FIREWALL: driving, A minor
     lead: 'A4 . C5 . E5 . A5 . G5 . E5 . D5 . E5 . | A4 . C5 . E5 . G5 - - . F5 . E5 . D5 . | F4 . A4 . C5 . F5 . E5 . C5 . B4 . C5 . | E5 . D5 . C5 . B4 . A4 - - . G#4 - - .',
     bass: 'A2 . A2 . A3 . A2 . A2 . A2 . A3 . A2 . | A2 . A2 . A3 . A2 . G2 . G2 . G3 . G2 . | F2 . F2 . F3 . F2 . F2 . F2 . F3 . F2 . | E2 . E2 . E3 . E2 . E2 . E2 . E3 . E2 .',
     drum: 'k . h k s . h . k . h k s . h s' },
-  { bpm: 118,   // KERNEL SPACE: sparse and eerie, D dorian
+  { bpm: 118, root: 74, scale: [0, 2, 3, 5, 7, 9, 10],   // KERNEL SPACE: sparse and eerie, D dorian
     lead: 'D5 . . F5 . . A5 . . C6 . . A5 . . . | G5 . . E5 . . C5 . . E5 . . G5 . . . | F5 . . A5 . . D6 . . A5 . . F5 . . . | E5 . . G5 . . B5 . . G5 . E5 . C#5 . .',
     bass: 'D2 - - - - - - - D2 - - - A2 - - - | C2 - - - - - - - C2 - - - G2 - - - | Bb1 - - - - - - - Bb1 - - - F2 - - - | A1 - - - - - - - A1 - - - E2 - - -',
     drum: 'k . . . h . . . s . . . h . . h' },
-  { bpm: 172,   // ROOT ACCESS: relentless, E phrygian
+  { bpm: 172, root: 76, scale: [0, 1, 3, 5, 7, 8, 10],   // ROOT ACCESS: relentless, E phrygian
     lead: 'E5 . F5 . E5 . B4 . E5 . F5 . G5 . F5 . | E5 . . . B4 . . . C5 . D5 . E5 . . . | G5 . A5 . G5 . E5 . G5 . A5 . Bb5 . A5 . | G5 . F5 . E5 . D5 . F5 - E5 - - - . .',
     bass: 'E2 E2 . E2 E3 . E2 . E2 E2 . E2 F2 . E2 . | E2 E2 . E2 E3 . E2 . C2 C2 . C2 D2 . D2 . | E2 E2 . E2 E3 . E2 . E2 E2 . E2 F2 . E2 . | F2 F2 . F2 F3 . F2 . E2 . E2 . B1 . B1 .',
     drum: 'k h k h s h k h k h k h s h s s' },
@@ -627,17 +627,43 @@ function parseVoice(str) {
 }
 TRACKS.forEach((tr) => { tr.L = parseVoice(tr.lead); tr.B = parseVoice(tr.bass); tr.D = tr.drum.split(/\s+/); });
 let musicOn = true, musicIdx = -1, mStep = 0, mNext = 0;
+// The hacked music: every hack and curse changes the track in its own way.
+const MUSIC_FX = {
+  speed: 'TEMPO UP', super: 'MELODY UP AN OCTAVE', fire: 'LEAD TURNS TO A SAWTOOTH', heavy: 'TRACK SLOWS AND SINKS',
+  mirror: 'MELODY PLAYS BACKWARDS', phase: 'LEAD GOES GHOSTLY', double: 'MELODY DOUBLED', reload: 'CRASHES REWIND THE TRACK',
+  leak: 'PITCH DRIFTS DOWN', lag: 'LEAD PLAYS LATE', dark: 'LEAD MUFFLED', freeze: 'NOTES TURN TO ICE', bridge: 'BASS GAINS A FIFTH',
+  grav: 'FLIPPING INVERTS THE MELODY', swarm: 'DOUBLE-TIME HATS', nullptr: 'MUSIC DROPS OUT WITH THE BLOCKS', watchdog: 'A CLOCK TICKS',
+};
+let leakDrift = 0, mGlitch = { kind: null, t: 0 }, mQueue = [], mDropT = 0, muffle = null;
 function startMusic(i) { if (musicIdx === i) return; musicIdx = i; mStep = 0; mNext = actx ? actx.currentTime + 0.08 : 0; }
 function stopMusic() { musicIdx = -1; }
-function mNote(midi, t, d, type, v) {
+function resetMusicFx() { leakDrift = 0; mGlitch = { kind: null, t: 0 }; mQueue = []; mDropT = 0; }
+// A written digit joins the music as a note in the level's key; a wrong write clashes.
+function musicWrite(d, ok, good) {
+  if (musicIdx < 0) return;
+  const tr = TRACKS[musicIdx];
+  mQueue.push({ midi: tr.root + 12 + tr.scale[d % 7] + 12 * Math.floor(d / 7) + (ok ? 0 : 6), good: good && ok });
+}
+function musicSkip() { mStep += 3 + ((Math.random() * 9) | 0); mDropT = 4; }              // segfault: the track skips
+function musicGlitch(kind) { mGlitch = { kind, t: 64 }; }                                   // four bars of glitched music
+function musicRewind() { mStep = 0; if (actx && !muted && musicOn) tone(1400, 0.35, 'sawtooth', 0.03, -1300); }
+function leadOut() {
+  if (!abil.dark) return actx.destination;
+  if (!muffle) { muffle = actx.createBiquadFilter(); muffle.type = 'lowpass'; muffle.frequency.value = 520; muffle.connect(actx.destination); }
+  return muffle;
+}
+function mNote(midi, t, d, type, v, cents = 0, out = null, vib = false) {
   const o = actx.createOscillator(), g = actx.createGain();
-  o.type = type; o.frequency.setValueAtTime(440 * Math.pow(2, (midi - 69) / 12), t);
+  o.type = type; o.frequency.setValueAtTime(440 * Math.pow(2, (midi - 69) / 12), t); o.detune.setValueAtTime(cents, t);
+  if (vib) { const lfo = actx.createOscillator(), lg = actx.createGain(); lfo.frequency.value = 6; lg.gain.value = 18; lfo.connect(lg).connect(o.detune); lfo.start(t); lfo.stop(t + d + 0.02); }
   g.gain.setValueAtTime(v, t); g.gain.setValueAtTime(v, t + d * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + 0.02);
+  o.connect(g).connect(out || actx.destination); o.start(t); o.stop(t + d + 0.02);
 }
 function mDrum(kind, t) {
   if (kind === 'k') { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
     g.gain.setValueAtTime(0.09, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.16); return; }
+  if (kind === 't') { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'square'; o.frequency.value = 2400;   // watchdog tick
+    g.gain.setValueAtTime(0.025, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.03); return; }
   const d = kind === 's' ? 0.12 : 0.03, n = Math.floor(actx.sampleRate * d), b = actx.createBuffer(1, n, actx.sampleRate), ch = b.getChannelData(0);
   for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
   const src = actx.createBufferSource(), g = actx.createGain(), f = actx.createBiquadFilter();
@@ -646,13 +672,42 @@ function mDrum(kind, t) {
 }
 setInterval(() => {
   if (!actx || muted || !musicOn || musicIdx < 0 || (state !== 'play' && state !== 'intro')) { if (actx) mNext = actx.currentTime + 0.08; return; }
-  const tr = TRACKS[musicIdx], step = 60 / tr.bpm / 4, C = corruption();
+  const tr = TRACKS[musicIdx], C = corruption(), gl = mGlitch.t > 0 ? mGlitch.kind : null;
+  const bpm = tr.bpm * (abil.speed ? 1.18 : 1) * (abil.heavy ? 0.85 : 1) * (gl === 'size' ? 0.8 : 1);
+  const step = 60 / bpm / 4;
   if (mNext < actx.currentTime) mNext = actx.currentTime + 0.05;
   while (mNext < actx.currentTime + 0.15) {
-    const i = mStep % tr.L.length, l = tr.L[i], b = tr.B[mStep % tr.B.length], d = tr.D[mStep % tr.D.length];
-    if (l && Math.random() > C * 0.12) mNote(l.midi + (Math.random() < C * 0.25 ? (Math.random() < 0.5 ? -1 : 1) : 0), mNext, step * l.len * 0.95, 'square', 0.022);
-    if (b) mNote(b.midi, mNext, step * b.len * 0.9, 'triangle', 0.06);
-    if (d && d !== '.') mDrum(d, mNext);
+    const s = gl === 'shake' ? mStep - (mStep % 4) : mStep;                       // glitch: stutter on the beat
+    const n = tr.L.length, li = abil.mirror ? n - 1 - (s % n) : s % n;            // MIRROR INPUT: melody backwards
+    const l = tr.L[li], b = tr.B[s % tr.B.length], d = tr.D[s % tr.D.length];
+    const silent = nullPhase() === 2 || mDropT > 0;                               // NULL POINTER / segfault dropouts
+    const trans = (abil.heavy ? -2 : 0) + (gl === 'hue' ? 1 : 0), cents = leakDrift * 100;
+    if (!silent) {
+      if (l && Math.random() > C * 0.12) {
+        let m = l.midi + trans + (abil.super ? 12 : 0);
+        if (p && p.flip) m = 2 * tr.root - m + 12;                                 // GRAVITY FLIP: melody inverted
+        if (Math.random() < C * 0.25) m += Math.random() < 0.5 ? -1 : 1;
+        if (gl === 'artifacts' && Math.random() < 0.3) m += Math.random() < 0.5 ? -12 : 12;
+        const wave = abil.fire ? 'sawtooth' : abil.phase ? 'sine' : 'square';
+        const vol = abil.fire ? 0.014 : abil.phase ? 0.045 : 0.022;
+        const lt = mNext + (abil.lag ? step * 1.5 : 0);                            // PACKET LAG: lead arrives late
+        const dur = step * l.len * (abil.freeze ? 0.3 : 0.95);                     // FREEZE: icy staccato
+        mNote(m, lt, dur, wave, vol, cents, leadOut(), abil.phase);
+        if (abil.double) mNote(m + 12, lt, dur, 'square', 0.01, cents, leadOut());
+        if (abil.freeze) mNote(m + 24, lt, step * 0.6, 'triangle', 0.02, cents, leadOut());
+      }
+      if (b) {
+        mNote(b.midi + trans, mNext, step * b.len * 0.9, 'triangle', 0.06, cents);
+        if (abil.bridge) mNote(b.midi + trans + 7, mNext, step * b.len * 0.9, 'triangle', 0.035, cents);   // ALLOC BRIDGE: a fifth
+      }
+      if (d && d !== '.') mDrum(d, mNext);
+      if (abil.swarm) mDrum('h', mNext + step / 2);                                // BUG SWARM: frantic hats
+    }
+    if (abil.watchdog && s % (wdT < 600 ? 2 : 4) === 0) mDrum('t', mNext);        // WATCHDOG: the clock speeds up near zero
+    if (mQueue.length) { const q = mQueue.shift(); mNote(q.midi, mNext, step * 2, q.good ? 'square' : 'sawtooth', 0.03, cents); }
+    if (abil.leak) leakDrift = Math.max(-3, leakDrift - 0.004);                    // MEMORY LEAK: pitch sinks
+    if (mDropT > 0) mDropT--;
+    if (mGlitch.t > 0) mGlitch.t--;
     mNext += step; mStep++;
   }
 }, 25);
@@ -715,7 +770,7 @@ function loadLevel(i) {
   checkpoint = 0; camX = 0; bytes = 0; crashes = 0; injections = 0; playFrames = 0; wdT = 0;
   volatileC = 0; hue = 0; burstT = shakeT = desyncT = flashT = armedT = 0; visited.clear();
   cellNow = [-1, -1]; digitNow = cellDigit(Math.floor((p.x + 7) / 16), Math.floor((p.y + 13) / 16));
-  logLines.length = 0;
+  logLines.length = 0; resetMusicFx();
 }
 function makeBug(b) {
   const x = (typeof b === 'number' ? b : b.x) * 16 + 1;
@@ -996,7 +1051,7 @@ function inject(r) {
   if (r.unlocked) { log(`${r.name} IS ALREADY ${r.good ? 'ONLINE' : 'ACTIVE'}`, 'sys'); return; }
   if (!isOpen(r)) { log(`${r.name} IS CLOSED: ${r.cond.label}`, 'sys'); SFX.bad(); r.flashT = 8; return; }
   const d = digitNow, i = r.slots.length, ok = d === r.seq[i];
-  r.slots.push({ d, ok }); injections++;
+  r.slots.push({ d, ok }); injections++; musicWrite(d, ok, r.good);
   if (p.grounded) p.actT = 20;
   if (r.good && ok) faceT.happy = 70; else faceT.shock = 70;
   volatileC += ok ? 0.006 : 0.02;
@@ -1021,6 +1076,7 @@ function unlock(r) {
   log(`STABILITY DROPPING: ${Math.round((1 - corruption()) * 100)}%`, 'warn');
   spawnArtifacts(14 + unlockedCount() * 4, false, true); spawnArtifacts(3 + unlockedCount() * 2, true, true);
   floaters.push({ x: p.x + 7, y: p.y - 36, t: 90, text: r.name + ' ONLINE', col: '#ffc23d' });
+  if (MUSIC_FX[r.id]) log(`MUSIC HACKED: ${MUSIC_FX[r.id]}`, 'sys');
   if (goodCount() === 5) log('ALL ABILITIES ONLINE. REALITY IS OPTIONAL NOW.', 'warn');
 }
 function curse(r) {
@@ -1032,10 +1088,11 @@ function curse(r) {
   burstT = 60; shakeT = Math.max(shakeT, 30);
   log(`CURSE ACTIVE: ${r.name}. ${r.desc}. A PATCH CAN PURGE IT.`, 'bad');
   floaters.push({ x: p.x + 7, y: p.y - 36, t: 100, text: 'CURSED: ' + r.short, col: '#ff3d8a' });
+  if (MUSIC_FX[r.id]) log(`MUSIC CORRUPTED: ${MUSIC_FX[r.id]}`, 'bad');
   spawnArtifacts(6, true, false);
 }
 function segfault(r) {
-  r.slots = []; volatileC += 0.06;
+  r.slots = []; volatileC += 0.06; musicSkip();
   SFX.segv(); haptic(80); burstT = 60; shakeT = Math.max(shakeT, 40);
   log(`SEGMENTATION FAULT @ ${r.addr}: ${r.name} FLUSHED`, 'bad');
   spawnArtifacts(6, false, false);
@@ -1043,7 +1100,7 @@ function segfault(r) {
 const GLITCHES = ['hue', 'shake', 'size', 'artifacts'];
 function glitch(kind) {
   kind = kind || GLITCHES[(Math.random() * GLITCHES.length) | 0];
-  volatileC += 0.04; burstT = Math.max(burstT, 40); SFX.glitch(); haptic(40);
+  volatileC += 0.04; burstT = Math.max(burstT, 40); SFX.glitch(); haptic(40); musicGlitch(kind);
   if (kind === 'hue') { const d = 60 + ((Math.random() * 120) | 0); hue = (hue + d) % 360; log(`GLITCH: PALETTE ROTATED +${d}°`, 'warn'); }
   else if (kind === 'shake') { shakeT = 200; log('GLITCH: FRAME BUFFER UNSTABLE', 'warn'); }
   else if (kind === 'size') {
@@ -1076,6 +1133,7 @@ function applyPatch() {
   regs.forEach((r) => { if (!r.good && !r.unlocked && r.slots.length) { r.slots = []; flushed++; } });
   const active = regs.filter((r) => !r.good && r.unlocked).sort((a, b) => b.activeAt - a.activeAt)[0];
   if (active) { active.unlocked = false; active.slots = []; abil[active.id] = false; log(`PATCH PURGED THE ${active.name} CURSE`, 'ok'); }
+  if (!abil.leak) leakDrift = 0;
   else if (flushed) log(`PATCH FLUSHED ${flushed} CURSE REGISTER${flushed > 1 ? 'S' : ''}`, 'ok');
   floaters.push({ x: p.x + 7, y: p.y - 26, t: 60, text: 'PATCHED', col: '#39ff88' });
 }
@@ -1140,7 +1198,7 @@ function die(reason) {
 }
 function respawn() {
   const s = saves[checkpoint];
-  if (abil.reload && p.safe) { p.x = p.safe.x; p.y = p.safe.y; log('HOT RELOAD: RESUMED IN PLACE', 'ok'); }
+  if (abil.reload && p.safe) { p.x = p.safe.x; p.y = p.safe.y; log('HOT RELOAD: RESUMED IN PLACE', 'ok'); musicRewind(); }
   else { p.x = s.x + 1; p.y = 208 - p.h; } p.vx = p.vy = 0; p.flip = false; p.inv = 100; p.dead = 0; p.landT = 0; p.actT = 0;
 }
 
