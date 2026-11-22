@@ -21,6 +21,29 @@ colour says where a press would send the digit: **green** feeds a hack, **red** 
 depends on the button, **white** feeds nothing. When you write a digit it flies up out of the row
 into the hero, who points at it, and the line types itself into the log on the register screen.
 
+## Digits carried by bugs and boxes
+
+Each level removes one or two digits from the memory row entirely, and only bugs and 0x boxes carry
+them. They are the digits that level's key hacks need:
+
+| Level | Missing from memory | Needed by |
+| --- | --- | --- |
+| 1 Boot Sector | 8 | Super Jump, Speed Boost |
+| 2 Firewall | 0 | Phase Shift, Double Jump |
+| 3 Kernel Space | 4 | Freeze Bugs (twice; the caged bug carries one) |
+| 4 Root Access | 0 and 7 | Phase Shift, Super Jump |
+
+Every bug and every 0x box carries a digit (every other one carries a missing digit) on a small
+black tag like the one on the hero's sheet. A tag shows `?` until you come near; then it decrypts and
+stays revealed, and a bug's tag rides along on the bug as it moves. Bumping a box also reveals it.
+
+Within reach (right next to a bug, or under or on a box) the carrier replaces the column's digit:
+a dotted link runs from its tag to the hero, the memory row's slot shows the digit with a cyan
+pointer mark, the register screen says READING BUG or READING 0X BOX, and a write flies from the tag
+into the hero. Reading a bug means getting close to it; Freeze makes that safe (stand on it).
+A killed bug leaves its digit behind as a flickering orphaned pointer, so a missing digit can't be
+lost.
+
 ## A world made of pixels
 
 The world is simulated pixel by pixel, Noita-style. Bugs burst into their own pixels when killed and
