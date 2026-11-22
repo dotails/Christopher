@@ -275,7 +275,7 @@ function levelKit() {
 const LEVELS = [
   {
     name: 'BOOT SECTOR', rare: [8], world: 'OVERWORLD',
-    syms: [{ c: 89, ch: '*', top: 80 }],
+    syms: [{ c: 89, ch: '*', top: 80 }], calm: [[146, 194]],
     brief: 'A ROM wall and a ten-block pit guard the exit. Super Jump clears the wall; the pit needs Super Jump and Speed Boost together.',
     theme: { world: 'over', bg: ['#0b2a4a', '#2f7a86'], sil: ['#123f4a', '#1a5a52'], glow: '#c8fff0', dark: 0.22, shade: '#03101a', grass: ['#8dff7a', '#3fd85a', '#137a34', '#e6ffd2'], soil: ['#3a2a24', '#2c1f1b', '#4a3629', '#1e1410', '#33251e', '#6e4c36'] },
     build(k) {
@@ -313,12 +313,12 @@ const LEVELS = [
       reg('speed',  true,  'SPEED',  'SPEED BOOST',  '0xC003A', [6, 1, 4, 8, 3], 'right', 'RUN SPEED X1.75', C_BYTES(16)),
       reg('shield', true,  'SHIELD', 'SHIELD',       '0x5A1E1', [5, '*', 5],    'right', 'ABSORBS ONE CRASH'),
       reg('heavy',  false, 'HEAVY',  'HEAVY BOOTS',  '0xBAD01', [2, 7, 2, 7],    'jump',  'JUMP HEIGHT CUT'),
-      reg('mirror', false, 'MIRROR', 'MIRROR INPUT', '0xBAD02', [1, 6, 6, 1],    'right', 'LEFT AND RIGHT SWAPPED'),
+      reg('slip',   false, 'SLIP',   'MEMORY SLIP',  '0xBAD02', [1, 6, 6, 1],    'right', 'EVERY FLOOR IS AS SLICK AS ICE'),
     ],
   },
   {
     name: 'FIREWALL', rare: [0], world: 'UNDERGROUND',
-    syms: [{ c: 145, ch: '#', top: 128 }],
+    syms: [{ c: 145, ch: '#', top: 128 }], calm: [[50, 87], [96, 129], [146, 177], [180, 190]],
     brief: 'Underground. Firewalls run floor to brick ceiling and the pits are seven blocks wide. Phase through the walls and jump twice over the gaps.',
     theme: { world: 'under', bg: ['#05060f', '#140d1e'], sil: ['#0e0c1c', '#1a1530'], glow: '#ff7a3d', dark: 0.58, shade: '#020108', grass: ['#7a9cff', '#4a64c8', '#25306a', '#c8d4ff'], soil: ['#1a1c34', '#13152a', '#24274a', '#0b0c1a', '#181a30', '#3a3f6a'] },
     build(k) {
@@ -355,7 +355,7 @@ const LEVELS = [
   },
   {
     name: 'CLOUD STORAGE', rare: [4], world: 'SKY',
-    syms: [{ c: 54, ch: '@', top: 128 }],
+    syms: [{ c: 54, ch: '@', top: 128 }], calm: [[40, 184]],
     brief: 'Up in the cloud, the floor drops into the void. Freeze the caged virus and climb off its back, allocate the bridge, then walk the ceiling.',
     theme: { world: 'sky', bg: ['#1a1450', '#7a5aa8'], sil: ['#3a2f78', '#5a4a96'], glow: '#ffd8f4', dark: 0.3, shade: '#0a0620', grass: ['#ffffff', '#e4dcff', '#a99ae0', '#ffffff'], soil: ['#4a3f86', '#3c3272', '#574c9a', '#2e265c', '#43397c', '#7a6cc0'] },
     build(k) {
@@ -383,12 +383,12 @@ const LEVELS = [
       reg('glide',  true,  'GLIDE',  'GLIDE',        '0x611DE', [2, '@', 6],    'jump',  'HOLD A TO GLIDE'),
       reg('swarm',  false, 'SWARM',  'OUTBREAK',     '0xBAD06', [1, 9, 1, 9],    'right', 'VIRUSES RUN FASTER AND RESPAWN'),
       reg('nullptr',false, 'NULL',   'NULL POINTER', '0xBAD07', [3, 0, 3, 0],    'jump',  'PLATFORMS BLINK OUT OF MEMORY'),
-      reg('mirror', false, 'MIRROR', 'MIRROR INPUT', '0xBAD02', [5, 5, 2, 5],    'left',  'LEFT AND RIGHT SWAPPED'),
+      reg('storm',  false, 'STORM',  'PACKET STORM', '0xBAD09', [5, 5, 2, 5],    'left',  'A STEADY WIND PUSHES YOU BACK'),
     ],
   },
   {
     name: 'ROOT ACCESS', rare: [0, 7], world: 'CASTLE',
-    syms: [{ c: 101, ch: '$', top: 80 }],
+    syms: [{ c: 101, ch: '$', top: 80 }], calm: [[36, 112], [116, 213]],
     brief: 'The castle. Phase the firewall, walk the ceiling over the lava, Super Jump the wall, phase through firewalls upside down, then get past KERNEL PANIC on the bridge and pull the kill switch. Super Jump only opens once the game is unstable.',
     theme: { world: 'castle', bg: ['#0a0306', '#2a0a0c'], sil: ['#1a0a0e', '#2a1016'], glow: '#ff6a2a', dark: 0.68, shade: '#060103', grass: ['#8a8098', '#5e566e', '#3a3446', '#c8c0d8'], soil: ['#2a2532', '#201c28', '#332d3e', '#16131c', '#25202e', '#4a4258'] },
     build(k) {
@@ -861,7 +861,7 @@ let musicOn = true, musicIdx = -1, mStep = 0, mNext = 0;
 // The hacked music: every hack and curse changes the soundtrack (the player's own song) in its own way.
 const MUSIC_FX = {
   speed: 'TEMPO UP', super: 'TREBLE LIFTS', fire: 'SONG DISTORTS', heavy: 'SONG SLOWS AND SINKS',
-  mirror: 'SONG PLAYS BACKWARDS, CHANNELS SWAPPED', phase: 'SONG GOES GHOSTLY', double: 'SONG DOUBLED', reload: 'CRASHES REWIND THE TAPE',
+  slip: 'SONG PLAYS BACKWARDS, CHANNELS SWAPPED', storm: 'SONG PLAYS BACKWARDS, CHANNELS SWAPPED', phase: 'SONG GOES GHOSTLY', double: 'SONG DOUBLED', reload: 'CRASHES REWIND THE TAPE',
   leak: 'PITCH DRIFTS DOWN', lag: 'SONG ECHOES LATE', dark: 'SONG MUFFLED', freeze: 'SONG TURNS ICY', bridge: 'BASS BOOSTED',
   grav: 'FLIPPING TURNS THE EQ UPSIDE DOWN', swarm: 'FRANTIC HI-HATS', nullptr: 'SONG DROPS OUT WITH THE BLOCKS', watchdog: 'A CLOCK TICKS',
 };
@@ -914,7 +914,7 @@ function buildFx() {
   n.bass = a.createBiquadFilter(); n.bass.type = 'lowshelf'; n.bass.frequency.value = 170; n.bass.gain.value = 0;
   n.treb = a.createBiquadFilter(); n.treb.type = 'highshelf'; n.treb.frequency.value = 3000; n.treb.gain.value = 0;
   n.in.connect(n.shaper).connect(n.low).connect(n.high).connect(n.bass).connect(n.treb);
-  n.straight = a.createGain(); n.swapG = a.createGain(); n.swapG.gain.value = 0;              // MIRROR INPUT swaps the channels
+  n.straight = a.createGain(); n.swapG = a.createGain(); n.swapG.gain.value = 0;              // MEMORY SLIP and PACKET STORM swap the channels
   const sp = a.createChannelSplitter(2), mg = a.createChannelMerger(2);
   n.treb.connect(n.straight); n.treb.connect(sp); sp.connect(mg, 0, 1); sp.connect(mg, 1, 0); mg.connect(n.swapG);
   n.mix = a.createGain(); n.straight.connect(n.mix); n.swapG.connect(n.mix);
@@ -981,7 +981,7 @@ function applyMusicFx() {
   setP(FX.high.frequency, abil.freeze ? 650 : 10);
   setP(FX.bass.gain, abil.bridge ? 10 : flipped ? -16 : 0);
   setP(FX.treb.gain, abil.super ? 7 : flipped ? 10 : 0);
-  setP(FX.swapG.gain, abil.mirror ? 1 : 0); setP(FX.straight.gain, abil.mirror ? 0 : 1);
+  setP(FX.swapG.gain, (abil.slip || abil.storm) ? 1 : 0); setP(FX.straight.gain, (abil.slip || abil.storm) ? 0 : 1);
   const echo = abil.phase ? [0.11, 0.55, 0.5] : abil.lag ? [0.19, 0.38, 0.6] : abil.freeze ? [0.07, 0.5, 0.35] : [0.16, 0.3, L.echo];
   setP(FX.echo.delayTime, echo[0], 0.1); setP(FX.fb.gain, echo[1]); setP(FX.wet.gain, echo[2]);
   setP(FX.choG.gain, abil.double ? 0.75 : 0);
@@ -1014,9 +1014,9 @@ function overlayStep(t, step) {
 function songTick() {
   if (!FX) buildFx();
   applyMusicFx();
-  if (mDropT > 0) { mDropT--; if (mDropT === 0 && !deck) deckPlay(songPos, !!abil.mirror); }
+  if (mDropT > 0) { mDropT--; if (mDropT === 0 && !deck) deckPlay(songPos, !!(abil.slip || abil.storm)); }
   if (rewindT > 0 && --rewindT === 0) { deckPlay(0, false); }
-  const rev = rewindT > 0 || !!abil.mirror;
+  const rev = rewindT > 0 || !!(abil.slip || abil.storm);
   if (!deck && mDropT === 0) deckPlay(songPos, rev);
   else if (deck && deck.rev !== rev) deckPlay(deckAdvance(), rev);
   else deckAdvance();
@@ -1041,7 +1041,7 @@ function synthTick() {
   if (mNext < actx.currentTime) mNext = actx.currentTime + 0.05;
   while (mNext < actx.currentTime + 0.15) {
     const s = gl === 'scroll' ? mStep - (mStep % 4) : mStep;
-    const n = tr.L.length, li = abil.mirror ? n - 1 - (s % n) : s % n;
+    const n = tr.L.length, li = (abil.slip || abil.storm) ? n - 1 - (s % n) : s % n;
     const l = tr.L[li], b = tr.B[s % tr.B.length], d = tr.D[s % tr.D.length];
     const silent = nullPhase() === 2 || mDropT > 0;
     const trans = (abil.heavy ? -2 : 0) + (gl === 'pal' ? 1 : 0), cents = leakDrift * 100;
@@ -1142,7 +1142,7 @@ function loadLevel(i) {
   volatileC = 0; burstT = shakeT = desyncT = flashT = armedT = 0; revealed.clear(); writeFx.length = 0;
   cellNow = [-1, -1]; digitNow = colDigit(Math.floor((p.x + 7) / 16));
   resetWorldFx();
-  logLines.length = 0; resetMusicFx();
+  logLines.length = 0; resetMusicFx(); faults.clear(); fgrid.fill(0);
 }
 const SIZE = { walker: [14, 13], sheller: [16, 19], flyer: [16, 19], spiky: [16, 14], thrower: [14, 19], bomb: [14, 14], ghost: [16, 15], chomp: [18, 18] };
 function mkEnemy(type, X, d) {
@@ -1291,6 +1291,7 @@ const HELP = [
   ['GREEN REGISTERS GRANT ABILITIES BUT CORRUPT THE GAME.', '#39ff88'],
   ['RED REGISTERS ARE CURSES. THE SAME PRESSES FILL THEM.', '#ff3d8a'],
   ['YOUR COLUMN: GREEN SAFE  RED CURSE  GOLD DEPENDS', '#ffc23d'],
+  ['GLITCH BLOCKS ARE REAL. UNMAPPED BLOCKS LET YOU THROUGH.', '#4ff0ff'],
   ['SOME DIGITS ARE MISSING: VIRUSES AND 0X BOXES CARRY THEM ON THE ROW.', '#4ff0ff'],
   ['GOLD SYMBOLS SIT IN ONE COLUMN. READ THEM FROM UP HIGH.', '#ffc23d'],
   ['PRESS INTO A WALL MID-AIR TO SLIDE, A TO WALL-JUMP.', '#c9c2ff'],
@@ -1700,12 +1701,37 @@ function buildAtlas() {         // the game's own graphics laid end to end, as v
   for (let i = 0; i < 4; i++) g.drawImage(BUG[i & 1], (srcs.length + i) * 16, 2);
   if (HERO_IMG.naturalWidth) for (let i = 0; i < 8; i++) g.drawImage(HERO_IMG, (i % 4) * HF + 8 * (i >> 2), 8 + 8 * (i >> 2), 16, 16, (srcs.length + 4 + i) * 16, 0, 16, 16);
 }
+// Blocks whose bytes can go missing. Ground, ROM, firewalls, the bus and the brick ceiling never unmap.
+const UNMAPPABLE = (t) => t === T.RAM || t === T.HEX || t === T.USED || t === T.CL || t === T.CR || t === T.CTL || t === T.CTR || t === T.ICE || t === T.NOTE;
+const calm = (c) => LV.calm.some(([a, b]) => c >= a && c <= b);    // near a gate, faults stay cosmetic
 function addFaults(n, permanent, wide) {
   const c0 = Math.floor(camX / 16) - 2, span = Math.ceil(VW / 16) + 6;
   for (let i = 0; i < n; i++) {
     const c = wide && Math.random() < 0.5 ? (Math.random() * LW) | 0 : c0 + ((Math.random() * span) | 0), r = 1 + ((Math.random() * 13) | 0);
+    if (c < 0 || c >= LW) continue;
     const a = ((Math.random() * (TEX.atlas.width - 16)) | 0) & ~3;          // misaligned reads straddle two tiles
-    faults.set(c + ',' + r, { a, perm: Math.random() < 0.4 ? 1 + ((Math.random() * 3) | 0) : 0, until: permanent ? Infinity : frame + 120 + ((Math.random() * 300) | 0) });
+    const t = tileAt(c, r), f = { c, r, a, perm: Math.random() < 0.4 ? 1 + ((Math.random() * 3) | 0) : 0, until: permanent ? Infinity : frame + 240 + ((Math.random() * 420) | 0) };
+    if (t === T.E) {                                                       // garbage: a real block, but never on top of anyone, a save or the exit
+      if (calm(c) || Math.abs(c - LV.exit) < 3 || LV.saves.some((sv) => Math.abs(sv - c) < 2)) continue;
+      const box = { x: c * 16 - 4, y: r * 16 - 4, w: 24, h: 24 };
+      if (overlap(p, box) || enemies.some((e) => !e.dead && overlap(e, box)) || (dino && overlap(dino, box))) continue;
+      f.solid = true;
+    } else if (UNMAPPABLE(t) && !calm(c) && Math.random() < 0.5) { f.unmap = true; f.ph = (Math.random() * 300) | 0; }
+    faults.set(c + ',' + r, f);
+  }
+}
+// Unmapped blocks come and go: about three seconds open, a flicker, then solid again (never on top of you).
+function syncFaults() {
+  fgrid.fill(0);
+  for (const f of faults.values()) {
+    if (f.solid) { fgrid[f.r * LW + f.c] = 1; continue; }
+    if (!f.unmap) continue;
+    const ph = (frame + f.ph) % 300, cell = { x: f.c * 16, y: f.r * 16, w: 16, h: 16 };
+    let open = ph < 190;
+    if (!open && f.open && (overlap(p, cell) || enemies.some((e) => !e.dead && overlap(e, cell)))) open = true;
+    if (f.open && !open) for (let n = 0; n < 6; n++) pSpawn(f.c * 16 + Math.random() * 16, f.r * 16 + Math.random() * 16, PK.SPARK, '#4ff0ff', 0, -0.3, 10);
+    f.open = open; f.warn = open && ph >= 160;
+    if (open) fgrid[f.r * LW + f.c] = 2;
   }
 }
 function spillFrom(c, r, n) {    // a corrupted tile leaks its bytes as falling dust
@@ -1759,6 +1785,7 @@ function worldFx() {
   if ((frame % 30) === 0 && Math.random() < C * 1.4) addFaults(1 + ((C * 3) | 0), C > 0.6 && Math.random() < 0.3, false);
   if (Math.random() < C * C * 0.01) addBand(6 + ((Math.random() * 20) | 0));
   for (const [key, f] of faults) if (f.until < frame) faults.delete(key);
+  syncFaults();
   bands = bands.filter((b) => b.until > frame);
   if (oamT > 0) oamT--;
 }
@@ -1790,8 +1817,12 @@ function moveY(e, solid) {
 const NULLABLE = (t) => t === T.RAM || t === T.HEX || t === T.USED || t === T.NUL;
 const nullPhase = () => abil.nullptr ? (frame % 240 > 190 ? 2 : frame % 240 > 160 ? 1 : 0) : 0;
 const blinked = (t, x, y) => nullPhase() === 2 && NULLABLE(t) && hash2(x, y, 77) % 3 === 0;
-const solidE = (t, x, y) => t !== T.E && t !== T.SPK && t !== T.SEMI && t !== T.HID && (t !== T.NUL || abil.bridge)
-  && (t !== T.RED || onOff) && (t !== T.BLUE || !onOff) && !blinked(t, x, y);
+// Memory faults are physical: garbage written into empty memory is a block you can stand on, and a real
+// block whose bytes went missing is unmapped for a while: you can pass straight through it.
+const fgrid = new Uint8Array(LW * LH);              // 1: garbage block, 2: unmapped right now
+const fgAt = (x, y) => (x >= 0 && x < LW && y >= 0 && y < LH ? fgrid[y * LW + x] : 0);
+const solidE = (t, x, y) => t === T.E ? fgAt(x, y) === 1 : t !== T.SPK && t !== T.SEMI && t !== T.HID && (t !== T.NUL || abil.bridge)
+  && (t !== T.RED || onOff) && (t !== T.BLUE || !onOff) && !blinked(t, x, y) && fgAt(x, y) !== 2;
 const solidP = (t, x, y) => solidE(t, x, y) && !(abil.phase && PHASEABLE(t));
 const overlap = (a, b, m = 0) => a.x + m < b.x + b.w && a.x + a.w - m > b.x && a.y + m < b.y + b.h && a.y + a.h - m > b.y;
 
@@ -1940,7 +1971,6 @@ function update() {
   readRow();
   // corruption side effects
   const C = corruption();
-  if (C > 0.45 && desyncT <= 0 && Math.random() < (C - 0.4) * 0.004) { desyncT = 110; log('INPUT DESYNC — LEFT AND RIGHT SWAPPED', 'warn'); SFX.glitch(); }
   if (abil.leak) volatileC += 0.00008;  // the MEMORY LEAK curse
   if (burstT > 0) burstT--; if (shakeT > 0) shakeT--; if (desyncT > 0) desyncT--; if (flashT > 0) flashT--;
   for (const [k, v] of bumps) { if (v <= 1) bumps.delete(k); else bumps.set(k, v - 1); }
@@ -2011,9 +2041,9 @@ function updatePlayer(L, Rt, J) {
   if (p.dead) { if (--p.dead <= 0) respawn(); return; }
   if (p.landT > 0) p.landT--; if (p.actT > 0) p.actT--;
   const g = p.flip ? -1 : 1;
-  let dir = (Rt ? 1 : 0) - (L ? 1 : 0); if ((desyncT > 0) !== !!abil.mirror) dir = -dir;
+  const dir = (Rt ? 1 : 0) - (L ? 1 : 0);
   if (!dir && Math.abs(stickVec.L[0]) > 0.35) dir = 0; // stick already mapped via keys
-  const maxS = abil.speed ? 2.8 : 1.6, icy = p.grounded && p.ft === T.ICE, jv = abil.heavy ? 0.78 : 1;
+  const maxS = abil.speed ? 2.8 : 1.6, icy = p.grounded && (p.ft === T.ICE || abil.slip), jv = abil.heavy ? 0.78 : 1;
   if (p.on && !p.on.gone) { p.x += p.on.dx || 0; p.y += p.on.dy || 0; }          // ride whatever you stand on
   if (p.wjLock > 0) p.wjLock--;
   if (dir && !p.wjLock) {                                                          // snappy: quick to start, quicker to turn
@@ -2053,6 +2083,7 @@ function updatePlayer(L, Rt, J) {
     p.vy = g * 0.05; p.flutter--; if ((frame & 3) === 0) pSpawn(p.x + p.w / 2 - p.face * 10, p.y + p.h - 4, PK.SPARK, '#c9c2ff', -p.face * Math.random(), 0.5, 12);
   }
   if (abil.glide && !p.riding && J && !p.grounded && p.vy * g > 0.9) { p.vy = 0.9 * g; if ((frame & 3) === 0) pSpawn(p.x + p.w / 2, p.y + 4, PK.HEAT, '#c9c2ff', 0, -0.3, 16); }   // GLIDE
+  if (abil.storm && !p.dead) { p.vx -= p.grounded ? 0.1 : 0.06; if ((frame & 3) === 0) pSpawn(camX + VW + 4, 20 + Math.random() * 180, PK.HEAT, '#c9c2ff', -4 - Math.random() * 2, 0.03, 70); }   // PACKET STORM
   cornerCorrect(g);
   moveX(p, solidP);
   const wasGrounded = p.grounded, fallV = p.vy * g;
@@ -2466,7 +2497,12 @@ function render() {
   for (let c = c0; c <= c1; c++) for (let r = 0; r < LH; r++) {
     const t = tileAt(c, r), fk = faults.size ? faults.get(c + ',' + r) : null;
     if (t === T.E || c < 0 || c >= LW) {                            // garbage tiles show up in empty memory too
-      if (fk && (frame + c) % 97) ctx.drawImage(palVariant(TEX.atlas, fk.perm), fk.a, 0, 16, 16, c * 16 - cx0, r * 16, 16, 16);
+      if (fk && fk.solid) {
+        const gx = c * 16 - cx0, gy = r * 16;
+        ctx.fillStyle = '#05040a'; ctx.fillRect(gx, gy, 16, 16);
+        ctx.drawImage(palVariant(TEX.atlas, fk.perm), fk.a, 0, 16, 16, gx, gy, 16, 16);
+        ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(gx, gy, 16, 1); ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(gx, gy + 15, 16, 1);
+      }
       continue;
     }
     let tex = tileTex(t, c, r); if (!tex) continue;
@@ -2475,6 +2511,12 @@ function render() {
     const np = abil.nullptr && NULLABLE(t) && hash2(c, r, 77) % 3 === 0 ? nullPhase() : 0;
     if (np === 2) continue;
     if (palFault[t]) tex = palVariant(tex, palFault[t]);
+    if (fk && fk.unmap && fk.open) {                               // unmapped: its bytes are gone, you can pass through
+      if (fk.warn && (frame >> 2) % 2) { ctx.drawImage(tex, x, y); continue; }
+      ctx.globalAlpha = 0.28; ctx.drawImage(palVariant(tex, fk.perm || 1), x + ((frame >> 3) % 3 === 0 ? 1 : 0), y); ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(79,240,255,0.5)'; for (let i = (frame >> 1) % 4; i < 16; i += 4) ctx.fillRect(x, y + i, 16, 1);
+      continue;
+    }
     if (fk) {                                                      // this tile reads the wrong bytes
       if (fk.perm && hash2(c, r, 3) & 1) ctx.drawImage(palVariant(tex, fk.perm), x, y);
       else ctx.drawImage(palVariant(TEX.atlas, fk.perm), fk.a, 0, 16, 16, x, y, 16, 16);
@@ -2751,7 +2793,6 @@ function drawHUD(C) {
     drawText('BREAKPOINT  VALUE ' + digitNow, VW / 2, 38, '#4ff0ff', 1, 'center');
     drawText('FORCE WRITE: LEFT RIGHT OR A', VW / 2, 48, '#ffffff', 1, 'center');
   }
-  if (desyncT > 0 && (frame >> 3) % 2) drawText('INPUT DESYNC', VW / 2, 64, '#ff3d8a', 2, 'center');
 }
 
 /* ================= overlays & flow ================= */

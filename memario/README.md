@@ -139,6 +139,18 @@ scroll-register desync that shifts whole bands of the screen, and sprite DMA fau
 hero again in the wrong places. Every unlock writes permanent faults into the level; instability
 adds temporary ones.
 
+Faults are physical, not just pictures:
+
+- **Garbage blocks.** Garbage written into empty memory is a real block. You can stand on it, bump it,
+  and use it to reach places, and viruses and debris collide with it. It never appears on top of the
+  hero, a virus, a save or the exit.
+- **Unmapped blocks.** A RAM block, 0x box, conduit, ice or note block whose bytes go missing turns
+  see-through (cyan scanlines) for about three seconds, and you can pass straight through it or fall
+  through it. It flickers before it maps back in, and never snaps back while you're inside it.
+  Ground, ROM, firewalls, the bus and the brick ceiling never unmap.
+- **Gates stay honest.** Around every gate, faults stay cosmetic, so a glitch can never stand in for a
+  required hack. A fuzz test re-ran the whole gate sweep with 700 permanent faults per attempt: no breach.
+
 ## Layout
 
 Held upright: the game screen runs edge to edge on top, the register screen fills the space between it
@@ -170,15 +182,16 @@ conditions. Progress is saved; the title screen offers to continue from the furt
 
 | Level | Theme | Impossible without | Hacks (sequence, control, opens when) | Curses |
 | --- | --- | --- | --- | --- |
-| 1 Boot Sector | overworld | ROM wall (Super Jump); 10-block pit (Super Jump + Speed) | Fire Power 4 2 7 1 9 A · Super Jump 3 8 5 2 ◀ · Speed Boost 6 1 4 8 3 ▶ (16 bytes) · Shield 5 * 5 ▶ | Heavy Boots 2 7 2 7 A · Mirror Input 1 6 6 1 ▶ |
+| 1 Boot Sector | overworld | ROM wall (Super Jump); 10-block pit (Super Jump + Speed) | Fire Power 4 2 7 1 9 A · Super Jump 3 8 5 2 ◀ · Speed Boost 6 1 4 8 3 ▶ (16 bytes) · Shield 5 * 5 ▶ | Heavy Boots 2 7 2 7 A · Memory Slip 1 6 6 1 ▶ |
 | 2 Firewall | underground | floor-to-ceiling firewalls (Phase); 7-block pits (Double Jump) | Phase Shift 9 9 0 1 A (mid-air) · Double Jump 2 6 0 4 ▶ (10 bytes) · Hot Reload 3 1 4 1 ◀ · Bit Magnet # 5 5 ◀ | Memory Leak 0 0 7 3 ◀ · Packet Lag 6 6 2 2 ▶ · Blackout 3 3 9 9 A (below 60%) |
-| 3 Cloud Storage | sky | caged virus by a tall wall (Quarantine, climb off its back); the void under open sky (Bridge); the void under the bus (Gravity Flip) | Quarantine 4 4 1 2 A · Alloc Bridge 6 2 8 0 ▶ (12 bytes) · Gravity Flip 7 3 1 5 0 ◀ (1 online) · Glide 2 @ 6 A | Outbreak 1 9 1 9 ▶ · Null Pointer 3 0 3 0 A · Mirror Input 5 5 2 5 ◀ |
+| 3 Cloud Storage | sky | caged virus by a tall wall (Quarantine, climb off its back); the void under open sky (Bridge); the void under the bus (Gravity Flip) | Quarantine 4 4 1 2 A · Alloc Bridge 6 2 8 0 ▶ (12 bytes) · Gravity Flip 7 3 1 5 0 ◀ (1 online) · Glide 2 @ 6 A | Outbreak 1 9 1 9 ▶ · Null Pointer 3 0 3 0 A · Packet Storm 5 5 2 5 ◀ |
 | 4 Root Access | castle | firewall (Phase); lava under the bus (Flip); wall under open sky (Super Jump); firewalls through a lava floor (Flip + Phase together); KERNEL PANIC on the bridge (get past it, pull the kill switch) | Phase Shift 0 4 0 4 A (mid-air) · Gravity Flip 5 1 3 9 ▶ (1 online) · Super Jump 7 7 2 1 ◀ (below 70% stability) · Overclock $ 9 1 ▶ | Watchdog 2 2 8 ◀ · Packet Lag 1 1 6 6 ▶ · Heavy Boots 8 3 8 3 A · Blackout 9 2 9 2 A (below 60%) · Null Pointer 4 9 4 9 ▶ (after a crash) |
 
 What the new hacks and curses do:
 
 - **Double Jump**: a second jump in mid-air. **Hot Reload**: a crash respawns you where you last stood instead of at the save.
 - **Quarantine**: viruses stop, stop hurting you, and become platforms. **Alloc Bridge**: dashed null blocks become solid.
+- **Memory Slip**: every floor is as slick as ice. **Packet Storm**: a steady wind pushes you back.
 - **Packet Lag**: every input reaches the hero 10 frames late. **Outbreak**: viruses run faster and respawn.
 - **Null Pointer**: one in three platform blocks drops out of memory for a second every four seconds (they flicker first).
 - **Watchdog**: a countdown on screen; when it reaches zero you crash, every 40 seconds, until a patch purges it.
@@ -188,8 +201,7 @@ Green registers always take a write before red ones on the same control. The bad
 shows where a press would go: **green** feeds a hack, **red** feeds a curse, **gold** depends on the
 button. Patches from 0x blocks reduce corruption, flush partly filled curses and purge the most
 recent active curse. A register filled with any wrong digit (only possible with a force-write)
-segfaults and is flushed. Every write has a 10% chance of a random glitch, and below roughly 55%
-stability left and right occasionally swap.
+segfaults and is flushed. Every write has a 10% chance of a random glitch. Nothing ever reverses the controls.
 
 ## Music
 
@@ -209,7 +221,7 @@ game, through a Web Audio effect chain:
 | Alloc Bridge | bass boost |
 | Gravity Flip | while upside down, the EQ flips (bass cut, treble up) |
 | ! Heavy Boots | slows and sinks |
-| ! Mirror Input | plays backwards, left and right channels swapped |
+| ! Memory Slip, ! Packet Storm | plays backwards, left and right channels swapped |
 | ! Packet Lag | a late slap-back echo |
 | ! Memory Leak | the pitch slowly drifts down (a patch restores it) |
 | ! Blackout | muffled |
