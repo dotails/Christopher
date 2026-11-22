@@ -208,6 +208,9 @@ function colDigit(cx) {
   while (LV && LV.rare.includes(d)) d = (d + 3) % 10;          // this level's missing digits never reach the row
   return d;
 }
+const SYMV = { '*': 10, '#': 11, '@': 12, '$': 13, '&': 14 };   // where a symbol sits on the music's scale
+const symAt = (c) => (LV && LV.syms ? LV.syms.find((q) => q.c === c) : null);
+const symReach = (q) => !p.flip && p.y + p.h <= q.top + 0.5;
 const colAddr = (cx) => '0X' + (0x8000 + cx * 16).toString(16).toUpperCase();
 
 /* ================= 3x5 pixel font ================= */
@@ -221,7 +224,7 @@ const FONT = {
   Y:'101101010010010',Z:'111001010100111',' ':'000000000000000','.':'000000000000010',':':'000010000010000','-':'000000111000000',
   '%':'101001010100101','/':'001001010100100','>':'100010001010100','<':'001010100010001','!':'010010010000010','?':'110001010000010',
   '+':'000010111010000',',':'000000000010100','(':'010100100100010',')':'010001001001010','#':'101111101111101',
-  '[':'110100100100110',']':'011001001001011','=':'000111000111000',"'":'010010000000000'
+  '[':'110100100100110',']':'011001001001011','=':'000111000111000','*':'101010111010101','@':'011101111100011','$':'011110010011110','&':'010101010101011',"'":'010010000000000'
 };
 const CHMAP = { '—': '-', '–': '-', '◀': '<', '▶': '>', '·': '.', '°': '', '×': 'X', '▸': '>' };
 function drawText(s, x, y, col, sc = 1, align = 'left', g = ctx) {
@@ -238,7 +241,7 @@ function drawText(s, x, y, col, sc = 1, align = 'left', g = ctx) {
 
 /* ================= level ================= */
 const T = { E:0, G:1, RAM:2, HEX:3, USED:4, CL:5, CR:6, CTL:7, CTR:8, BUS:9, FW:10, ROM:11, NUL:12, SPK:13,
-  SEMI:14, SPRING:15, NOTE:16, HID:17, ICE:18, CONVL:19, CONVR:20, SWITCH:21, RED:22, BLUE:23 };
+  SEMI:14, SPRING:15, NOTE:16, HID:17, ICE:18, CONVL:19, CONVR:20, SWITCH:21, RED:22, BLUE:23, BRICK:24, BRIDGE:25 };
 let onOff = true;                 // BIT FLIP: on = pink blocks solid, off = cyan blocks solid
 const PHASEABLE = (t) => t === T.CL || t === T.CR || t === T.CTL || t === T.CTR || t === T.FW;
 const level = new Uint8Array(LW * LH);
@@ -271,9 +274,10 @@ function levelKit() {
 // Each level is impossible without its own hacks, and adds its own curses and conditions.
 const LEVELS = [
   {
-    name: 'BOOT SECTOR', rare: [8],
+    name: 'BOOT SECTOR', rare: [8], world: 'OVERWORLD',
+    syms: [{ c: 89, ch: '*', top: 80 }],
     brief: 'A ROM wall and a ten-block pit guard the exit. Super Jump clears the wall; the pit needs Super Jump and Speed Boost together.',
-    theme: { bg: ['#03111a', '#0a2a33'], sil: ['#0a2530', '#113845'], glow: '#4ff0ff', dark: 0.5, shade: '#01060a', grass: ['#62ffb0', '#2ad98a', '#0f6a4a', '#c4ffe6'], soil: ['#16202b', '#101820', '#1e2a38', '#0b1018', '#131c26', '#2c3c50'] },
+    theme: { world: 'over', bg: ['#0b2a4a', '#2f7a86'], sil: ['#123f4a', '#1a5a52'], glow: '#c8fff0', dark: 0.22, shade: '#03101a', grass: ['#8dff7a', '#3fd85a', '#137a34', '#e6ffd2'], soil: ['#3a2a24', '#2c1f1b', '#4a3629', '#1e1410', '#33251e', '#6e4c36'] },
     build(k) {
       k.ground(0, 68); k.ground(72, 90); k.ground(93, 175); k.ground(186, 223);
       k.bus(0, 58); k.bus(62, 118); k.bus(124, 223);
@@ -307,17 +311,19 @@ const LEVELS = [
       reg('fire',   true,  'FIRE',   'FIRE POWER',   '0x3FF18', [4, 2, 7, 1, 9], 'jump',  'AUTO-FIRES PLASMA'),
       reg('super',  true,  'JUMP',   'SUPER JUMP',   '0x2D22E', [3, 8, 5, 2],    'left',  'JUMP HEIGHT X2'),
       reg('speed',  true,  'SPEED',  'SPEED BOOST',  '0xC003A', [6, 1, 4, 8, 3], 'right', 'RUN SPEED X1.75', C_BYTES(16)),
+      reg('shield', true,  'SHIELD', 'SHIELD',       '0x5A1E1', [5, '*', 5],    'right', 'ABSORBS ONE CRASH'),
       reg('heavy',  false, 'HEAVY',  'HEAVY BOOTS',  '0xBAD01', [2, 7, 2, 7],    'jump',  'JUMP HEIGHT CUT'),
       reg('mirror', false, 'MIRROR', 'MIRROR INPUT', '0xBAD02', [1, 6, 6, 1],    'right', 'LEFT AND RIGHT SWAPPED'),
     ],
   },
   {
-    name: 'FIREWALL', rare: [0],
-    brief: 'Firewalls run floor to ceiling and the pits are six blocks wide. Phase through the walls and jump twice over the gaps.',
-    theme: { bg: ['#140505', '#3a1309'], sil: ['#250c08', '#3a140c'], glow: '#ff7a3d', dark: 0.55, shade: '#0a0202', grass: ['#ffb03d', '#e87a2a', '#7a3a10', '#ffe0a6'], soil: ['#22121a', '#190c12', '#2e1820', '#10080c', '#1c0e14', '#44242e'] },
+    name: 'FIREWALL', rare: [0], world: 'UNDERGROUND',
+    syms: [{ c: 145, ch: '#', top: 128 }],
+    brief: 'Underground. Firewalls run floor to brick ceiling and the pits are seven blocks wide. Phase through the walls and jump twice over the gaps.',
+    theme: { world: 'under', bg: ['#05060f', '#140d1e'], sil: ['#0e0c1c', '#1a1530'], glow: '#ff7a3d', dark: 0.58, shade: '#020108', grass: ['#7a9cff', '#4a64c8', '#25306a', '#c8d4ff'], soil: ['#1a1c34', '#13152a', '#24274a', '#0b0c1a', '#181a30', '#3a3f6a'] },
     build(k) {
-      k.ground(0, 71); k.ground(78, 113); k.ground(120, 161); k.ground(168, 223);   // six-block pits: Double Jump only
-      k.bus(0, 223);
+      k.ground(0, 71); k.ground(79, 113); k.ground(121, 161); k.ground(169, 223);   // seven-block pits: Double Jump only
+      k.row(0, 223, 0, T.BRICK); k.block(30, 34, 1, 2, T.BRICK); k.block(90, 93, 1, 1, T.BRICK); k.block(196, 201, 1, 3, T.BRICK);   // the brick ceiling
       k.hex(8, 9); k.row(12, 16, 9, T.RAM); k.hex(13, 9, 15, 9, 14, 5, 26, 9, 36, 9);
       k.conduit(30, 2);
       k.block(58, 59, 1, 12, T.FW);                          // floor-to-ceiling firewall: Phase Shift only
@@ -341,21 +347,24 @@ const LEVELS = [
       reg('phase',  true,  'PHASE',  'PHASE SHIFT',  '0x0A11C', [9, 9, 0, 1],    'jump',  'WALK THROUGH FIREWALLS', C_AIR),
       reg('double', true,  'DOUBLE', 'DOUBLE JUMP',  '0x2B2B2', [2, 6, 0, 4],    'right', 'A SECOND JUMP IN MID-AIR', C_BYTES(10)),
       reg('reload', true,  'RELOAD', 'HOT RELOAD',   '0x40AD1', [3, 1, 4, 1],    'left',  'CRASHES RESPAWN WHERE YOU STOOD'),
+      reg('magnet', true,  'MAGNET', 'BIT MAGNET',   '0x3A6E7', ['#', 5, 5],    'left',  'BITS FLY TO YOU'),
       reg('leak',   false, 'LEAK',   'MEMORY LEAK',  '0xBAD03', [0, 0, 7, 3],    'left',  'STABILITY DRAINS OVER TIME'),
       reg('lag',    false, 'LAG',    'PACKET LAG',   '0xBAD05', [6, 6, 2, 2],    'right', 'EVERY INPUT ARRIVES LATE'),
       reg('dark',   false, 'DARK',   'BLACKOUT',     '0xBAD04', [3, 3, 9, 9],    'jump',  'THE SCREEN GOES DARK', C_STB(60)),
     ],
   },
   {
-    name: 'KERNEL SPACE', rare: [4],
-    brief: 'Corrupt sectors line the floor. Freeze the caged bug and climb off its back, build the bridge, then walk the ceiling.',
-    theme: { bg: ['#06031a', '#1c0f3c'], sil: ['#130a2c', '#21134a'], glow: '#9a7aff', dark: 0.6, shade: '#02010a', grass: ['#4ff0ff', '#2ab8c8', '#14707a', '#c8ffff'], soil: ['#15122c', '#0f0c22', '#1d1a3a', '#0a0818', '#13102a', '#2e2854'] },
+    name: 'CLOUD STORAGE', rare: [4], world: 'SKY',
+    syms: [{ c: 54, ch: '@', top: 128 }],
+    brief: 'Up in the cloud, the floor drops into the void. Freeze the caged virus and climb off its back, allocate the bridge, then walk the ceiling.',
+    theme: { world: 'sky', bg: ['#1a1450', '#7a5aa8'], sil: ['#3a2f78', '#5a4a96'], glow: '#ffd8f4', dark: 0.3, shade: '#0a0620', grass: ['#ffffff', '#e4dcff', '#a99ae0', '#ffffff'], soil: ['#4a3f86', '#3c3272', '#574c9a', '#2e265c', '#43397c', '#7a6cc0'] },
     build(k) {
       k.ground(0, 223); k.bus(0, 40); k.bus(108, 175);
       k.hex(8, 9); k.row(12, 15, 9, T.RAM); k.hex(13, 9, 22, 5, 30, 9, 36, 9);
       k.hole(48, 49); k.block(52, 55, 8, 12, T.ROM);         // the cage: a bug penned against a wall too tall to jump
-      k.row(62, 63, 11, T.ROM); k.row(64, 102, 10, T.NUL); k.spikes(66, 100);   // bridge over corrupt sectors, open sky
-      k.spikes(116, 166);                                     // corrupt floor under the bus: walk the ceiling
+      k.row(62, 63, 11, T.ROM); k.row(64, 102, 10, T.NUL); k.hole(66, 100);     // a bridge over the void, open sky
+      k.hole(116, 166);                                       // no floor under the bus: walk the ceiling
+      k.row(20, 23, 8, T.SEMI); k.row(26, 28, 6, T.SEMI); k.row(196, 199, 11, T.SEMI);   // clouds
       k.hex(186, 9, 196, 9); k.row(190, 193, 9, T.RAM); k.stack(204, [1, 2, 2]);
       k.row(56, 63, 13, T.ICE);                                                  // cold storage before the bridge
       k.row(188, 188, 9, T.SWITCH); k.row(197, 199, 8, T.RED); k.row(200, 202, 6, T.BLUE); k.row(203, 205, 4, T.RED); k.row(170, 174, 9, T.SEMI);
@@ -368,18 +377,20 @@ const LEVELS = [
     patches: ['13,9', '30,9', '186,9'],
     exit: 214,
     regs: [
-      reg('freeze', true,  'FREEZE', 'FREEZE BUGS',  '0xF2EE2', [4, 4, 1, 2],    'jump',  'BUGS STOP AND BECOME PLATFORMS'),
+      reg('freeze', true,  'FREEZE', 'QUARANTINE',   '0xF2EE2', [4, 4, 1, 2],    'jump',  'VIRUSES FREEZE AND BECOME PLATFORMS'),
       reg('bridge', true,  'BRIDGE', 'ALLOC BRIDGE', '0x0B12D', [6, 2, 8, 0],    'right', 'NULL BLOCKS BECOME SOLID', C_BYTES(12)),
       reg('grav',   true,  'GRAV',   'GRAVITY FLIP', '0x7E5F0', [7, 3, 1, 5, 0], 'left',  'X FLIPS GRAVITY', C_ONLINE(1)),
-      reg('swarm',  false, 'SWARM',  'BUG SWARM',    '0xBAD06', [1, 9, 1, 9],    'right', 'BUGS RUN FASTER AND RESPAWN'),
+      reg('glide',  true,  'GLIDE',  'GLIDE',        '0x611DE', [2, '@', 6],    'jump',  'HOLD A TO GLIDE'),
+      reg('swarm',  false, 'SWARM',  'OUTBREAK',     '0xBAD06', [1, 9, 1, 9],    'right', 'VIRUSES RUN FASTER AND RESPAWN'),
       reg('nullptr',false, 'NULL',   'NULL POINTER', '0xBAD07', [3, 0, 3, 0],    'jump',  'PLATFORMS BLINK OUT OF MEMORY'),
       reg('mirror', false, 'MIRROR', 'MIRROR INPUT', '0xBAD02', [5, 5, 2, 5],    'left',  'LEFT AND RIGHT SWAPPED'),
     ],
   },
   {
-    name: 'ROOT ACCESS', rare: [0, 7],
-    brief: 'Everything at once. Phase the firewall, walk the ceiling, Super Jump the wall, then phase through firewalls upside down. Super Jump only opens once the game is unstable.',
-    theme: { bg: ['#010605', '#04180e'], sil: ['#05160d', '#0a2617'], glow: '#39ff88', dark: 0.62, shade: '#000402', grass: ['#39ff88', '#1fbf62', '#0d6a33', '#c8ffe0'], soil: ['#0b140f', '#070d0a', '#111e17', '#040806', '#0d1812', '#20382a'] },
+    name: 'ROOT ACCESS', rare: [0, 7], world: 'CASTLE',
+    syms: [{ c: 101, ch: '$', top: 80 }],
+    brief: 'The castle. Phase the firewall, walk the ceiling over the lava, Super Jump the wall, phase through firewalls upside down, then get past KERNEL PANIC on the bridge and pull the kill switch. Super Jump only opens once the game is unstable.',
+    theme: { world: 'castle', bg: ['#0a0306', '#2a0a0c'], sil: ['#1a0a0e', '#2a1016'], glow: '#ff6a2a', dark: 0.68, shade: '#060103', grass: ['#8a8098', '#5e566e', '#3a3446', '#c8c0d8'], soil: ['#2a2532', '#201c28', '#332d3e', '#16131c', '#25202e', '#4a4258'] },
     build(k) {
       k.ground(0, 223); k.bus(0, 90); k.bus(113, 223);
       k.hex(8, 9); k.row(12, 16, 9, T.RAM); k.hex(14, 9, 20, 5, 28, 9, 34, 9);
@@ -388,13 +399,13 @@ const LEVELS = [
       k.hex(94, 9); k.block(100, 103, 5, 12, T.ROM);          // open sky above: Super Jump only
       k.spikes(124, 186);                                     // corrupt floor under the bus...
       for (const x of [134, 149, 164, 178]) k.block(x, x + 1, 1, 12, T.FW);   // ...with firewalls through it: flip + phase
-      k.hex(200, 9); k.stack(206, [1, 2]);
-      k.block(30, 30, 11, 12, T.ROM); k.block(208, 208, 11, 12, T.ROM); k.block(110, 110, 8, 8, T.ROM);
+      k.hole(195, 210); k.row(195, 210, 13, T.BRIDGE); k.row(195, 210, 14, T.SPK);   // the bridge over the lava, and the boss on it
+      k.block(30, 30, 11, 12, T.ROM); k.block(110, 110, 8, 8, T.ROM);
       k.row(92, 99, 13, T.CONVL);                                                // a pipeline pushing you away from the wall
     },
     ents: [{ t: 'dino', x: 4 }, { t: 'sheller', x: 16 }, { t: 'chomp', x: 18 }, { t: 'walker', x: 24 }, { t: 'thrower', x: 36 }, { t: 'spiky', x: 40 },
       { t: 'cannon', x: 30, y: 11 }, { t: 'bomb', x: 94 }, { t: 'flyer', x: 97 }, { t: 'firebar', x: 110, y: 8, n: 5 }, { t: 'ghost', x: 150, y: 4 },
-      { t: 'ghost', x: 175, y: 6 }, { t: 'walker', x: 196 }, { t: 'chomp', x: 202 }, { t: 'cannon', x: 208, y: 11 }],
+      { t: 'ghost', x: 175, y: 6 }, { t: 'panic', x: 205 }, { t: 'kill', x: 211 }],
     saves: [2, 48, 92, 116, 190],
     bits: [[60,2],[64,2],[68,2],[72,2],[76,2],[80,2],[84,2],[128,2],[140,2],[156,2],[170,2],[184,2]],
     patches: ['14,9', '28,9', '94,9', '200,9'],
@@ -403,6 +414,7 @@ const LEVELS = [
       reg('phase',  true,  'PHASE',  'PHASE SHIFT',  '0x0A11C', [0, 4, 0, 4],    'jump',  'WALK THROUGH FIREWALLS', C_AIR),
       reg('grav',   true,  'GRAV',   'GRAVITY FLIP', '0x7E5F0', [5, 1, 3, 9],    'right', 'X FLIPS GRAVITY', C_ONLINE(1)),
       reg('super',  true,  'JUMP',   'SUPER JUMP',   '0x2D22E', [7, 7, 2, 1],    'left',  'JUMP HEIGHT X2', C_STB(70)),
+      reg('slow',   true,  'SLOW',   'OVERCLOCK',    '0x0C10C', ['$', 9, 1],    'right', 'THE WORLD RUNS AT HALF SPEED'),
       reg('watchdog',false,'WDOG',   'WATCHDOG',     '0xBAD08', [2, 2, 8],       'left',  'A CRASH EVERY 40 SECONDS'),
       reg('lag',    false, 'LAG',    'PACKET LAG',   '0xBAD05', [1, 1, 6, 6],    'right', 'EVERY INPUT ARRIVES LATE'),
       reg('heavy',  false, 'HEAVY',  'HEAVY BOOTS',  '0xBAD01', [8, 3, 8, 3],    'jump',  'JUMP HEIGHT CUT'),
@@ -412,7 +424,7 @@ const LEVELS = [
   },
 ];
 let levelIdx = 0, LV = LEVELS[0], PATCH_BLOCKS = new Set();
-const TYPE_NAME = { walker: 'PROCESS', sheller: 'SHELL', spiky: 'SPIKE', thrower: 'SPAMMER', bomb: 'FORK BOMB', ghost: 'ZOMBIE PROCESS', chomp: 'DAEMON' };
+const TYPE_NAME = { walker: 'CRAWLER', sheller: 'TROJAN', spiky: 'SPIKE PROTEIN', thrower: 'SPAM WORM', bomb: 'FORK BOMB', ghost: 'ROOTKIT', chomp: 'RANSOMWARE' };
 const DIGIT_TYPES = new Set(['walker', 'sheller', 'flyer', 'spiky', 'thrower', 'bomb', 'ghost', 'chomp']);
 
 /* ================= art ================= */
@@ -449,7 +461,7 @@ const heroReady = Promise.all([[HERO_IMG, 'img/hero.png'], [FACES_IMG, 'img/face
 const TEX = {};
 // Ground tiles take the level's colours.
 function buildGround(th) {
-  const R = mulberry32(99), [g0, g1, g2, g3] = th.grass, [s0, s1, s2, s3, s4, s5] = th.soil;
+  const R = mulberry32(99), [g0, g1, g2, g3] = th.grass, [s0, s1, s2, s3, s4, s5] = th.soil, w = th.world;
   const draw = (fn) => { const c = mk(16, 16); fn(c.getContext('2d')); return c; };
   const p = (g, c, x, y, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
   const soil = (g) => {
@@ -458,8 +470,26 @@ function buildGround(th) {
     for (let x = 0; x < 16; x++) if ((x + 3) % 5) p(g, s4, x, 7);
     p(g, s5, 3, 11, 2, 1); p(g, s5, 11, 3, 2, 1);
   };
-  TEX.gfill = draw(soil);
-  TEX.gtop = draw((g) => { soil(g); p(g, g0, 0, 0, 16, 2); p(g, g1, 0, 2, 16, 2); for (let x = 0; x < 16; x++) { if (R() < 0.55) p(g, g2, x, 4); if (R() < 0.25) p(g, g3, x, 0); } });
+  const brick = (g) => {                                         // underground and castle: laid bricks
+    p(g, s0, 0, 0, 16, 16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (R() < 0.08) p(g, s1, x, y);
+    for (let row = 0; row < 4; row++) {
+      const y = row * 4, off = row & 1 ? 4 : 0;
+      p(g, s3, 0, y + 3, 16, 1);
+      for (let x = off; x < 16; x += 8) { p(g, s3, x, y, 1, 3); p(g, s2, x + 1, y, 6, 1); }
+    }
+  };
+  TEX.brick = draw((g) => { brick(g); p(g, s5, 0, 0, 16, 1); });
+  if (w === 'under' || w === 'castle') {
+    TEX.gfill = draw(brick);
+    TEX.gtop = draw((g) => { brick(g); p(g, g1, 0, 0, 16, 2); p(g, g0, 0, 0, 16, 1); for (let x = 0; x < 16; x++) if (R() < 0.3) p(g, g2, x, 2, 1, 1 + ((R() * 3) | 0)); });
+  } else if (w === 'sky') {                                      // cloud storage: lilac rock topped with cloud
+    TEX.gfill = draw(soil);
+    TEX.gtop = draw((g) => { soil(g); p(g, g2, 0, 4, 16, 2); p(g, g1, 0, 1, 16, 4); p(g, g0, 1, 0, 5, 3); p(g, g0, 8, 0, 6, 3); p(g, g0, 0, 1, 16, 2); for (let x = 0; x < 16; x++) if (R() < 0.3) p(g, g1, x, 6, 1, 1 + ((R() * 3) | 0)); });
+  } else {
+    TEX.gfill = draw(soil);
+    TEX.gtop = draw((g) => { soil(g); p(g, g0, 0, 0, 16, 2); p(g, g1, 0, 2, 16, 2); for (let x = 0; x < 16; x++) { if (R() < 0.55) p(g, g2, x, 4); if (R() < 0.25) p(g, g3, x, 0); } });
+  }
 }
 function buildTiles() {
   const R = mulberry32(99);
@@ -552,27 +582,81 @@ function buildSky() {                                             // the deep: a
   g.fillStyle = permHex(th.glow, skyPerm); for (let i = 0; i < 14; i++) { g.globalAlpha = 0.15 + R() * 0.3; g.fillRect((R() * VW) | 0, (R() * VH * 0.7) | 0, 1, 1); }
   g.globalAlpha = 1;
 }
-function buildSkyline() {                                         // silhouettes: hanging formations, pillars, server racks
-  const th = LV.theme, R = mulberry32(31 + levelIdx * 13);
-  const layer = (W, col, edge, scale, racks) => {
-    const c = mk(W, VH), g = c.getContext('2d');
+function buildSkyline() {                                         // silhouettes, in the style of each world
+  const th = LV.theme, R = mulberry32(31 + levelIdx * 13), w = th.world;
+  const W0 = Math.ceil(WORLD_W * 0.18) + 600, W1 = Math.ceil(WORLD_W * 0.42) + 600;
+  const lay = (W, fn) => { const c = mk(W, VH), g = c.getContext('2d'); fn(g, W); g.globalAlpha = 1; return c; };
+  const disc = (g, cx, cy, r) => { for (let dy = -r; dy <= r; dy++) { const hw = Math.round(Math.sqrt(r * r - dy * dy)); g.fillRect(Math.round(cx - hw), Math.round(cy + dy), hw * 2, 1); } };
+  const dots = (g, W, n, ymax, col) => { g.fillStyle = col || th.glow; for (let i = 0; i < n; i++) { g.globalAlpha = 0.12 + R() * 0.3; g.fillRect((R() * W) | 0, (R() * ymax) | 0, 1, 1); } g.globalAlpha = 1; };
+  const ridge = (g, W, col, base, amp, f1, f2) => { g.fillStyle = col; const ph = R() * 9; for (let x = 0; x < W; x += 2) { const h = base + Math.sin(x * f1 + ph) * amp + Math.sin(x * f2 + ph * 2) * amp * 0.45; g.fillRect(x, VH - h, 2, h); } };
+  const cave = (W, col, edge, scale, racks) => lay(W, (g) => {      // hanging formations, pillars, server racks
     g.fillStyle = col;
     let h = 20;
     for (let x = 0; x < W; x += 2) { h = clamp(h + (R() - 0.5) * 6 * scale, 4, 60 * scale); g.fillRect(x, 0, 2, h); if (R() < 0.04) { const d = 10 + R() * 40 * scale; g.fillRect(x, h, 2, d); g.fillRect(x - 1, h, 4, d * 0.6); } }
-    let b = 30;
-    for (let x = 0; x < W; x += 2) { b = clamp(b + (R() - 0.5) * 7 * scale, 10, 90 * scale); g.fillRect(x, VH - b, 2, b); }
+    let b2 = 30;
+    for (let x = 0; x < W; x += 2) { b2 = clamp(b2 + (R() - 0.5) * 7 * scale, 10, 90 * scale); g.fillRect(x, VH - b2, 2, b2); }
     if (racks) for (let x = 20; x < W; x += 70 + ((R() * 90) | 0)) {
-      const w = 18 + ((R() * 3) | 0) * 6, hh = 70 + ((R() * 70) | 0); g.fillStyle = col; g.fillRect(x, VH - hh, w, hh);
-      g.fillStyle = edge; g.fillRect(x, VH - hh, w, 1); g.fillRect(x, VH - hh, 1, hh);
-      for (let yy = VH - hh + 6; yy < VH - 20; yy += 6) for (let xx = x + 3; xx < x + w - 2; xx += 4) if (R() < 0.25) { g.fillStyle = R() < 0.7 ? th.glow : '#ff3d8a'; g.globalAlpha = 0.25 + R() * 0.4; g.fillRect(xx, yy, 1, 1); g.globalAlpha = 1; }
+      const rw = 18 + ((R() * 3) | 0) * 6, hh = 70 + ((R() * 70) | 0); g.fillStyle = col; g.fillRect(x, VH - hh, rw, hh);
+      g.fillStyle = edge; g.fillRect(x, VH - hh, rw, 1); g.fillRect(x, VH - hh, 1, hh);
+      for (let yy = VH - hh + 6; yy < VH - 20; yy += 6) for (let xx = x + 3; xx < x + rw - 2; xx += 4) if (R() < 0.25) { g.fillStyle = R() < 0.7 ? th.glow : '#ff3d8a'; g.globalAlpha = 0.25 + R() * 0.4; g.fillRect(xx, yy, 1, 1); g.globalAlpha = 1; }
       g.fillStyle = col;
     }
-    for (let i = 0; i < W / 30; i++) { g.fillStyle = th.glow; g.globalAlpha = 0.12 + R() * 0.25; g.fillRect((R() * W) | 0, (R() * 50 * scale) | 0, 1, 2); }   // bioluminescent drips
-    g.globalAlpha = 1;
-    return c;
-  };
-  TEX.far = layer(Math.ceil(WORLD_W * 0.18) + 600, th.sil[0], th.sil[1], 0.7, false);
-  TEX.near = layer(Math.ceil(WORLD_W * 0.42) + 600, th.sil[1], th.glow, 1, true);
+    dots(g, W, W / 30, 50 * scale);
+  });
+  if (w === 'over') {                                            // open country: far ranges, clouds, rolling hills, relay masts
+    TEX.far = lay(W0, (g, W) => {
+      g.fillStyle = '#d8f4ff';
+      for (let x = 30; x < W; x += 90 + ((R() * 120) | 0)) { const y = 30 + R() * 60, n = 3 + ((R() * 3) | 0); g.globalAlpha = 0.10 + R() * 0.08; for (let i = 0; i < n; i++) disc(g, x + i * 10, y - Math.sin(i / (n - 1 || 1) * Math.PI) * 5, 7 + ((R() * 5) | 0)); }
+      g.globalAlpha = 1; ridge(g, W, th.sil[0], 92, 26, 0.011, 0.031);
+    });
+    TEX.near = lay(W1, (g, W) => {
+      ridge(g, W, th.sil[1], 46, 14, 0.019, 0.047);
+      g.fillStyle = th.sil[1];
+      for (let x = 10; x < W; x += 40 + ((R() * 60) | 0)) { const r = 6 + ((R() * 6) | 0); disc(g, x, VH - 48 - r * 0.3, r); disc(g, x + r, VH - 46, r * 0.8); }
+      for (let x = 60; x < W; x += 260 + ((R() * 200) | 0)) {    // a relay mast, its light blinking in the dusk
+        const hh = 80 + ((R() * 40) | 0); g.fillStyle = th.sil[1]; g.fillRect(x, VH - hh, 2, hh); for (let yy = VH - hh + 8; yy < VH - 40; yy += 10) g.fillRect(x - 3, yy, 8, 1);
+        g.fillStyle = '#ff3d8a'; g.fillRect(x - 1, VH - hh - 2, 4, 2);
+      }
+    });
+  } else if (w === 'sky') {                                     // cloud banks below, islands adrift
+    TEX.far = lay(W0, (g, W) => {
+      g.fillStyle = th.sil[0];
+      for (let x = 0; x < W; x += 14) disc(g, x, VH - 18 - Math.sin(x * 0.03) * 8, 16 + ((R() * 10) | 0));
+      g.fillStyle = '#ffffff'; for (let x = 20; x < W; x += 70 + ((R() * 90) | 0)) { g.globalAlpha = 0.08 + R() * 0.08; const y = 20 + R() * 90; for (let i = 0; i < 4; i++) disc(g, x + i * 9, y, 6 + ((R() * 5) | 0)); }
+      dots(g, W, W / 20, 120, '#ffffff');
+    });
+    TEX.near = lay(W1, (g, W) => {
+      g.fillStyle = th.sil[1];
+      for (let x = 0; x < W; x += 10) disc(g, x, VH - 6 - Math.sin(x * 0.05) * 5, 10 + ((R() * 8) | 0));
+      for (let x = 40; x < W; x += 160 + ((R() * 160) | 0)) {   // floating islands, dripping underneath
+        const y = 60 + R() * 70, iw = 30 + ((R() * 40) | 0);
+        g.fillRect(x, y, iw, 6); for (let i = 0; i < iw; i += 2) g.fillRect(x + i, y + 6, 2, Math.max(0, 14 - Math.abs(i - iw / 2) * 0.6 + R() * 5));
+        g.fillStyle = th.glow; g.globalAlpha = 0.35; g.fillRect(x + 2, y, iw - 4, 1); g.globalAlpha = 1; g.fillStyle = th.sil[1];
+      }
+    });
+  } else if (w === 'castle') {                                  // towers and battlements, pillars and chains, lava light
+    TEX.far = lay(W0, (g, W) => {
+      g.fillStyle = th.sil[0]; g.fillRect(0, VH - 40, W, 40);
+      for (let x = 0; x < W; x += 50 + ((R() * 60) | 0)) {
+        const tw = 20 + ((R() * 3) | 0) * 8, hh = 80 + ((R() * 80) | 0); g.fillStyle = th.sil[0]; g.fillRect(x, VH - hh, tw, hh);
+        for (let cx = x; cx < x + tw; cx += 6) g.fillRect(cx, VH - hh - 4, 3, 4);
+        g.fillStyle = '#ff6a2a'; g.globalAlpha = 0.5; for (let yy = VH - hh + 12; yy < VH - 50; yy += 22) if (R() < 0.6) g.fillRect(x + (tw >> 1) - 1, yy, 3, 5); g.globalAlpha = 1;
+      }
+    });
+    TEX.near = lay(W1, (g, W) => {
+      g.fillStyle = th.sil[1]; g.fillRect(0, 0, W, 10);
+      for (let x = 0; x < W; x += 2) g.fillRect(x, 10, 2, 4 + Math.abs(Math.sin(x * 0.05)) * 6);
+      for (let x = 50; x < W; x += 140 + ((R() * 80) | 0)) {
+        g.fillStyle = th.sil[1]; g.fillRect(x, 0, 18, VH); g.fillRect(x - 3, 20, 24, 4); g.fillRect(x - 3, VH - 60, 24, 4);
+        g.fillStyle = th.glow; g.globalAlpha = 0.25; g.fillRect(x + 17, 24, 1, VH - 84); g.globalAlpha = 1;
+        g.fillStyle = th.sil[1]; const cl = 30 + ((R() * 60) | 0); for (let yy = 14; yy < 14 + cl; yy += 4) g.fillRect(x + 40 + ((yy >> 2) & 1), yy, 2, 3);   // a hanging chain
+      }
+      dots(g, W, W / 25, VH, '#ff9a5a');
+    });
+  } else {
+    TEX.far = cave(W0, th.sil[0], th.sil[1], 0.7, false);
+    TEX.near = cave(W1, th.sil[1], th.glow, 1, true);
+  }
 }
 
 /* ================= creatures and elements: original designs in the hero's style ================= */
@@ -582,40 +666,39 @@ const SP = { K: '#07080e', N: '#1a2036', '2': '#2e3858', P: '#ff3d8a', Q: '#b02a
 const art = (rows) => spriteFromRows(rows, SP);
 const ART = {};
 function buildCreatures() {
-  const HEAD = ['.....KKKKKK.....', '...KKNNNNNNKK...', '..KN22NNNNNNNK..', '..KNNKKKKKKNNK..', '..KNKOOOOOOKNK..', '..KNKOPOOPOKNK..', '..KKKOOOOOOKKK..'];
-  const SHELL = ['....KKKKKKKK....', '..KKNNNNNNNNKK..', '.KN22NNPPNNNNNK.', '.KN2NNPPPPNNNNK.', 'KNNNNPPNNPPNNNNK', 'KNNNPPNNNNPPNNNK',
-    'KPPPPPPPPPPPPPPK', 'KOOOOOOOOOOOOOOK', 'KRROOOOOOOOOORRK', '.KRRRRRRRRRRRRK.', '..KKKKKKKKKKKK..'];
-  ART.walker = [
-    art(['....KKKKKK....', '..KKNNNNNNKK..', '.KN22NNNNNNNK.', '.KN2NNNNNNNNK.', 'KNNNKKKKKKNNNK', 'KNNKOOOOOOKNNK', 'KNNKOPOOPOKNNK', 'KNNKOOOOOOKNNK',
-      '.KNNKKKKKKNNK.', '.KNNNNNNNNNNK.', '..KKNNNNNNKK..', '..KPPK..KPPK..', '..KKKK..KKKK..']),
-    art(['....KKKKKK....', '..KKNNNNNNKK..', '.KN22NNNNNNNK.', '.KN2NNNNNNNNK.', 'KNNNKKKKKKNNNK', 'KNNKOOOOOOKNNK', 'KNNKOPOOPOKNNK', 'KNNKOOOOOOKNNK',
-      '.KNNKKKKKKNNK.', '.KNNNNNNNNNNK.', '..KKNNNNNNKK..', '...KPPKKPPK...', '...KKKK.KKKK..']),
-  ];
+  const HEAD = ['.....KKPPKK.....', '...KKNNNNNNKK...', '..KN22NNNNNNNK..', '..KNNKKKKKKNNK..', '..KNKOOOOOOKNK..', '..KNKOPOOPOKNK..', '..KKKOOOOOOKKK..'];
+  const SHELL = ['..P..P....P..P..', '..KKKKKKKKKKKK..', '.KN22NNKKNNNNNK.', 'PKN2NNKPPKNNNNKP', '.KNNNKPPPPKNNNK.', '.KNNKPPKKPPKNNK.',
+    'PKNNNKPPPPKNNNKP', '.KNNNNKPPKNNNNK.', 'KOOOOOOOOOOOOOOK', '.KRROOOOOOOORRK.', '..KKKKKKKKKKKK..'];
+  const CRAWL = ['..P..P..P..P..', '..K.KKKKKK.K..', '.PKKNNNNNNKKP.', '..KN22NNNNNK..', '.KNN2NNNNNNNK.', 'PKNKKKKKKKKNKP', '.KNKKOOOOKKNK.',
+    '.KNKOPOOPOKNK.', '..KNKKKKKKNK..', '.PKNNNNNNNNKP.', '..KKNNNNNNKK..'];
+  ART.walker = [art([...CRAWL, '..KPPK..KPPK..', '..KKKK..KKKK..']), art([...CRAWL.map((r) => r.replace(/P/g, 'Q')), '...KPPKKPPK...', '...KKKK.KKKK..'])];
   ART.shell = [art(SHELL), art(SHELL.map((r) => r.split('').reverse().join('')))];
   ART.sheller = [art([...HEAD, ...SHELL, '..KPPK....KPPK..']), art([...HEAD, ...SHELL, '...KPPK..KPPK...'])];
   ART.wing = [art(['..KKK...', '..KPPK..', '.KPPPPK.', 'KPPQPPPK', 'KPQQPPK.', '.KKPPK..', '...KK...'])];
   ART.wing.push(art(ART.wing.length ? ['...KK...', '.KKPPK..', 'KPQQPPK.', 'KPPQPPPK', '.KPPPPK.', '..KPPK..', '..KKK...'] : []));
   const SPIKES = ['..P...P...P...P.', '.KPK.KPK.KPK.KPK'];
   ART.spiky = [art([...SPIKES, ...SHELL, '..KPPK....KPPK..']), art([...SPIKES, ...SHELL, '...KPPK..KPPK...'])];
-  const THR = ['....KKKKKK....', '..KKNNNNNNKK..', '.KN22NNNNNNNK.', '.KNNKKKKKKNNK.', '.KNKOOOOOOKNK.', '.KNKOPOOPOKNK.', '.KNKOOOOOOKNK.', '..KKKKKKKKKK..',
+  const THR = ['...P.KKKK.P...', '..KKNNNNNNKK..', '.KN22NNNNNNNK.', '.KNNKKKKKKNNK.', '.KNKOOOOOOKNK.', '.KNKOPOOPOKNK.', '.KNKOOOOOOKNK.', '..KKKKKKKKKK..',
     '.KNNNNNNNNNNK.', 'KNN2NPNNPN2NNK', 'KNN2NPNNPN2NNK', 'KON2NNNNNN2NOK', 'KKN2NNNNNN2NKK', '.KNNNNNNNNNNK.', '.KNNNNKKNNNNK.', '.KNNNK..KNNNK.',
     '.KNNNK..KNNNK.', '.KPPPK..KPPPK.', '.KKKKK..KKKKK.'];
   ART.thrower = [art(THR), art(THR.map((r, i) => (i === 11 ? 'KKN2NNNNNN2NOK' : i === 9 ? 'KNN2NPNNPN2NOK' : r)))];
   ART.packet = art(['.PPPP.', 'PWPPWP', 'PPPPPP', 'PPYYPP', 'PWPPWP', '.PPPP.']);
   const GH = ['.....LLLLLL.....', '...LLWWWWWWLL...', '..LWWWWWWWWWWL..', '.LWWLLLLLLLLWWL.', '.LWLKKKKKKKKLWL.', 'LWWLKPKKKKPKLWWL', 'LWWLKKKKKKKKLWWL',
     'LWWLKKKPPKKKLWWL', 'LWWWLLLLLLLLWWWL', 'LWWWWWWWWWWWWWWL', 'LWWWWWPWWPWWWWWL', 'LWWWWWPWWPWWWWWL', 'LWWWWWWWWWWWWWWL', 'LWLWWWLWWLWWWLWL', 'L..L...LL...L..L'];
-  ART.ghost = [art(GH), art(GH.map((r, i) => (i === 5 ? 'LWWLKOOKKOOKLWWL' : r)))];
+  const RK = GH.map((r, i) => (i === 0 ? '..P..LLLLLL..P..' : r).replace(/W/g, 'N').replace(/L/g, 'C'));                   // ROOTKIT: a hollow capsid that hides when watched
+  ART.ghost = [art(RK), art(RK.map((r, i) => (i === 5 ? 'CNNCKOOKKOOKCNNC' : r)))];
   const BOMB = ['......YP......', '......KK......', '....KKKKKK....', '..KKNNNNNNKK..', '.KN22NNNNNNNK.', '.KN2NNNNNNNNK.', 'KNNNNWKNWKNNNK',
     'KNNNNWKNWKNNNK', 'KNNNNNNNNNNNNK', 'KNNPPPPPPPPNNK', '.KNNNNNNNNNNK.', '..KKNNNNNNKK..', '..KOOK..KOOK..', '..KKKK..KKKK..'];
   ART.bomb = [art(BOMB), art(BOMB.map((r) => r.replace(/N/g, 'Q').replace(/2/g, 'P')))];
   const CH = ['......KKKKKK......', '....KKNNNNNNKK....', '...KN22NNNNNNNK...', '..KN2NNNNNNNNNNK..', '.KN2NNWWKNNNNNNNK.', '.KNNNNWKKNNNNNNNK.',
     'KNNNNNNNNNNNNKKKKK', 'KNNNNNNNNNNKOKOKOK', 'KNNNNNNNNNKPPPPPPP', 'KNNNNNNNNKPPPPPPPP', 'KNNNNNNNNNKPPPPPPP', 'KNNNNNNNNNNKOKOKOK',
     'KNNNNNNNNNNNNKKKKK', '.KNNNNNNNNNNNNNNK.', '.KNNNNNNNNNNNNNNK.', '..KNNNNNNNNNNNNK..', '...KKNNNNNNNNKK...', '.....KKKKKKKK.....'];
-  ART.chomp = [art(CH), art(CH.map((r, i) => (i >= 7 && i <= 11 ? r.replace(/[PO]/g, 'K') : r)))];
-  const PL = ['...KKKKKKKKKK...', '..KPPPPPPPPPPK..', '.KPPWPPPPPPWPPK.', '.KPPPPPPPPPPPPK.', '.KKOKOKOKOKOKKK.', '..K..........K..', '..K..........K..',
-    '.KKOKOKOKOKOKKK.', '.KQQQQQQQQQQQQK.', '..KQQQQQQQQQQK..', '...KKKKKKKKKK...', '.......KK.......', '...KK..KK..KK...', '..KPPK.KK.KPPK..',
-    '...KPPKNNKPPK...', '....KKKNNKKK....', '.......NN.......', '.......NN.......', '.......NN.......'];
-  ART.plant = [art(PL), art(PL.map((r, i) => (i === 5 || i === 6 ? '..KKKKKKKKKKKK..' : r)))];
+  const LOCK = ['......KKKKKK......', '.....KCKKKKCK.....', '.....KCK..KCK.....'];                                                    // RANSOMWARE: a padlock that bites
+  ART.chomp = [art([...LOCK, ...CH]), art([...LOCK, ...CH.map((r, i) => (i >= 7 && i <= 11 ? r.replace(/[PO]/g, 'K') : r))])];
+  const PL = ['......KKKK......', '....KKPPPPKK....', '...KPPWPPPPPK...', '..KPPWPPPPPPPK..', '..KPPPPPPPPPPK..', '..KQPPKPPKPPQK..', '..KQQPPPPPPQQK..',
+    '...KQQKKKKQQK...', '....KKQQQQKK....', '......KKKK......', '.....KNNNNK.....', '......K22K......', '......KNNK......', '......K22K......',
+    '......KNNK......', '....KKKNNKKK....', '...KPK.KK.KPK...', '..KPK..KK..KPK..', '.KPK...NN...KPK.', '.......NN.......', '.......NN.......', '.......NN.......'];   // PHAGE
+  ART.plant = [art(PL), art(PL.map((r, i) => (i === 7 ? '...KQKPPPPKQK...' : r)))];
   const draw = (w, h, fn) => { const c = mk(w, h), g = c.getContext('2d'); fn((col, x, y, ww = 1, hh = 1) => { g.fillStyle = SP[col] || col; g.fillRect(x, y, ww, hh); }, g); return c; };
   ART.crusher = draw(32, 32, (f) => {
     f('K', 0, 0, 32, 32); f('N', 1, 1, 30, 30); f('2', 2, 2, 28, 2); f('2', 2, 2, 2, 26); f('G', 2, 28, 28, 2);
@@ -674,6 +757,29 @@ function buildCreatures() {
     f('K', 0, 0, 16, 16); f('N', 1, 1, 14, 14); f('G', 0, 0, 16, 3);
     for (let x = -4 + ph * 2; x < 16; x += 6) { f('P', x, 6, 2, 1); f('P', x + 1, 7, 2, 1); f('P', x, 8, 2, 1); }
     f('2', 1, 12, 14, 2);
+  }));
+  TEX.lava = [0, 1, 2].map((ph) => tile((f) => {
+    for (let x = 0; x < 16; x++) { const top = 7 + Math.round(Math.sin((x + ph * 5) * 0.7) * 1.5); f('#ff6a2a', x, top, 1, 16 - top); f('#ffd25a', x, top, 1, 1); f('#ff9a3a', x, top + 1, 1, 1); }
+    const r2 = mulberry32(60 + ph); for (let i = 0; i < 7; i++) f(i & 1 ? '#c0301a' : '#ffb03d', (r2() * 16) | 0, 10 + ((r2() * 6) | 0));
+  }));
+  TEX.bridge = tile((f) => {
+    f('K', 0, 0, 16, 7); f('R', 0, 1, 16, 4); f('O', 0, 1, 16, 1); f('K', 7, 1, 1, 5); f('Y', 2, 3, 1, 1); f('Y', 12, 3, 1, 1);
+    for (let x = 1; x < 16; x += 5) { f('K', x, 7, 3, 3); f('G', x + 1, 8, 1, 1); }
+  });
+  TEX.cloudSemi = tile((f) => { f('#c8bdf0', 0, 3, 16, 3); f('#ffffff', 0, 1, 16, 3); f('#ffffff', 2, 0, 5, 2); f('#ffffff', 9, 0, 5, 2); f('#a99ae0', 0, 6, 16, 1); f('#e8e2ff', 3, 7, 3, 1); f('#e8e2ff', 10, 7, 2, 1); });
+  ART.panic = [0, 1].map((open) => draw(32, 36, (f, g) => {          // KERNEL PANIC: the virus that owns the castle
+    const disc = (r, col, cx = 16, cy = 21) => { for (let dy = -r; dy <= r; dy++) { const hw = Math.round(Math.sqrt(r * r - dy * dy)); f(col, cx - hw, cy + dy, hw * 2, 1); } };
+    for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, x = Math.round(16 + Math.cos(a) * 14), y = Math.round(21 + Math.sin(a) * 14); f('K', x - 2, y - 2, 5, 5); f(k % 2 ? 'Q' : 'P', x - 1, y - 1, 3, 3); }
+    disc(13, 'K'); disc(12, 'N'); f('2', 7, 12, 6, 2); f('2', 6, 14, 2, 4);
+    f('K', 9, 1, 14, 7); f('Y', 10, 4, 12, 3); for (const x of [10, 15, 20]) { f('K', x - 1, 0, 4, 4); f('Y', x, 1, 2, 3); } f('P', 15, 4, 2, 2);   // its crown
+    f('K', 6, 15, 20, 9); f('O', 7, 16, 18, 7); f('K', 9, 16, 5, 1); f('K', 18, 16, 5, 1); f('P', 10, 18, 3, 2); f('P', 19, 18, 3, 2); f('W', 10, 18, 1, 1); f('W', 19, 18, 1, 1);
+    if (open) { f('K', 11, 21, 10, 5); f('P', 12, 22, 8, 3); f('W', 12, 21, 2, 1); f('W', 18, 21, 2, 1); } else f('K', 12, 22, 8, 1);
+    f('K', 6, 31, 8, 5); f('P', 7, 32, 6, 3); f('K', 18, 31, 8, 5); f('P', 19, 32, 6, 3);
+  }));
+  ART.kill = [0, 1].map((on) => draw(16, 24, (f) => {
+    f('K', 1, 17, 14, 7); f('N', 2, 18, 12, 5); f('2', 2, 18, 12, 1); f(on ? 'C' : 'P', 6, 20, 4, 2);
+    for (let i = 0; i < 12; i++) { const x = on ? 8 + (i >> 1) : 8 - (i >> 1), y = 17 - i; f('K', x - 1, y, 3, 1); f('G', x, y, 1, 1); }
+    const kx = on ? 14 : 2; f('K', kx - 2, 2, 5, 5); f(on ? 'C' : 'P', kx - 1, 3, 3, 3);
   }));
   TEX.semi = tile((f) => { f('K', 0, 0, 16, 5); f('C', 0, 0, 16, 1); f('2', 1, 1, 14, 3); f('K', 2, 5, 2, 11); f('K', 12, 5, 2, 11); f('G', 2, 9, 12, 1); });
 }
@@ -782,6 +888,7 @@ function resetMusicFx() { leakDrift = 0; mGlitch = { kind: null, t: 0 }; mQueue 
 function musicWrite(d, ok, good) {
   if (musicIdx < 0) return;
   const k = SONG.buf ? SONG : TRACKS[musicIdx];
+  if (typeof d === 'string') d = SYMV[d] || 0;
   mQueue.push({ midi: k.root + k.scale[d % 7] + 12 * Math.floor(d / 7) + (ok ? 0 : 6), good: good && ok });
 }
 function musicSkip() { mDropT = 6; if (deck) songPos = deckAdvance() + 1.5 + Math.random() * 6; deckStop(0.01); mStep += 3 + ((Math.random() * 9) | 0); }   // segfault: the track skips
@@ -1003,6 +1110,7 @@ let faceT = { happy: 0, shock: 0, hurt: 0 };
 let coyote = 0, jumpBuf = 0, digitNow = 0, cellNow = [0, 0], showGrid = false;
 const revealed = new Map();            // column -> frame it was decrypted
 const writeFx = [];                    // digits flying from the memory row into the hero
+let symNow = null;
 let boxes = [], orphans = [], reading = null, hazards = [], plats = [], shots = [], flashes = [], dino = null;   // digit carriers, and the one the hero is reading from
 let lagQ = [], wdT = 0, respawnQ = [], run = { time: 0, crashes: 0, curses: 0 };
 const unlockedCount = () => goodCount();
@@ -1016,7 +1124,7 @@ function loadLevel(i) {
   LV.build(levelKit());
   buildGround(LV.theme); buildSkyline(); if (VW) buildSky(); buildShades();
   p = { x: LV.saves[0] * 16 + 24, y: 208 - 26, w: 14, h: 26, vx: 0, vy: 0, face: 1, grounded: false, flip: false, inv: 0, anim: 0,
-        dead: 0, deadMax: 0, landT: 0, actT: 0, idleT: 0, airJumps: 1, safe: null };
+        dead: 0, deadMax: 0, landT: 0, actT: 0, idleT: 0, airJumps: 1, safe: null, sq: 0, wall: 0, wallT: 0, wallDir: 0, wjLock: 0, jumpHeld: false };
   faceT = { happy: 0, shock: 0, hurt: 0 };
   enemies = []; hazards = []; plats = []; shots = []; flashes = []; dino = null; onOff = true;
   for (const d of LV.ents) spawnEnt(d);
@@ -1056,6 +1164,8 @@ function spawnEnt(d) {
   else if (d.t === 'firebar') hazards.push({ t: 'firebar', cx: X + 8, cy: Y + 8, n: d.n || 4, a: d.x * 0.7, sp: (d.x % 2 ? 1 : -1) * 0.035 });
   else if (d.t === 'lift') plats.push({ t: 'lift', x: X, y: Y, ox: X, oy: Y, w: d.w * 16, h: 7, axis: d.axis, range: d.range, dx: 0, dy: 0 });
   else if (d.t === 'drop') plats.push({ t: 'drop', x: X, y: Y, ox: X, oy: Y, w: d.w * 16, h: 7, dx: 0, dy: 0, tt: 0, vy: 0, gone: 0 });
+  else if (d.t === 'panic') hazards.push({ t: 'panic', x: X, y: 208 - 32, w: 32, h: 32, vx: -0.5, vy: 0, lo: 196 * 16, hi: 209 * 16, cd: 80, hop: 140, mouth: 0, falling: false });
+  else if (d.t === 'kill') hazards.push({ t: 'kill', x: X, y: 208 - 24, w: 12, h: 24, pulled: 0 });
   else if (d.t === 'dino') dino = { x: X, y: 208 - 24, w: 22, h: 24, vx: 0, vy: 0, dir: 1, st: 'idle', t: 0, mouth: null, tongue: 0, grounded: false };
 }
 
@@ -1181,7 +1291,9 @@ const HELP = [
   ['GREEN REGISTERS GRANT ABILITIES BUT CORRUPT THE GAME.', '#39ff88'],
   ['RED REGISTERS ARE CURSES. THE SAME PRESSES FILL THEM.', '#ff3d8a'],
   ['YOUR COLUMN: GREEN SAFE  RED CURSE  GOLD DEPENDS', '#ffc23d'],
-  ['SOME DIGITS ARE MISSING: ONLY BUGS AND 0X BOXES CARRY THEM.', '#4ff0ff'],
+  ['SOME DIGITS ARE MISSING: VIRUSES AND 0X BOXES CARRY THEM ON THE ROW.', '#4ff0ff'],
+  ['GOLD SYMBOLS SIT IN ONE COLUMN. READ THEM FROM UP HIGH.', '#ffc23d'],
+  ['PRESS INTO A WALL MID-AIR TO SLIDE, A TO WALL-JUMP.', '#c9c2ff'],
   ['SOME REGISTERS ONLY OPEN UNDER A CONDITION.', '#c9cfe6'],
   ['PATCHES FROM 0X BLOCKS PURGE CURSES.', '#c9cfe6'],
   ['', ''],
@@ -1298,7 +1410,7 @@ function drawMem() {
   T(stab + '%', 158, 15, scol, 2);
   g.fillStyle = vc; g.fillRect(194, 4, 30, 30); g.fillStyle = '#101018'; g.fillRect(196, 6, 26, 26);
   T(String(digitNow), 203, 9, vc, 4);
-  T(reading ? (reading.kind === 'bug' ? 'READING ' + (reading.o.wings ? 'DRONE' : TYPE_NAME[reading.o.type] || 'BUG').split(' ')[0] : reading.kind === 'box' ? 'READING 0X BOX' : reading.kind === 'held' ? 'HELD ' + TYPE_NAME[reading.o.type].split(' ')[0] : reading.kind === 'mouth' ? 'RAPTOR MOUTH' : 'READING ORPHAN') : 'COL ' + colAddr(cellNow[0]), 232, 7, reading ? '#4ff0ff' : '#8a93b4');
+  if (symNow) T('SYMBOL ' + symNow.ch + ' AT ' + colAddr(cellNow[0]), 232, 7, '#ffc23d'); else T(reading ? (reading.kind === 'bug' ? 'READING ' + (reading.o.wings ? 'BOTNET' : TYPE_NAME[reading.o.type] || 'BUG').split(' ')[0] : reading.kind === 'box' ? 'READING 0X BOX' : reading.kind === 'held' ? 'HELD ' + TYPE_NAME[reading.o.type].split(' ')[0] : reading.kind === 'mouth' ? 'RAPTOR MOUTH' : 'READING ORPHAN') : 'COL ' + colAddr(cellNow[0]), 232, 7, reading ? '#4ff0ff' : '#8a93b4');
   T('BYTES ' + String(bytes).padStart(3, '0'), 232, 17, '#ffffff');
   T('CRASH ' + crashes, 232, 27, crashes ? '#ff3d8a' : '#ffffff');
   g.fillStyle = '#262046'; g.fillRect(6, 37, SW - 12, 1);
@@ -1339,8 +1451,9 @@ function inject(r) {
   if (!isOpen(r)) { log(`${r.name} IS CLOSED: ${r.cond.label}`, 'sys'); SFX.bad(); r.flashT = 8; return; }
   const d = digitNow, i = r.slots.length, ok = d === r.seq[i];
   r.slots.push({ d, ok }); injections++; musicWrite(d, ok, r.good);
-  writeFx.push({ c: cellNow[0], d, t: 0, col: !r.good ? '#ff3d8a' : ok ? '#39ff88' : '#ffffff', sx: reading ? reading.x : cellNow[0] * 16 + 8, sy: reading ? reading.y : VH - 6 });
-  if (reading) for (let n = 0; n < 10; n++) pSpawn(reading.x, reading.y, PK.SPARK, '#4ff0ff', (Math.random() - 0.5) * 2, -Math.random() * 1.5, 16);
+  writeFx.push({ c: cellNow[0], d, t: 0, col: !r.good ? '#ff3d8a' : ok ? '#39ff88' : '#ffffff', sx: cellNow[0] * 16 + 8, sy: VH - 6 });
+  if (reading) { const [rx, ry] = carrierXY(reading); for (let n = 0; n < 10; n++) pSpawn(rx, ry, PK.SPARK, '#4ff0ff', (Math.random() - 0.5) * 2, -Math.random() * 1.5, 16); }
+  if (symNow) for (let n = 0; n < 16; n++) pSpawn(p.x + p.w / 2, p.y + p.h, PK.SPARK, '#ffc23d', (Math.random() - 0.5) * 3, -Math.random() * 2.5, 22);
   if (p.grounded) p.actT = 20;
   if (r.good && ok) faceT.happy = 70; else faceT.shock = 70;
   volatileC += ok ? 0.006 : 0.02;
@@ -1741,6 +1854,12 @@ function killEnemy(e, fly, force) {
 }
 function die(reason) {
   if (state !== 'play' || p.inv > 0 || p.dead) return;
+  if (abil.shield && p.y < VH && p.y > -20) {                       // SHIELD: soaks one crash, then has to be rewritten at its symbol
+    abil.shield = false; const r = regs.find((q) => q.id === 'shield'); if (r) { r.unlocked = false; r.slots = []; }
+    p.inv = 90; p.vy = (p.flip ? 1 : -1) * 5; SFX.flip(); haptic(40); shakeT = Math.max(shakeT, 12);
+    flashes.push({ x: p.x + 7, y: p.y + 13, r: 60, t: 20, c: '#4ff0ff' });
+    log(`SHIELD ABSORBED ${reason}. REWRITE IT AT THE * TO RECHARGE`, 'ok'); return;
+  }
   crashes++; run.crashes++; SFX.die(); haptic(120); faceT.hurt = 200;
   if (p.riding) dismount(false);
   if (p.carry) downAction();
@@ -1788,10 +1907,10 @@ function update() {
   const now = { L: held.left && !consumed.left, R: held.right && !consumed.right, J: held.jump && !consumed.jump, e: edges.jump && !consumed.jump };
   lagQ.push(now); if (lagQ.length > 10) lagQ.shift();
   const inp = abil.lag ? lagQ[0] : now;                    // the PACKET LAG curse
-  if (inp.e) jumpBuf = 7;
+  if (inp.e) jumpBuf = 8;
   updatePlayer(inp.L, inp.R, inp.J);
   updatePlats(); updateMount(inp.J);
-  updateEnemies(); updateHazards(); updateShots();
+  if (!abil.slow || (frame & 1)) { updateEnemies(); updateHazards(); updateShots(); }   // OVERCLOCK: the world at half speed
   updateRespawns();
   updateFire();
   updateItems();
@@ -1818,7 +1937,7 @@ function update() {
     cellNow = [cx, 0];
     if (!revealed.has(cx)) { revealed.set(cx, frame); if (actx && !muted) tone(1800 + colDigit(cx) * 90, 0.03, 'square', 0.012); }
   }
-  readCarriers();
+  readRow();
   // corruption side effects
   const C = corruption();
   if (C > 0.45 && desyncT <= 0 && Math.random() < (C - 0.4) * 0.004) { desyncT = 110; log('INPUT DESYNC — LEFT AND RIGHT SWAPPED', 'warn'); SFX.glitch(); }
@@ -1828,31 +1947,63 @@ function update() {
   if (frame % 6 === 0) updateStats();
   clearEdges();
 }
-// Carriers decrypt when you come near; within reach, the nearest one replaces the column digit.
-function carrierPos(o, kind) {
-  if (kind === 'bug') return [o.x + o.w / 2, o.y - 9 - Math.round(Math.sin(frame / 10 + o.home) * 1.5)];
-  if (kind === 'box') return [o.c * 16 + 8, o.r * 16 - 8];
-  return [o.x, o.y + Math.round(Math.sin(frame / 14 + o.x) * 2)];
+// Carriers write their digit into the memory row at the column they occupy, over the location digit.
+// Symbols are fixed to one column and only read from up high. What you hold sits at your own column.
+let rowOver = new Map();               // column -> { o, kind, d, dist }
+function carrierCol(o, kind) { return kind === 'box' ? o.c : clamp(Math.floor((kind === 'bug' ? o.x + o.w / 2 : o.x) / TILE), 0, LW - 1); }
+function carrierXY(r) {
+  if (!r) return [cellNow[0] * 16 + 8, VH - 6];
+  const o = r.o;
+  if (r.kind === 'box') return [o.c * 16 + 8, o.r * 16];
+  if (r.kind === 'ptr') return [o.x, o.y];
+  if (r.kind === 'mouth') return [p.x + p.w / 2 + p.face * 12, p.y + p.h - 30];
+  return [o.x + o.w / 2, o.y];
 }
-function readCarriers() {
-  if (p.carry && p.carry.d !== undefined && !p.carry.dead) { reading = { o: p.carry, kind: 'held', x: p.carry.x + p.carry.w / 2, y: p.carry.y - 9 }; digitNow = p.carry.d; updateMatch(); return; }
-  if (p.riding && dino.mouth && dino.mouth.d !== undefined) { reading = { o: dino.mouth, kind: 'mouth', x: p.x + p.w / 2 + p.face * 12, y: p.y + p.h - 34 }; digitNow = dino.mouth.d; updateMatch(); return; }
-  const hx = p.x + p.w / 2, hy = p.y + p.h / 2;
-  let best = null, bd = 1e9;
-  const consider = (o, kind) => {
-    const [x, y] = carrierPos(o, kind);
-    const cy = kind === 'box' ? o.r * 16 + 8 : y + 9, dx = Math.abs(x - hx), dy = Math.abs(cy - hy);
-    if (o.rev === undefined && dx < 52 && dy < 70) { o.rev = frame; if (actx && !muted) tone(2200 + o.d * 70, 0.04, 'square', 0.015); }
-    const reach = kind === 'box' ? dx <= 14 && dy <= 50 : dx <= 22 && dy <= 40;
-    if (o.rev !== undefined && reach && !p.dead) { const dd = dx + dy * 0.5; if (dd < bd) { bd = dd; best = { o, kind, x, y }; } }
+function readRow() {
+  rowOver = new Map();
+  const pc = cellNow[0], hy = p.y + p.h / 2;
+  const put = (o, kind) => {
+    const c = carrierCol(o, kind);
+    if (o.rev === undefined && Math.abs(c - pc) <= 3 && state === 'play') { o.rev = frame; if (actx && !muted) tone(2200 + o.d * 70, 0.04, 'square', 0.015); }
+    const dist = Math.abs((kind === 'box' ? o.r * 16 + 8 : o.y + (o.h || 0) / 2) - hy), cur = rowOver.get(c);
+    if (!cur || dist < cur.dist) rowOver.set(c, { o, kind, d: o.d, dist });
   };
-  for (const e of enemies) if (!e.dead && !e.carried && e.d !== undefined) consider(e, 'bug');
-  for (const b of boxes) consider(b, 'box');
-  for (const o of orphans) consider(o, 'ptr');
-  reading = best;
-  digitNow = best ? best.o.d : colDigit(cellNow[0]);
+  for (const e of enemies) if (!e.dead && !e.carried && e.d !== undefined) put(e, 'bug');
+  for (const b of boxes) put(b, 'box');
+  for (const o of orphans) put(o, 'ptr');
+  if (p.carry && p.carry.d !== undefined && !p.carry.dead) rowOver.set(pc, { o: p.carry, kind: 'held', d: p.carry.d, dist: 0 });
+  else if (p.riding && dino.mouth && dino.mouth.d !== undefined) rowOver.set(pc, { o: dino.mouth, kind: 'mouth', d: dino.mouth.d, dist: 0 });
+  const over = rowOver.get(pc), sym = symAt(pc), held = over && (over.kind === 'held' || over.kind === 'mouth');
+  symNow = !held && sym && revealed.has(pc) && symReach(sym) ? sym : null;
+  reading = !p.dead && over && !symNow && (held || over.o.rev !== undefined) ? over : null;
+  digitNow = symNow ? symNow.ch : reading ? reading.d : colDigit(pc);
   updateMatch();
 }
+// Which walls you can cling to. ROM, firewalls, the bus, NULL blocks, ice and bit blocks are too smooth.
+const CLING = (t) => t === T.G || t === T.RAM || t === T.HEX || t === T.USED || t === T.CL || t === T.CR || t === T.CTL || t === T.CTR || t === T.BRICK;
+function wallAt(dir) {
+  const tx = Math.floor((dir > 0 ? p.x + p.w + 1 : p.x - 1) / TILE);
+  for (const yy of [p.y + 4, p.y + 13, p.y + p.h - 4]) { const ty = Math.floor(yy / TILE), t = tileAt(tx, ty); if (!CLING(t) || !solidP(t, tx, ty)) return false; }
+  return true;
+}
+function boxFree(x, y, w, h) {
+  for (let tx = Math.floor(x / TILE); tx <= Math.floor((x + w - 0.01) / TILE); tx++)
+    for (let ty = Math.floor(y / TILE); ty <= Math.floor((y + h - 0.01) / TILE); ty++) if (solidP(tileAt(tx, ty), tx, ty)) return false;
+  return true;
+}
+// Rising into the corner of a block nudges you past it instead of stopping you dead.
+function cornerCorrect(g) {
+  if (p.vy * g >= 0 || p.riding) return;
+  const ty = Math.floor((g > 0 ? p.y + p.vy : p.y + p.h + p.vy - 0.01) / TILE);
+  const lc = Math.floor(p.x / TILE), rc = Math.floor((p.x + p.w - 0.01) / TILE);
+  if (lc === rc) return;
+  const tl = tileAt(lc, ty), tr = tileAt(rc, ty);
+  if (tl === T.HID || tr === T.HID) return;                                  // hidden sectors are meant to be found
+  const sl = solidP(tl, lc, ty), sr = solidP(tr, rc, ty);
+  if (sl && !sr) { const d = (lc + 1) * TILE - p.x; if (d <= 5 && boxFree(p.x + d, p.y + p.vy, p.w, p.h)) p.x += d; }
+  else if (sr && !sl) { const d = p.x + p.w - rc * TILE; if (d <= 5 && boxFree(p.x - d, p.y + p.vy, p.w, p.h)) p.x -= d; }
+}
+function puff(x, y, n, dir) { for (let i = 0; i < n; i++) pSpawn(x + (Math.random() - 0.5) * 6, y - 1 - Math.random() * 2, PK.HEAT, Math.random() < 0.5 ? '#8f96c0' : '#5d6488', dir * Math.random() * 0.8 + (Math.random() - 0.5) * 0.6, -Math.random() * 0.5, 10 + (Math.random() * 8 | 0)); }
 function clearEdges() { KEYS.forEach((k) => { edges[k] = false; }); }
 
 function updatePlayer(L, Rt, J) {
@@ -1862,29 +2013,53 @@ function updatePlayer(L, Rt, J) {
   const g = p.flip ? -1 : 1;
   let dir = (Rt ? 1 : 0) - (L ? 1 : 0); if ((desyncT > 0) !== !!abil.mirror) dir = -dir;
   if (!dir && Math.abs(stickVec.L[0]) > 0.35) dir = 0; // stick already mapped via keys
-  const maxS = abil.speed ? 2.8 : 1.6, icy = p.grounded && p.ft === T.ICE;
+  const maxS = abil.speed ? 2.8 : 1.6, icy = p.grounded && p.ft === T.ICE, jv = abil.heavy ? 0.78 : 1;
   if (p.on && !p.on.gone) { p.x += p.on.dx || 0; p.y += p.on.dy || 0; }          // ride whatever you stand on
-  if (dir) { const acc = p.grounded ? (icy ? 0.06 : 0.3) : 0.2; p.vx += clamp(dir * maxS - p.vx, -acc, acc); p.face = dir; }
-  else { p.vx *= p.grounded ? (icy ? 0.985 : 0.72) : 0.94; if (Math.abs(p.vx) < 0.05) p.vx = 0; }
-  if (p.grounded) coyote = 6; else if (coyote > 0) coyote--;
+  if (p.wjLock > 0) p.wjLock--;
+  if (dir && !p.wjLock) {                                                          // snappy: quick to start, quicker to turn
+    const turn = dir * p.vx < 0, acc = p.grounded ? (icy ? 0.06 : turn ? 0.6 : 0.38) : (turn ? 0.3 : 0.22);
+    p.vx += clamp(dir * maxS - p.vx, -acc, acc);
+    if (turn && p.grounded && !icy && Math.abs(p.vx) > 0.7 && (frame & 1)) puff(p.x + p.w / 2 - dir * 4, p.flip ? p.y : p.y + p.h, 1, -dir);
+    p.face = dir;
+  } else if (!dir) { p.vx *= p.grounded ? (icy ? 0.985 : 0.6) : 0.93; if (Math.abs(p.vx) < 0.05) p.vx = 0; }
+  if (p.grounded) coyote = 7; else if (coyote > 0) coyote--;
   if (jumpBuf > 0) jumpBuf--;
-  if (jumpBuf > 0 && coyote > 0) { p.vy = -g * (abil.super ? 8.4 : 5.9) * (abil.heavy ? 0.78 : 1); coyote = 0; jumpBuf = 0; p.grounded = false; SFX.jump(); }
-  else if (jumpBuf > 0 && !p.grounded && abil.double && p.airJumps > 0) {   // DOUBLE JUMP
-    p.vy = -g * 5.4 * (abil.heavy ? 0.78 : 1); p.airJumps--; jumpBuf = 0; SFX.flip(); p.landT = 0;
+  // walls: press into a wall in mid-air to slide down it; jump to kick off. ROM, firewalls, the bus and NULL won't hold you,
+  // and nothing holds you once you've dropped below the ground line.
+  p.wall = 0;
+  if (!p.grounded && !p.flip && !p.riding && !p.carry && dir && p.y + p.h <= 13 * TILE && wallAt(dir)) p.wall = dir;
+  if (p.wall) p.wallT = 6; else if (p.wallT > 0) p.wallT--;
+  if (p.wall) p.wallDir = p.wall;
+  if (jumpBuf > 0 && coyote > 0) {
+    p.vy = -g * (abil.super ? 8.4 : 5.9) * jv; coyote = 0; jumpBuf = 0; p.grounded = false; p.jumpHeld = true; SFX.jump();
+    p.sq = -1; puff(p.x + p.w / 2, p.flip ? p.y : p.y + p.h, 5, 0);
+  } else if (jumpBuf > 0 && p.wallT > 0 && !p.grounded) {                       // WALL JUMP
+    p.vy = -g * 5.6 * jv; p.vx = -p.wallDir * 2.4; p.face = -p.wallDir; p.wjLock = 9; p.wallT = 0; jumpBuf = 0; p.jumpHeld = true;
+    p.sq = -1; SFX.jump(); haptic(10);
+    for (let i = 0; i < 6; i++) puff(p.x + (p.wallDir > 0 ? p.w : 0), p.y + p.h - 6 - i * 3, 1, -p.wallDir);
+  } else if (jumpBuf > 0 && !p.grounded && abil.double && p.airJumps > 0) {   // DOUBLE JUMP
+    p.vy = -g * 5.4 * jv; p.airJumps--; jumpBuf = 0; SFX.flip(); p.landT = 0; p.jumpHeld = true; p.sq = -0.7;
     for (let i = 0; i < 8; i++) emit({ x: p.x + 7, y: p.flip ? p.y : p.y + p.h, vx: (Math.random() - 0.5) * 2, vy: g * Math.random(), t: 14, c: '#4ff0ff' });
   }
   const rising = p.vy * g < 0;
-  p.vy += g * (rising && J ? 0.24 : rising ? 0.6 : 0.4);
-  if (p.vy * g > 7) p.vy = 7 * g;
+  if (p.jumpHeld && !J) { p.jumpHeld = false; if (rising && p.vy * g < -2) p.vy *= 0.5; }    // let go early: a short hop
+  if (!rising) p.jumpHeld = false;
+  const apex = J && !p.grounded && Math.abs(p.vy) < 0.5, fast = held.down && !rising && !p.grounded && !p.riding;
+  p.vy += g * (apex ? 0.16 : rising && J ? 0.24 : rising ? 0.6 : fast ? 0.6 : 0.4);
+  const maxFall = p.wall && p.vy * g > 0 ? 1.5 : fast ? 9 : 7;
+  if (p.vy * g > maxFall) p.vy = maxFall * g;
+  if (p.wall && p.vy * g > 0 && (frame % 4 === 0)) puff(p.x + (p.wall > 0 ? p.w : 0), p.y + 6, 1, -p.wall);
   if (p.riding && !p.grounded && J && p.vy * g > 0 && p.flutter > 0) {   // the raptor flutters: a hover, no extra height
     p.vy = g * 0.05; p.flutter--; if ((frame & 3) === 0) pSpawn(p.x + p.w / 2 - p.face * 10, p.y + p.h - 4, PK.SPARK, '#c9c2ff', -p.face * Math.random(), 0.5, 12);
   }
+  if (abil.glide && !p.riding && J && !p.grounded && p.vy * g > 0.9) { p.vy = 0.9 * g; if ((frame & 3) === 0) pSpawn(p.x + p.w / 2, p.y + 4, PK.HEAT, '#c9c2ff', 0, -0.3, 16); }   // GLIDE
+  cornerCorrect(g);
   moveX(p, solidP);
-  const wasGrounded = p.grounded;
+  const wasGrounded = p.grounded, fallV = p.vy * g;
   p.grounded = false;
   const hy = moveY(p, solidP);
   if (hy) {
-    if (hy.dir === g) { p.grounded = true; if (!wasGrounded) p.landT = 6; }
+    if (hy.dir === g) { p.grounded = true; if (!wasGrounded) { p.landT = 6; if (fallV > 2.5) { p.sq = Math.min(1, fallV / 6); puff(p.x + p.w / 2, p.flip ? p.y : p.y + p.h, 2 + (fallV | 0), 0); } } }
     else {
       const pc = p.x + p.w / 2;
       const tx = hy.hits.reduce((b, t) => Math.abs(t * 16 + 8 - pc) < Math.abs(b * 16 + 8 - pc) ? t : b, hy.hits[0]);
@@ -1903,7 +2078,8 @@ function updatePlayer(L, Rt, J) {
   if (p.ft === T.SPRING) { p.vy = -g * (J ? 9.4 : 8.4); p.grounded = false; bumps.set(Math.floor((p.x + p.w / 2) / 16) + ',' + Math.floor((p.y + p.h + 1) / 16), 8); tone(300, 0.2, 'triangle', 0.06, 500); haptic(20); }
   else if (p.ft === T.NOTE) { p.vy = -g * (J ? 7.4 : 6.2); p.grounded = false; bumps.set(Math.floor((p.x + p.w / 2) / 16) + ',' + Math.floor((p.y + p.h + 1) / 16), 10); tone(620, 0.1, 'triangle', 0.05, 200); }
   else if (p.ft === T.CONVL || p.ft === T.CONVR) conveyor(p);
-  if (p.grounded) { p.airJumps = 1; p.flutter = 24; }
+  if (p.grounded) { p.airJumps = 1; p.flutter = 18; }
+  if (p.sq) { p.sq *= 0.8; if (Math.abs(p.sq) < 0.03) p.sq = 0; }
   // mount the raptor by landing on it
   if (dino && dino.st === 'idle' && !p.riding && !p.flip && p.vy > 0 && overlap(p, dino) && p.y + p.h - p.vy <= dino.y + 10) mount();
   // carry: the held shell or bomb sits in your hands
@@ -1922,9 +2098,11 @@ function updatePlayer(L, Rt, J) {
   // saves
   saves.forEach((s, i) => { if (i !== checkpoint && overlap(p, { x: s.x, y: s.y, w: 16, h: 32 })) { checkpoint = i; saves.forEach((o, j) => { o.on = j <= i; }); SFX.save(); log(`STATE SAVED (SLOT ${i})`, 'sys'); } });
   // bits
+  if (abil.magnet) for (const b of bits) if (!b.taken) { const dx = p.x + 3 - b.x, dy = p.y + 9 - b.y, d = Math.hypot(dx, dy); if (d < 90) { b.x += dx / d * 2.4; b.y += dy / d * 2.4; } }   // BIT MAGNET
   for (const b of bits) if (!b.taken && overlap(p, { x: b.x, y: b.y, w: 8, h: 8 })) { b.taken = true; bytes++; SFX.bit(); emit({ x: b.x + 4, y: b.y + 4, vx: 0, vy: -1, t: 12, c: '#39ff88' }); }
   // exit
-  if (overlap(p, { x: LV.exit * 16 + 6, y: 160, w: 20, h: 48 })) levelClear();
+  const ks = hazards.find((h) => h.t === 'kill');                  // the exit waits while the bridge comes down
+  if (overlap(p, { x: LV.exit * 16 + 6, y: 160, w: 20, h: 48 }) && !(ks && ks.pulled && ks.pulled < 80)) levelClear();
 }
 function walk(e, speed) {
   e.vx = e.dir * speed * (abil.swarm ? 1.8 : 1) * (e.s > 1.5 ? 0.75 : e.s < 0.8 ? 1.6 : 1);
@@ -2024,7 +2202,7 @@ function touchEnemy(e, g) {
     if (held.grab && !p.carry && !p.riding) { p.carry = e; e.carried = true; e.vx = 0; SFX.click(); log(`GRABBED A ${TYPE_NAME[e.type]}${e.d !== undefined ? '. IT CARRIES ' + e.d : ''}`, 'sys'); return; }   // hold Y to pick it up
     return kick(e, away);
   }
-  hurt((e.wings ? 'DRONE' : TYPE_NAME[e.type]) + ' CONTACT');
+  hurt((e.wings ? 'BOTNET' : TYPE_NAME[e.type]) + ' CONTACT');
 }
 function explode(e) {
   if (e.dead) return;
@@ -2047,13 +2225,13 @@ function killPlant(h) {
 function updateHazards() {
   for (const h of hazards) {
     if (h.dead) continue;
-    if (h.t === 'plant') {                                           // SOCKET: rises out of a conduit, unless you stand on it
+    if (h.t === 'plant') {                                           // PHAGE: rises out of a conduit, unless you stand on it
       const onTop = Math.abs(p.x + p.w / 2 - h.x) < 26 && p.y + p.h <= h.top + 2 && p.y + p.h > h.top - 48;
       h.ph = (h.ph + 1) % 240;
       const want = h.ph < 110 ? 0 : h.ph < 130 ? (h.ph - 110) / 20 : h.ph < 220 ? 1 : (240 - h.ph) / 20;
       h.out = onTop && h.out < 0.05 ? 0 : want;
       const H = 22 * h.out;
-      if (H > 4 && !p.dead && overlap(p, { x: h.x - 6, y: h.top - H, w: 12, h: H }, 2)) hurt('SOCKET');
+      if (H > 4 && !p.dead && overlap(p, { x: h.x - 6, y: h.top - H, w: 12, h: H }, 2)) hurt('PHAGE');
     } else if (h.t === 'crusher') {                                  // STACK SMASH: drops on whoever is underneath
       const oy = h.y;
       if (h.st === 'wait') { if (p.x + p.w > h.x - 6 && p.x < h.x + h.w + 6 && p.y > h.y + 16) { h.st = 'fall'; h.vy = 0; } }
@@ -2072,6 +2250,32 @@ function updateHazards() {
         shots.push({ k: 'ping', x: h.x + (dir > 0 ? 12 : -12), y: h.y + 3, w: 16, h: 12, vx: dir * 1.7, vy: 0, life: 700 });
         noise(0.15, 0.08); tone(160, 0.15, 'square', 0.05, -80);
         for (let n = 0; n < 10; n++) pSpawn(h.x + 8 + dir * 10, h.y + 8, PK.HEAT, '#8a8fb0', dir * Math.random() * 1.5, -Math.random(), 30);
+      }
+    } else if (h.t === 'panic') {                                    // KERNEL PANIC: paces the bridge, hops, lobs packets
+      if (h.falling) { h.vy = Math.min(7, h.vy + 0.3); h.y += h.vy; if (h.y > VH + 40) { h.dead = true; log('KERNEL PANIC HANDLED', 'ok'); } continue; }
+      h.x += h.vx; if (h.x < h.lo || h.x > h.hi) { h.vx = -h.vx; h.x = clamp(h.x, h.lo, h.hi); }
+      if (--h.hop <= 0 && h.vy === 0) { h.vy = -4.2; h.hop = 110 + ((frame * 7) % 80); }
+      if (h.vy !== 0 || h.y < 208 - 32) { h.vy += 0.22; h.y += h.vy; if (h.y >= 208 - 32) { h.y = 208 - 32; h.vy = 0; shakeT = Math.max(shakeT, 8); noise(0.15, 0.06); } }
+      const dx = p.x + p.w / 2 - (h.x + 16);
+      if (h.mouth > 0) h.mouth--;
+      if (--h.cd <= 0 && Math.abs(dx) < 220 && !p.dead) {
+        h.cd = 70 + ((frame * 13) % 50); h.mouth = 20;
+        shots.push({ k: 'packet', x: h.x + 13, y: h.y + 6, w: 6, h: 6, vx: clamp(dx / 55, -3.2, 3.2), vy: -4.2, life: 400 });
+        tone(140, 0.2, 'sawtooth', 0.05, -60);
+      }
+      const under = tileAt(Math.floor((h.x + 16) / 16), 13);
+      if (under !== T.BRIDGE && h.y >= 208 - 32) { h.falling = true; h.vy = 1; SFX.segv(); log('KERNEL PANIC FELL INTO THE LAVA', 'ok'); }
+      if (!p.dead && overlap(p, h, 4)) hurt('KERNEL PANIC');
+    } else if (h.t === 'kill') {                                     // the kill switch: drops the bridge
+      if (!h.pulled && !p.dead && overlap(p, h)) {
+        h.pulled = 1; p.inv = Math.max(p.inv, 200); SFX.unlock(); haptic(60); shakeT = 30;
+        log('KILL SWITCH PULLED: BRIDGE DEALLOCATED', 'ok');
+      }
+      if (h.pulled) {
+        h.pulled++;
+        const k = (h.pulled / 4) | 0, c = 210 - k;
+        if (h.pulled % 4 === 0 && c >= 195) { setT(c, 13, T.E); for (let n = 0; n < 10; n++) pSpawn(c * 16 + Math.random() * 16, 210, PK.DUST, texColor(TEX.bridge), (Math.random() - 0.5) * 2, Math.random()); noise(0.06, 0.04); }
+        if (h.pulled === 120) levelClear();
       }
     } else if (h.t === 'firebar') {                                  // SPINLOCK
       h.a += h.sp;
@@ -2155,7 +2359,7 @@ function updateMount(J) {
       const tx = p.x + p.w / 2 + p.face * (12 + ext), ty = p.y + p.h - 12; d.tip = [tx, ty];
       if (!d.mouth) for (const e of enemies) if (!e.dead && !e.carried && EDIBLE(e) && Math.abs(e.x + e.w / 2 - tx) < e.w / 2 + 3 && Math.abs(e.y + e.h / 2 - ty) < e.h / 2 + 4) {
         d.mouth = { type: e.type, d: e.d, rev: e.rev }; e.dead = 1; e.respawn = false; d.tongue = Math.min(d.tongue, 4);
-        tone(500, 0.1, 'square', 0.04, -300); log(`RAPTOR SWALLOWED A ${e.wings ? 'DRONE' : TYPE_NAME[e.type]}${e.d !== undefined ? '. ITS ' + e.d + ' IS IN ITS MOUTH' : ''}`, 'sys'); break;
+        tone(500, 0.1, 'square', 0.04, -300); log(`RAPTOR SWALLOWED A ${e.wings ? 'BOTNET' : TYPE_NAME[e.type]}${e.d !== undefined ? '. ITS ' + e.d + ' IS IN ITS MOUTH' : ''}`, 'sys'); break;
       }
     }
     return;
@@ -2226,8 +2430,10 @@ function tileTex(t, c, r) {
     case T.BUS: return TEX.bus;
     case T.FW: return TEX.fw[((frame / 8) | 0) % 2];
     case T.NUL: return abil.bridge ? TEX.nulOn : TEX.nulOff;
-    case T.SPK: return TEX.spk[((frame / 6) | 0) % 2];
-    case T.SEMI: return TEX.semi;
+    case T.SPK: return LV.theme.world === 'castle' ? TEX.lava[((frame / 10) | 0) % 3] : TEX.spk[((frame / 6) | 0) % 2];
+    case T.SEMI: return LV.theme.world === 'sky' ? TEX.cloudSemi : TEX.semi;
+    case T.BRICK: return TEX.brick;
+    case T.BRIDGE: return TEX.bridge;
     case T.SPRING: return TEX.spring[bumps.get(c + ',' + r) ? 1 : 0];
     case T.NOTE: return TEX.note;
     case T.HID: return null;
@@ -2303,6 +2509,12 @@ function render() {
       const x = Math.round(h.x - cx0); ctx.save();
       if (p.x < h.x) { ctx.translate(x + 16, h.y); ctx.scale(-1, 1); ctx.drawImage(ART.cannon, 0, 0); } else ctx.drawImage(ART.cannon, x, h.y);
       ctx.restore();
+    } else if (h.t === 'panic') {
+      const x = Math.round(h.x - cx0), y = Math.round(h.y);
+      ctx.save(); if (p.x + p.w / 2 < h.x + 16) { ctx.translate(x + 32, y); ctx.scale(-1, 1); ctx.drawImage(ART.panic[h.mouth > 0 ? 1 : 0], 0, -4); } else ctx.drawImage(ART.panic[h.mouth > 0 ? 1 : 0], x, y - 4); ctx.restore();
+    } else if (h.t === 'kill') {
+      const x = Math.round(h.x - cx0), y = Math.round(h.y);
+      ctx.drawImage(ART.kill[h.pulled ? 1 : 0], x - 2, y);
     } else if (h.t === 'firebar') for (let k = 1; k <= h.n; k++) ctx.drawImage(ART.orb, Math.round(h.cx + Math.cos(h.a) * k * 8 - cx0) - 3, Math.round(h.cy + Math.sin(h.a) * k * 8) - 3);
   }
   for (const e of enemies) if (!e.dead && !e.carried) drawEnemy(e, cx0);
@@ -2324,7 +2536,6 @@ function render() {
   drawParticles(cx0, false);
   drawLighting(cx0);
   drawParticles(cx0, true);
-  drawTags(cx0);
   // digits in flight from the memory row
   for (const w of writeFx) if (w.x !== undefined) { drawText(String(w.d), Math.round(w.x - cx0) - 3, Math.round(w.y) - 5, '#05040a', 2); drawText(String(w.d), Math.round(w.x - cx0) - 4, Math.round(w.y) - 6, w.col, 2); }
   for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.t / 20); drawText(f.text, Math.round(f.x - cx0) + 1, Math.round(f.y) + 1, '#000', 1, 'center'); drawText(f.text, Math.round(f.x - cx0), Math.round(f.y), f.col, 1, 'center'); ctx.globalAlpha = 1; }
@@ -2383,7 +2594,7 @@ function drawLighting(cx0) {
   for (let c = c0; c <= c1; c++) for (let r = 0; r < LH; r++) {
     const t = tileAt(c, r), x = c * 16 + 8 - cx0, y = r * 16 + 8;
     if (t === T.FW && (r & 1)) L.push([x, y, 34, 0.7, '#ff5a2a']);
-    else if (t === T.SPK && (c & 1)) L.push([x, y + 4, 22, 0.55, '#ff3d8a']);
+    else if (t === T.SPK && (c & 1)) L.push(LV.theme.world === 'castle' ? [x, y + 6, 30, 0.75, '#ff6a2a'] : [x, y + 4, 22, 0.55, '#ff3d8a']);
     else if (t === T.HEX) L.push([x, y, 24, 0.5, '#ffc23d']);
     else if (t === T.NUL && abil.bridge && !(c % 3)) L.push([x, y, 22, 0.45, '#4ff0ff']);
     else if (t === T.SWITCH) L.push([x, y, 26, 0.55, onOff ? '#ff3d8a' : '#4ff0ff']);
@@ -2391,6 +2602,7 @@ function drawLighting(cx0) {
   const ex = LV.exit * 16 + 16 - cx0; if (on(ex)) L.push([ex, 184, 74, 1, '#4ff0ff']);
   for (const sv of saves) if (sv.on && on(sv.x - cx0)) L.push([sv.x + 8 - cx0, sv.y + 6, 34, 0.8, '#39ff88']);
   for (const q of shots) L.push([q.x + 6 - cx0, q.y + 6, 24, 0.6, q.k === 'packet' ? '#ff3d8a' : '#c9c2ff']);
+  for (const h of hazards) if (h.t === 'panic' && !h.dead && on(h.x - cx0)) L.push([h.x + 16 - cx0, h.y + 14, 60, 0.8, '#ff3d8a']);
   for (const h of hazards) if (h.t === 'firebar' && on(h.cx - cx0)) L.push([h.cx - cx0, h.cy, 30 + h.n * 8, 0.75, '#ff7a3d']);
   for (const e of enemies) if (!e.dead && e.type === 'bomb' && e.st === 'lit') L.push([e.x + 7 - cx0, e.y + 2, 30, 0.8, '#ff3d8a']);
   for (const w of writeFx) if (w.x !== undefined) L.push([w.x - cx0, w.y, 22, 0.8, w.col]);
@@ -2430,33 +2642,7 @@ function drawParticles(cx0, energy) {
   pCtx.putImageData(pImg, 0, 0); ctx.drawImage(pCan, 0, 0);
 }
 // The memory row: one digit per column along the bottom of the map, decrypted as you pass over it.
-function drawTag(x, y, d, rev, on, kind, stem) {
-  const vcol = on ? VERDICT_COL[verdict()] : '#ffffff';
-  const age = rev === undefined ? -1 : frame - rev, dec = age >= 0 && age < 16;
-  const ch = rev === undefined ? '?' : dec ? String(hash2(x | 0, age >> 1, 6) % 10) : String(d);
-  const bx = Math.round(x) - 4, by = Math.round(y) - 6;
-  if (kind === 'ptr' && (frame + (x | 0)) % 23 < 2) return;                      // orphaned pointers flicker
-  ctx.fillStyle = kind === 'ptr' ? '#2a0d1c' : '#0b0b12'; ctx.fillRect(bx + 1, by, 7, 11); ctx.fillRect(bx, by + 1, 9, 9);
-  if (on) { ctx.fillStyle = vcol; ctx.fillRect(bx + 1, by - 1, 7, 1); ctx.fillRect(bx + 1, by + 11, 7, 1); ctx.fillRect(bx - 1, by + 1, 1, 9); ctx.fillRect(bx + 9, by + 1, 1, 9); }
-  if (stem) { ctx.fillStyle = kind === 'ptr' ? '#ff3d8a' : '#0b0b12'; ctx.fillRect(bx + 4, by + 11, 1, stem); }
-  drawText(ch, bx + 3, by + 3, rev === undefined ? '#5a5f85' : on ? vcol : dec ? '#4ff0ff' : kind === 'ptr' ? '#ff8ab8' : '#ffffff');
-}
-function drawTags(cx0) {
-  if (state === 'title') return;
-  const near = (x) => x > cx0 - 16 && x < cx0 + VW + 16;
-  for (const e of enemies) if (!e.dead && e.d !== undefined) {
-    const [x, y] = carrierPos(e, 'bug');
-    if (near(x) && (e.rev !== undefined || Math.abs(x - p.x) < 120)) drawTag(x - cx0, y, e.d, e.rev, reading && reading.o === e, 'bug', 3);
-  }
-  for (const b of boxes) { const [x, y] = carrierPos(b, 'box'); if (near(x) && (b.rev !== undefined || Math.abs(x - p.x) < 120)) drawTag(x - cx0, y, b.d, b.rev, reading && reading.o === b, 'box', 2); }
-  for (const o of orphans) { const [x, y] = carrierPos(o, 'ptr'); if (near(x)) drawTag(x - cx0, y, o.d, o.rev === undefined ? o.born : o.rev, reading && reading.o === o, 'ptr', 0); }
-  if (p.riding && p.riding.mouth && p.riding.mouth.d !== undefined) drawTag(p.x + p.w / 2 + p.face * 12 - cx0, p.y + p.h - 34, p.riding.mouth.d, p.riding.mouth.rev === undefined ? frame - 99 : p.riding.mouth.rev, reading && reading.kind === 'mouth', 'bug', 2);
-  if (reading && state === 'play') {                                                // dotted link from the carrier to the hero
-    const ex = p.x + 7 - cx0, ey = p.y + 10, sx = reading.x - cx0, sy = reading.y + 6, n = Math.max(4, Math.hypot(ex - sx, ey - sy) / 3 | 0);
-    ctx.fillStyle = VERDICT_COL[verdict()];
-    for (let i = 1; i < n; i++) if ((i + (frame >> 2)) % 2) ctx.fillRect(Math.round(sx + (ex - sx) * i / n), Math.round(sy + (ey - sy) * i / n), 1, 1);
-  }
-}
+const CARRY_COL = { bug: '#ff6fa8', box: '#ffc23d', ptr: '#ff3d8a', held: '#4ff0ff', mouth: '#4ff0ff' };
 function drawRibbon(cx0) {
   if (state === 'title') return;
   const y = VH - 10, c0 = Math.floor(cx0 / 16), c1 = Math.ceil((cx0 + VW) / 16), vcol = VERDICT_COL[verdict()];
@@ -2464,15 +2650,30 @@ function drawRibbon(cx0) {
   ctx.fillStyle = '#1e2a44'; ctx.fillRect(0, y, VW, 1);
   for (let c = Math.max(0, c0); c <= Math.min(LW - 1, c1); c++) {
     const x = c * 16 - cx0, at = revealed.get(c), cur = c === cellNow[0] && state === 'play';
+    const sym = symAt(c), ov = rowOver.get(c);
     ctx.fillStyle = '#131a2c'; ctx.fillRect(x, y + 2, 1, 7);
     if (cur) {
       ctx.globalAlpha = 0.25; ctx.fillStyle = vcol; ctx.fillRect(x + 1, y + 1, 15, 9); ctx.globalAlpha = 1;
       ctx.fillStyle = vcol; ctx.fillRect(x + 1, y, 15, 1); ctx.fillRect(x + 6, y - 2, 5, 1); ctx.fillRect(x + 7, y - 3, 3, 1); ctx.fillRect(x + 8, y - 4, 1, 1);
     }
+    if (sym && at !== undefined && !(cur && reading && (reading.kind === 'held' || reading.kind === 'mouth'))) {     // a symbol: gold, read only from up high
+      const live = cur && symNow === sym;
+      ctx.fillStyle = '#3a2a08'; ctx.fillRect(x + 3, y + 1, 11, 9);
+      drawText(sym.ch, x + 7, y + 3, live ? vcol : (frame >> 3) % 5 ? '#ffc23d' : '#fff3c0');
+      if (!live) { ctx.fillStyle = '#ffc23d'; ctx.fillRect(x + 13, y + 2, 1, 3); ctx.fillRect(x + 12, y + 3, 3, 1); }   // read it from above
+      continue;
+    }
+    if (ov && (ov.o.rev !== undefined || ov.kind === 'held' || ov.kind === 'mouth')) {              // a carrier's digit over the location digit
+      const age = ov.o.rev === undefined ? 99 : frame - ov.o.rev, dec = age < 16, kc = CARRY_COL[ov.kind];
+      if (ov.kind === 'ptr' && (frame + c) % 23 < 2) continue;                                          // orphaned pointers flicker
+      ctx.fillStyle = kc; ctx.fillRect(x + 4, y + 9, 9, 1);
+      drawText(dec ? String(hash2(c, age >> 1, 6) % 10) : String(ov.d), x + 7, y + 3, cur ? vcol : dec ? '#4ff0ff' : kc);
+      continue;
+    }
+    if (ov) { drawText('?', x + 7, y + 3, '#7a3a5a'); continue; }                                        // something carries a digit here, not yet read
     if (at === undefined) { ctx.fillStyle = '#2c3350'; ctx.fillRect(x + 7, y + 5, 2, 1); continue; }
     const age = frame - at, dec = age < 16;
-    const d = dec ? hash2(c, age >> 1, 5) % 10 : cur && reading ? digitNow : colDigit(c);
-    if (cur && reading) { ctx.fillStyle = '#4ff0ff'; ctx.fillRect(x + 13, y + 2, 2, 2); }
+    const d = dec ? hash2(c, age >> 1, 5) % 10 : colDigit(c);
     const fresh = writeFx.some((w) => w.c === c);
     drawText(String(d), x + 7, y + 3, cur ? vcol : dec ? '#4ff0ff' : fresh ? '#ffffff' : '#7f8db8');
   }
@@ -2519,6 +2720,7 @@ function drawPlayer(cx0) {
   ctx.save();
   if (p.flip) { ctx.translate(fx, sy); ctx.scale(p.face < 0 ? -1 : 1, -1); }
   else { ctx.translate(fx, sy + p.h); ctx.scale(p.face < 0 ? -1 : 1, 1); }
+  if (p.sq && !p.dead && !reduceMotion) ctx.scale(1 + p.sq * 0.18, 1 - p.sq * 0.16);              // squash on landing, stretch on take-off
   if (HERO_IMG.naturalWidth) {
     ctx.drawImage(HERO_IMG, col * HF, row * HF, HF, HF, -HERO_CX, -HF, HF, HF);
     if (oamT > 0 && (frame & 1)) for (const k of [1, -2]) ctx.drawImage(HERO_IMG, ((col + k + 6) % 5) * HF, row * HF, HF, HF, -HERO_CX + k * 16, -HF, HF, HF);
@@ -2530,8 +2732,8 @@ function drawHUD(C) {
   if (state === 'title' || state === 'intro') return;
   if (memMode === 'strip' && logLines.length && frame - lastLogAt < 200) {
     const l = logLines[logLines.length - 1], tt = typed(l), t = tt.length > 70 ? tt.slice(0, 69) + '.' : tt;
-    ctx.fillStyle = 'rgba(8,7,15,0.75)'; ctx.fillRect(0, VH - 12, t.length * 4 + 8, 12);
-    drawText(t, 4, VH - 9, LOG_COL[l.cls] || LOG_COL['']);
+    ctx.fillStyle = 'rgba(8,7,15,0.75)'; ctx.fillRect(0, VH - 24, t.length * 4 + 8, 12);           // above the memory row, never over it
+    drawText(t, 4, VH - 21, LOG_COL[l.cls] || LOG_COL['']);
   }
   const secs = Math.floor(playFrames / 60);
   drawText(`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`, VW - 6, 8, '#ffffff', 1, 'right');
@@ -2565,7 +2767,8 @@ function showTitle() {
       <li>Every column holds a digit. The memory row along the bottom decrypts it as you pass over.</li>
       <li>Stand on a register's <b>next digit</b> and press its control (<b>◀</b>, <b>▶</b> or <b>A</b>) to write it.</li>
       <li>Green registers are hacks. Red ones are curses the same presses fill. Patches purge curses.</li>
-      <li>Some digits never appear on the row: only bugs and 0x boxes carry them. Get close to read them.</li>
+      <li>Some digits never appear on the row: viruses and 0x boxes carry them, writing them into the row at their column.</li>
+      <li>Gold symbols sit in one column and only read from up high. They feed the rarest hacks.</li>
       <li>Some registers only open under a condition. Reach the EXIT.</li>
     </ol>
     <div class="row">${sl > 0 ? `<button class="act" id="cont">CONTINUE · LEVEL ${sl + 1}</button><button class="act alt" id="boot">NEW RUN</button>` : '<button class="act" id="boot">BOOT ▸</button>'}</div>`;
@@ -2586,10 +2789,11 @@ function startGame(i) {
 function showIntro() {
   state = 'intro'; startMusic(levelIdx);
   const chip = (r) => `<span class="${r.good ? 'g' : 'b'}">${r.good ? '' : '! '}${r.name}</span>`;
-  ovBox.innerHTML = `<div class="lvl">LEVEL ${levelIdx + 1} / ${LEVELS.length}</div><h2 class="lt">${LV.name}</h2>
+  ovBox.innerHTML = `<div class="lvl">LEVEL ${levelIdx + 1} / ${LEVELS.length} · ${LV.world}</div><h2 class="lt">${LV.name}</h2>
     <p>${LV.brief}</p>
     <div class="hk">${regs.map(chip).join('')}</div>
-    <div class="lvl">MISSING FROM MEMORY: ${LV.rare.join(' AND ')} · CARRIED BY BUGS AND 0X BOXES</div>
+    <div class="lvl">MISSING FROM MEMORY: ${LV.rare.join(' AND ')} · CARRIED BY VIRUSES AND 0X BOXES</div>
+    <div class="lvl">ONE SYMBOL HIDES UP HIGH: ${LV.syms.map((q) => q.ch).join(' ')}</div>
     <button class="act" id="go">START ▸</button>`;
   ov.hidden = false; $('go').addEventListener('click', () => { ensureAudio(); beginLevel(); });
   typeInto(ovBox.querySelector('p'));
