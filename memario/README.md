@@ -10,7 +10,31 @@ The hero is the player's own character (cap, black hoodie with pink strings, bac
 their sprite sheet into 34×34 frames in `android/app/src/main/assets/www/img/hero.png`:
 idle, walk, jump/fall, a pointing action played whenever a digit is written, and hurt/KO played
 before respawning. `img/faces.png` holds four portraits (normal, grin, shocked, bruised) that react
-on the bottom screen. The number tag over the hero's head shows the digit underfoot.
+on the bottom screen.
+
+## The memory row
+
+Every 16-pixel column of a level holds one digit. They run along the bottom of the map as a row of
+memory: a column decrypts (its digit scrambles, then settles) the first time you pass over it, and
+stays revealed. Your column is boxed, with a caret, and a faint beam rises from it to the hero. Its
+colour says where a press would send the digit: **green** feeds a hack, **red** feeds a curse, **gold**
+depends on the button, **white** feeds nothing. When you write a digit it flies up out of the row
+into the hero, who points at it, and the line types itself into the log on the register screen.
+
+## A world made of pixels
+
+The world is simulated pixel by pixel, Noita-style. Bugs burst into their own pixels when killed and
+the debris tumbles and piles up; blocks shed dust when hit; overhangs and pit edges crumble with bit
+rot; firewalls throw sparks; corrupt sectors and the Memory Leak curse leak memory that flows and
+pools; Null Pointer blocks crumble as they drop out of memory; frozen bugs shed frost. The hero kicks
+debris aside, bugs plough through it, fireballs scatter it, and a patch burns it off.
+
+The corruption is drawn as real memory faults rather than screen filters: tiles that read garbage
+from the wrong place in graphics memory (often misaligned across two tiles), per-tile and per-kind
+palette RAM errors (the sky, the ground, blocks, the bus or the bugs get the wrong colours),
+scroll-register desync that shifts whole bands of the screen, and sprite DMA faults that draw the
+hero again in the wrong places. Every unlock writes permanent faults into the level; instability
+adds temporary ones.
 
 ## Layout
 
@@ -66,34 +90,35 @@ stability left and right occasionally swap.
 
 ## Music
 
-Each level has its own original chiptune loop, synthesised live (square lead, triangle bass, noise
-drums), and the music is hacked along with the game. Every hack and curse changes it audibly, and
-the log says how when one goes live:
+The soundtrack is the player's own song (`www/audio/theme.ogg`, 39 s, F major, ~155 BPM). It plays
+from the top, then loops 23 bars on the beat (0.838 s to 36.463 s). It is hacked live along with the
+game, through a Web Audio effect chain:
 
-| Register | What it does to the music |
+| Register | What it does to the song |
 | --- | --- |
-| Speed Boost | tempo up 18% |
-| Super Jump | melody up an octave |
-| Fire Power | lead turns to a sawtooth |
-| Phase Shift | lead becomes a wavering, ghostly sine |
-| Double Jump | melody doubled an octave up |
-| Hot Reload | a crash rewinds the track to the top |
-| Freeze Bugs | icy staccato notes with a bell two octaves up |
-| Alloc Bridge | the bass gains a fifth |
-| Gravity Flip | while upside down, the melody is inverted |
-| ! Heavy Boots | the track slows and sinks two semitones |
-| ! Mirror Input | the melody plays backwards |
-| ! Packet Lag | the lead plays late against the drums |
-| ! Memory Leak | the pitch slowly sinks (a patch restores it) |
-| ! Blackout | the lead is muffled |
-| ! Bug Swarm | frantic double-time hi-hats |
-| ! Null Pointer | the music drops out whenever the blocks blink out |
-| ! Watchdog | a ticking clock that speeds up in the last 10 seconds |
+| Speed Boost | plays 15% faster |
+| Super Jump | treble lifts |
+| Fire Power | distortion |
+| Phase Shift | ghostly echo |
+| Double Jump | chorus doubling |
+| Hot Reload | a crash rewinds the tape to the top |
+| Freeze Bugs | thin, icy, with a short echo |
+| Alloc Bridge | bass boost |
+| Gravity Flip | while upside down, the EQ flips (bass cut, treble up) |
+| ! Heavy Boots | slows and sinks |
+| ! Mirror Input | plays backwards, left and right channels swapped |
+| ! Packet Lag | a late slap-back echo |
+| ! Memory Leak | the pitch slowly drifts down (a patch restores it) |
+| ! Blackout | muffled |
+| ! Bug Swarm | frantic hi-hats on top |
+| ! Null Pointer | drops out whenever the blocks blink out |
+| ! Watchdog | a clock ticks over it, faster in the last 10 seconds |
 
-Every digit you write plays as a note in the level's key (a wrong write clashes), a segfault makes
-the track skip, random glitches shift the key, stutter, slow the tempo or throw notes an octave, and
-as stability drops the lead detunes and drops notes. Sound and music toggle separately in the
-START menu.
+Each level gives the song a harsher base treatment (Firewall is driven, Kernel Space dark, slow and
+echoing, Root Access fast and distorted). Written digits play as notes in F major on the song's beat
+(a wrong write clashes); a segfault skips the track; glitches stutter it, tape-stop it, bitcrush it
+or bend its pitch; and instability adds micro-stutters. If the song can't be decoded, synthesised
+chiptune tracks play instead. Sound and music toggle separately in the START menu.
 
 ## Building
 

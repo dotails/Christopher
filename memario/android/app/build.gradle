@@ -10,8 +10,8 @@ android {
         applicationId 'com.dotails.memario'
         minSdk 24
         targetSdk 35
-        versionCode 8
-        versionName '2.1.0'
+        versionCode 9
+        versionName '3.0.0'
     }
 
     signingConfigs {
@@ -42,6 +42,6 @@ android {
 
     androidResources {
         // Already-compressed assets gain nothing from zip compression.
-        noCompress += ['woff2', 'png']
+        noCompress += ['woff2', 'png', 'ogg']
     }
 }

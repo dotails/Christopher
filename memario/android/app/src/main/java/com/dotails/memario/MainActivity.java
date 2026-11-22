@@ -255,6 +255,7 @@ public class MainActivity extends Activity {
         if (p.endsWith(".css")) return "text/css";
         if (p.endsWith(".png")) return "image/png";
         if (p.endsWith(".woff2")) return "font/woff2";
+        if (p.endsWith(".ogg")) return "audio/ogg";
         return "application/octet-stream";
     }
 }
