@@ -146,11 +146,14 @@ body:not(.touch) .pad{display:none}
 .ov .save .act{padding:6px 10px;font-size:12px}
 .ov .opts{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:min(100%,380px)}
 .ov .opts .act{width:100%;font-size:13px}
+.ov .opts span{display:block}
 .ov .opts .act.on{border-color:var(--phos);color:var(--phos)}
-body.mode-stack .ov .only-wide{display:none}
+body.mode-stack .ov .only-wide,body.mode-side .ov .only-wide{display:none}
+body.mode-side .screens{flex-direction:row;align-items:stretch}
+body.mode-side #stage2{border-top:0;border-left:2px solid #05040a}
 /* ---------- the hack tool: every hack, searchable; tap to bring it with you ---------- */
 .tool{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;background:#0a0816;font-family:var(--f-pix);color:var(--ink);user-select:none}
-body.mode-switch .tool{position:fixed;inset:var(--sat) 0 0 0;z-index:30}
+body.mode-switch:not(.mode-side) .tool{position:fixed;inset:var(--sat) 0 0 0;z-index:30}
 .tool .tscroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .tool .board{position:relative;background:#06150f}
 .tool .board canvas{position:relative;inset:auto;display:block;width:100%;height:auto;object-fit:fill;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none}
@@ -167,6 +170,10 @@ body.mode-switch .tool{position:fixed;inset:var(--sat) 0 0 0;z-index:30}
 .tool .tcats button.on{color:#04130a;background:var(--cyan);border-color:var(--cyan)}
 .tool .tlist{padding:5px 6px 10px;display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start}
 .tool .hk.lock{opacity:.45}
+.tool .hk.lvl{border-style:dashed}
+body.mode-side .tool .hk .k{display:none}
+body.mode-side .tool .hk .n{font-size:12px}
+body.mode-side .tool .hk .d{font-size:10px}
 .tool .hk{display:grid;grid-template-columns:1fr auto;gap:1px 6px;text-align:left;background:var(--term2);border:1px solid var(--rule);border-radius:4px;padding:6px 7px;cursor:pointer}
 .tool .hk .n{font-size:13px;color:#fff} .tool .hk.b .n{color:#ff8ab8}
 .tool .hk .st{font-size:10px;color:var(--muted);align-self:start}
@@ -1399,7 +1406,7 @@ function drawCard(g, T, r, i, x, y, w, h) {
   else r.seq.forEach((d, j) => { const done = j < r.slots.length, nxt = j === r.slots.length; T(String(d), tx + j * (ss === 2 ? 9 : 7), sy, done ? (off ? '#c9c2ff' : base) : nxt ? (m ? base : '#ffffff') : '#4a4478', ss); });
   g.globalAlpha = 1;
   const tag = m ? (off ? 'PRESS: OFF' : 'PRESS') : '';
-  if (tag) T(tag, x + w - 4, y + (nameBig ? 4 : 2), m ? (off ? '#c9c2ff' : base) : base, 1, 'right');
+  if (tag && w >= 140) T(tag, x + w - 4, y + (nameBig ? 4 : 2), m ? (off ? '#c9c2ff' : base) : base, 1, 'right');
 }
 // What a press would do right now, or what the registers want.
 function promptParts() {
@@ -1456,11 +1463,12 @@ function drawMem() {
   const layerTxt = symNow ? 'SYMBOL ' + symNow.ch : LAYER_NAME[layerNow];
   const parts = promptParts();
   const drawParts = (x, y, sc, maxW) => { let px = x; for (const [t, c] of parts) { const w = t.length * 4 * sc; if (px + w > x + maxW) break; T(t, px, y, c, sc); px += w + 4 * sc; } };
-  const statTxt = `STB ${stab}%  BYTES ${String(bytes).padStart(3, '0')}  CRASH ${crashes}` + (combo > 1 && frame - comboAt < COMBO_T ? `  COMBO X${combo}` : '') + (scanCd > 0 ? '  SCAN ' + Math.ceil(scanCd / 60) : '  B SCAN');
+  const statTxt = SW < 300 ? `STB ${stab}% B${bytes} X${crashes}` + (combo > 1 && frame - comboAt < COMBO_T ? ` C${combo}` : '') : `STB ${stab}%  BYTES ${String(bytes).padStart(3, '0')}  CRASH ${crashes}` + (combo > 1 && frame - comboAt < COMBO_T ? `  COMBO X${combo}` : '') + (scanCd > 0 ? '  SCAN ' + Math.ceil(scanCd / 60) : '  B SCAN');
 
   const RH = 15;
   g.fillStyle = '#05040a'; g.fillRect(0, 0, SW, RH);
-  drawRibbon(g, Math.round(camX), 0, SW);
+  if (document.body.classList.contains('mode-side')) drawRibbon(g, Math.round(clamp(p.x + p.w / 2 - SW / 2, 0, WORLD_W - SW)), 0, SW, SW);
+  else drawRibbon(g, Math.round(camX), 0, SW);
   if (memMode === 'strip') {
     portrait(3, RH + 2); nowBox(36, RH + 2, 30);
     T(layerTxt, 3, RH + 36, '#8a93b4');
@@ -1484,14 +1492,18 @@ function drawMem() {
 let listScroll = 0, listMax = 0, listTop = 0, listH = 0, scanBtn = null;
 function drawList(g, T, x0, y0, w, h) {
   regRects.length = 0; listTop = y0; listH = h;
-  const strip = memMode === 'strip', ch = strip ? 22 : 30, cw = Math.floor((w - 3) / 2), labelH = 11, btnH = strip ? 16 : 22;
-  const split = (rs) => { const L = rs.filter((r) => r.good), R = rs.filter((r) => !r.good); return { L, R, n: Math.max(L.length, R.length) }; };
+  const strip = memMode === 'strip', nc = strip ? 4 : 2;
+  let ch = strip ? 22 : 30;
+  const cw = Math.floor((w - (nc - 1) * 3) / nc), labelH = 11, btnH = strip ? 16 : 22;
+  const per = nc / 2;                                   // hack/curse pairs per row
+  const split = (rs) => { const L = rs.filter((r) => r.good), R = rs.filter((r) => !r.good); return { L, R, n: Math.ceil(Math.max(L.length, R.length) / per) }; };
   const lv = split(regs.filter((r) => !r.custom)), cu = split(regs.filter((r) => r.custom));
+  if (!strip) ch = clamp(Math.floor((h - btnH - 6 - (cu.n ? labelH : 0)) / Math.max(1, lv.n + cu.n)), 30, 38);   // spare height makes the cards bigger
   listMax = Math.max(0, lv.n * ch + (cu.n ? labelH + cu.n * ch : 0) + 3 + btnH + 2 - h);
   listScroll = clamp(listScroll, 0, listMax);
   g.save(); g.beginPath(); g.rect(x0 - 2, y0, w + 6, h); g.clip();
   let y = y0 - listScroll;
-  const rows = (S) => { for (let i = 0; i < S.n; i++) { if (S.L[i]) drawCard(g, T, S.L[i], regs.indexOf(S.L[i]), x0, y, cw, ch - 2); if (S.R[i]) drawCard(g, T, S.R[i], regs.indexOf(S.R[i]), x0 + cw + 3, y, cw, ch - 2); y += ch; } };
+  const rows = (S) => { for (let i = 0; i < S.n; i++) { for (let k = 0; k < per; k++) { const a = S.L[i * per + k], b = S.R[i * per + k], cx = x0 + k * 2 * (cw + 3); if (a) drawCard(g, T, a, regs.indexOf(a), cx, y, cw, ch - 2); if (b) drawCard(g, T, b, regs.indexOf(b), cx + cw + 3, y, cw, ch - 2); } y += ch; } };
   rows(lv);
   if (cu.n) { T('YOUR SET', x0 + 1, y + 3, '#4ff0ff'); g.fillStyle = '#262046'; g.fillRect(x0 + 38, y + 5, w - 38, 1); y += labelH; rows(cu); }
   y += 3;
@@ -2058,6 +2070,7 @@ function update() {
     if (state === 'intro') camX = 0;
     clearEdges(); return;
   }
+  if (playFrames % 600 === 599) updateRun({ level: levelIdx, crashes: run.crashes, curses: run.curses });   // saving is automatic
   if (hitStop > 0) { hitStop--; return; }                   // a beat of weight on every stomp and kill
   if (demo) demoTick();
   playFrames++;
@@ -2854,10 +2867,10 @@ const CARRY_COL = { bug: '#ff6fa8', box: '#ffc23d', ptr: '#ff3d8a', held: '#4ff0
 // Two lanes along the bottom. Top: what's in the air over each column (air digits, gold symbols) and the digits
 // creatures and boxes carry (touch them to write). Bottom: the ground digits. Your column shows the digit you
 // would write right now, from whichever layer you're in.
-function drawRibbon(g, cx0, y, W) {
+function drawRibbon(g, cx0, y, W, span = VW) {
   if (state === 'title') return;
-  const k = W / VW, dT = (t, x, yy, c) => drawText(t, x, yy, c, 1, 'left', g);
-  const c0 = Math.floor(cx0 / 16), c1 = Math.ceil((cx0 + VW) / 16), vcol = VERDICT_COL[verdict()];
+  const k = W / span, dT = (t, x, yy, c) => drawText(t, x, yy, c, 1, 'left', g);
+  const c0 = Math.floor(cx0 / 16), c1 = Math.ceil((cx0 + span) / 16), vcol = VERDICT_COL[verdict()];
   g.fillStyle = 'rgba(6,5,14,0.92)'; g.fillRect(0, y, W, 14);
   g.fillStyle = '#1e2a44'; g.fillRect(0, y, W, 1); g.fillStyle = '#0f1424'; g.fillRect(0, y + 7, W, 1);
   for (let c = Math.max(0, c0); c <= Math.min(LW - 1, c1); c++) {
@@ -2992,38 +3005,48 @@ function showTitle() {
       <button class="act alt" id="tSet">SETTINGS</button><button class="act alt" id="tTut">TUTORIAL</button>
       <button class="act alt only-wide" id="tTool" style="grid-column:1/3">HACK TOOL</button>
     </div>
-    <p class="note">${document.body.classList.contains('mode-stack') ? 'The screen below is your hack tool: search and tap any hack to bring it into every level.' : 'The hack tool: search and tap any hack to bring it into every level.'}</p>`;
+    <p class="note">${document.body.classList.contains('mode-stack') ? 'The screen below is your hack tool: wire it up, then tap hacks to bring them into every level.' : document.body.classList.contains('mode-side') ? 'The screen on the right is your hack tool: wire it up, then tap hacks to bring them into every level.' : 'The hack tool: wire it up, then tap hacks to bring them into every level.'}</p>`;
   ov.hidden = false;
-  if (document.body.classList.contains('mode-stack')) openTool('title'); else closeTool();
+  if (!wideStrip()) openTool('title'); else closeTool();
   $('tNew').onclick = () => { ensureAudio(); closeTool(); newRun(); };
-  $('tSaves').onclick = () => { ensureAudio(); showSaves(); };
-  $('tSet').onclick = () => { ensureAudio(); showSettings(); };
+  $('tSaves').onclick = () => { ensureAudio(); showSaves(showTitle); };
+  $('tSet').onclick = () => { ensureAudio(); showSettings(showTitle); };
   $('tTut').onclick = () => { ensureAudio(); closeTool(); startDemo(true); };
   $('tTool').onclick = () => { ensureAudio(); openTool('title'); };
 }
-function showSaves() {
-  titleAt = frame;
+// Saves are automatic and historical: every run is kept, newest first. NEW starts another.
+let menuBack = null;
+function showSaves(back) {
+  titleAt = frame; menuBack = back || showTitle;
   const runs = loadRuns();
   ovBox.innerHTML = `<h2 class="lt">SAVES</h2>
-    <div class="saves">${runs.length ? runs.map((r) => `<div class="save"><div><b>RUN ${r.n}</b> &nbsp;${r.done ? 'ALL CLEAR' : 'LEVEL ' + (r.level + 1) + ' · ' + LEVELS[clamp(r.level, 0, LEVELS.length - 1)].name}<br>
+    <button class="act" id="sNew">NEW GAME</button>
+    <div class="saves">${runs.length ? runs.map((r) => `<div class="save"><div><b>RUN ${r.n}</b>${r.id === runId ? ' &nbsp;<b style="color:var(--phos)">PLAYING</b>' : ''} &nbsp;${r.done ? 'ALL CLEAR' : 'LEVEL ' + (r.level + 1) + ' · ' + LEVELS[clamp(r.level, 0, LEVELS.length - 1)].name}<br>
       <span>${fmtTime(r.time || 0)} · ${r.crashes || 0} CRASHES · ${r.curses || 0} CURSES · ${ago(r.at)}</span></div>
-      <button class="act" data-c="${r.id}">${r.done ? 'REPLAY' : 'CONTINUE'}</button><button class="act alt" data-d="${r.id}" aria-label="Delete run ${r.n}">DEL</button></div>`).join('') : '<p>No runs yet. Start one with NEW.</p>'}</div>
+      <button class="act" data-c="${r.id}">${r.done ? 'REPLAY' : 'CONTINUE'}</button><button class="act alt" data-d="${r.id}" aria-label="Delete run ${r.n}">DEL</button></div>`).join('') : '<p>No runs yet. Saving is automatic once you start one.</p>'}</div>
     <button class="act alt" id="sBack">BACK</button>`;
+  $('sNew').onclick = () => { ensureAudio(); closeTool(); newRun(); };
   ovBox.querySelectorAll('[data-c]').forEach((b) => { b.onclick = () => { ensureAudio(); closeTool(); continueRun(+b.dataset.c); }; });
   ovBox.querySelectorAll('[data-d]').forEach((b) => { b.onclick = () => {
     if (b.textContent !== 'SURE?') { b.textContent = 'SURE?'; return; }
-    saveRuns(loadRuns().filter((r) => r.id !== +b.dataset.d)); showSaves();
+    saveRuns(loadRuns().filter((r) => r.id !== +b.dataset.d)); showSaves(menuBack);
   }; });
-  $('sBack').onclick = showTitle;
+  $('sBack').onclick = () => menuBack();
 }
-function showSettings() {
-  titleAt = frame;
-  const opt = (k, label) => `<button class="act alt ${SETTINGS[k] ? 'on' : ''}" data-k="${k}">${label}: ${SETTINGS[k] ? 'ON' : 'OFF'}</button>`;
+function showSettings(back) {
+  titleAt = frame; menuBack = back || showTitle;
+  const opt = (k, label, on = 'ON', off = 'OFF') => `<button class="act alt ${SETTINGS[k] ? 'on' : ''}" data-k="${k}">${label}: ${SETTINGS[k] ? on : off}</button>`;
   ovBox.innerHTML = `<h2 class="lt">SETTINGS</h2>
-    <div class="opts">${opt('sound', 'SOUND')}${opt('music', 'MUSIC')}${opt('haptics', 'VIBRATION')}${opt('grid', 'GRID')}${opt('hints', 'HINTS')}${opt('demo', 'IDLE DEMO')}</div>
+    <div class="opts">${opt('sound', 'SOUND')}${opt('music', 'MUSIC')}${opt('haptics', 'VIBRATION')}${opt('grid', 'GRID')}${opt('hints', 'HINTS')}${opt('demo', 'IDLE DEMO')}
+      <span style="grid-column:1/3">${opt('side', 'LANDSCAPE', 'GAME LEFT, HACKS RIGHT', 'STACKED')}</span></div>
     <button class="act alt" id="oBack">BACK</button>`;
-  ovBox.querySelectorAll('[data-k]').forEach((b) => { b.onclick = () => { SETTINGS[b.dataset.k] = !SETTINGS[b.dataset.k]; saveSettings(); applySettings(); if (b.dataset.k === 'sound' && SETTINGS.sound) { ensureAudio(); SFX.click(); } showSettings(); }; });
-  $('oBack').onclick = showTitle;
+  ovBox.querySelectorAll('[data-k]').forEach((b) => { b.onclick = () => {
+    const k = b.dataset.k; SETTINGS[k] = !SETTINGS[k]; saveSettings(); applySettings();
+    if (k === 'sound' && SETTINGS.sound) { ensureAudio(); SFX.click(); }
+    if (k === 'side') { resize(); if (wideStrip()) closeTool(); else if (state === 'pause') openTool('pause'); else if (state === 'title') openTool('title'); }
+    showSettings(menuBack);
+  }; });
+  $('oBack').onclick = () => menuBack();
 }
 function showTutorialEnd() {
   state = 'title'; titleAt = frame;
@@ -3064,22 +3087,30 @@ function beginLevel() {
   log(`ON A REGISTER'S NEXT DIGIT PRESS ITS CONTROL · TOUCH VIRUSES FOR THEIRS · B SCAN`, 'sys');
 }
 function reboot() { loadLevel(levelIdx); beginLevel(); }
+const wideStrip = () => document.body.classList.contains('mode-switch') && !document.body.classList.contains('mode-side');
 function openMenu() {
-  state = 'pause';
+  state = 'pause'; updateRun({ level: levelIdx, crashes: run.crashes, curses: run.curses });
   ovBox.innerHTML = `<h2>PAUSED</h2>
-    <div class="row"><button class="act" id="mResume">RESUME</button><button class="act alt" id="mReboot">RESTART LEVEL</button></div>
-    <div class="row"><button class="act alt" id="mSound">SOUND: ${muted ? 'OFF' : 'ON'}</button><button class="act alt" id="mMusic">MUSIC: ${musicOn ? 'ON' : 'OFF'}</button><button class="act alt" id="mGrid">GRID: ${showGrid ? 'ON' : 'OFF'}</button></div>
-    <div class="row"><button class="act alt" id="mTool">HACK TOOL</button><button class="act alt" id="mQuit">QUIT TO TITLE</button></div>`;
+    <div class="menu">
+      <button class="act" id="mResume" style="grid-column:1/3">RESUME</button>
+      <button class="act alt" id="mReboot">RESTART</button><button class="act alt" id="mCheck">RESTART FROM CHECKPOINT</button>
+      <button class="act alt" id="mSaves">SAVES</button><button class="act alt" id="mSet">SETTINGS</button>
+      <button class="act alt" id="mTut">TUTORIAL</button><button class="act alt" id="mQuit">QUIT TO TITLE</button>
+      ${wideStrip() ? '<button class="act alt" id="mTool" style="grid-column:1/3">HACK TOOL</button>' : ''}
+    </div>
+    <p class="note">${wideStrip() ? '' : 'Your wiring board and every hack you can bring are on the ' + (document.body.classList.contains('mode-side') ? 'right.' : 'screen below.')}</p>`;
   ov.hidden = false;
+  if (!wideStrip()) openTool('pause');
   $('mResume').onclick = closeMenu;
-  $('mReboot').onclick = () => reboot();
-  $('mSound').onclick = (e) => { toggleSound(); e.target.textContent = 'SOUND: ' + (muted ? 'OFF' : 'ON'); };
-  $('mGrid').onclick = (e) => { showGrid = SETTINGS.grid = !showGrid; saveSettings(); e.target.textContent = 'GRID: ' + (showGrid ? 'ON' : 'OFF'); };
-  $('mMusic').onclick = (e) => { musicOn = SETTINGS.music = !musicOn; saveSettings(); e.target.textContent = 'MUSIC: ' + (musicOn ? 'ON' : 'OFF'); };
-  $('mTool').onclick = () => { state = 'play'; ov.hidden = true; openTool('game'); };
-  $('mQuit').onclick = () => { loadLevel(0); showTitle(); };
+  $('mReboot').onclick = () => { closeTool(); reboot(); };
+  $('mCheck').onclick = () => { const sv = saves[checkpoint]; p.x = sv.x + 1; p.y = 208 - p.h; p.vx = p.vy = 0; p.flip = false; p.inv = 60; p.dead = 0; if (p.riding) dismount(false); closeMenu(); log(`BACK TO SAVE ${checkpoint}`, 'sys'); };
+  $('mSaves').onclick = () => showSaves(openMenu);
+  $('mSet').onclick = () => showSettings(openMenu);
+  $('mTut').onclick = () => { closeTool(); startDemo(true); };
+  $('mQuit').onclick = () => { closeTool(); loadLevel(0); showTitle(); };
+  if ($('mTool')) $('mTool').onclick = () => { ov.hidden = true; openTool('game'); };
 }
-function closeMenu() { if (state !== 'pause') return; state = 'play'; ov.hidden = true; }
+function closeMenu() { if (state !== 'pause') return; closeTool(); state = 'play'; ov.hidden = true; }
 function toggleSound() { muted = !muted; SETTINGS.sound = !muted; saveSettings(); if (!muted) { ensureAudio(); SFX.click(); } log('SOUND ' + (muted ? 'OFF' : 'ON'), 'sys'); }
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function levelClear() {
@@ -3226,12 +3257,12 @@ function* demoScript() {
 /* ================= storage: settings, save files, your hack set ================= */
 function loadJSON(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch (e) { return d; } }
 function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage off */ } }
-const SETTINGS = Object.assign({ sound: true, music: true, haptics: true, grid: false, demo: true, hints: true }, loadJSON('memario.settings', {}));
+const SETTINGS = Object.assign({ sound: true, music: true, haptics: true, grid: false, demo: true, hints: true, side: true }, loadJSON('memario.settings', {}));
 const saveSettings = () => saveJSON('memario.settings', SETTINGS);
 function applySettings() { muted = !SETTINGS.sound; musicOn = SETTINGS.music; showGrid = SETTINGS.grid; }
 // Save files: one per run. Each remembers the level reached, time, crashes and curses.
 let runId = null;
-const loadRuns = () => loadJSON('memario.runs', []);
+const loadRuns = () => loadJSON('memario.runs', []).sort((a, b) => b.id - a.id);     // newest run first
 const saveRuns = (a) => saveJSON('memario.runs', a);
 (() => {                                                    // carry over the single save from before 5.3
   const old = parseInt(loadJSON('memario.level', 0), 10) || 0;
@@ -3250,7 +3281,7 @@ function continueRun(id) {
 function updateRun(patch) {
   if (!runId) return;
   const runs = loadRuns(), r = runs.find((q) => q.id === runId); if (!r) return;
-  Object.assign(r, patch, { at: Date.now() }); runs.sort((a, b) => b.at - a.at); saveRuns(runs);
+  Object.assign(r, patch, { at: Date.now() }); saveRuns(runs);
 }
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'JUST NOW' : m < 60 ? m + ' MIN AGO' : m < 1440 ? Math.round(m / 60) + ' H AGO' : Math.round(m / 1440) + ' D AGO'; };
 
@@ -3316,7 +3347,8 @@ let loadout = loadJSON('memario.loadout', []).filter((q) => catOf(q.id));   // t
 const inSet = (id) => loadout.find((q) => q.id === id);
 let toolMsg = '';
 function toggleSet(id) {
-  const e = catOf(id), cur = inSet(id);
+  const e = catOf(id), cur = inSet(id), lv = inLevel() && regs.find((r) => r.id === id && !r.custom);
+  if (lv) { toolMsg = `${e.name} COMES WITH THIS LEVEL: WRITE ${lv.seq.join(' ')} ON ${GLYPH[lv.ctrl]}`; return; }
   if (cur) {
     if (cur.auto) { const g = catOf(cur.of); toolMsg = `${e.name} CAME WITH ${g ? g.name : 'A HACK'}. REMOVE THAT TO DROP IT.`; return; }
     loadout = loadout.filter((q) => q.id !== id && q.of !== id);
@@ -3519,7 +3551,7 @@ let toolCat = 'ALL', toolFrom = null;
 function openTool(from) {
   toolFrom = from; $('tool').hidden = false; toolMsg = '';
   if (from === 'game') { state = 'tool'; held.left = held.right = held.jump = false; }
-  $('tDone').hidden = from === 'title' && document.body.classList.contains('mode-stack');
+  $('tDone').hidden = (from === 'title' || from === 'pause') && !wideStrip();
   renderTool();
 }
 function closeTool() {
@@ -3528,14 +3560,18 @@ function closeTool() {
   toolFrom = null;
 }
 const GLYPH = { left: '◀', right: '▶', jump: 'A' };
+const inLevel = () => toolFrom === 'pause' || toolFrom === 'game';
 function hkCard(e, ex) {
-  const L = inSet(e.id), unl = isUnlocked(e.id), on = ex.has(e.id);
-  const st = L ? (L.auto ? 'CAME WITH ' + catOf(L.of).short : 'IN SET') : !unl ? 'LOCKED · LEVEL ' + (unlockLevelOf(e.id) + 1) : on ? 'TAP TO ADD' : 'BANK ' + homeOf(e.id).bank + ' · LINE ' + 'ABC'[homeOf(e.id).line];
-  return `<button class="hk ${e.good ? 'g' : 'b'} ${L ? 'on' : ''} ${!unl || (!on && !L) ? 'lock' : ''}" data-id="${e.id}"><span class="n">${e.name}</span><span class="st">${st}</span><span class="k">${e.kind}</span><span class="d">${e.desc}</span><span class="s">${GLYPH[e.ctrl]} ${e.seq.join(' ')}</span></button>`;
+  const L = inSet(e.id), unl = isUnlocked(e.id), on = ex.has(e.id), live = inLevel() ? regs.find((r) => r.id === e.id) : null, lvl = live && !live.custom;
+  const prog = live ? (live.unlocked ? ' · ON' : live.slots.length ? ` · ${live.slots.length}/${live.seq.length}` : '') : '';
+  const st = (lvl ? 'THIS LEVEL' : L ? (L.auto ? 'CAME WITH ' + catOf(L.of).short : 'IN SET') : !unl ? 'LOCKED · LEVEL ' + (unlockLevelOf(e.id) + 1) : on ? 'TAP TO ADD' : 'BANK ' + homeOf(e.id).bank + ' · LINE ' + 'ABC'[homeOf(e.id).line]) + prog;
+  return `<button class="hk ${e.good ? 'g' : 'b'} ${L || (live && live.unlocked) ? 'on' : ''} ${lvl ? 'lvl' : ''} ${!lvl && (!unl || (!on && !L)) ? 'lock' : ''}" data-id="${e.id}"><span class="n">${e.name}</span><span class="st">${st}</span><span class="k">${e.kind}</span><span class="d">${e.desc}</span><span class="s">${GLYPH[e.ctrl]} ${e.seq.join(' ')}</span></button>`;
 }
 function renderTool() {
-  const ex = exposedIds(), xs = CAT.filter((e) => ex.has(e.id));
-  $('xhead').textContent = `EXPOSED BY YOUR WIRES (${xs.length})  ·  ${wires.length} WIRE${wires.length === 1 ? '' : 'S'}  ·  ${CAT.filter((e) => isUnlocked(e.id)).length}/${CAT.length} UNLOCKED  ·  ${loadout.length} IN YOUR SET`;
+  const ex = exposedIds();
+  const lvlIds = inLevel() ? regs.map((r) => r.id) : [];
+  const xs = CAT.filter((e) => ex.has(e.id) || inSet(e.id) || lvlIds.includes(e.id)).sort((a, b) => (lvlIds.includes(b.id) - lvlIds.includes(a.id)) || (!!inSet(b.id) - !!inSet(a.id)));
+  $('xhead').textContent = `${inLevel() ? 'THIS LEVEL, YOUR SET AND YOUR WIRES' : 'EXPOSED BY YOUR WIRES'} (${xs.length})  ·  ${wires.length} WIRE${wires.length === 1 ? '' : 'S'}  ·  ${CAT.filter((e) => isUnlocked(e.id)).length}/${CAT.length} UNLOCKED  ·  ${loadout.length} IN YOUR SET`;
   $('xg').innerHTML = xs.filter((e) => e.good).map((e) => hkCard(e, ex)).join('');
   $('xb').innerHTML = xs.filter((e) => !e.good).map((e) => hkCard(e, ex)).join('');
   if (!xs.length) $('xg').innerHTML = `<div class="xnone">${wires.length ? 'NOTHING EXPOSED. DRAG A WIRE FROM A CARTRIDGE PIN TO A SOCKET.' : 'NO WIRES YET. CLEAR A LEVEL TO EARN ONE.'}</div>`;
@@ -3562,19 +3598,26 @@ function resize() {
   const stack = innerHeight > innerWidth * 1.05;
   document.body.classList.toggle('mode-stack', stack);
   document.body.classList.toggle('mode-switch', !stack);
-  let gh, mh;
+  const side = !stack && SETTINGS.side;
+  document.body.classList.toggle('mode-side', side);
+  let gh, mh, gw = W;
   if (stack) {
     // game edge to edge (4:3 when it fits); the register screen takes the rest, never less than its compact size
     const memMin = Math.ceil(W / 320 * 172);
     gh = Math.floor(Math.min(W * 3 / 4, H - memMin)); mh = H - gh;
     memMode = 'panel'; SW = 320; SH = Math.max(120, Math.round(320 * (mh - 2) / W));
+  } else if (side) {
+    // game on the left, the hack screen on the right, both full height
+    const w2 = Math.round(clamp(W * 0.42, 240, W * 0.5)); gw = W - w2; gh = mh = H;
+    memMode = 'panel'; SW = 256; SH = Math.max(160, Math.round(256 * H / (w2 - 2)));
   } else {
     mh = Math.round(Math.min(W * 78 / 480, H * 0.4)); gh = H - mh;
     memMode = 'strip'; SW = 480; SH = Math.max(56, Math.round(480 * (mh - 2) / W));
   }
   stageEl.style.height = gh + 'px'; stage2El.style.height = mh + 'px';
+  stageEl.style.width = side ? gw + 'px' : ''; stage2El.style.width = side ? (W - gw) + 'px' : '';
   if (cv2.width !== SW || cv2.height !== SH) { cv2.width = SW; cv2.height = SH; }
-  const vw = clamp(Math.round(VH * W / gh), 320, 576);   // wide screens see further instead of getting black bars
+  const vw = clamp(Math.round(VH * gw / gh), 320, 576);   // wide screens see further instead of getting black bars
   if (vw !== VW) { VW = vw; cv.width = VW; cv.height = VH; ctx.imageSmoothingEnabled = false; buildSky(); }
 }
 let last = performance.now(), acc = 0;
@@ -3608,6 +3651,7 @@ function boot() {
 window.memarioBack = () => {
   if (demo) { stopDemo(); return 'menu'; }
   if (state === 'play') { openMenu(); return 'menu'; }
+  if (state === 'pause' && !ovBox.querySelector('#mResume')) { openMenu(); return 'menu'; }   // back out of saves or settings
   if (state === 'pause') { closeMenu(); return 'resume'; }
   if (state === 'intro') { beginLevel(); return 'resume'; }
   if (state === 'clear') { nextLevel(); return 'resume'; }

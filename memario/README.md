@@ -14,10 +14,19 @@ on the bottom screen.
 
 ## Menus, save files and the hack tool
 
-**Title menu:** NEW starts a run; SAVES lists every run (level reached, time, crashes, curses, when you
-last played) with CONTINUE and DEL (tap twice); SETTINGS toggles sound, music, vibration, grid, hints and
-the idle demo (all remembered); TUTORIAL plays the captioned demo and ends on a "your turn" card.
+**Title menu:** NEW, SAVES, SETTINGS and TUTORIAL (plus HACK TOOL in the stacked landscape layout).
 A or START on the title continues your latest unfinished run.
+
+**Pause menu** (START, or the phone's back button): RESUME, RESTART (the level), RESTART FROM CHECKPOINT
+(back to your last save point without losing anything), SAVES, SETTINGS, TUTORIAL and QUIT TO TITLE. While
+paused, screen 2 shows the wiring board, and its list mixes this level's registers (dashed, with their
+progress), your set and everything your wires expose.
+
+**Saves are automatic and historical.** Every run is kept as its own save, newest first; it's written when
+a level starts, every ten seconds of play, on pause and when a level is cleared. SAVES lists them with
+CONTINUE and DEL (tap twice), and NEW GAME sits at the top.
+
+**Settings** (remembered): sound, music, vibration, grid, hints, the idle demo, and the landscape layout.
 
 **The hack tool** is screen 2 on the title (in landscape, the HACK TOOL button opens it full screen), and
 SCAN HACKS at the bottom of the register list opens it mid-level (the game pauses). It is one scrolling
@@ -221,8 +230,10 @@ Faults are physical, not just pictures:
 ## Layout
 
 Held upright: the game screen runs edge to edge on top, and screen 2 (memory row, registers, hack tool)
-fills the space between it and the controller. Held sideways (and on desktop), Switch-style: one big game
-screen with a slim 3×3 register strip under it and the controller halves either side.
+fills the space between it and the controller. Held sideways (and on desktop), the controller halves sit either side and,
+by default, the game is on the left and screen 2 on the right, both full height; there the memory row shows
+the columns around the hero at full size. SETTINGS can switch landscape to STACKED: the game on top and a
+slim screen 2 under it, whose registers run in four columns (hack, curse, hack, curse).
 
 ## Controls (on-screen handheld controller)
 
