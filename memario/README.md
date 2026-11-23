@@ -14,45 +14,36 @@ on the bottom screen.
 
 ## Menus, save files and the hack tool
 
-**Title menu:** NEW, SAVES, SETTINGS and TUTORIAL (plus HACK TOOL in the stacked landscape layout).
+**Title:** the game plays itself behind the menu, without dimming it: a bot runs through all four levels
+with the music and sound on, showing good play and bad (feeding a curse, side contact, two jumps over an
+eleven-block gap, walking into the void), and loops. The menu: NEW, SAVES, SETTINGS and TUTORIAL (plus
+HACK TOOL in the stacked landscape layout). Levels start straight away, with a small banner.
 A or START on the title continues your latest unfinished run.
 
 **Pause menu** (START, or the phone's back button): RESUME, RESTART (the level), RESTART FROM CHECKPOINT
 (back to your last save point without losing anything), SAVES, SETTINGS, TUTORIAL and QUIT TO TITLE. While
-paused, screen 2 shows the wiring board, and its list mixes this level's registers (dashed, with their
-progress), your set and everything your wires expose.
+paused, screen 2 shows the hack tool, where this level's registers (dashed, with their progress) and your
+set show green among everything else.
 
 **Saves are automatic and historical.** Every run is kept as its own save, newest first; it's written when
 a level starts, every ten seconds of play, on pause and when a level is cleared. SAVES lists them with
 CONTINUE and DEL (tap twice), and NEW GAME sits at the top.
 
-**Settings** (remembered): sound, music, vibration, grid, hints, the idle demo, and the landscape layout.
+**Settings** (remembered): sound, music, vibration, grid, hints, the title demo, and the landscape layout.
 
-**The hack tool** is screen 2 on the title (in landscape, the HACK TOOL button opens it full screen), and
-SCAN HACKS at the bottom of the register list opens it mid-level (the game pauses). It is one scrolling
-environment:
+**The hack tool** is screen 2 on the title (in the stacked landscape layout, the HACK TOOL button opens
+it full screen), and SCAN HACKS at the bottom of the register list opens it mid-level (the game pauses). It
+is the full list of hacks, every one from every level plus the extras below, with a search box and filters
+(ALL, IN SET, LEVEL, CHEATS, MACROS, WARPS, LOOK, GLITCHES). Each card is short: what the hack does, its
+register digits (with the control) and its level number. White cards are available, green ones are active
+(in your set, or this level's own while paused), grey ones are still locked. Down the right edge runs a
+minimap of the whole list in the same colours, with a frame for what's on screen; tap or drag it to jump.
 
-1. **The wiring board**, modelled on a real cartridge PCB. Along the top, the cartridge's green board with
-   its chips, traces and 24 gold edge fingers in three lines (A, B, C). Along the bottom, the top edge of
-   your hack board with the same 24 gold fingers, in six banks of four. The wires lie on the bench between
-   them, seen from above: there's no gravity, only friction, so a new wire lies loose and wiggly until you
-   pull it, and it trails behind whatever end you drag. Each wire ends in a 3.5 mm jack plug; touch the tip
-   to a finger and it clicks in straight, drag it away to unplug. A drag anywhere else scrolls the tool.
-2. **What your wires expose.** Every hack lives on one line of one bank. A wire from a top finger to a bottom
-   finger exposes everything on that line of that bank, listed right under the board: hacks on the left, curses
-   on the right. A bank's light turns green when its wire exposes something and red when the line is
-   dead. Move the plugs around to explore.
-3. **Search and the full catalog**, filtered by ALL, IN SET, LEVEL, CHEATS, MACROS, WARPS, LOOK or GLITCHES.
-   Locked entries say which level unlocks them; unlocked ones that aren't wired say which bank and line
-   they live on.
-
-**Unlocking:** you start with no wires. Clearing a level for the first time earns a wire and unlocks that
-level's hacks and curses plus a batch of the rest (eight or so cheats, macros, warps, looks and glitches),
-until all four levels give four wires and the whole catalog.
-
-Tap an exposed entry to put it in your set, or take it out. Your set comes with you into every level,
-listed under YOUR SET below the level's own registers; like the level's, each has a digit string you write
-in to switch it on. Unwiring a hack drops it from your set.
+**Unlocking:** clearing a level for the first time unlocks that level's hacks and curses plus a batch of
+the rest (eight or so cheats, macros, warps, looks and glitches); the level number on a card is the level
+that unlocks it. Tap an available card to put it in your set, or take it out. Your set comes with you into
+every level, listed under YOUR SET below the level's own registers; like the level's, each has a digit
+string you write in to switch it on.
 
 **Every hack you add brings a curse with it**, picked for you and marked "came with" in the tool; it goes
 away when you remove the hack. Looks (palettes, sprite scale) come free.
@@ -112,7 +103,7 @@ carry them. They are the digits that level's key hacks need:
 | Level | Missing from memory | Needed by |
 | --- | --- | --- |
 | 1 Boot Sector | 8 | Super Jump, Speed Boost |
-| 2 Firewall | 0 | Phase Shift, Double Jump |
+| 2 Firewall | 0 | Phase Shift, Multi Jump |
 | 3 Cloud Storage | 4 | Quarantine (twice; the caged virus carries one) |
 | 4 Root Access | 0 and 7 | Phase Shift, Super Jump |
 
@@ -178,6 +169,7 @@ The platforming follows modern conventions and is tuned to feel snappy:
 
 - **Coyote time** (7 frames to jump after running off a ledge) and a **jump buffer** (a press up to 8 frames before landing still jumps).
 - **Variable height**: let go of A early for a short hop (rising speed is cut in half). A short **hang at the apex** while A is held.
+- **Double jump, always**: a second jump in mid-air is yours from the start.
 - **Wall slide and wall jump**: press into a wall in mid-air to slide down it slowly; A kicks off it. Ground, blocks and conduits hold you; ROM, firewalls, the bus, NULL blocks, ice and bit blocks are too smooth, and nothing holds you once you've dropped below the ground line, so pits stay pits.
 - **Corner correction**: clip the corner of a block on the way up and you're nudged past it instead of stopped dead (hidden sectors excepted).
 - **Fast fall**: hold down in the air.
@@ -250,6 +242,7 @@ slim screen 2 under it, whose registers run in four columns (hack, curse, hack, 
 | Right stick | Look ahead |
 | SELECT / START | Sound on/off / menu (pause, sound, grid, reboot) |
 | Phone back button | Pause menu (quits only from the title screen) |
+| The two lights on the right | Top: lit green, red or gold when a press would write (hack, curse, both). Bottom: stability, green to amber to red, blinking when critical |
 
 Tapping a register on the middle screen explains it in the log. Leave the title screen alone for nine
 seconds and the game plays a demo with captions; any input ends it.
@@ -262,14 +255,14 @@ conditions. Progress is saved; the title screen offers to continue from the furt
 
 | Level | Theme | Impossible without | Hacks (sequence, control, opens when) | Curses |
 | --- | --- | --- | --- | --- |
-| 1 Boot Sector | overworld | ROM wall (Super Jump); 10-block pit (Super Jump + Speed) | Fire Power 4 2 7 1 9 A · Super Jump 3 8 5 2 ◀ · Speed Boost 6 1 4 8 3 ▶ (16 bytes) · Shield 5 * 5 ▶ | Heavy Boots 2 7 2 7 A · Memory Slip 1 6 6 1 ▶ |
-| 2 Firewall | underground | floor-to-ceiling firewalls (Phase); 7-block pits (Double Jump) | Phase Shift 9 9 0 1 A (mid-air) · Double Jump 2 6 0 4 ▶ (10 bytes) · Hot Reload 3 1 4 1 ◀ · Bit Magnet # 5 5 ◀ | Memory Leak 0 0 7 3 ◀ · Packet Lag 6 6 2 2 ▶ · Blackout 3 3 9 9 A (below 60%) |
-| 3 Cloud Storage | sky | caged virus by a tall wall (Quarantine, climb off its back); the void under open sky (Bridge); the void under the bus (Gravity Flip) | Quarantine 4 4 1 2 A · Alloc Bridge 6 2 8 0 ▶ (12 bytes) · Gravity Flip 7 3 1 5 0 ◀ (1 online) · Glide 2 @ 6 A | Outbreak 1 9 1 9 ▶ · Null Pointer 3 0 3 0 A · Packet Storm 5 5 2 5 ◀ |
-| 4 Root Access | castle | firewall (Phase); lava under the bus (Flip); wall under open sky (Super Jump); firewalls through a lava floor (Flip + Phase together); KERNEL PANIC on the bridge (get past it, pull the kill switch) | Phase Shift 0 4 0 4 A (mid-air) · Gravity Flip 5 1 3 9 ▶ (1 online) · Super Jump 7 7 2 1 ◀ (below 70% stability) · Overclock $ 9 1 ▶ | Watchdog 2 2 8 ◀ · Packet Lag 1 1 6 6 ▶ · Heavy Boots 8 3 8 3 A · Blackout 9 2 9 2 A (below 60%) · Null Pointer 4 9 4 9 ▶ (after a crash) |
+| 1 Boot Sector | overworld | ROM wall, ten blocks tall under open sky (Super Jump and a double jump); thirteen-block pit (Speed Boost) | Fire Power 4 2 7 1 9 A · Super Jump 3 8 5 2 ◀ · Speed Boost 6 1 4 8 3 ▶ (16 bytes) · Shield 5 * 5 ▶ | Heavy Boots 2 7 2 7 A · Memory Slip 1 6 6 1 ▶ |
+| 2 Firewall | underground | floor-to-ceiling firewalls (Phase); eleven-block pits (Multi Jump) | Phase Shift 9 9 0 1 A (mid-air) · Multi Jump 2 6 0 4 ▶ (10 bytes) · Hot Reload 3 1 4 1 ◀ · Bit Magnet # 5 5 ◀ | Memory Leak 0 0 7 3 ◀ · Packet Lag 6 6 2 2 ▶ · Blackout 3 3 9 9 A (below 60%) |
+| 3 Cloud Storage | sky | caged trojan by a nine-block wall (Quarantine, climb off its back with a double jump); the void under open sky (Bridge); the void under the bus (Gravity Flip) | Quarantine 4 4 1 2 A · Alloc Bridge 6 2 8 0 ▶ (12 bytes) · Gravity Flip 7 3 1 5 0 ◀ (1 online) · Glide 2 @ 6 A | Outbreak 1 9 1 9 ▶ · Null Pointer 3 0 3 0 A · Packet Storm 5 5 2 5 ◀ |
+| 4 Root Access | castle | firewall (Phase); lava under the bus (Flip); a ten-block wall under open sky (Super Jump and a double jump); firewalls through a lava floor (Flip + Phase together); KERNEL PANIC on the bridge (get past it, pull the kill switch) | Phase Shift 0 4 0 4 A (mid-air) · Gravity Flip 5 1 3 9 ▶ (1 online) · Super Jump 7 7 2 1 ◀ (below 70% stability) · Overclock $ 9 1 ▶ | Watchdog 2 2 8 ◀ · Packet Lag 1 1 6 6 ▶ · Heavy Boots 8 3 8 3 A · Blackout 9 2 9 2 A (below 60%) · Null Pointer 4 9 4 9 ▶ (after a crash) |
 
 What the new hacks and curses do:
 
-- **Double Jump**: a second jump in mid-air. **Hot Reload**: a crash respawns you where you last stood instead of at the save.
+- **Multi Jump**: two more jumps in mid-air on top of the double jump; save each one for when you start to fall. **Hot Reload**: a crash respawns you where you last stood instead of at the save.
 - **Quarantine**: viruses stop, stop hurting you, and become platforms. **Alloc Bridge**: dashed null blocks become solid.
 - **Memory Slip**: every floor is as slick as ice. **Packet Storm**: a steady wind pushes you back.
 - **Packet Lag**: every input reaches the hero 10 frames late. **Outbreak**: viruses run faster and respawn.
@@ -295,7 +288,7 @@ game, through a Web Audio effect chain:
 | Super Jump | treble lifts |
 | Fire Power | distortion |
 | Phase Shift | ghostly echo |
-| Double Jump | chorus doubling |
+| Multi Jump | chorus doubling |
 | Hot Reload | a crash rewinds the tape to the top |
 | Quarantine | thin, icy, with a short echo |
 | Alloc Bridge | bass boost |

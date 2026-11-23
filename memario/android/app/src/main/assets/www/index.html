@@ -74,7 +74,7 @@ body.mode-switch .ov .steps{display:grid}
   padding-left:max(12px,var(--sal));padding-right:max(12px,var(--sar))}
 .pad *{touch-action:none}
 .pad-l,.pad-r{display:grid;gap:10px;justify-items:center}
-.pad-m{display:grid;grid-template-rows:var(--w) calc(var(--w)*1.1 + 10px);justify-items:center;width:calc(var(--w)*.6);position:relative;z-index:2}
+.pad-m{display:grid;grid-template-rows:var(--w) calc(var(--w)*1.1 + 10px);justify-items:center;min-width:calc(var(--w)*.6);position:relative;z-index:2}
 .well{width:var(--w);height:var(--w);border-radius:50%;position:relative;
   background:radial-gradient(circle,var(--well) 60%,#24236a 100%);box-shadow:0 0 0 3px var(--well-ring),inset 0 2px 8px rgba(0,0,0,.25)}
 /* D-pad */
@@ -102,7 +102,7 @@ body.mode-switch .ov .steps{display:grid}
 .led{position:absolute;pointer-events:none;right:max(0px,var(--sar));width:10px;border-radius:3px 0 0 3px}
 .led.r1{top:calc(14px + var(--w)*.18);height:26px;background:#5a1420;box-shadow:none;transition:background .1s}
 .led.r1.on{background:#ff2a3a;box-shadow:0 0 10px #ff2a3a}
-.led.r2{top:calc(14px + var(--w)*.18 + 34px);height:24px;background:#1f1e55}
+.led.r2{top:calc(14px + var(--w)*.18 + 34px);height:24px;background:#1f1e55;transition:background .2s}
 /* grille + small buttons */
 .grille{align-self:end;justify-self:center;display:grid;grid-template-columns:repeat(4,7px);gap:calc(var(--w)*.075) calc(var(--w)*.06);margin-bottom:calc(var(--w)*-.18)}
 .grille i{width:7px;height:7px;border-radius:50%;background:#18174a}
@@ -137,6 +137,8 @@ body:not(.touch) .pad{display:none}
 }
 @media (prefers-reduced-motion:reduce){ .dpad{transform:none!important} }
 /* ---------- title menu, saves, settings ---------- */
+.ov.clear{background:transparent}
+.ov.clear h2,.ov.clear p{text-shadow:0 2px 0 #000,0 0 8px #000}
 .ov .menu{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:min(100%,360px)}
 .ov .menu .act{width:100%}
 .ov .note{font-size:11px;color:var(--muted)}
@@ -154,14 +156,12 @@ body.mode-side #stage2{border-top:0;border-left:2px solid #05040a}
 /* ---------- the hack tool: every hack, searchable; tap to bring it with you ---------- */
 .tool{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;background:#0a0816;font-family:var(--f-pix);color:var(--ink);user-select:none}
 body.mode-switch:not(.mode-side) .tool{position:fixed;inset:var(--sat) 0 0 0;z-index:30}
-.tool .tscroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-.tool .board{position:relative;background:#06150f}
-.tool .board canvas{position:relative;inset:auto;display:block;width:100%;height:auto;object-fit:fill;image-rendering:auto;touch-action:none}
+.tool .tscroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;position:relative;margin-right:38px;scrollbar-width:none}
+.tool .tscroll::-webkit-scrollbar{display:none}
+.tool .tmap{position:absolute;left:auto;right:0;top:0;bottom:auto;width:38px;height:100%;background:#07060f;border-left:1px solid var(--rule);touch-action:none;cursor:pointer}
+.tool .tbar #tDone{position:static;flex:0 0 auto}
 .tool #tDone{position:absolute;right:6px;top:6px;font:13px var(--f-pix);background:var(--phos);color:#04130a;border:0;border-radius:4px;padding:7px 12px}
 .tool .xhead{font-size:11px;color:var(--cyan);padding:7px 8px 3px;letter-spacing:.08em}
-.tool .xcols{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 6px 6px}
-.tool .xcols>div{display:grid;gap:5px;align-content:start}
-.tool .xnone{color:var(--muted);font-size:11px;padding:6px 2px;grid-column:1/3}
 .tool .tbar{display:flex;gap:6px;padding:6px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:2;background:#0a0816}
 .tool input{flex:1;min-width:0;font:14px var(--f-pix);background:#05040a;color:#fff;border:1px solid var(--cyan);border-radius:4px;padding:7px 9px;user-select:text;-webkit-user-select:text}
 .tool input::placeholder{color:#4a5a7a}
@@ -169,17 +169,20 @@ body.mode-switch:not(.mode-side) .tool{position:fixed;inset:var(--sat) 0 0 0;z-i
 .tool .tcats button{flex:0 0 auto;font:11px var(--f-pix);background:transparent;color:var(--muted);border:1px solid var(--rule);border-radius:10px;padding:3px 9px}
 .tool .tcats button.on{color:#04130a;background:var(--cyan);border-color:var(--cyan)}
 .tool .tlist{padding:5px 6px 10px;display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start}
-.tool .hk.lock{opacity:.45}
+.tool .hk.lock{opacity:.38;filter:grayscale(1)}
 .tool .hk.lvl{border-style:dashed}
 body.mode-side .tool .hk .k{display:none}
 body.mode-side .tool .hk .n{font-size:12px}
 body.mode-side .tool .hk .d{font-size:10px}
-.tool .hk{display:grid;grid-template-columns:1fr auto;gap:1px 6px;text-align:left;background:var(--term2);border:1px solid var(--rule);border-radius:4px;padding:6px 7px;cursor:pointer}
+.tool .hk.on .lv{color:var(--phos)}
+.tool .hk{display:grid;grid-template-columns:1fr auto;gap:2px 6px;align-items:baseline;text-align:left;background:var(--term2);border:1px solid var(--rule);border-radius:4px;padding:4px 6px;cursor:pointer}
 .tool .hk .n{font-size:13px;color:#fff} .tool .hk.b .n{color:#ff8ab8}
 .tool .hk .st{font-size:10px;color:var(--muted);align-self:start}
 .tool .hk .k{grid-column:1/3;font-size:9px;color:#6f7aa0;letter-spacing:.05em}
-.tool .hk .d{grid-column:1/3;font:11px/1.3 var(--f-mono);color:#b9c2dc}
-.tool .hk .s{grid-column:1/3;font-size:12px;color:var(--cyan);letter-spacing:.12em}
+.tool .hk .d{grid-column:1/3;font:11px/1.25 var(--f-mono);color:#e8ecff;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tool .hk.b .d{color:#ffb3d1}
+.tool .hk .lv{font-size:10px;color:var(--muted)}
+.tool .hk .s{font-size:12px;color:var(--cyan);letter-spacing:.1em;white-space:nowrap;overflow:hidden}
 .tool .hk.on{border-color:var(--phos);background:#0d2a1a} .tool .hk.on .st{color:var(--phos)}
 .tool .hk.b.on{border-color:var(--hot);background:#2a0d1c} .tool .hk.b.on .st{color:var(--hot)}
 .tool .tfoot{position:absolute;left:0;right:0;bottom:0;pointer-events:none;padding:6px 8px;border-top:1px solid var(--gold);background:rgba(10,8,22,.94);font-size:11px;color:var(--gold);transition:opacity .4s}
@@ -198,13 +201,12 @@ body.mode-side .tool .hk .d{font-size:10px}
       <canvas id="cv2" width="320" height="240" aria-label="Memory row and registers. Drag to scroll; tap a register to have it explained."></canvas>
       <div class="tool" id="tool" hidden>
         <div class="tscroll" id="tscroll">
-          <div class="board"><canvas id="board" width="960" height="480" aria-label="Wiring board: drag a wire's plugs between the cartridge pins and your board's sockets"></canvas><button id="tDone">DONE</button></div>
-          <div class="xhead" id="xhead">EXPOSED BY YOUR WIRES</div>
-          <div class="xcols"><div id="xg"></div><div id="xb"></div></div>
-          <div class="tbar"><input id="tq" type="search" placeholder="SEARCH EVERY HACK" enterkeyhint="search" autocomplete="off" spellcheck="false" aria-label="Search hacks"></div>
+          <div class="tbar"><input id="tq" type="search" placeholder="SEARCH EVERY HACK" enterkeyhint="search" autocomplete="off" spellcheck="false" aria-label="Search hacks"><button id="tDone">DONE</button></div>
           <div class="tcats" id="tcats"></div>
+          <div class="xhead" id="xhead"></div>
           <div class="tlist" id="tlist"></div>
         </div>
+        <canvas class="tmap" id="tmap" aria-label="Overview of the list: white is available, green is active. Tap or drag to scroll."></canvas>
         <div class="tfoot" id="tfoot"></div>
       </div>
     </div>
@@ -236,7 +238,7 @@ body.mode-side .tool .hk .d{font-size:10px}
         <button class="fb b" data-k="inj" id="fbB" aria-label="B: scan">B</button>
       </div>
       <div class="well stickw"><div class="stick" id="stickR" aria-label="Right stick: look ahead"><div class="gate"></div><div class="cap"></div></div></div>
-      <i class="led r1" id="led"></i><i class="led r2"></i>
+      <i class="led r1" id="led" title="Write light: lit when a press would write"></i><i class="led r2" id="led2" title="Stability light"></i>
     </div>
   </div>
 </div>
@@ -336,11 +338,11 @@ const LEVELS = [
   {
     name: 'BOOT SECTOR', rare: [8], world: 'OVERWORLD',
     syms: [{ c: 89, ch: '*', top: 80 }], calm: [[146, 194]],
-    brief: 'A ROM wall and a ten-block pit guard the exit. Super Jump clears the wall; the pit needs Super Jump and Speed Boost together.',
+    brief: 'A ROM wall and a thirteen-block pit guard the exit. Super Jump clears the wall; the pit needs Speed Boost.',
     theme: { world: 'over', bg: ['#0b2a4a', '#2f7a86'], sil: ['#123f4a', '#1a5a52'], glow: '#c8fff0', dark: 0.22, shade: '#03101a', grass: ['#8dff7a', '#3fd85a', '#137a34', '#e6ffd2'], soil: ['#3a2a24', '#2c1f1b', '#4a3629', '#1e1410', '#33251e', '#6e4c36'] },
     build(k) {
-      k.ground(0, 68); k.ground(72, 90); k.ground(93, 175); k.ground(186, 223);
-      k.bus(0, 58); k.bus(62, 118); k.bus(124, 223);
+      k.ground(0, 68); k.ground(72, 90); k.ground(93, 175); k.ground(189, 223);   // a thirteen-block pit: Speed Boost
+      k.bus(0, 58); k.bus(62, 118); k.bus(124, 150); k.bus(196, 223);            // open sky over the wall
       k.hex(14, 9); k.row(18, 22, 9, T.RAM); k.hex(19, 9, 21, 9, 20, 5);
       k.conduit(27, 2); k.conduit(37, 3); k.conduit(45, 4); k.conduit(56, 4);
       k.row(62, 65, 8, T.RAM); k.hex(63, 8);
@@ -350,8 +352,7 @@ const LEVELS = [
       k.conduit(112, 3);
       k.row(126, 142, 9, T.RAM); k.hex(130, 9, 136, 9);
       k.conduit(146, 2);
-      k.row(159, 163, 9, T.RAM); k.hex(161, 9, 161, 5);
-      k.block(168, 169, 5, 12, T.ROM);                       // the ROM wall: Super Jump only
+      k.block(168, 169, 3, 12, T.ROM);                       // the ROM wall: Super Jump (and a double jump) only
       k.row(192, 195, 9, T.RAM); k.hex(193, 9);
       k.stack(204, [1, 2, 3, 3]);
       k.block(64, 64, 8, 8, T.ROM); k.block(118, 118, 11, 12, T.ROM);        // spinlock hub, ping cannon base
@@ -361,11 +362,11 @@ const LEVELS = [
       { t: 'walker', x: 82 }, { t: 'spiky', x: 97 }, { t: 'thrower', x: 109 }, { t: 'walker', x: 121 }, { t: 'sheller', x: 133 }, { t: 'walker', x: 139 },
       { t: 'bomb', x: 150 }, { t: 'flyer', x: 164 }, { t: 'walker', x: 172 }, { t: 'walker', x: 190 }, { t: 'sheller', x: 197 }, { t: 'walker', x: 210 },
       { t: 'plant', x: 37 }, { t: 'plant', x: 56 }, { t: 'cannon', x: 118, y: 11 }, { t: 'firebar', x: 64, y: 8, n: 4 },
-      { t: 'crusher', x: 153, y: 3 }, { t: 'lift', x: 68, y: 10, w: 3, axis: 'x', range: 24 }],
+      { t: 'crusher', x: 138, y: 3 }, { t: 'lift', x: 68, y: 10, w: 3, axis: 'x', range: 24 }],
     saves: [2, 74, 125, 155, 189],
     bits: [[69,10],[70,9],[71,10],[102,7],[103,6],[104,6],[105,7],[128,11],[130,11],[132,11],[134,11],[136,11],[138,11],[140,11],
       [177,3],[179,3],[181,3],[183,3],[84,4],[85,4],[86,4],[160,3],[162,3],[50,2],[51,2],[52,2]],
-    patches: ['21,9', '20,5', '63,8', '91,5', '136,9', '161,5', '193,9'],
+    patches: ['21,9', '20,5', '63,8', '91,5', '136,9', '193,9'],
     exit: 214,
     regs: [
       reg('fire',   true,  'FIRE',   'FIRE POWER',   '0x3FF18', [4, 2, 7, 1, 9], 'jump',  'AUTO-FIRES PLASMA'),
@@ -379,10 +380,10 @@ const LEVELS = [
   {
     name: 'FIREWALL', rare: [0], world: 'UNDERGROUND',
     syms: [{ c: 145, ch: '#', top: 128 }], calm: [[50, 87], [96, 129], [146, 177], [180, 190]],
-    brief: 'Underground. Firewalls run floor to brick ceiling and the pits are seven blocks wide. Phase through the walls and jump twice over the gaps.',
+    brief: 'Underground. Firewalls run floor to brick ceiling and the pits are eleven blocks wide. Phase through the walls, and Multi Jump over the gaps: save each jump for when you start to fall.',
     theme: { world: 'under', bg: ['#05060f', '#140d1e'], sil: ['#0e0c1c', '#1a1530'], glow: '#ff7a3d', dark: 0.58, shade: '#020108', grass: ['#7a9cff', '#4a64c8', '#25306a', '#c8d4ff'], soil: ['#1a1c34', '#13152a', '#24274a', '#0b0c1a', '#181a30', '#3a3f6a'] },
     build(k) {
-      k.ground(0, 71); k.ground(79, 113); k.ground(121, 161); k.ground(169, 223);   // seven-block pits: Double Jump only
+      k.ground(0, 71); k.ground(83, 113); k.ground(125, 159); k.ground(171, 223);   // eleven-block pits: Triple Jump only
       k.row(0, 223, 0, T.BRICK); k.block(30, 34, 1, 2, T.BRICK); k.block(90, 93, 1, 1, T.BRICK); k.block(196, 201, 1, 3, T.BRICK);   // the brick ceiling
       k.hex(8, 9); k.row(12, 16, 9, T.RAM); k.hex(13, 9, 15, 9, 14, 5, 26, 9, 36, 9);
       k.conduit(30, 2);
@@ -393,19 +394,19 @@ const LEVELS = [
       k.block(154, 155, 1, 12, T.FW);
       k.hex(176, 9); k.block(185, 186, 1, 12, T.FW); k.stack(198, [2, 2]);
       k.block(42, 42, 8, 8, T.ROM); k.block(143, 143, 5, 5, T.ROM); k.block(172, 172, 11, 12, T.ROM);
-      k.row(84, 94, 13, T.CONVR); k.row(124, 136, 13, T.CONVL);                // pipelines
+      k.row(84, 94, 13, T.CONVR); k.row(126, 136, 13, T.CONVL);                // pipelines
     },
-    ents: [{ t: 'walker', x: 20 }, { t: 'spiky', x: 33 }, { t: 'thrower', x: 48 }, { t: 'sheller', x: 66 }, { t: 'walker', x: 82 }, { t: 'spiky', x: 92 },
+    ents: [{ t: 'walker', x: 20 }, { t: 'spiky', x: 33 }, { t: 'thrower', x: 48 }, { t: 'sheller', x: 66 }, { t: 'walker', x: 85 }, { t: 'spiky', x: 92 },
       { t: 'thrower', x: 125 }, { t: 'sheller', x: 133 }, { t: 'bomb', x: 147 }, { t: 'walker', x: 175 }, { t: 'spiky', x: 195 }, { t: 'thrower', x: 205 },
       { t: 'plant', x: 30 }, { t: 'plant', x: 128 }, { t: 'firebar', x: 42, y: 8, n: 4 }, { t: 'firebar', x: 143, y: 5, n: 5 }, { t: 'cannon', x: 172, y: 11 },
       { t: 'drop', x: 20, y: 8, w: 2 }, { t: 'drop', x: 24, y: 6, w: 2 }, { t: 'lift', x: 140, y: 9, w: 2, axis: 'y', range: 40 }],
-    saves: [2, 62, 80, 122, 170],
+    saves: [2, 62, 84, 126, 174],
     bits: [[72,8],[74,7],[76,8],[114,8],[116,7],[118,8],[162,8],[164,7],[166,8],[44,6],[45,6],[90,7],[91,7],[20,6],[24,4],[25,4]],
     patches: ['13,9', '14,5', '97,9', '146,8', '176,9'],
     exit: 214,
     regs: [
       reg('phase',  true,  'PHASE',  'PHASE SHIFT',  '0x0A11C', [9, 9, 0, 1],    'jump',  'WALK THROUGH FIREWALLS', C_AIR),
-      reg('double', true,  'DOUBLE', 'DOUBLE JUMP',  '0x2B2B2', [2, 6, 0, 4],    'right', 'A SECOND JUMP IN MID-AIR', C_BYTES(10)),
+      reg('triple', true,  'MULTI',  'MULTI JUMP',   '0x2B2B2', [2, 6, 0, 4],    'right', 'TWO MORE JUMPS IN MID-AIR', C_BYTES(10)),
       reg('reload', true,  'RELOAD', 'HOT RELOAD',   '0x40AD1', [3, 1, 4, 1],    'left',  'CRASHES RESPAWN WHERE YOU STOOD'),
       reg('magnet', true,  'MAGNET', 'BIT MAGNET',   '0x3A6E7', ['#', 5, 5],    'left',  'BITS FLY TO YOU'),
       reg('leak',   false, 'LEAK',   'MEMORY LEAK',  '0xBAD03', [0, 0, 7, 3],    'left',  'STABILITY DRAINS OVER TIME'),
@@ -415,13 +416,13 @@ const LEVELS = [
   },
   {
     name: 'CLOUD STORAGE', rare: [4], world: 'SKY',
-    syms: [{ c: 54, ch: '@', top: 128 }], calm: [[40, 184]],
+    syms: [{ c: 54, ch: '@', top: 64 }], calm: [[40, 184]],
     brief: 'Up in the cloud, the floor drops into the void. Freeze the caged virus and climb off its back, allocate the bridge, then walk the ceiling.',
     theme: { world: 'sky', bg: ['#1a1450', '#7a5aa8'], sil: ['#3a2f78', '#5a4a96'], glow: '#ffd8f4', dark: 0.3, shade: '#0a0620', grass: ['#ffffff', '#e4dcff', '#a99ae0', '#ffffff'], soil: ['#4a3f86', '#3c3272', '#574c9a', '#2e265c', '#43397c', '#7a6cc0'] },
     build(k) {
       k.ground(0, 223); k.bus(0, 40); k.bus(108, 175);
       k.hex(8, 9); k.row(12, 15, 9, T.RAM); k.hex(13, 9, 22, 5, 30, 9, 36, 9);
-      k.hole(48, 49); k.block(52, 55, 8, 12, T.ROM);         // the cage: a bug penned against a wall too tall to jump
+      k.hole(48, 49); k.block(52, 55, 4, 12, T.ROM);         // the cage: a trojan penned against a wall too tall to jump
       k.row(62, 63, 11, T.ROM); k.row(64, 102, 10, T.NUL); k.hole(66, 100);     // a bridge over the void, open sky
       k.hole(116, 166);                                       // no floor under the bus: walk the ceiling
       k.row(20, 23, 8, T.SEMI); k.row(26, 28, 6, T.SEMI); k.row(196, 199, 11, T.SEMI);   // clouds
@@ -429,7 +430,7 @@ const LEVELS = [
       k.row(56, 63, 13, T.ICE);                                                  // cold storage before the bridge
       k.row(188, 188, 9, T.SWITCH); k.row(197, 199, 8, T.RED); k.row(200, 202, 6, T.BLUE); k.row(203, 205, 4, T.RED); k.row(170, 174, 9, T.SEMI);
     },
-    ents: [{ t: 'dino', x: 6 }, { t: 'walker', x: 18 }, { t: 'ghost', x: 26, y: 7 }, { t: 'bomb', x: 31 }, { t: 'sheller', x: 37 }, { t: 'walker', x: 50, respawn: true },
+    ents: [{ t: 'dino', x: 6 }, { t: 'walker', x: 18 }, { t: 'ghost', x: 26, y: 7 }, { t: 'bomb', x: 31 }, { t: 'sheller', x: 37 }, { t: 'sheller', x: 50, respawn: true },
       { t: 'crusher', x: 40, y: 3 }, { t: 'sheller', x: 59 }, { t: 'walker', x: 180 }, { t: 'ghost', x: 175, y: 5 }, { t: 'bomb', x: 184 }, { t: 'chomp', x: 194 },
       { t: 'walker', x: 200 }, { t: 'ghost', x: 205, y: 4 }, { t: 'walker', x: 208 }, { t: 'lift', x: 178, y: 8, w: 2, axis: 'y', range: 36 }],
     saves: [2, 58, 106, 172],
@@ -448,7 +449,7 @@ const LEVELS = [
   },
   {
     name: 'ROOT ACCESS', rare: [0, 7], world: 'CASTLE',
-    syms: [{ c: 101, ch: '$', top: 80 }], calm: [[36, 112], [116, 213]],
+    syms: [{ c: 101, ch: '$', top: 48 }], calm: [[36, 112], [116, 213]],
     brief: 'The castle. Phase the firewall, walk the ceiling over the lava, Super Jump the wall, phase through firewalls upside down, then get past KERNEL PANIC on the bridge and pull the kill switch. Super Jump only opens once the game is unstable.',
     theme: { world: 'castle', bg: ['#0a0306', '#2a0a0c'], sil: ['#1a0a0e', '#2a1016'], glow: '#ff6a2a', dark: 0.68, shade: '#060103', grass: ['#8a8098', '#5e566e', '#3a3446', '#c8c0d8'], soil: ['#2a2532', '#201c28', '#332d3e', '#16131c', '#25202e', '#4a4258'] },
     build(k) {
@@ -456,7 +457,7 @@ const LEVELS = [
       k.hex(8, 9); k.row(12, 16, 9, T.RAM); k.hex(14, 9, 20, 5, 28, 9, 34, 9);
       k.block(44, 45, 1, 12, T.FW);                           // phase
       k.spikes(56, 88);                                       // flip along the bus
-      k.hex(94, 9); k.block(100, 103, 5, 12, T.ROM);          // open sky above: Super Jump only
+      k.block(100, 103, 3, 12, T.ROM);                       // open sky above: Super Jump (and a double jump) only
       k.spikes(124, 186);                                     // corrupt floor under the bus...
       for (const x of [134, 149, 164, 178]) k.block(x, x + 1, 1, 12, T.FW);   // ...with firewalls through it: flip + phase
       k.hole(195, 210); k.row(195, 210, 13, T.BRIDGE); k.row(195, 210, 14, T.SPK);   // the bridge over the lava, and the boss on it
@@ -468,7 +469,7 @@ const LEVELS = [
       { t: 'ghost', x: 175, y: 6 }, { t: 'panic', x: 205 }, { t: 'kill', x: 211 }],
     saves: [2, 48, 92, 116, 190],
     bits: [[60,2],[64,2],[68,2],[72,2],[76,2],[80,2],[84,2],[128,2],[140,2],[156,2],[170,2],[184,2]],
-    patches: ['14,9', '28,9', '94,9', '200,9'],
+    patches: ['14,9', '28,9'],
     exit: 214,
     regs: [
       reg('phase',  true,  'PHASE',  'PHASE SHIFT',  '0x0A11C', [0, 4, 0, 4],    'jump',  'WALK THROUGH FIREWALLS', C_AIR),
@@ -921,7 +922,7 @@ let musicOn = true, musicIdx = -1, mStep = 0, mNext = 0;
 // The hacked music: every hack and curse changes the soundtrack (the player's own song) in its own way.
 const MUSIC_FX = {
   speed: 'TEMPO UP', super: 'TREBLE LIFTS', fire: 'SONG DISTORTS', heavy: 'SONG SLOWS AND SINKS',
-  slip: 'SONG PLAYS BACKWARDS, CHANNELS SWAPPED', storm: 'SONG PLAYS BACKWARDS, CHANNELS SWAPPED', phase: 'SONG GOES GHOSTLY', double: 'SONG DOUBLED', reload: 'CRASHES REWIND THE TAPE',
+  slip: 'SONG PLAYS BACKWARDS, CHANNELS SWAPPED', storm: 'SONG PLAYS BACKWARDS, CHANNELS SWAPPED', phase: 'SONG GOES GHOSTLY', triple: 'SONG DOUBLED', reload: 'CRASHES REWIND THE TAPE',
   leak: 'PITCH DRIFTS DOWN', lag: 'SONG ECHOES LATE', dark: 'SONG MUFFLED', freeze: 'SONG TURNS ICY', bridge: 'BASS BOOSTED',
   grav: 'FLIPPING TURNS THE EQ UPSIDE DOWN', swarm: 'FRANTIC HI-HATS', nullptr: 'SONG DROPS OUT WITH THE BLOCKS', watchdog: 'A CLOCK TICKS',
 };
@@ -1044,7 +1045,7 @@ function applyMusicFx() {
   setP(FX.swapG.gain, (abil.slip || abil.storm) ? 1 : 0); setP(FX.straight.gain, (abil.slip || abil.storm) ? 0 : 1);
   const echo = abil.phase ? [0.11, 0.55, 0.5] : abil.lag ? [0.19, 0.38, 0.6] : abil.freeze ? [0.07, 0.5, 0.35] : [0.16, 0.3, L.echo];
   setP(FX.echo.delayTime, echo[0], 0.1); setP(FX.fb.gain, echo[1]); setP(FX.wet.gain, echo[2]);
-  setP(FX.choG.gain, abil.double ? 0.75 : 0);
+  setP(FX.choG.gain, abil.triple ? 0.75 : 0);
   setP(FX.out.gain, nullPhase() === 2 || mDropT > 0 ? 0 : 0.5, 0.01);              // NULL POINTER / segfault dropouts
 }
 function mNote(midi, t, d, type, v, cents = 0, out = null, vib = false) {
@@ -1111,7 +1112,7 @@ function synthTick() {
         if (p && p.flip) m = 2 * tr.root - m + 12;
         if (Math.random() < C * 0.25) m += Math.random() < 0.5 ? -1 : 1;
         mNote(m, mNext + (abil.lag ? step * 1.5 : 0), step * l.len * (abil.freeze ? 0.3 : 0.95), abil.fire ? 'sawtooth' : abil.phase ? 'sine' : 'square', 0.022, cents, null, abil.phase);
-        if (abil.double) mNote(m + 12, mNext, step * l.len * 0.95, 'square', 0.01, cents);
+        if (abil.triple) mNote(m + 12, mNext, step * l.len * 0.95, 'square', 0.01, cents);
       }
       if (b) { mNote(b.midi + trans, mNext, step * b.len * 0.9, 'triangle', 0.06, cents); if (abil.bridge) mNote(b.midi + trans + 7, mNext, step * b.len * 0.9, 'triangle', 0.035, cents); }
       if (d && d !== '.') mDrum(d, mNext);
@@ -1253,7 +1254,13 @@ KEYS.forEach((k) => { held[k] = false; edges[k] = false; consumed[k] = false; })
 function setKey(source, k, v) {
   if (src[source][k] === v) return;
   src[source][k] = v;
-  if (demo && source !== 'bot') { if (v) stopDemo(); return; }          // any real input ends the demo
+  if (demo && source !== 'bot') {
+    if (demo.title) {                                                    // behind the title: A or START plays
+      if (v && (k === 'jump' || k === 'start') && document.activeElement !== $('tq') && ovBox.querySelector('#tNew')) { ensureAudio(); closeTool(); const r = loadRuns().find((q) => !q.done); if (r) continueRun(r.id); else newRun(); }
+      return;
+    }
+    if (v) stopDemo(); return;                                           // any real input ends the tutorial
+  }
   const now = src.kb[k] || src.dpad[k] || src.stick[k] || src.btn[k] || src.bot[k] || false;
   if (now && !held[k]) { edges[k] = true; onPress(k); }
   if (!now && held[k]) consumed[k] = false;
@@ -1339,7 +1346,7 @@ function bindStick(el, which) {
 bindStick($('stickL'), 'L'); bindStick($('stickR'), 'R');
 
 if (('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
-addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') document.body.classList.add('touch'); if (demo) stopDemo(); }, { passive: true });
+addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') document.body.classList.add('touch'); if (demo && !demo.title) stopDemo(); }, { passive: true });
 
 /* ================= bottom screen: the register bank ================= */
 const cv2 = $('cv2'), ctx2 = cv2.getContext('2d', { alpha: false });
@@ -1534,7 +1541,7 @@ function drawList(g, T, x0, y0, w, h) {
 let drag2 = null;
 cv2.addEventListener('pointerdown', (e) => {
   e.preventDefault(); ensureAudio();
-  if (demo) { stopDemo(); return; }
+  if (demo) { if (!demo.title) stopDemo(); return; }
   const rc = cv2.getBoundingClientRect();
   drag2 = { id: e.pointerId, y0: e.clientY, s0: listScroll, k: SH / rc.height, moved: false, x: (e.clientX - rc.left) / rc.width * SW, y: (e.clientY - rc.top) / rc.height * SH };
   try { cv2.setPointerCapture(e.pointerId); } catch (_) { /* fine */ }
@@ -2069,7 +2076,6 @@ function update() {
 }
 function updateInner() {
   frame++;
-  if (state === 'title' && !demo && SETTINGS.demo && frame - titleAt > 600 && !ov.hidden && document.activeElement !== $('tq') && !$('tq').value) { startDemo(); return; }   // idle on the title: the game plays itself
   if (state !== 'play') {
     if (state === 'title') camX = (Math.sin(frame / 900) * 0.5 + 0.5) * (WORLD_W - VW) * 0.6;
     if (state === 'intro') camX = 0;
@@ -2247,8 +2253,8 @@ function updatePlayer(L, Rt, J) {
     p.vy = -g * 5.6 * jv; p.vx = -p.wallDir * 2.4; p.face = -p.wallDir; p.wjLock = 9; p.wallT = 0; jumpBuf = 0; p.jumpHeld = true;
     p.sq = -1; SFX.jump(); haptic(10);
     for (let i = 0; i < 6; i++) puff(p.x + (p.wallDir > 0 ? p.w : 0), p.y + p.h - 6 - i * 3, 1, -p.wallDir);
-  } else if (jumpBuf > 0 && !p.grounded && abil.double && p.airJumps > 0) {   // DOUBLE JUMP
-    p.vy = -g * 5.4 * jv; p.airJumps--; jumpBuf = 0; SFX.flip(); p.landT = 0; p.jumpHeld = true; p.sq = -0.7;
+  } else if (jumpBuf > 0 && !p.grounded && !p.riding && p.airJumps > 0) {   // DOUBLE JUMP: always yours (MULTI JUMP adds two more)
+    p.vy = -g * (abil.triple ? 4.6 : 5.4) * jv; p.airJumps--; jumpBuf = 0; SFX.flip(); p.landT = 0; p.jumpHeld = true; p.sq = -0.7;   // multi jumps are shorter hops
     for (let i = 0; i < 8; i++) emit({ x: p.x + 7, y: p.flip ? p.y : p.y + p.h, vx: (Math.random() - 0.5) * 2, vy: g * Math.random(), t: 14, c: '#4ff0ff' });
   }
   const rising = p.vy * g < 0;
@@ -2289,7 +2295,7 @@ function updatePlayer(L, Rt, J) {
   if (p.ft === T.SPRING) { p.vy = -g * (J ? 9.4 : 8.4); p.grounded = false; bumps.set(Math.floor((p.x + p.w / 2) / 16) + ',' + Math.floor((p.y + p.h + 1) / 16), 8); tone(300, 0.2, 'triangle', 0.06, 500); haptic(20); }
   else if (p.ft === T.NOTE) { p.vy = -g * (J ? 7.4 : 6.2); p.grounded = false; bumps.set(Math.floor((p.x + p.w / 2) / 16) + ',' + Math.floor((p.y + p.h + 1) / 16), 10); tone(620, 0.1, 'triangle', 0.05, 200); }
   else if (p.ft === T.CONVL || p.ft === T.CONVR) conveyor(p);
-  if (p.grounded) { p.airJumps = 1; p.flutter = 18; }
+  if (p.grounded) { p.airJumps = abil.triple ? 3 : 1; p.flutter = 18; }
   if (p.sq) { p.sq *= 0.8; if (Math.abs(p.sq) < 0.03) p.sq = 0; }
   // mount the raptor by landing on it
   if (dino && dino.st === 'idle' && !p.riding && !p.flip && p.vy > 0 && overlap(p, dino) && p.y + p.h - p.vy <= dino.y + 10) mount();
@@ -2978,6 +2984,14 @@ function drawPlayer(cx0) {
 }
 function drawHUD(C) {
   if (state === 'title' || state === 'intro') return;
+  const bt = frame - bannerAt;
+  if (bt < 200 && !demo) {
+    ctx.globalAlpha = bt < 170 ? 1 : (200 - bt) / 30;
+    ctx.fillStyle = 'rgba(6,5,14,0.82)'; ctx.fillRect(0, 22, VW, 34);
+    drawText(`LEVEL ${levelIdx + 1} · ${LV.world}`, VW / 2, 26, '#4ff0ff', 1, 'center');
+    drawText(LV.name, VW / 2, 36, '#ffffff', 2, 'center');
+    ctx.globalAlpha = 1;
+  }
   if (memMode === 'strip' && logLines.length && frame - lastLogAt < 200) {
     const l = logLines[logLines.length - 1], tt = typed(l), t = tt.length > 70 ? tt.slice(0, 69) + '.' : tt;
     ctx.fillStyle = 'rgba(8,7,15,0.75)'; ctx.fillRect(0, VH - 12, t.length * 4 + 8, 12);
@@ -3004,7 +3018,10 @@ function drawHUD(C) {
 /* ================= overlays & flow ================= */
 const ov = $('ov'), ovBox = $('ovBox');
 function showTitle() {
-  state = 'title'; stopMusic(); titleAt = frame; runId = null;
+  titleAt = frame; runId = null;
+  if (SETTINGS.demo) { if (!demo || !demo.title) startDemo('title'); }          // behind the title, the game plays itself
+  else { if (demo) stopDemo(() => {}); state = 'title'; stopMusic(); }
+  ov.classList.add('clear');
   ovBox.innerHTML = `<h2>MEMARIO</h2>
     <p>Hack your own memory with numbers you find in the world.</p>
     <div class="menu">
@@ -3012,13 +3029,14 @@ function showTitle() {
       <button class="act alt" id="tSet">SETTINGS</button><button class="act alt" id="tTut">TUTORIAL</button>
       <button class="act alt only-wide" id="tTool" style="grid-column:1/3">HACK TOOL</button>
     </div>
-    <p class="note">${document.body.classList.contains('mode-stack') ? 'The screen below is your hack tool: wire it up, then tap hacks to bring them into every level.' : document.body.classList.contains('mode-side') ? 'The screen on the right is your hack tool: wire it up, then tap hacks to bring them into every level.' : 'The hack tool: wire it up, then tap hacks to bring them into every level.'}</p>`;
+    ${wideStrip() ? '<p class="note">The hack tool: tap the white ones to bring them into every level.</p>' : ''}`;
   ov.hidden = false;
   if (!wideStrip()) openTool('title'); else closeTool();
   $('tNew').onclick = () => { ensureAudio(); closeTool(); newRun(); };
+  ov.classList.add('clear');
   $('tSaves').onclick = () => { ensureAudio(); showSaves(showTitle); };
   $('tSet').onclick = () => { ensureAudio(); showSettings(showTitle); };
-  $('tTut').onclick = () => { ensureAudio(); closeTool(); startDemo(true); };
+  $('tTut').onclick = () => { ensureAudio(); closeTool(); startDemo('tutorial'); };
   $('tTool').onclick = () => { ensureAudio(); openTool('title'); };
 }
 // Saves are automatic and historical: every run is kept, newest first. NEW starts another.
@@ -3044,12 +3062,13 @@ function showSettings(back) {
   titleAt = frame; menuBack = back || showTitle;
   const opt = (k, label, on = 'ON', off = 'OFF') => `<button class="act alt ${SETTINGS[k] ? 'on' : ''}" data-k="${k}">${label}: ${SETTINGS[k] ? on : off}</button>`;
   ovBox.innerHTML = `<h2 class="lt">SETTINGS</h2>
-    <div class="opts">${opt('sound', 'SOUND')}${opt('music', 'MUSIC')}${opt('haptics', 'VIBRATION')}${opt('grid', 'GRID')}${opt('hints', 'HINTS')}${opt('demo', 'IDLE DEMO')}
+    <div class="opts">${opt('sound', 'SOUND')}${opt('music', 'MUSIC')}${opt('haptics', 'VIBRATION')}${opt('grid', 'GRID')}${opt('hints', 'HINTS')}${opt('demo', 'TITLE DEMO')}
       <span style="grid-column:1/3">${opt('side', 'LANDSCAPE', 'GAME LEFT, HACKS RIGHT', 'STACKED')}</span></div>
     <button class="act alt" id="oBack">BACK</button>`;
   ovBox.querySelectorAll('[data-k]').forEach((b) => { b.onclick = () => {
     const k = b.dataset.k; SETTINGS[k] = !SETTINGS[k]; saveSettings(); applySettings();
     if (k === 'sound' && SETTINGS.sound) { ensureAudio(); SFX.click(); }
+    if (k === 'demo' && state !== 'pause') { showTitle(); return; }
     if (k === 'side') { resize(); if (wideStrip()) closeTool(); else if (state === 'pause') openTool('pause'); else if (state === 'title') openTool('title'); }
     showSettings(menuBack);
   }; });
@@ -3076,27 +3095,19 @@ function typeInto(el) {                         // briefing text types out like 
   typeTimer = setInterval(() => { n += 2; el.textContent = full.slice(0, n) + (n < full.length ? '█' : ''); if (n >= full.length) clearInterval(typeTimer); }, 16);
 }
 
-function showIntro() {
-  state = 'intro'; startMusic(levelIdx);
-  const chip = (r) => `<span class="${r.good ? 'g' : 'b'}">${r.good ? '' : '! '}${r.name}</span>`;
-  ovBox.innerHTML = `<div class="lvl">LEVEL ${levelIdx + 1} / ${LEVELS.length} · ${LV.world}</div><h2 class="lt">${LV.name}</h2>
-    <p>${LV.brief}</p>
-    <div class="hk">${regs.map(chip).join('')}</div>
-    <div class="lvl">MISSING FROM MEMORY: ${LV.rare.join(' AND ')} · CARRIED BY VIRUSES AND 0X BOXES</div>
-    <div class="lvl">ONE SYMBOL HIDES UP HIGH: ${LV.syms.map((q) => q.ch).join(' ')}</div>
-    <button class="act" id="go">START ▸</button>`;
-  ov.hidden = false; $('go').addEventListener('click', () => { ensureAudio(); beginLevel(); });
-  typeInto(ovBox.querySelector('p'));
-}
+function showIntro() { beginLevel(); }                      // no card: the level starts, with a banner over the play
+let bannerAt = -999;
 function beginLevel() {
   state = 'play'; ov.hidden = true; SFX.save(); startMusic(levelIdx); guard('hack tool', closeTool); updateRun({ level: levelIdx });
-  log(`LEVEL ${levelIdx + 1}: ${LV.name}. ${regs.filter((r) => r.good).length} HACKS, ${regs.filter((r) => !r.good).length} CURSES`, 'sys');
+  bannerAt = frame; ov.classList.remove('clear');
+  log(LV.brief.toUpperCase().slice(0, 120), 'sys');
   log(`ON A REGISTER'S NEXT DIGIT PRESS ITS CONTROL · TOUCH VIRUSES FOR THEIRS · B SCAN`, 'sys');
 }
 function reboot() { loadLevel(levelIdx); beginLevel(); }
 const wideStrip = () => document.body.classList.contains('mode-switch') && !document.body.classList.contains('mode-side');
 function openMenu() {
   state = 'pause'; updateRun({ level: levelIdx, crashes: run.crashes, curses: run.curses });
+  ov.classList.remove('clear');
   ovBox.innerHTML = `<h2>PAUSED</h2>
     <div class="menu">
       <button class="act" id="mResume" style="grid-column:1/3">RESUME</button>
@@ -3105,14 +3116,14 @@ function openMenu() {
       <button class="act alt" id="mTut">TUTORIAL</button><button class="act alt" id="mQuit">QUIT TO TITLE</button>
       ${wideStrip() ? '<button class="act alt" id="mTool" style="grid-column:1/3">HACK TOOL</button>' : ''}
     </div>
-    <p class="note">${wideStrip() ? '' : 'Your wiring board and every hack you can bring are on the ' + (document.body.classList.contains('mode-side') ? 'right.' : 'screen below.')}</p>`;
+    <p class="note">${wideStrip() ? '' : 'Every hack you can bring is on the ' + (document.body.classList.contains('mode-side') ? 'right.' : 'screen below.')}</p>`;
   ov.hidden = false;
   $('mResume').onclick = closeMenu;
   $('mReboot').onclick = () => { guard('hack tool', closeTool); reboot(); };
   $('mCheck').onclick = () => { const sv = saves[checkpoint]; p.x = sv.x + 1; p.y = 208 - p.h; p.vx = p.vy = 0; p.flip = false; p.inv = 60; p.dead = 0; if (p.riding) dismount(false); closeMenu(); log(`BACK TO SAVE ${checkpoint}`, 'sys'); };
   $('mSaves').onclick = () => showSaves(openMenu);
   $('mSet').onclick = () => showSettings(openMenu);
-  $('mTut').onclick = () => { closeTool(); startDemo(true); };
+  $('mTut').onclick = () => { closeTool(); startDemo('tutorial'); };
   $('mQuit').onclick = () => { guard('hack tool', closeTool); loadLevel(0); showTitle(); };
   if ($('mTool')) $('mTool').onclick = () => { ov.hidden = true; openTool('game'); };
   if (!wideStrip()) guard('hack tool', () => openTool('pause'));      // the buttons work even if the tool can't draw
@@ -3122,6 +3133,7 @@ function toggleSound() { muted = !muted; SETTINGS.sound = !muted; saveSettings()
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function levelClear() {
   if (state !== 'play') return;
+  if (demo) { demo.cleared = levelIdx; return; }
   state = 'clear'; stopMusic(); SFX.win();
   const secs = playFrames / 60, n = goodCount(), cursed = regs.filter((r) => !r.good && r.unlocked).length;
   run.time += secs;
@@ -3130,7 +3142,7 @@ function levelClear() {
   updateRun({ level: last ? levelIdx : levelIdx + 1, time: run.time, crashes: run.crashes, curses: run.curses, done: last });
   ovBox.innerHTML = `<div class="lvl">LEVEL ${levelIdx + 1} CLEAR</div><h2 class="lt">${LV.name}</h2>
     <dl><dt>Time</dt><dd>${fmtTime(secs)}</dd><dt>Hacks online</dt><dd>${n} / ${regs.filter((r) => r.good).length}</dd>
-    <dt>Curses active</dt><dd>${cursed}</dd>${firstClear ? `<dt>Unlocked</dt><dd>A WIRE AND ${LV.regs.length + TRANCHE[levelIdx].length} HACKS</dd>` : ''}<dt>Crashes</dt><dd>${crashes}</dd><dt>Stability left</dt><dd>${Math.round((1 - corruption()) * 100)}%</dd></dl>
+    <dt>Curses active</dt><dd>${cursed}</dd>${firstClear ? `<dt>Unlocked</dt><dd>${LV.regs.length + TRANCHE[levelIdx].length} HACKS</dd>` : ''}<dt>Crashes</dt><dd>${crashes}</dd><dt>Stability left</dt><dd>${Math.round((1 - corruption()) * 100)}%</dd></dl>
     <button class="act" id="next">${last ? 'FINISH ▸' : 'NEXT LEVEL ▸'}</button>`;
   ov.hidden = false; $('next').addEventListener('click', nextLevel);
   log(`LEVEL ${levelIdx + 1} EXITED WITH CODE 0`, 'ok');
@@ -3152,36 +3164,159 @@ function nextLevel() {
 // and Super Jump over the ROM wall. Any input ends it.
 let demo = null;
 const bot = (k, v) => setKey('bot', k, v);
-function startDemo(tutorial) {
-  demo = { mutedWas: muted, cap: null, jh: 0, t0: frame, tutorial: !!tutorial }; closeTool();
-  muted = true; run = { time: 0, crashes: 0, curses: 0 };
-  loadLevel(0); state = 'play'; ov.hidden = true;
-  hazards = []; dino = null; enemies = enemies.filter((e) => e.x > 42 * 16);   // a clear stage to show the basics on
-  regs = regs.filter((r) => !r.custom);
-  log('DEMO: TAP ANYWHERE TO PLAY', 'sys');
-  demo.it = demoScript();
+function startDemo(mode) {
+  if (demo) stopDemo(() => {});
+  const title = mode === 'title';
+  demo = { cap: null, jh: 0, t0: frame, tutorial: mode === 'tutorial', title };
+  if (!title) closeTool();
+  run = { time: 0, crashes: 0, curses: 0 }; ensureAudio();
+  stageDemo(0, 3, [0, 44]);
+  if (!title) { ov.hidden = true; ov.classList.remove('clear'); log('DEMO: TAP ANYWHERE TO PLAY', 'sys'); }
+  demo.it = title ? titleScript() : demoScript();
 }
-function stopDemo() {
+function stopDemo(then) {
   if (!demo) return;
   const d = demo; demo = null;
   for (const k of KEYS) { src.bot[k] = false; held[k] = src.kb[k] || src.dpad[k] || src.stick[k] || src.btn[k] || false; }
-  muted = d.mutedWas; loadLevel(0);
-  if (d.tutorial && d.finished) showTutorialEnd(); else showTitle();
+  loadLevel(0); stopMusic();
+  if (then) then(); else if (d.tutorial && d.finished) showTutorialEnd(); else showTitle();
 }
 function demoTick() {
   if (demo.jh > 0 && --demo.jh === 0) bot('jump', false);
   const r = demo.it.next();
-  if (r.done) demo.finished = true;
-  if (r.done || frame - demo.t0 > 6000) stopDemo();
+  if (r.done) { demo.finished = true; if (demo.title) { demo.it = titleScript(); return; } }
+  if (!demo.title && (r.done || frame - demo.t0 > 6000)) stopDemo();
+}
+// Cut to a spot in a level: load it if needed, clear the stretch the bot is about to play, start its music.
+function stageDemo(lv, x, clear, y) {
+  if (levelIdx !== lv || !p) loadLevel(lv);
+  startMusic(lv);
+  state = 'play'; regs = regs.filter((r) => !r.custom); dino = null;
+  if (clear) { enemies = enemies.filter((e) => e.keep || e.x / 16 < clear[0] || e.x / 16 > clear[1]); hazards = hazards.filter((h) => h.t === 'panic' || h.t === 'kill' || (h.x !== undefined ? h.x : h.cx) / 16 < clear[0] || (h.x !== undefined ? h.x : h.cx) / 16 > clear[1]); }
+  p.x = x * 16; p.y = (y !== undefined ? y : 208) - p.h; p.vx = p.vy = 0; p.flip = false; p.dead = 0; p.inv = 30; p.riding = null; p.carry = null;
+  let best = 0; saves.forEach((s2, i) => { if (s2.x <= p.x) best = i; }); checkpoint = best; saves.forEach((o, j) => { o.on = j <= best; });
+  camX = clamp(p.x - VW * 0.42, 0, WORLD_W - VW); burstT = 14; addBand(14);
+}
+// Switch a register on the way a player would (its whole string written), for a scene that starts later on.
+function online(id) { const r = regs.find((q) => q.id === id); if (!r || r.unlocked) return; r.slots = []; for (const d of r.seq) write(r, d, 'key'); }
+// Run right, jumping at given columns, using air jumps at the top of each jump or saved for low over a gap.
+function* runRight(o) {
+  const c0 = crashes; let trig = 0, airUsed = 0, inAir = false;
+  bot('left', false); bot('right', true);
+  for (let f = 0; f < (o.frames || 700); f++) {
+    if (crashes > c0) break;
+    const tx = heroX() / 16;
+    if (trig < (o.jumps || []).length && tx >= o.jumps[trig] && p.grounded) { botJump(o.hold || 30); trig++; airUsed = 0; inAir = true; }
+    else if (inAir && airUsed < (o.air || 0) && !p.grounded && demo.jh === 0 && (o.low ? p.vy > 0.5 && p.y + p.h > 196 : p.vy >= -0.4)) { botJump(o.hold || 30); airUsed++; }
+    if (p.grounded && f > 4 && demo.jh === 0) inAir = false;
+    if (o.flipAt && tx >= o.flipAt[0] && !p.flip && !o.f1) { o.f1 = 1; bot('flip', true); yield; bot('flip', false); }
+    if (o.flipAt && tx >= o.flipAt[1] && p.flip) { bot('flip', true); yield; bot('flip', false); }
+    if (tx >= o.to) break;
+    yield;
+  }
+  bot('right', false);
+}
+// The title's demo: the bot plays through all four levels, the right way and the wrong way, forever.
+function* titleScript() {
+  const G = '#39ff88', B = '#ff3d8a', I = '#4ff0ff';
+  // Boot Sector: writing digits
+  stageDemo(0, 3, [0, 44]);
+  yield* say('BOOT SECTOR', 'WRITE DIGITS INTO REGISTERS TO HACK YOURSELF', I, 60);
+  yield* demoBasics();
+  // Boot Sector: the wall and the pit
+  stageDemo(0, 157, [138, 210]); online('super'); online('speed');
+  yield* say('GOOD: SUPER JUMP + DOUBLE JUMP', 'OVER THE ROM WALL', G);
+  yield* runRight({ to: 172, jumps: [164], hold: 40, air: 1 });
+  for (let f = 0; f < 120 && !p.grounded; f++) yield;
+  yield* walkTo(171 * 16 + 8, true);
+  yield* say('GOOD: SPEED BOOST', 'ACROSS THE THIRTEEN-BLOCK PIT', G);
+  yield* runRight({ to: 216, jumps: [174.6], hold: 40, air: 1 }); yield* wait(60);
+  // Firewall
+  stageDemo(1, 50, [40, 100]); online('phase');
+  yield* say('FIREWALL', 'PHASE SHIFT WALKS THROUGH FIREWALLS', G);
+  yield* runRight({ to: 64 });
+  yield* say('BAD: TWO JUMPS', 'ELEVEN BLOCKS IS TOO FAR WITHOUT MULTI JUMP', B);
+  yield* runRight({ to: 90, jumps: [71.6], hold: 30, air: 1, low: true }); yield* wait(100);
+  stageDemo(1, 64, [40, 100]); online('triple');
+  yield* say('GOOD: MULTI JUMP', 'SAVE EACH JUMP FOR WHEN YOU START TO FALL', G);
+  yield* runRight({ to: 88, jumps: [71.6], hold: 30, air: 3, low: true }); yield* wait(40);
+  // Cloud Storage
+  stageDemo(2, 44, [16, 47]); online('freeze');
+  const cage = enemies.find((e) => !e.dead && e.type === 'sheller' && Math.abs(e.x / 16 - 50) < 3);
+  if (cage) { cage.x = 50.2 * 16; cage.y = 208 - cage.h; }
+  yield* say('CLOUD STORAGE', 'QUARANTINE FREEZES THE TROJAN. CLIMB OFF ITS BACK', G, 50);
+  if (cage) { p.x = cage.x + cage.w / 2 - 7; p.y = cage.y - p.h - 1; p.vy = 0; yield* wait(12); }
+  yield* runRight({ to: 58, jumps: [0], hold: 40, air: 1 }); yield* wait(20);
+  stageDemo(2, 60, [56, 110]); online('bridge');
+  yield* say('GOOD: ALLOC BRIDGE', 'NULL BLOCKS TURN SOLID OVER THE VOID', G);
+  yield* runRight({ to: 104, jumps: [60.6], hold: 24 });
+  yield* say('BAD: NO FLOOR', 'WALK INTO THE VOID AND YOU CRASH', B);
+  yield* runRight({ to: 130 }); yield* wait(100);
+  stageDemo(2, 109, [104, 180]); online('grav');
+  yield* say('GOOD: GRAVITY FLIP', 'WALK THE CEILING OVER THE VOID', G);
+  yield* runRight({ to: 172, flipAt: [110, 168], frames: 900 }); yield* wait(30);
+  // Root Access
+  stageDemo(3, 117, [110, 194]); online('grav'); online('phase');
+  yield* say('ROOT ACCESS', 'FLIP AND PHASE THROUGH THE FIREWALLS OVER LAVA', G);
+  yield* runRight({ to: 190, flipAt: [118, 188], frames: 1000 });
+  stageDemo(3, 191, [186, 194]); online('super');
+  const boss = hazards.find((h) => h.t === 'panic');
+  if (boss) { boss.hop = boss.cd = 1e9; boss.x = 201 * 16; }                 // a steady boss for the show
+  yield* say('KERNEL PANIC', 'JUMP IT, THEN PULL THE KILL SWITCH', G);
+  bot('right', true);
+  for (let f = 0; f < 600 && demo.cleared !== 3; f++) {
+    if (boss && !boss.dead && !boss.falling && p.grounded && demo.jh === 0 && boss.x - p.x < 70 && boss.x - p.x > 0) botJump(40);
+    else if (!p.grounded && demo.jh === 0 && p.vy >= -0.4 && p.airJumps > 0) botJump(30);
+    yield;
+  }
+  bot('right', false); yield* wait(90);
+  yield* say('YOUR TURN', 'PRESS NEW, OR A', '#ffffff', 120);
+}
+// The basics, played on Boot Sector's first screens: digits from the ground, a virus and the air; then a curse and a crash.
+function* demoBasics() {
+  const sup = regs.find((r) => r.id === 'super');
+  yield* walkTo(11 * 16 + 8); yield* wait(20);
+  yield* say('GOOD: A GROUND DIGIT', 'SUPER JUMP WANTS 3 ON <. STAND ON A 3, PRESS <', '#39ff88');
+  yield* writeGround(3, 'left', 3, 26); yield* wait(60);
+  yield* say('8 IS MISSING FROM MEMORY', 'A VIRUS CARRIES IT. STOMP IT: ITS 8 GOES IN', '#ff6fa8');
+  const v = mkEnemy('walker', Math.min(40, cellNow[0] + 8) * 16, {}); v.d = 8; v.rev = frame; enemies.push(v);
+  for (let f = 0; f < 700 && !v.dead && sup.slots.length < 2; f++) {
+    if (p.dead) { bot('left', false); bot('right', false); yield; continue; }
+    const dx = v.x + v.w / 2 - heroX(), dir = Math.sign(dx) || 1;
+    bot(dir > 0 ? 'left' : 'right', false); bot(dir > 0 ? 'right' : 'left', true);
+    if (p.grounded && demo.jh === 0 && Math.abs(dx) < 34) botJump(12);
+    yield;
+  }
+  bot('left', false); bot('right', false); yield* wait(50);
+  const ca = nearCol((c) => layerDigit('air', c) === 5 && openAbove(c), 3, 30);
+  if (ca !== null && sup.slots.length === 2) {
+    yield* say('GOOD: AN AIR DIGIT', 'JUMP, THEN PRESS < MID-AIR WHERE THE AIR HOLDS 5', '#39ff88');
+    yield* walkTo(ca * 16 + 8); yield* wait(12); botJump(14);
+    for (let f = 0; f < 60 && !(Math.abs(p.vy) < 1 && !p.grounded); f++) yield;
+    yield* tapKey('left');
+    for (let f = 0; f < 90 && !p.grounded; f++) yield;
+    yield* wait(24);
+  }
+  if (sup.slots.length === 2) { yield* say('GOOD: A GROUND 5', 'STAND ON A 5, PRESS <', '#39ff88'); yield* writeGround(5, 'left', 3, 30); yield* wait(30); }
+  yield* say('GOOD: 2 COMPLETES IT', 'STAND ON A 2, PRESS <', '#39ff88');
+  yield* writeGround(2, 'left', 3, 30); yield* wait(24);
+  if (sup.unlocked) yield* say('SUPER JUMP ONLINE', 'RE-ENTER 3 8 5 2 ANY TIME TO SWITCH IT OFF', '#39ff88', 110);
+  yield* say('BAD: FEEDING A CURSE', 'A ON A 2 FEEDS HEAVY BOOTS. RED MEANS DANGER', '#ff3d8a');
+  yield* writeGround(2, 'jump', 3, 30); yield* wait(90);
+  yield* say('BAD: SIDE CONTACT', 'TOUCH A VIRUS FROM THE SIDE AND YOU CRASH', '#ff3d8a');
+  const side = cellNow[0] <= 22 ? 1 : -1, w = mkEnemy('walker', (cellNow[0] + side * 4) * 16, {}); w.d = 1; w.dir = -side; enemies.push(w);
+  const c0 = crashes, k1 = side > 0 ? 'right' : 'left';
+  for (let f = 0; f < 400 && crashes === c0; f++) { bot(side > 0 ? 'left' : 'right', false); bot(k1, true); yield; }
+  bot(k1, false); yield* wait(100);
 }
 function drawCaption() {
   const c = demo && demo.cap; if (!c) return;
-  const k = Math.min(1, (frame - c.at) / 8), y = 14, w = VW - 16;
+  const k = Math.min(1, (frame - c.at) / 8), y = demo.title ? VH - 46 : 14, w = VW - 16;
   ctx.globalAlpha = k; ctx.fillStyle = 'rgba(6,5,14,0.9)'; ctx.fillRect(8, y, w, 31);
   ctx.fillStyle = c.col; ctx.fillRect(8, y, w, 1); ctx.fillRect(8, y + 30, w, 1); ctx.fillRect(8, y, 2, 31);
   drawText(c.t, 15, y + 4, c.col, 2); drawText(c.sub, 15, y + 20, '#e8ecff');
   ctx.globalAlpha = 1;
-  if ((frame >> 5) % 2) drawText('DEMO - TAP TO PLAY', VW - 6, VH - 10, '#ffffff', 1, 'right');
+  if (!demo.title && (frame >> 5) % 2) drawText('DEMO - TAP TO PLAY', VW - 6, VH - 10, '#ffffff', 1, 'right');
 }
 function* wait(n) { for (let i = 0; i < n; i++) yield; }
 function* say(t, sub, col, n = 0) { demo.cap = { t, sub, col, at: frame }; yield* wait(n); }
@@ -3209,58 +3344,14 @@ function nearCol(test, a, b) { let best = null; for (let c = a; c <= b; c++) if 
 const openAbove = (c) => { for (let r = 6; r <= 11; r++) if (tileAt(c, r) !== T.E) return false; return true; };
 function* writeGround(d, k, a, b) { const c = nearCol((q) => colDigit(q) === d, a, b); if (c === null) return false; yield* walkTo(c * 16 + 8); yield* wait(12); yield* tapKey(k); return true; }
 function* demoScript() {
-  const sup = regs.find((r) => r.id === 'super');
-  yield* say('MEMARIO', 'A DEMO. TAP ANYWHERE TO PLAY.', '#ffffff', 100);
+  yield* say('MEMARIO', 'A DEMO. TAP ANYWHERE TO PLAY.', '#ffffff', 90);
   yield* say('WALK TO DECRYPT MEMORY', 'THE BOTTOM ROW HOLDS ONE DIGIT PER COLUMN', '#4ff0ff');
-  yield* walkTo(11 * 16 + 8); yield* wait(30);
-  // a ground digit
-  yield* say('GOOD: A GROUND DIGIT', 'SUPER JUMP WANTS 3 ON <. STAND ON A 3, PRESS <', '#39ff88');
-  yield* writeGround(3, 'left', 3, 26); yield* wait(70);
-  // a carried digit
-  yield* say('8 IS MISSING FROM MEMORY', 'A VIRUS CARRIES IT. STOMP IT: ITS 8 GOES IN', '#ff6fa8');
-  const v = mkEnemy('walker', Math.min(40, cellNow[0] + 8) * 16, {}); v.d = 8; v.rev = frame; enemies.push(v);
-  for (let f = 0; f < 700 && !v.dead && sup.slots.length < 2; f++) {
-    if (p.dead) { bot('left', false); bot('right', false); yield; continue; }
-    const dx = v.x + v.w / 2 - heroX(), dir = Math.sign(dx) || 1;
-    bot(dir > 0 ? 'left' : 'right', false); bot(dir > 0 ? 'right' : 'left', true);
-    if (p.grounded && demo.jh === 0 && Math.abs(dx) < 34) botJump(12);
-    yield;
-  }
-  bot('left', false); bot('right', false); yield* wait(60);
-  // an air digit
-  const ca = nearCol((c) => layerDigit('air', c) === 5 && openAbove(c), 3, 30);
-  if (ca !== null && sup.slots.length === 2) {
-    yield* say('GOOD: AN AIR DIGIT', 'JUMP, THEN PRESS < MID-AIR WHERE THE AIR HOLDS 5', '#39ff88');
-    yield* walkTo(ca * 16 + 8); yield* wait(15); botJump(14);
-    for (let f = 0; f < 60 && !(Math.abs(p.vy) < 1 && !p.grounded); f++) yield;
-    yield* tapKey('left');
-    for (let f = 0; f < 90 && !p.grounded; f++) yield;
-    yield* wait(30);
-  }
-  if (sup.slots.length === 2) { yield* say('GOOD: A GROUND 5', 'STAND ON A 5, PRESS <', '#39ff88'); yield* writeGround(5, 'left', 3, 30); yield* wait(40); }
-  yield* say('GOOD: 2 COMPLETES IT', 'STAND ON A 2, PRESS <', '#39ff88');
-  yield* writeGround(2, 'left', 3, 30); yield* wait(30);
-  if (sup.unlocked) yield* say('SUPER JUMP ONLINE', 'RE-ENTER 3 8 5 2 ANY TIME TO SWITCH IT OFF', '#39ff88', 140);
-  // bad play: a curse, then a crash
-  yield* say('BAD: FEEDING A CURSE', 'A ON A 2 FEEDS HEAVY BOOTS. RED MEANS DANGER', '#ff3d8a');
-  yield* writeGround(2, 'jump', 3, 30); yield* wait(100);
-  yield* say('BAD: SIDE CONTACT', 'TOUCH A VIRUS FROM THE SIDE AND YOU CRASH', '#ff3d8a');
-  const side = cellNow[0] <= 22 ? 1 : -1, w = mkEnemy('walker', (cellNow[0] + side * 4) * 16, {}); w.d = 1; w.dir = -side; enemies.push(w);
-  const c0 = crashes, k1 = side > 0 ? 'right' : 'left';
-  for (let f = 0; f < 400 && crashes === c0; f++) { bot(side > 0 ? 'left' : 'right', false); bot(k1, true); yield; }
-  bot(k1, false); yield* wait(110);
-  // later: the wall
-  yield* say('LATER: THE ROM WALL', 'TOO TALL TO JUMP. TOO SMOOTH TO WALL-JUMP.', '#ffc23d');
-  enemies = enemies.filter((e) => e.x < 140 * 16 || e.x > 192 * 16); checkpoint = 3; burstT = 20; addBand(20);
-  p.x = 157 * 16; p.y = 208 - p.h; p.vx = p.vy = 0; p.inv = 0; camX = clamp(p.x - VW * 0.42, 0, WORLD_W - VW);
-  yield* wait(40);
-  yield* say('GOOD: SUPER JUMP CLEARS IT', 'THE PIT BEYOND NEEDS SPEED BOOST TOO', '#39ff88');
-  bot('right', true);
-  for (let f = 0; f < 300 && heroX() < 172 * 16; f++) { if (heroX() > 165.6 * 16 && p.grounded && demo.jh === 0 && heroX() < 167 * 16) botJump(32); yield; }
-  bot('right', false); yield* wait(50);
-  yield* say('NOW YOU TRY', 'PRESS START OR A TO BOOT', '#ffffff', 150);
+  yield* demoBasics();
+  stageDemo(0, 157, [138, 200]); online('super');
+  yield* say('THE ROM WALL', 'SUPER JUMP, THEN A DOUBLE JUMP AT THE TOP', '#39ff88');
+  yield* runRight({ to: 172, jumps: [164], hold: 40, air: 1 }); yield* wait(40);
+  yield* say('NOW YOU TRY', 'PRESS START OR A TO PLAY', '#ffffff', 150);
 }
-
 /* ================= storage: settings, save files, your hack set ================= */
 function loadJSON(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch (e) { return d; } }
 function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage off */ } }
@@ -3276,11 +3367,15 @@ const saveRuns = (a) => saveJSON('memario.runs', a);
   if (old > 0 && !loadRuns().length) saveRuns([{ id: 1, n: 1, level: old, time: 0, crashes: 0, curses: 0, at: Date.now(), done: false }]);
 })();
 function newRun() {
+  if (demo) stopDemo(() => {});
+  ov.classList.remove('clear');
   const runs = loadRuns(), n = runs.reduce((m, r) => Math.max(m, r.n || 0), 0) + 1, r = { id: Date.now(), n, level: 0, time: 0, crashes: 0, curses: 0, at: Date.now(), done: false };
   runs.unshift(r); saveRuns(runs.slice(0, 12)); runId = r.id; run = { time: 0, crashes: 0, curses: 0 };
   loadLevel(0); showIntro();
 }
 function continueRun(id) {
+  if (demo) stopDemo(() => {});
+  ov.classList.remove('clear');
   const r = loadRuns().find((q) => q.id === id); if (!r) return;
   runId = id; run = { time: r.time || 0, crashes: r.crashes || 0, curses: r.curses || 0 };
   loadLevel(clamp(r.level, 0, LEVELS.length - 1)); showIntro();
@@ -3345,7 +3440,7 @@ const TRANCHE = [
 ];
 let cleared = loadJSON('memario.cleared', null);
 if (!cleared) { const top = loadRuns().reduce((m, r) => Math.max(m, r.done ? LEVELS.length : r.level || 0), 0); cleared = []; for (let i = 0; i < top; i++) cleared.push(i); saveJSON('memario.cleared', cleared); }
-function markCleared(i) { if (!cleared.includes(i)) { cleared.push(i); saveJSON('memario.cleared', cleared); addWire(); } }
+function markCleared(i) { if (!cleared.includes(i)) { cleared.push(i); saveJSON('memario.cleared', cleared); } }
 const unlockLevelOf = (id) => { for (let i = 0; i < LEVELS.length; i++) if (LEVELS[i].regs.some((r) => r.id === id) || TRANCHE[i].includes(id)) return i; return 0; };
 const isUnlocked = (id) => cleared.includes(unlockLevelOf(id));
 const catOf = (id) => CAT.find((e) => e.id === id);
@@ -3361,7 +3456,7 @@ function toggleSet(id) {
     loadout = loadout.filter((q) => q.id !== id && q.of !== id);
     toolMsg = `REMOVED ${e.name}`;
   } else {
-    if (!exposedIds().has(id)) { toolMsg = isUnlocked(id) ? `${e.name} IS ON BANK ${homeOf(id).bank}, LINE ${'ABC'[homeOf(id).line]}. WIRE IT UP TO TAKE IT.` : `${e.name} IS LOCKED: CLEAR LEVEL ${unlockLevelOf(id) + 1}.`; return; }
+    if (!isUnlocked(id)) { toolMsg = `${e.name} IS LOCKED: CLEAR LEVEL ${unlockLevelOf(id) + 1} TO UNLOCK IT.`; return; }
     loadout.push({ id });
     toolMsg = `ADDED ${e.name}`;
     if (e.good && !e.look) {
@@ -3391,6 +3486,7 @@ function hackOn(r) {
   const id = r.id;
   if (id === 'xray') { for (let c = 0; c < LW; c++) { revealed.set(c, frame); revealedAir.set(c, frame); for (let rr = 0; rr < 13; rr++) if (standable(c, rr)) revealedPlat.set(c + ',' + rr, { c, r: rr, at: frame }); } for (const o of [...enemies, ...boxes]) if (o.rev === undefined) o.rev = frame; }
   if (id === 'tinyv' || id === 'bigv') for (const e of enemies) if (!e.dead && e.type !== 'chomp' && e.type !== 'ghost') setScale(e, id === 'tinyv' ? 0.6 : 1.7);
+  if (id === 'freeze') for (const e of enemies) if (!e.dead && !e.carried && e.type === 'sheller' && e.st !== 'walk') { const by = e.y + e.h; e.st = 'walk'; e.h = 19; e.y = by - 19; e.vx = 0; }   // quarantine snaps trojans back to full size
   if (id === 'warp' || id === 'saveany') {                   // one-shot: do it, then the register resets
     if (id === 'warp') { const i = Math.min(checkpoint + 1, saves.length - 1), sv = saves[i]; checkpoint = i; saves.forEach((o, j) => { o.on = j <= i; }); p.x = sv.x + 1; p.y = 208 - p.h; p.vx = p.vy = 0; p.flip = false; burstT = 20; addBand(20); log(`WARPED TO SAVE ${i}`, 'ok'); }
     else { saves.push({ x: Math.round(p.x), y: Math.round(p.y + p.h - 32), on: true }); checkpoint = saves.length - 1; SFX.save(); log('SAVE POINT WRITTEN WHERE YOU STAND', 'ok'); }
@@ -3412,209 +3508,13 @@ function hackTick() {
   if (abil.autowrite && !p.dead) for (const k of ['left', 'right', 'jump']) { const r = pickFor(k); if (r && r.good && !r.unlocked) { write(r, digitNow, 'macro'); break; } }
 }
 
-/* ================= the wiring board ================= */
-// Top: a cartridge PCB whose bottom edge is 24 gold fingers, in three lines (A B C) of eight. Bottom: your hack
-// board, whose top edge has the same 24 fingers in six banks of four. Seen from above, the wires lie on the bench
-// between them: no gravity, just friction, so they stay wiggly until you pull them. Each ends in a 3.5 mm jack;
-// touch a jack's tip to a finger and it plugs in. A top finger wired to a bottom finger exposes that line of
-// that bank.
-const BS = 3, BW = 320, BH = 160, PINS = 24, BANKS = 6, PIN_Y = 49, SOCK_Y = 91, MAT0 = 51, MAT1 = 89;
-const fingerX = (i) => 19 + i * 11.6 + Math.floor(i / 8) * 9;
-const pinX = fingerX, bankX = (j) => (fingerX(j * 4) + fingerX(j * 4 + 3)) / 2;
-const homeOf = (id) => { const h = hashStr(id + '#home'); return { bank: h % BANKS, line: (h >>> 5) % 3 }; };
-const WIRE_COL = ['#ff3d8a', '#4ff0ff', '#ffc23d', '#39ff88', '#c9c2ff'];
-const SEGS = 30, SEG_LEN = 10, JACK_S = 1.55, JACK = 16 * JACK_S;
-let wires = [];
-function makeWire(k, saved) {
-  const R = mulberry32(77 + k * 31), x0 = 26 + (k % 4) * 70, yc = MAT0 + 12 + ((k * 11) % 14), pts = [];
-  let x = x0, a = R() * 6;
-  for (let i = 0; i <= SEGS; i++) {                  // laid down loose: a meandering, slack curve
-    const y = clamp(yc + Math.sin(i * 0.75 + k * 2) * 8 + (R() - 0.5) * 5, MAT0 + 3, MAT1 - 3);
-    pts.push({ x, y, px: x, py: y }); a += (R() - 0.5) * 1.4; x += 2.2 + Math.abs(Math.cos(a)) * 2.2;
-  }
-  const w = { k, col: WIRE_COL[k % WIRE_COL.length], pts, ends: [null, null] };
-  if (saved) for (const e of [0, 1]) if (saved[e] && (saved[e].type === 'pin' || saved[e].type === 'bot')) plug(w, e, saved[e]);
-  return w;
-}
-function addWire() { wires.push(makeWire(wires.length)); saveWires(); }
-const saveWires = () => saveJSON('memario.wires', wires.map((w) => w.ends));
-const endPos = (t) => [fingerX(t.i), t.type === 'pin' ? PIN_Y : SOCK_Y];
-const taken = (t) => wires.some((w) => w.ends.some((e) => e && e.type === t.type && e.i === t.i));
-function plug(w, e, t) {
-  w.ends[e] = t; const [x, y] = endPos(t), a = w.pts[e ? SEGS : 0], b = w.pts[e ? SEGS - 1 : 1], dy = t.type === 'pin' ? SEG_LEN : -SEG_LEN;
-  a.x = a.px = x; a.y = a.py = y; b.x = b.px = x; b.y = b.py = y + dy;            // the jack goes in straight
-}
-function wirePairs() {
-  return wires.map((w) => { const a = w.ends.find((e) => e && e.type === 'pin'), b = w.ends.find((e) => e && e.type === 'bot'); return a && b ? { line: Math.floor(a.i / 8), bank: Math.floor(b.i / 4), w } : null; }).filter(Boolean);
-}
-function exposedIds() {
-  const out = new Set();
-  for (const pr of wirePairs()) for (const e of CAT) if (isUnlocked(e.id)) { const h = homeOf(e.id); if (h.bank === pr.bank && h.line === pr.line) out.add(e.id); }
-  return out;
-}
-function trimLoadout() {                  // unwiring a hack drops it (and the curse it brought) from your set
-  const ex = exposedIds(), before = loadout.length;
-  loadout = loadout.filter((q) => (q.auto ? ex.has(q.of) : ex.has(q.id)));
+// Anything still in your set from an older version that isn't unlocked yet drops out.
+function trimLoadout() {
+  const before = loadout.length;
+  loadout = loadout.filter((q) => isUnlocked(q.auto ? q.of : q.id));
   if (loadout.length !== before) { saveJSON('memario.loadout', loadout); if (LV) syncCustomRegs(); }
 }
-{ const saved = loadJSON('memario.wires', []); for (let k = 0; k < Math.min(cleared.length, 8); k++) wires.push(makeWire(k, saved[k])); }
 trimLoadout();
-// rope physics, seen from above: points keep a little momentum, friction takes it away, links never stretch
-let grab = null, bdrag = null;
-function pinned(w, i) {
-  if (i === 0 || i === 1) return !!w.ends[0] || (i === 0 && grab && grab.w === w && grab.e === 0);
-  if (i === SEGS || i === SEGS - 1) return !!w.ends[1] || (i === SEGS && grab && grab.w === w && grab.e === 1);
-  return false;
-}
-function stepWires() {
-  for (const w of wires) {
-    const fixed = w.pts.map((_, i) => pinned(w, i));
-    for (let i = 0; i <= SEGS; i++) {
-      if (fixed[i]) continue;
-      const q = w.pts[i], vx = (q.x - q.px) * 0.72, vy = (q.y - q.py) * 0.72;
-      q.px = q.x; q.py = q.y; q.x += vx; q.y += vy;
-    }
-    for (let it = 0; it < 16; it++) {
-      for (let i = 0; i < SEGS; i++) {
-        const a = w.pts[i], b = w.pts[i + 1], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.001;
-        if (d <= SEG_LEN) continue;                                   // slack is fine; stretching isn't
-        const fa = fixed[i] ? 0 : 1, fb = fixed[i + 1] ? 0 : 1, tot = fa + fb; if (!tot) continue;
-        const k = (d - SEG_LEN) / d;
-        a.x += dx * k * fa / tot; a.y += dy * k * fa / tot; b.x -= dx * k * fb / tot; b.y -= dy * k * fb / tot;
-      }
-      for (const q of w.pts) { q.x = clamp(q.x, 2, BW - 2); q.y = clamp(q.y, 2, BH - 2); }
-    }
-  }
-}
-// drawing, at three times the board's resolution
-const bctx = $('board').getContext('2d');
-let boardBg = null;
-function buildBoardBg() {
-  const c = mk(BW * BS, BH * BS), g = c.getContext('2d'), R = mulberry32(5);
-  g.scale(BS, BS);
-  const f = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
-  const silk = (t, x, y, col = '#efe6a8', al = 'left') => drawText(t, x, y, col, 1, al, g);
-  // the bench
-  f('#16171e', 0, 0, BW, BH);
-  for (let i = 0; i < 900; i++) { g.fillStyle = R() < 0.5 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.25)'; g.fillRect(R() * BW, R() * BH, 0.5, 0.5); }
-  const fingers = (y0, h, up) => {                        // gold edge fingers with their traces
-    for (let i = 0; i < PINS; i++) {
-      const x = fingerX(i) - 3.2;
-      g.fillStyle = '#7a5816'; g.fillRect(x, y0, 6.4, h);
-      g.fillStyle = '#d9a640'; g.fillRect(x + 0.4, y0 + 0.2, 5.6, h - 0.4);
-      g.fillStyle = '#f5d68a'; g.fillRect(x + 1, up ? y0 + 1 : y0 + 0.6, 1, h - 1.6);
-      for (let k = 0; k < 3; k++) if (R() < 0.6) { g.fillStyle = 'rgba(90,60,10,0.5)'; g.fillRect(x + 0.6 + R() * 4.6, y0 + 1 + R() * (h - 2), 0.8, 0.8); }   // wear
-    }
-  };
-  // ---- the cartridge PCB
-  f('#0f4a24', 3, 0, BW - 6, PIN_Y); f('#1d7a3c', 4, 0, BW - 8, PIN_Y - 1);
-  g.strokeStyle = '#2f9c52'; g.lineWidth = 0.7;
-  for (let i = 0; i < PINS; i++) {                        // traces running up from each finger
-    const x = fingerX(i), tx = 30 + i * 11, ty = 22 + (i % 3) * 2;
-    g.beginPath(); g.moveTo(x, PIN_Y - 16); g.lineTo(x, ty + 4); g.lineTo(tx, ty); g.lineTo(tx, 20); g.stroke();
-    g.fillStyle = '#c8ccd4'; g.beginPath(); g.arc(tx, 20, 0.9, 0, 7); g.fill(); g.fillStyle = '#1d7a3c'; g.beginPath(); g.arc(tx, 20, 0.4, 0, 7); g.fill();
-  }
-  const dip = (x, y, w, h, legs, label, sub) => {         // a DIP chip: black body, silver legs above and below
-    for (let k = 0; k < legs; k++) { const lx = x + 2 + k * (w - 4) / (legs - 1); f('#9aa0aa', lx - 0.7, y - 1.6, 1.4, 1.8); f('#9aa0aa', lx - 0.7, y + h - 0.2, 1.4, 1.8); f('#dde2ea', lx - 0.3, y - 1.4, 0.5, 1.2); }
-    f('#0c0c10', x, y, w, h); f('#24242c', x, y, w, 0.8); g.fillStyle = '#05050a'; g.beginPath(); g.arc(x + 4, y + h / 2, 1.4, 0, 7); g.fill();
-    drawText(label, x + w / 2, y + (h - 5) / 2, '#d8d8e0', 1, 'center', g); if (sub) drawText(sub, x + w / 2, y + h - 6.5, '#9a9aa6', 1, 'center', g);
-  };
-  dip(16, 5, 110, 13, 16, 'HK-0 CHR', null);
-  dip(190, 5, 110, 13, 16, 'HK-1 PRG', null);
-  // a square mapper chip with legs on four sides
-  f('#0c0c10', 141, 3, 34, 16); for (let k = 0; k < 10; k++) { f('#c0c4cc', 143 + k * 3.1, 1.6, 1, 1.6); f('#c0c4cc', 143 + k * 3.1, 18.6, 1, 1.6); }
-  drawText('MAP-3', 158, 7, '#d8d8e0', 1, 'center', g);
-  g.fillStyle = '#2a5ad0'; g.beginPath(); g.arc(9, 24, 3.2, 0, 7); g.fill(); f('#c8d4f0', 7, 22, 1, 4);           // a capacitor
-  for (const [x, y] of [[132, 22], [182, 22]]) { f('#d8c49a', x, y, 6, 2.6); f('#8a3a1a', x + 1.2, y, 0.8, 2.6); f('#1a1a1a', x + 2.6, y, 0.8, 2.6); f('#c8961a', x + 4, y, 0.8, 2.6); }   // resistors
-  silk('U2', 18, 21); silk('U1', 292, 21); silk('U3', 128, 7);
-  const LCOL = ['#7ff6ff', '#ff9ac8', '#ffd76a'];
-  for (let l = 0; l < 3; l++) { const x0 = fingerX(l * 8) - 3, x1 = fingerX(l * 8 + 7) + 3; f(LCOL[l], x0, 31, x1 - x0, 0.6); silk('LINE ' + 'ABC'[l], (x0 + x1) / 2, 25.5, LCOL[l], 'center'); }
-  fingers(PIN_Y - 16, 16, false);
-  // ---- your hack board: same fingers, facing up
-  f('#1c1640', 3, SOCK_Y, BW - 6, BH - SOCK_Y); f('#2a2160', 4, SOCK_Y + 1, BW - 8, BH - SOCK_Y - 1);
-  g.strokeStyle = '#4a3c9a';
-  for (let i = 0; i < PINS; i++) { const x = fingerX(i); g.beginPath(); g.moveTo(x, SOCK_Y + 16); g.lineTo(x, SOCK_Y + 26 + (i % 4)); g.lineTo(bankX(Math.floor(i / 4)), SOCK_Y + 34); g.stroke(); }
-  fingers(SOCK_Y, 16, true);
-  for (let j = 0; j < BANKS; j++) { const x0 = fingerX(j * 4) - 3, x1 = fingerX(j * 4 + 3) + 3; f('#ff6fa8', x0, SOCK_Y + 18, x1 - x0, 0.6); silk('BANK ' + j, (x0 + x1) / 2, SOCK_Y + 20, '#e8e2ff', 'center'); }
-  dip(40, BH - 22, 96, 12, 14, 'HACK RAM', null);
-  dip(184, BH - 22, 96, 12, 14, 'YOUR HACK BOARD', null);
-  boardBg = c;
-}
-function drawJack(g, x, y, ang, col) {                    // a 3.5 mm plug: tip, rings, sleeve, collar, grip, strain relief
-  g.save(); g.translate(x, y); g.rotate(ang); g.scale(JACK_S, JACK_S);
-  const seg = (x0, x1, w, c) => { g.fillStyle = c; g.fillRect(x0, -w / 2, x1 - x0, w); };
-  seg(-2.2, -0.6, 1.5, '#e6eaf2'); g.fillStyle = '#e6eaf2'; g.beginPath(); g.arc(-0.6, 0, 0.75, -1.6, 1.6); g.fill();
-  seg(-2.8, -2.2, 1.6, '#111116'); seg(-4.2, -2.8, 1.6, '#d2d7e0'); seg(-4.7, -4.2, 1.6, '#111116'); seg(-7.4, -4.7, 1.8, '#dfe3ea');
-  g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(-7.4, -0.75, 6.8, 0.3);
-  seg(-8.3, -7.4, 3, '#7c808a'); seg(-14, -8.3, 3.8, '#1a1a22'); seg(-10, -9.3, 3.8, col);
-  g.fillStyle = '#2c2c36'; for (let k = -13.6; k < -10.4; k += 0.9) g.fillRect(k, -1.9, 0.35, 3.8);
-  g.fillStyle = '#1a1a22'; g.beginPath(); g.moveTo(-14, -1.6); g.lineTo(-16, -1.15); g.lineTo(-16, 1.15); g.lineTo(-14, 1.6); g.fill();
-  g.restore();
-}
-function drawBoard() {
-  if (!boardBg) buildBoardBg();
-  const g = bctx; g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(boardBg, 0, 0); g.setTransform(BS, 0, 0, BS, 0, 0);
-  const pairs = wirePairs(), ex = exposedIds();
-  for (let j = 0; j < BANKS; j++) {                                     // a bank's LED: green if it shows something, red if the line is dead
-    const pr = pairs.filter((q) => q.bank === j), x = bankX(j);
-    const live = pr.some((q) => CAT.some((e) => ex.has(e.id) && homeOf(e.id).bank === j && homeOf(e.id).line === q.line));
-    g.fillStyle = !pr.length ? '#3a3260' : live ? '#39ff88' : '#ff3d5a'; g.beginPath(); g.arc(x, SOCK_Y + 30, 1.4, 0, 7); g.fill();
-    if (pr.length) { g.globalAlpha = 0.3; g.beginPath(); g.arc(x, SOCK_Y + 30, 3.4, 0, 7); g.fill(); g.globalAlpha = 1; }
-  }
-  for (const w of wires) {
-    const P = w.pts, ends = [0, 1].map((e) => { const a = P[e ? SEGS : 0], b = P[e ? SEGS - 1 : 1], ang = Math.atan2(a.y - b.y, a.x - b.x); return { a, ang, bx: a.x - Math.cos(ang) * JACK, by: a.y - Math.sin(ang) * JACK }; });
-    const path = () => { g.beginPath(); g.moveTo(ends[0].bx, ends[0].by); for (let i = 2; i <= SEGS - 2; i++) g.lineTo(P[i].x, P[i].y); g.lineTo(ends[1].bx, ends[1].by); };
-    g.lineJoin = g.lineCap = 'round';
-    g.save(); g.translate(0.8, 1.2); path(); g.strokeStyle = 'rgba(0,0,0,0.45)'; g.lineWidth = 3.1; g.stroke(); g.restore();   // shadow on the bench
-    path(); g.strokeStyle = '#0a0a10'; g.lineWidth = 3.1; g.stroke();
-    path(); g.strokeStyle = w.col; g.lineWidth = 2.3; g.stroke();
-    g.save(); g.translate(-0.35, -0.4); path(); g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 0.5; g.stroke(); g.restore();
-    for (const [k, e] of ends.entries()) { drawJack(g, e.a.x, e.a.y, e.ang, w.col); if (grab && grab.w === w && grab.e === k) { g.strokeStyle = '#ffffff'; g.lineWidth = 0.5; g.beginPath(); g.arc(e.a.x, e.a.y, 3.2, 0, 7); g.stroke(); } }
-  }
-  if (!wires.length) {
-    g.fillStyle = 'rgba(5,4,10,0.8)'; g.fillRect(70, MAT0 + 4, 180, MAT1 - MAT0 - 8);
-    drawText('NO WIRES YET', 160, MAT0 + 10, '#ffffff', 2, 'center', g);
-    drawText('CLEAR A LEVEL TO EARN ONE', 160, MAT0 + 26, '#4ff0ff', 1, 'center', g);
-  }
-}
-// dragging jacks (a drag anywhere else scrolls the tool)
-const bPos = (e) => { const rc = $('board').getBoundingClientRect(); return [(e.clientX - rc.left) / rc.width * BW, (e.clientY - rc.top) / rc.height * BH]; };
-$('board').addEventListener('pointerdown', (e) => {
-  e.preventDefault(); ensureAudio(); titleAt = frame;
-  const [x, y] = bPos(e); let best = null, bd = 11;
-  for (const w of wires) for (const k of [0, 1]) {
-    const a = w.pts[k ? SEGS : 0], b = w.pts[k ? SEGS - 1 : 1], ang = Math.atan2(a.y - b.y, a.x - b.x);
-    const d = Math.min(Math.hypot(a.x - x, a.y - y), Math.hypot(a.x - Math.cos(ang) * JACK * 0.6 - x, a.y - Math.sin(ang) * JACK * 0.6 - y));   // the tip or the grip
-    if (d < bd) { bd = d; best = { w, e: k, ox: a.x - x, oy: a.y - y }; }
-  }
-  try { $('board').setPointerCapture(e.pointerId); } catch (_) { /* fine */ }
-  if (best) { grab = { ...best, id: e.pointerId }; if (grab.w.ends[grab.e]) { grab.w.ends[grab.e] = null; onRewire(); } tone(500, 0.04, 'square', 0.02); haptic(6); }
-  else bdrag = { id: e.pointerId, y: e.clientY, s: $('tscroll').scrollTop };
-});
-$('board').addEventListener('pointermove', (e) => {
-  if (grab && e.pointerId === grab.id) { const [x, y] = bPos(e), q = grab.w.pts[grab.e ? SEGS : 0]; q.x = q.px = clamp(x + grab.ox, 3, BW - 3); q.y = q.py = clamp(y + grab.oy, 3, BH - 3); }
-  else if (bdrag && e.pointerId === bdrag.id) $('tscroll').scrollTop = bdrag.s - (e.clientY - bdrag.y);
-});
-const dropPlug = (e) => {
-  if (bdrag && e.pointerId === bdrag.id) bdrag = null;
-  if (!grab || e.pointerId !== grab.id) return;
-  const q = grab.w.pts[grab.e ? SEGS : 0]; let snap = null, bd = 9;
-  for (let i = 0; i < PINS; i++) for (const type of ['pin', 'bot']) {
-    const [fx, fy] = endPos({ type, i }), d = Math.hypot(q.x - fx, (q.y - fy) * 0.7);
-    if (d < bd && !taken({ type, i })) { bd = d; snap = { type, i }; }
-  }
-  const w = grab.w, k = grab.e; grab = null;
-  if (snap) { plug(w, k, snap); SFX.click(); tone(1200, 0.05, 'square', 0.03); haptic(18); }
-  onRewire();
-};
-$('board').addEventListener('pointerup', dropPlug);
-$('board').addEventListener('pointercancel', dropPlug);
-function onRewire() {
-  saveWires(); trimLoadout();
-  const pr = wirePairs(), n = exposedIds().size;
-  toolMsg = pr.length ? `${pr.length} WIRE${pr.length > 1 ? 'S' : ''} CONNECTED: ${n} HACK${n === 1 ? '' : 'S'} EXPOSED` : wires.length ? 'WIRE A PIN TO A SOCKET TO EXPOSE HACKS' : '';
-  renderTool();
-}
 
 /* ================= the hack tool (screen 2 on the title; SCAN in a level) ================= */
 let toolCat = 'ALL', toolFrom = null;
@@ -3625,38 +3525,62 @@ function openTool(from) {
   renderTool();
 }
 function closeTool() {
-  $('tool').hidden = true; $('tq').blur(); grab = null;
+  $('tool').hidden = true; $('tq').blur();
   if (toolFrom === 'game' && state === 'tool') state = 'play';
   toolFrom = null;
 }
 const GLYPH = { left: '◀', right: '▶', jump: 'A' };
 const inLevel = () => toolFrom === 'pause' || toolFrom === 'game';
-function hkCard(e, ex) {
-  const L = inSet(e.id), unl = isUnlocked(e.id), on = ex.has(e.id), live = inLevel() ? regs.find((r) => r.id === e.id) : null, lvl = live && !live.custom;
+function hkCard(e) {
+  const L = inSet(e.id), unl = isUnlocked(e.id), live = inLevel() ? regs.find((r) => r.id === e.id) : null, lvl = live && !live.custom;
   const prog = live ? (live.unlocked ? ' · ON' : live.slots.length ? ` · ${live.slots.length}/${live.seq.length}` : '') : '';
-  const st = (lvl ? 'THIS LEVEL' : L ? (L.auto ? 'CAME WITH ' + ((catOf(L.of) || {}).short || 'A HACK') : 'IN SET') : !unl ? 'LOCKED · LEVEL ' + (unlockLevelOf(e.id) + 1) : on ? 'TAP TO ADD' : 'BANK ' + homeOf(e.id).bank + ' · LINE ' + 'ABC'[homeOf(e.id).line]) + prog;
-  return `<button class="hk ${e.good ? 'g' : 'b'} ${L || (live && live.unlocked) ? 'on' : ''} ${lvl ? 'lvl' : ''} ${!lvl && (!unl || (!on && !L)) ? 'lock' : ''}" data-id="${e.id}"><span class="n">${e.name}</span><span class="st">${st}</span><span class="k">${e.kind}</span><span class="d">${e.desc}</span><span class="s">${GLYPH[e.ctrl]} ${e.seq.join(' ')}</span></button>`;
+  const st = (lvl ? 'THIS LEVEL' : L ? (L.auto ? 'CAME WITH ' + ((catOf(L.of) || {}).short || 'A HACK') : 'IN SET') : !unl ? 'LOCKED · LEVEL ' + (unlockLevelOf(e.id) + 1) : 'TAP TO ADD') + prog;
+  const active = !!L || !!(live && (lvl || live.unlocked));
+  return `<button class="hk ${e.good ? 'g' : 'b'} ${active ? 'on' : ''} ${lvl ? 'lvl' : ''} ${!active && !unl ? 'lock' : ''}" data-id="${e.id}" aria-label="${e.name}: ${st}"><span class="d">${e.desc}</span><span class="s">${GLYPH[e.ctrl]} ${e.seq.join(' ')}${prog}</span><span class="lv">L${unlockLevelOf(e.id) + 1}</span></button>`;
 }
 function renderTool() {
-  const ex = exposedIds();
-  const lvlIds = inLevel() ? regs.map((r) => r.id) : [];
-  const xs = CAT.filter((e) => ex.has(e.id) || inSet(e.id) || lvlIds.includes(e.id)).sort((a, b) => (lvlIds.includes(b.id) - lvlIds.includes(a.id)) || (!!inSet(b.id) - !!inSet(a.id)));
-  $('xhead').textContent = `${inLevel() ? 'THIS LEVEL, YOUR SET AND YOUR WIRES' : 'EXPOSED BY YOUR WIRES'} (${xs.length})  ·  ${wires.length} WIRE${wires.length === 1 ? '' : 'S'}  ·  ${CAT.filter((e) => isUnlocked(e.id)).length}/${CAT.length} UNLOCKED  ·  ${loadout.length} IN YOUR SET`;
-  $('xg').innerHTML = xs.filter((e) => e.good).map((e) => hkCard(e, ex)).join('');
-  $('xb').innerHTML = xs.filter((e) => !e.good).map((e) => hkCard(e, ex)).join('');
-  if (!xs.length) $('xg').innerHTML = `<div class="xnone">${wires.length ? 'NOTHING EXPOSED. DRAG A WIRE FROM A CARTRIDGE PIN TO A SOCKET.' : 'NO WIRES YET. CLEAR A LEVEL TO EARN ONE.'}</div>`;
   $('tcats').innerHTML = CATS.map((c) => `<button class="${c === toolCat ? 'on' : ''}" data-c="${c}">${c}${c === 'IN SET' ? ' ' + loadout.length : ''}</button>`).join('');
   const q = $('tq').value.trim().toUpperCase();
   const list = CAT.filter((e) => (toolCat === 'ALL' || (toolCat === 'IN SET' ? inSet(e.id) : e.cat === toolCat)) && (!q || (e.name + ' ' + e.short + ' ' + e.desc + ' ' + e.kind).includes(q)));
-  $('tlist').innerHTML = list.length ? list.map((e) => hkCard(e, ex)).join('') : '<div class="empty">NOTHING MATCHES. GAMES ARRIVE IN A LATER VERSION.</div>';
+  $('xhead').textContent = `${CAT.filter((e) => isUnlocked(e.id)).length} OF ${CAT.length} UNLOCKED · ${loadout.length} IN YOUR SET${inLevel() ? ' · THIS LEVEL\'S ARE DASHED' : ''}`;
+  $('tlist').innerHTML = list.length ? list.map(hkCard).join('') : '<div class="empty">NOTHING MATCHES. GAMES ARRIVE IN A LATER VERSION.</div>';
   $('tfoot').textContent = toolMsg;
   $('tfoot').classList.toggle('quiet', !toolMsg);
   clearTimeout(renderTool.t); if (toolMsg) renderTool.t = setTimeout(() => { toolMsg = ''; $('tfoot').classList.add('quiet'); }, 3500);
+  requestAnimationFrame(drawMap);
+}
+// The minimap: the whole list in miniature down the right edge. White: available. Green: active. Grey: locked.
+// The frame is what's on screen; tap or drag the strip to go there.
+function drawMap() {
+  const cvm = $('tmap'), sc = $('tscroll'); if ($('tool').hidden) return;
+  const dpr = Math.min(2, devicePixelRatio || 1), W = cvm.clientWidth, H = cvm.clientHeight;
+  if (!W || !H) return;
+  if (cvm.width !== Math.round(W * dpr) || cvm.height !== Math.round(H * dpr)) { cvm.width = Math.round(W * dpr); cvm.height = Math.round(H * dpr); }
+  const g = cvm.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const total = Math.max(sc.scrollHeight, 1), k = H / total, half = $('tlist').clientWidth / 2;
+  for (const el of $('tlist').querySelectorAll('.hk')) {
+    const y = el.offsetTop * k, h = Math.max(2, el.offsetHeight * k - 1), col = el.offsetLeft > half ? 1 : 0, x = 4 + col * 16;
+    const c = el.classList.contains('on') ? '#39ff88' : el.classList.contains('lock') ? '#3a3f55' : '#e8ecff';
+    g.fillStyle = c; g.globalAlpha = 0.9; g.fillRect(x, y, 13, Math.min(1.4, h));                  // the name line
+    g.globalAlpha = 0.5; for (let ly = y + 2.2; ly < y + h - 0.5; ly += 2.2) g.fillRect(x, ly, 4 + ((el.dataset.id.length * 7 + ly * 3) % 9), 0.9);   // the text under it
+    g.globalAlpha = 1;
+  }
+  const vy = sc.scrollTop * k, vh = Math.max(8, sc.clientHeight * k);
+  g.fillStyle = 'rgba(255,255,255,0.09)'; g.fillRect(0, vy, W, vh); g.strokeStyle = 'rgba(79,240,255,0.7)'; g.lineWidth = 1; g.strokeRect(0.5, vy + 0.5, W - 1, vh - 1);
+}
+$('tscroll').addEventListener('scroll', () => requestAnimationFrame(drawMap), { passive: true });
+addEventListener('resize', () => requestAnimationFrame(drawMap));
+{ let mapDrag = null;
+  const go = (e) => { const rc = $('tmap').getBoundingClientRect(), sc = $('tscroll'); sc.scrollTop = (e.clientY - rc.top) / rc.height * sc.scrollHeight - sc.clientHeight / 2; };
+  $('tmap').addEventListener('pointerdown', (e) => { e.preventDefault(); mapDrag = e.pointerId; try { $('tmap').setPointerCapture(e.pointerId); } catch (_) { /* fine */ } go(e); });
+  $('tmap').addEventListener('pointermove', (e) => { if (mapDrag === e.pointerId) go(e); });
+  $('tmap').addEventListener('pointerup', () => { mapDrag = null; });
+  $('tmap').addEventListener('pointercancel', () => { mapDrag = null; });
 }
 $('tq').addEventListener('input', () => { titleAt = frame; renderTool(); });
 $('tool').addEventListener('pointerdown', () => { titleAt = frame; }, { passive: true });
 $('tcats').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { toolCat = b.dataset.c; renderTool(); } });
-for (const id of ['tlist', 'xg', 'xb']) $(id).addEventListener('click', (e) => { const b = e.target.closest('.hk'); if (b) { ensureAudio(); toggleSet(b.dataset.id); SFX.click(); haptic(); renderTool(); } });
+for (const id of ['tlist']) $(id).addEventListener('click', (e) => { const b = e.target.closest('.hk'); if (b) { ensureAudio(); toggleSet(b.dataset.id); SFX.click(); haptic(); renderTool(); } });
 $('tDone').addEventListener('click', closeTool);
 
 /* ================= sizing & loop ================= */
@@ -3716,9 +3640,12 @@ function loop(now) {
   if (steps === 5) acc = 0;
   guard('render', render);
   guard('screen 2', drawMem);
-  if (!$('tool').hidden) guard('board', () => { stepWires(); drawBoard(); });
   $('fbB').classList.toggle('armed', armedT > 0);
-  $('led').classList.toggle('on', armedT > 0 || (bands.length > 0 && (frame >> 2) % 2 === 0));
+  // the two lights on the controller: will a press write (and into what), and how stable the game is
+  const vd = state === 'play' && !demo ? verdict() : 'none', l1 = $('led'), l2 = $('led2');
+  l1.style.background = vd === 'none' ? '' : VERDICT_COL[vd]; l1.style.boxShadow = vd === 'none' ? '' : '0 0 10px ' + VERDICT_COL[vd];
+  const st = 1 - corruption(), sc = st < 0.35 ? '#ff3d5a' : st < 0.65 ? '#ffc23d' : '#39ff88', blink = st < 0.35 && (frame >> 4) % 2;
+  l2.style.background = state === 'play' && !blink ? sc : ''; l2.style.boxShadow = state === 'play' && !blink ? '0 0 8px ' + sc : '';
 }
 
 /* ================= boot ================= */
@@ -3734,6 +3661,7 @@ function boot() {
 }
 // Hooks for the Android host: the back button and the app leaving the screen.
 window.memarioBack = () => {
+  if (demo && demo.title) { if (!ovBox.querySelector('#tNew')) { showTitle(); return 'menu'; } return 'exit'; }
   if (demo) { stopDemo(); return 'menu'; }
   if (state === 'play') { openMenu(); return 'menu'; }
   if (state === 'pause' && !ovBox.querySelector('#mResume')) { openMenu(); return 'menu'; }   // back out of saves or settings
@@ -3745,7 +3673,7 @@ window.memarioBack = () => {
   return 'exit';
 };
 window.memarioPause = () => {
-  if (demo) stopDemo();
+  if (demo && !demo.title) stopDemo();
   for (const s2 in src) for (const k of KEYS) setKey(s2, k, false);
   if (state === 'play') openMenu();
   if (actx && actx.state === 'running') actx.suspend().catch(() => {});

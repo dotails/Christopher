@@ -10,8 +10,8 @@ android {
         applicationId 'com.dotails.memario'
         minSdk 24
         targetSdk 35
-        versionCode 18
-        versionName '5.6.0'
+        versionCode 19
+        versionName '5.7.0'
     }
 
     signingConfigs {
