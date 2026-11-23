@@ -38,8 +38,8 @@ the left and curses on the right. Below the search box and filters (ALL, IN SET,
 WARPS, LOOK, GLITCHES) comes the whole list, the originals staying where they are. Adding or removing a
 hack never makes the list jump: it holds its place while the copy appears or disappears above.
 
-Each card looks like the game's register cards: the top row is what the hack does, with its level number
-on the right; the bottom row is the control (A, ◀ or ▶) and the register's digits, written ones lit, the
+Each card looks like the game's register cards: the top row is its level number, then what the hack does;
+the bottom row is the control (A, ◀ or ▶) and the register's digits, written ones lit, the
 next one a little bigger and coloured, glowing when you're standing on it. While you play, the digits are
 the big bold line; paused or on the title, the description is. Colour: white available, green active
 (pink for curses), grey still locked. Down the right edge runs a minimap of the whole list in the same

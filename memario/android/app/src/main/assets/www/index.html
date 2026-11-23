@@ -172,9 +172,9 @@ body.mode-switch:not(.mode-side) .tool{position:fixed;inset:var(--sat) 0 0 0;z-i
 .tool .hk.lock{opacity:.38;filter:grayscale(1)}
 .tool .hk.lvl{border-style:dashed}
 .tool .hk{display:grid;grid-template-columns:auto 1fr auto;column-gap:6px;row-gap:4px;align-items:center;text-align:left;background:var(--term2);border:1px solid var(--rule);border-radius:4px;padding:5px 7px;cursor:pointer}
-.tool .hk .d{grid-column:1/3;grid-row:1;font:700 11px/1.25 var(--f-mono);color:#e8ecff;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tool .hk .d{grid-column:2/4;grid-row:1;font:700 11px/1.25 var(--f-mono);color:#e8ecff;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .tool .hk.b .d{color:#ffb3d1}
-.tool .hk .lv{grid-column:3;grid-row:1;align-self:start;font-size:10px;color:var(--muted)}
+.tool .hk .lv{grid-column:1;grid-row:1;justify-self:center;align-self:start;font-size:10px;line-height:1.5;color:var(--muted)}
 .tool .hk .c{grid-column:1;grid-row:2;width:17px;height:17px;border-radius:50%;background:#2b2858;display:grid;place-items:center;color:#fff;font:10px/1 var(--f-pix)}
 .tool .hk .c.jump{background:#d42626}
 .tool .hk .c.left::before,.tool .hk .c.right::before{content:'';width:0;height:0;border:4px solid transparent}
