@@ -156,7 +156,7 @@ body.mode-side #stage2{border-top:0;border-left:2px solid #05040a}
 body.mode-switch:not(.mode-side) .tool{position:fixed;inset:var(--sat) 0 0 0;z-index:30}
 .tool .tscroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .tool .board{position:relative;background:#06150f}
-.tool .board canvas{position:relative;inset:auto;display:block;width:100%;height:auto;object-fit:fill;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none}
+.tool .board canvas{position:relative;inset:auto;display:block;width:100%;height:auto;object-fit:fill;image-rendering:auto;touch-action:none}
 .tool #tDone{position:absolute;right:6px;top:6px;font:13px var(--f-pix);background:var(--phos);color:#04130a;border:0;border-radius:4px;padding:7px 12px}
 .tool .xhead{font-size:11px;color:var(--cyan);padding:7px 8px 3px;letter-spacing:.08em}
 .tool .xcols{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 6px 6px}
@@ -198,7 +198,7 @@ body.mode-side .tool .hk .d{font-size:10px}
       <canvas id="cv2" width="320" height="240" aria-label="Memory row and registers. Drag to scroll; tap a register to have it explained."></canvas>
       <div class="tool" id="tool" hidden>
         <div class="tscroll" id="tscroll">
-          <div class="board"><canvas id="board" width="320" height="168" aria-label="Wiring board: drag a wire's plugs between the cartridge pins and your board's sockets"></canvas><button id="tDone">DONE</button></div>
+          <div class="board"><canvas id="board" width="960" height="480" aria-label="Wiring board: drag a wire's plugs between the cartridge pins and your board's sockets"></canvas><button id="tDone">DONE</button></div>
           <div class="xhead" id="xhead">EXPOSED BY YOUR WIRES</div>
           <div class="xcols"><div id="xg"></div><div id="xb"></div></div>
           <div class="tbar"><input id="tq" type="search" placeholder="SEARCH EVERY HACK" enterkeyhint="search" autocomplete="off" spellcheck="false" aria-label="Search hacks"></div>
@@ -1418,6 +1418,8 @@ function promptParts() {
 }
 function drawMem() {
   const g = ctx2;
+  for (let i = 0; i < 8; i++) g.restore();
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
   g.fillStyle = '#0d0b18'; g.fillRect(0, 0, SW, SH);
   g.fillStyle = '#131026';
   for (let x = 0; x < SW; x += 16) g.fillRect(x, 0, 1, SH);
@@ -2063,6 +2065,9 @@ function respawn() {
 
 /* ================= update ================= */
 function update() {
+  try { updateInner(); } finally { clearEdges(); }
+}
+function updateInner() {
   frame++;
   if (state === 'title' && !demo && SETTINGS.demo && frame - titleAt > 600 && !ov.hidden && document.activeElement !== $('tq') && !$('tq').value) { startDemo(); return; }   // idle on the title: the game plays itself
   if (state !== 'play') {
@@ -2656,6 +2661,8 @@ function tileTex(t, c, r) {
   }
 }
 function render() {
+  for (let i = 0; i < 8; i++) ctx.restore();          // undo anything a failed frame left behind (a no-op when clean)
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   const C = corruption(); NEED = needMap();
   const shake = (shakeT > 0 && !reduceMotion) ? Math.min(4, 1 + shakeT / 50) : 0;
   const ox = shake ? Math.round((Math.random() - 0.5) * 2 * shake) : 0, oy = shake ? Math.round((Math.random() - 0.5) * 2 * shake) : 0;
@@ -3082,7 +3089,7 @@ function showIntro() {
   typeInto(ovBox.querySelector('p'));
 }
 function beginLevel() {
-  state = 'play'; ov.hidden = true; SFX.save(); startMusic(levelIdx); closeTool(); updateRun({ level: levelIdx });
+  state = 'play'; ov.hidden = true; SFX.save(); startMusic(levelIdx); guard('hack tool', closeTool); updateRun({ level: levelIdx });
   log(`LEVEL ${levelIdx + 1}: ${LV.name}. ${regs.filter((r) => r.good).length} HACKS, ${regs.filter((r) => !r.good).length} CURSES`, 'sys');
   log(`ON A REGISTER'S NEXT DIGIT PRESS ITS CONTROL · TOUCH VIRUSES FOR THEIRS · B SCAN`, 'sys');
 }
@@ -3100,17 +3107,17 @@ function openMenu() {
     </div>
     <p class="note">${wideStrip() ? '' : 'Your wiring board and every hack you can bring are on the ' + (document.body.classList.contains('mode-side') ? 'right.' : 'screen below.')}</p>`;
   ov.hidden = false;
-  if (!wideStrip()) openTool('pause');
   $('mResume').onclick = closeMenu;
-  $('mReboot').onclick = () => { closeTool(); reboot(); };
+  $('mReboot').onclick = () => { guard('hack tool', closeTool); reboot(); };
   $('mCheck').onclick = () => { const sv = saves[checkpoint]; p.x = sv.x + 1; p.y = 208 - p.h; p.vx = p.vy = 0; p.flip = false; p.inv = 60; p.dead = 0; if (p.riding) dismount(false); closeMenu(); log(`BACK TO SAVE ${checkpoint}`, 'sys'); };
   $('mSaves').onclick = () => showSaves(openMenu);
   $('mSet').onclick = () => showSettings(openMenu);
   $('mTut').onclick = () => { closeTool(); startDemo(true); };
-  $('mQuit').onclick = () => { closeTool(); loadLevel(0); showTitle(); };
+  $('mQuit').onclick = () => { guard('hack tool', closeTool); loadLevel(0); showTitle(); };
   if ($('mTool')) $('mTool').onclick = () => { ov.hidden = true; openTool('game'); };
+  if (!wideStrip()) guard('hack tool', () => openTool('pause'));      // the buttons work even if the tool can't draw
 }
-function closeMenu() { if (state !== 'pause') return; closeTool(); state = 'play'; ov.hidden = true; }
+function closeMenu() { if (state !== 'pause') return; state = 'play'; ov.hidden = true; guard('hack tool', closeTool); }
 function toggleSound() { muted = !muted; SETTINGS.sound = !muted; saveSettings(); if (!muted) { ensureAudio(); SFX.click(); } log('SOUND ' + (muted ? 'OFF' : 'ON'), 'sys'); }
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function levelClear() {
@@ -3406,28 +3413,40 @@ function hackTick() {
 }
 
 /* ================= the wiring board ================= */
-// The cartridge's edge connector along the top (24 pins in three lines, A B C), your hack board's sockets along the
-// bottom (6 banks). Every hack lives on one line of one bank. A wire from a pin to a socket exposes that line of
-// that bank. Wires are ropes: verlet points with two plugs you drag.
-const BW = 320, BH = 168, PINS = 24, BANKS = 6, PIN_Y = 58, SOCK_Y = 126, FLOOR = BH - 3;
-const pinX = (i) => 17 + i * 12.4, bankX = (j) => 33 + j * 51;
+// Top: a cartridge PCB whose bottom edge is 24 gold fingers, in three lines (A B C) of eight. Bottom: your hack
+// board, whose top edge has the same 24 fingers in six banks of four. Seen from above, the wires lie on the bench
+// between them: no gravity, just friction, so they stay wiggly until you pull them. Each ends in a 3.5 mm jack;
+// touch a jack's tip to a finger and it plugs in. A top finger wired to a bottom finger exposes that line of
+// that bank.
+const BS = 3, BW = 320, BH = 160, PINS = 24, BANKS = 6, PIN_Y = 49, SOCK_Y = 91, MAT0 = 51, MAT1 = 89;
+const fingerX = (i) => 19 + i * 11.6 + Math.floor(i / 8) * 9;
+const pinX = fingerX, bankX = (j) => (fingerX(j * 4) + fingerX(j * 4 + 3)) / 2;
 const homeOf = (id) => { const h = hashStr(id + '#home'); return { bank: h % BANKS, line: (h >>> 5) % 3 }; };
 const WIRE_COL = ['#ff3d8a', '#4ff0ff', '#ffc23d', '#39ff88', '#c9c2ff'];
-const SEGS = 20, SEG_LEN = 14;
+const SEGS = 30, SEG_LEN = 10, JACK_S = 1.55, JACK = 16 * JACK_S;
 let wires = [];
 function makeWire(k, saved) {
-  const x0 = 22 + k * 74, pts = [];
-  for (let i = 0; i <= SEGS; i++) { const x = x0 + i * 2.4, y = FLOOR - 2; pts.push({ x, y, px: x, py: y }); }
+  const R = mulberry32(77 + k * 31), x0 = 26 + (k % 4) * 70, yc = MAT0 + 12 + ((k * 11) % 14), pts = [];
+  let x = x0, a = R() * 6;
+  for (let i = 0; i <= SEGS; i++) {                  // laid down loose: a meandering, slack curve
+    const y = clamp(yc + Math.sin(i * 0.75 + k * 2) * 8 + (R() - 0.5) * 5, MAT0 + 3, MAT1 - 3);
+    pts.push({ x, y, px: x, py: y }); a += (R() - 0.5) * 1.4; x += 2.2 + Math.abs(Math.cos(a)) * 2.2;
+  }
   const w = { k, col: WIRE_COL[k % WIRE_COL.length], pts, ends: [null, null] };
-  if (saved) for (const e of [0, 1]) if (saved[e]) plug(w, e, saved[e]);
+  if (saved) for (const e of [0, 1]) if (saved[e] && (saved[e].type === 'pin' || saved[e].type === 'bot')) plug(w, e, saved[e]);
   return w;
 }
 function addWire() { wires.push(makeWire(wires.length)); saveWires(); }
 const saveWires = () => saveJSON('memario.wires', wires.map((w) => w.ends));
-function endPos(t) { return t.type === 'pin' ? [pinX(t.i), PIN_Y] : [bankX(t.i), SOCK_Y]; }
-function taken(t) { return wires.some((w) => w.ends.some((e) => e && e.type === t.type && e.i === t.i)); }
-function plug(w, e, t) { w.ends[e] = t; const [x, y] = endPos(t), q = w.pts[e ? SEGS : 0]; q.x = q.px = x; q.y = q.py = y; }
-function wirePairs() { return wires.map((w) => { const a = w.ends.find((e) => e && e.type === 'pin'), b = w.ends.find((e) => e && e.type === 'sock'); return a && b ? { line: Math.floor(a.i / 8), bank: b.i, w } : null; }).filter(Boolean); }
+const endPos = (t) => [fingerX(t.i), t.type === 'pin' ? PIN_Y : SOCK_Y];
+const taken = (t) => wires.some((w) => w.ends.some((e) => e && e.type === t.type && e.i === t.i));
+function plug(w, e, t) {
+  w.ends[e] = t; const [x, y] = endPos(t), a = w.pts[e ? SEGS : 0], b = w.pts[e ? SEGS - 1 : 1], dy = t.type === 'pin' ? SEG_LEN : -SEG_LEN;
+  a.x = a.px = x; a.y = a.py = y; b.x = b.px = x; b.y = b.py = y + dy;            // the jack goes in straight
+}
+function wirePairs() {
+  return wires.map((w) => { const a = w.ends.find((e) => e && e.type === 'pin'), b = w.ends.find((e) => e && e.type === 'bot'); return a && b ? { line: Math.floor(a.i / 8), bank: Math.floor(b.i / 4), w } : null; }).filter(Boolean);
+}
 function exposedIds() {
   const out = new Set();
   for (const pr of wirePairs()) for (const e of CAT) if (isUnlocked(e.id)) { const h = homeOf(e.id); if (h.bank === pr.bank && h.line === pr.line) out.add(e.id); }
@@ -3440,99 +3459,150 @@ function trimLoadout() {                  // unwiring a hack drops it (and the c
 }
 { const saved = loadJSON('memario.wires', []); for (let k = 0; k < Math.min(cleared.length, 8); k++) wires.push(makeWire(k, saved[k])); }
 trimLoadout();
-// rope physics
+// rope physics, seen from above: points keep a little momentum, friction takes it away, links never stretch
+let grab = null, bdrag = null;
+function pinned(w, i) {
+  if (i === 0 || i === 1) return !!w.ends[0] || (i === 0 && grab && grab.w === w && grab.e === 0);
+  if (i === SEGS || i === SEGS - 1) return !!w.ends[1] || (i === SEGS && grab && grab.w === w && grab.e === 1);
+  return false;
+}
 function stepWires() {
   for (const w of wires) {
+    const fixed = w.pts.map((_, i) => pinned(w, i));
     for (let i = 0; i <= SEGS; i++) {
-      const q = w.pts[i];
-      if ((i === 0 && (w.ends[0] || grab && grab.w === w && grab.e === 0)) || (i === SEGS && (w.ends[1] || grab && grab.w === w && grab.e === 1))) continue;
-      const vx = (q.x - q.px) * 0.985, vy = (q.y - q.py) * 0.985;
-      q.px = q.x; q.py = q.y; q.x += vx; q.y += vy + 0.32;
+      if (fixed[i]) continue;
+      const q = w.pts[i], vx = (q.x - q.px) * 0.72, vy = (q.y - q.py) * 0.72;
+      q.px = q.x; q.py = q.y; q.x += vx; q.y += vy;
     }
-    for (let it = 0; it < 12; it++) {
+    for (let it = 0; it < 16; it++) {
       for (let i = 0; i < SEGS; i++) {
         const a = w.pts[i], b = w.pts[i + 1], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.001;
-        if (d <= SEG_LEN) continue;                                    // a wire goes slack, it doesn't stretch
-        const fa = (i === 0 && (w.ends[0] || (grab && grab.w === w && grab.e === 0))) ? 0 : 0.5;
-        const fb = (i + 1 === SEGS && (w.ends[1] || (grab && grab.w === w && grab.e === 1))) ? 0 : 0.5;
-        const k = (d - SEG_LEN) / d, tot = fa + fb || 1;
+        if (d <= SEG_LEN) continue;                                   // slack is fine; stretching isn't
+        const fa = fixed[i] ? 0 : 1, fb = fixed[i + 1] ? 0 : 1, tot = fa + fb; if (!tot) continue;
+        const k = (d - SEG_LEN) / d;
         a.x += dx * k * fa / tot; a.y += dy * k * fa / tot; b.x -= dx * k * fb / tot; b.y -= dy * k * fb / tot;
       }
-      for (const q of w.pts) { if (q.y > FLOOR) { q.y = FLOOR; q.px = q.x - (q.x - q.px) * 0.6; } q.x = clamp(q.x, 3, BW - 3); if (q.y < 2) q.y = 2; }
+      for (const q of w.pts) { q.x = clamp(q.x, 2, BW - 2); q.y = clamp(q.y, 2, BH - 2); }
     }
   }
 }
-// drawing
+// drawing, at three times the board's resolution
 const bctx = $('board').getContext('2d');
 let boardBg = null;
 function buildBoardBg() {
-  const c = mk(BW, BH), g = c.getContext('2d'), R = mulberry32(5), f = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
-  f('#06150f', 0, 0, BW, BH);
-  for (let i = 0; i < 50; i++) { const x = (R() * BW) | 0, y = 72 + ((R() * 36) | 0), w = 10 + ((R() * 60) | 0); f('#0e2a1e', x, y, w, 1); f('#0e2a1e', x + w, y, 1, 8 + ((R() * 20) | 0)); f('#1f4a34', x, y - 1, 2, 3); }
-  // the cartridge: grey shell, label, gold edge fingers in three lines
-  f('#3a3a46', 4, 0, BW - 8, 42); f('#8a8a98', 5, 0, BW - 10, 40); for (let y = 4; y < 36; y += 5) f('#7a7a88', 9, y, 60, 2), f('#7a7a88', BW - 69, y, 60, 2);
-  f('#15152a', 96, 5, 128, 28); f('#ff3d8a', 96, 5, 128, 2); drawText('MEMARIO', 160, 11, '#ffffff', 2, 'center', g); drawText('HACK CARTRIDGE', 160, 25, '#4ff0ff', 1, 'center', g);
-  f('#2a5a3e', 6, 40, BW - 12, 4);
-  const LCOL = ['#4ff0ff', '#ff6fa8', '#ffc23d'];
-  for (let i = 0; i < PINS; i++) { const x = Math.round(pinX(i)) - 3; f('#7a5a14', x, 42, 7, 16); f('#e0b24a', x + 1, 42, 5, 15); f('#fff0b0', x + 1, 43, 1, 12); }
-  for (let l = 0; l < 3; l++) { const x0 = pinX(l * 8) - 4, x1 = pinX(l * 8 + 7) + 4; f(LCOL[l], x0, 62, x1 - x0, 1); drawText('LINE ' + 'ABC'[l], (x0 + x1) / 2, 65, LCOL[l], 1, 'center', g); }
-  // your hack board: navy like the hood, pink edge, six sockets
-  f('#1a2036', 0, 116, BW, BH - 116); f('#ff3d8a', 0, 116, BW, 1); f('#2e3858', 0, 117, BW, 2);
-  for (let j = 0; j < BANKS; j++) { const x = Math.round(bankX(j)); f('#05040a', x - 13, 119, 26, 14); f('#2a2d40', x - 12, 120, 24, 12); f('#000000', x - 3, 123, 6, 6); drawText('BANK ' + j, x, 137, '#c9c2ff', 1, 'center', g); }
-  drawText('YOUR HACK BOARD', 160, 158, '#3a4466', 1, 'center', g);
+  const c = mk(BW * BS, BH * BS), g = c.getContext('2d'), R = mulberry32(5);
+  g.scale(BS, BS);
+  const f = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  const silk = (t, x, y, col = '#efe6a8', al = 'left') => drawText(t, x, y, col, 1, al, g);
+  // the bench
+  f('#16171e', 0, 0, BW, BH);
+  for (let i = 0; i < 900; i++) { g.fillStyle = R() < 0.5 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.25)'; g.fillRect(R() * BW, R() * BH, 0.5, 0.5); }
+  const fingers = (y0, h, up) => {                        // gold edge fingers with their traces
+    for (let i = 0; i < PINS; i++) {
+      const x = fingerX(i) - 3.2;
+      g.fillStyle = '#7a5816'; g.fillRect(x, y0, 6.4, h);
+      g.fillStyle = '#d9a640'; g.fillRect(x + 0.4, y0 + 0.2, 5.6, h - 0.4);
+      g.fillStyle = '#f5d68a'; g.fillRect(x + 1, up ? y0 + 1 : y0 + 0.6, 1, h - 1.6);
+      for (let k = 0; k < 3; k++) if (R() < 0.6) { g.fillStyle = 'rgba(90,60,10,0.5)'; g.fillRect(x + 0.6 + R() * 4.6, y0 + 1 + R() * (h - 2), 0.8, 0.8); }   // wear
+    }
+  };
+  // ---- the cartridge PCB
+  f('#0f4a24', 3, 0, BW - 6, PIN_Y); f('#1d7a3c', 4, 0, BW - 8, PIN_Y - 1);
+  g.strokeStyle = '#2f9c52'; g.lineWidth = 0.7;
+  for (let i = 0; i < PINS; i++) {                        // traces running up from each finger
+    const x = fingerX(i), tx = 30 + i * 11, ty = 22 + (i % 3) * 2;
+    g.beginPath(); g.moveTo(x, PIN_Y - 16); g.lineTo(x, ty + 4); g.lineTo(tx, ty); g.lineTo(tx, 20); g.stroke();
+    g.fillStyle = '#c8ccd4'; g.beginPath(); g.arc(tx, 20, 0.9, 0, 7); g.fill(); g.fillStyle = '#1d7a3c'; g.beginPath(); g.arc(tx, 20, 0.4, 0, 7); g.fill();
+  }
+  const dip = (x, y, w, h, legs, label, sub) => {         // a DIP chip: black body, silver legs above and below
+    for (let k = 0; k < legs; k++) { const lx = x + 2 + k * (w - 4) / (legs - 1); f('#9aa0aa', lx - 0.7, y - 1.6, 1.4, 1.8); f('#9aa0aa', lx - 0.7, y + h - 0.2, 1.4, 1.8); f('#dde2ea', lx - 0.3, y - 1.4, 0.5, 1.2); }
+    f('#0c0c10', x, y, w, h); f('#24242c', x, y, w, 0.8); g.fillStyle = '#05050a'; g.beginPath(); g.arc(x + 4, y + h / 2, 1.4, 0, 7); g.fill();
+    drawText(label, x + w / 2, y + (h - 5) / 2, '#d8d8e0', 1, 'center', g); if (sub) drawText(sub, x + w / 2, y + h - 6.5, '#9a9aa6', 1, 'center', g);
+  };
+  dip(16, 5, 110, 13, 16, 'HK-0 CHR', null);
+  dip(190, 5, 110, 13, 16, 'HK-1 PRG', null);
+  // a square mapper chip with legs on four sides
+  f('#0c0c10', 141, 3, 34, 16); for (let k = 0; k < 10; k++) { f('#c0c4cc', 143 + k * 3.1, 1.6, 1, 1.6); f('#c0c4cc', 143 + k * 3.1, 18.6, 1, 1.6); }
+  drawText('MAP-3', 158, 7, '#d8d8e0', 1, 'center', g);
+  g.fillStyle = '#2a5ad0'; g.beginPath(); g.arc(9, 24, 3.2, 0, 7); g.fill(); f('#c8d4f0', 7, 22, 1, 4);           // a capacitor
+  for (const [x, y] of [[132, 22], [182, 22]]) { f('#d8c49a', x, y, 6, 2.6); f('#8a3a1a', x + 1.2, y, 0.8, 2.6); f('#1a1a1a', x + 2.6, y, 0.8, 2.6); f('#c8961a', x + 4, y, 0.8, 2.6); }   // resistors
+  silk('U2', 18, 21); silk('U1', 292, 21); silk('U3', 128, 7);
+  const LCOL = ['#7ff6ff', '#ff9ac8', '#ffd76a'];
+  for (let l = 0; l < 3; l++) { const x0 = fingerX(l * 8) - 3, x1 = fingerX(l * 8 + 7) + 3; f(LCOL[l], x0, 31, x1 - x0, 0.6); silk('LINE ' + 'ABC'[l], (x0 + x1) / 2, 25.5, LCOL[l], 'center'); }
+  fingers(PIN_Y - 16, 16, false);
+  // ---- your hack board: same fingers, facing up
+  f('#1c1640', 3, SOCK_Y, BW - 6, BH - SOCK_Y); f('#2a2160', 4, SOCK_Y + 1, BW - 8, BH - SOCK_Y - 1);
+  g.strokeStyle = '#4a3c9a';
+  for (let i = 0; i < PINS; i++) { const x = fingerX(i); g.beginPath(); g.moveTo(x, SOCK_Y + 16); g.lineTo(x, SOCK_Y + 26 + (i % 4)); g.lineTo(bankX(Math.floor(i / 4)), SOCK_Y + 34); g.stroke(); }
+  fingers(SOCK_Y, 16, true);
+  for (let j = 0; j < BANKS; j++) { const x0 = fingerX(j * 4) - 3, x1 = fingerX(j * 4 + 3) + 3; f('#ff6fa8', x0, SOCK_Y + 18, x1 - x0, 0.6); silk('BANK ' + j, (x0 + x1) / 2, SOCK_Y + 20, '#e8e2ff', 'center'); }
+  dip(40, BH - 22, 96, 12, 14, 'HACK RAM', null);
+  dip(184, BH - 22, 96, 12, 14, 'YOUR HACK BOARD', null);
   boardBg = c;
+}
+function drawJack(g, x, y, ang, col) {                    // a 3.5 mm plug: tip, rings, sleeve, collar, grip, strain relief
+  g.save(); g.translate(x, y); g.rotate(ang); g.scale(JACK_S, JACK_S);
+  const seg = (x0, x1, w, c) => { g.fillStyle = c; g.fillRect(x0, -w / 2, x1 - x0, w); };
+  seg(-2.2, -0.6, 1.5, '#e6eaf2'); g.fillStyle = '#e6eaf2'; g.beginPath(); g.arc(-0.6, 0, 0.75, -1.6, 1.6); g.fill();
+  seg(-2.8, -2.2, 1.6, '#111116'); seg(-4.2, -2.8, 1.6, '#d2d7e0'); seg(-4.7, -4.2, 1.6, '#111116'); seg(-7.4, -4.7, 1.8, '#dfe3ea');
+  g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(-7.4, -0.75, 6.8, 0.3);
+  seg(-8.3, -7.4, 3, '#7c808a'); seg(-14, -8.3, 3.8, '#1a1a22'); seg(-10, -9.3, 3.8, col);
+  g.fillStyle = '#2c2c36'; for (let k = -13.6; k < -10.4; k += 0.9) g.fillRect(k, -1.9, 0.35, 3.8);
+  g.fillStyle = '#1a1a22'; g.beginPath(); g.moveTo(-14, -1.6); g.lineTo(-16, -1.15); g.lineTo(-16, 1.15); g.lineTo(-14, 1.6); g.fill();
+  g.restore();
 }
 function drawBoard() {
   if (!boardBg) buildBoardBg();
-  const g = bctx; g.imageSmoothingEnabled = false; g.drawImage(boardBg, 0, 0);
+  const g = bctx; g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(boardBg, 0, 0); g.setTransform(BS, 0, 0, BS, 0, 0);
   const pairs = wirePairs(), ex = exposedIds();
   for (let j = 0; j < BANKS; j++) {                                     // a bank's LED: green if it shows something, red if the line is dead
-    const pr = pairs.filter((q) => q.bank === j), x = Math.round(bankX(j));
+    const pr = pairs.filter((q) => q.bank === j), x = bankX(j);
     const live = pr.some((q) => CAT.some((e) => ex.has(e.id) && homeOf(e.id).bank === j && homeOf(e.id).line === q.line));
-    g.fillStyle = !pr.length ? '#2a2d40' : live ? '#39ff88' : '#ff3d5a'; g.fillRect(x - 2, 145, 4, 3);
-    if (pr.length) { g.globalAlpha = 0.25; g.fillStyle = live ? '#39ff88' : '#ff3d5a'; g.fillRect(x - 4, 143, 8, 7); g.globalAlpha = 1; }
+    g.fillStyle = !pr.length ? '#3a3260' : live ? '#39ff88' : '#ff3d5a'; g.beginPath(); g.arc(x, SOCK_Y + 30, 1.4, 0, 7); g.fill();
+    if (pr.length) { g.globalAlpha = 0.3; g.beginPath(); g.arc(x, SOCK_Y + 30, 3.4, 0, 7); g.fill(); g.globalAlpha = 1; }
   }
   for (const w of wires) {
+    const P = w.pts, ends = [0, 1].map((e) => { const a = P[e ? SEGS : 0], b = P[e ? SEGS - 1 : 1], ang = Math.atan2(a.y - b.y, a.x - b.x); return { a, ang, bx: a.x - Math.cos(ang) * JACK, by: a.y - Math.sin(ang) * JACK }; });
+    const path = () => { g.beginPath(); g.moveTo(ends[0].bx, ends[0].by); for (let i = 2; i <= SEGS - 2; i++) g.lineTo(P[i].x, P[i].y); g.lineTo(ends[1].bx, ends[1].by); };
     g.lineJoin = g.lineCap = 'round';
-    const path = () => { g.beginPath(); g.moveTo(w.pts[0].x, w.pts[0].y); for (let i = 1; i <= SEGS; i++) g.lineTo(w.pts[i].x, w.pts[i].y); };
-    path(); g.strokeStyle = '#05040a'; g.lineWidth = 5; g.stroke();
-    path(); g.strokeStyle = w.col; g.lineWidth = 3; g.stroke();
-    g.globalAlpha = 0.5; g.translate(-0.5, -1); path(); g.strokeStyle = '#ffffff'; g.lineWidth = 1; g.stroke(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
-    for (const e of [0, 1]) {                                             // the plugs
-      const q = w.pts[e ? SEGS : 0], t = w.ends[e], up = t ? t.type === 'pin' : false, x = Math.round(q.x), y = Math.round(q.y);
-      g.fillStyle = '#05040a'; g.fillRect(x - 5, y - (up ? 1 : 10), 10, 11);
-      g.fillStyle = w.col; g.fillRect(x - 4, y - (up ? 0 : 9), 8, 9);
-      g.fillStyle = '#c8c8d8'; g.fillRect(x - 2, up ? y - 3 : y + 1, 4, 3);
-      if (grab && grab.w === w && grab.e === e) { g.fillStyle = '#ffffff'; g.fillRect(x - 6, y - 12, 12, 1); }
-    }
+    g.save(); g.translate(0.8, 1.2); path(); g.strokeStyle = 'rgba(0,0,0,0.45)'; g.lineWidth = 3.1; g.stroke(); g.restore();   // shadow on the bench
+    path(); g.strokeStyle = '#0a0a10'; g.lineWidth = 3.1; g.stroke();
+    path(); g.strokeStyle = w.col; g.lineWidth = 2.3; g.stroke();
+    g.save(); g.translate(-0.35, -0.4); path(); g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 0.5; g.stroke(); g.restore();
+    for (const [k, e] of ends.entries()) { drawJack(g, e.a.x, e.a.y, e.ang, w.col); if (grab && grab.w === w && grab.e === k) { g.strokeStyle = '#ffffff'; g.lineWidth = 0.5; g.beginPath(); g.arc(e.a.x, e.a.y, 3.2, 0, 7); g.stroke(); } }
   }
   if (!wires.length) {
-    g.fillStyle = 'rgba(5,4,10,0.78)'; g.fillRect(40, 72, 240, 38);
-    drawText('NO WIRES YET', 160, 77, '#ffffff', 2, 'center', g);
-    drawText('CLEAR A LEVEL TO EARN ONE', 160, 96, '#4ff0ff', 1, 'center', g);
+    g.fillStyle = 'rgba(5,4,10,0.8)'; g.fillRect(70, MAT0 + 4, 180, MAT1 - MAT0 - 8);
+    drawText('NO WIRES YET', 160, MAT0 + 10, '#ffffff', 2, 'center', g);
+    drawText('CLEAR A LEVEL TO EARN ONE', 160, MAT0 + 26, '#4ff0ff', 1, 'center', g);
   }
 }
-// dragging plugs (a drag anywhere else scrolls the tool)
-let grab = null, bdrag = null;
+// dragging jacks (a drag anywhere else scrolls the tool)
 const bPos = (e) => { const rc = $('board').getBoundingClientRect(); return [(e.clientX - rc.left) / rc.width * BW, (e.clientY - rc.top) / rc.height * BH]; };
 $('board').addEventListener('pointerdown', (e) => {
   e.preventDefault(); ensureAudio(); titleAt = frame;
-  const [x, y] = bPos(e); let best = null, bd = 16;
-  for (const w of wires) for (const k of [0, 1]) { const q = w.pts[k ? SEGS : 0], d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = { w, e: k }; } }
+  const [x, y] = bPos(e); let best = null, bd = 11;
+  for (const w of wires) for (const k of [0, 1]) {
+    const a = w.pts[k ? SEGS : 0], b = w.pts[k ? SEGS - 1 : 1], ang = Math.atan2(a.y - b.y, a.x - b.x);
+    const d = Math.min(Math.hypot(a.x - x, a.y - y), Math.hypot(a.x - Math.cos(ang) * JACK * 0.6 - x, a.y - Math.sin(ang) * JACK * 0.6 - y));   // the tip or the grip
+    if (d < bd) { bd = d; best = { w, e: k, ox: a.x - x, oy: a.y - y }; }
+  }
   try { $('board').setPointerCapture(e.pointerId); } catch (_) { /* fine */ }
   if (best) { grab = { ...best, id: e.pointerId }; if (grab.w.ends[grab.e]) { grab.w.ends[grab.e] = null; onRewire(); } tone(500, 0.04, 'square', 0.02); haptic(6); }
   else bdrag = { id: e.pointerId, y: e.clientY, s: $('tscroll').scrollTop };
 });
 $('board').addEventListener('pointermove', (e) => {
-  if (grab && e.pointerId === grab.id) { const [x, y] = bPos(e), q = grab.w.pts[grab.e ? SEGS : 0]; q.x = q.px = clamp(x, 4, BW - 4); q.y = q.py = clamp(y, 4, FLOOR); }
+  if (grab && e.pointerId === grab.id) { const [x, y] = bPos(e), q = grab.w.pts[grab.e ? SEGS : 0]; q.x = q.px = clamp(x + grab.ox, 3, BW - 3); q.y = q.py = clamp(y + grab.oy, 3, BH - 3); }
   else if (bdrag && e.pointerId === bdrag.id) $('tscroll').scrollTop = bdrag.s - (e.clientY - bdrag.y);
 });
 const dropPlug = (e) => {
   if (bdrag && e.pointerId === bdrag.id) bdrag = null;
   if (!grab || e.pointerId !== grab.id) return;
-  const q = grab.w.pts[grab.e ? SEGS : 0]; let snap = null, bd = 12;
-  for (let i = 0; i < PINS; i++) { const d = Math.hypot(q.x - pinX(i), q.y - PIN_Y); if (d < bd && !taken({ type: 'pin', i })) { bd = d; snap = { type: 'pin', i }; } }
-  for (let j = 0; j < BANKS; j++) { const d = Math.hypot(q.x - bankX(j), q.y - SOCK_Y); if (d < bd + 4 && !taken({ type: 'sock', i: j })) { bd = d; snap = { type: 'sock', i: j }; } }
+  const q = grab.w.pts[grab.e ? SEGS : 0]; let snap = null, bd = 9;
+  for (let i = 0; i < PINS; i++) for (const type of ['pin', 'bot']) {
+    const [fx, fy] = endPos({ type, i }), d = Math.hypot(q.x - fx, (q.y - fy) * 0.7);
+    if (d < bd && !taken({ type, i })) { bd = d; snap = { type, i }; }
+  }
   const w = grab.w, k = grab.e; grab = null;
   if (snap) { plug(w, k, snap); SFX.click(); tone(1200, 0.05, 'square', 0.03); haptic(18); }
   onRewire();
@@ -3564,7 +3634,7 @@ const inLevel = () => toolFrom === 'pause' || toolFrom === 'game';
 function hkCard(e, ex) {
   const L = inSet(e.id), unl = isUnlocked(e.id), on = ex.has(e.id), live = inLevel() ? regs.find((r) => r.id === e.id) : null, lvl = live && !live.custom;
   const prog = live ? (live.unlocked ? ' · ON' : live.slots.length ? ` · ${live.slots.length}/${live.seq.length}` : '') : '';
-  const st = (lvl ? 'THIS LEVEL' : L ? (L.auto ? 'CAME WITH ' + catOf(L.of).short : 'IN SET') : !unl ? 'LOCKED · LEVEL ' + (unlockLevelOf(e.id) + 1) : on ? 'TAP TO ADD' : 'BANK ' + homeOf(e.id).bank + ' · LINE ' + 'ABC'[homeOf(e.id).line]) + prog;
+  const st = (lvl ? 'THIS LEVEL' : L ? (L.auto ? 'CAME WITH ' + ((catOf(L.of) || {}).short || 'A HACK') : 'IN SET') : !unl ? 'LOCKED · LEVEL ' + (unlockLevelOf(e.id) + 1) : on ? 'TAP TO ADD' : 'BANK ' + homeOf(e.id).bank + ' · LINE ' + 'ABC'[homeOf(e.id).line]) + prog;
   return `<button class="hk ${e.good ? 'g' : 'b'} ${L || (live && live.unlocked) ? 'on' : ''} ${lvl ? 'lvl' : ''} ${!lvl && (!unl || (!on && !L)) ? 'lock' : ''}" data-id="${e.id}"><span class="n">${e.name}</span><span class="st">${st}</span><span class="k">${e.kind}</span><span class="d">${e.desc}</span><span class="s">${GLYPH[e.ctrl]} ${e.seq.join(' ')}</span></button>`;
 }
 function renderTool() {
@@ -3621,19 +3691,34 @@ function resize() {
   if (vw !== VW) { VW = vw; cv.width = VW; cv.height = VH; ctx.imageSmoothingEnabled = false; buildSky(); }
 }
 let last = performance.now(), acc = 0;
+// The next frame is booked before this one runs, and every stage is guarded, so a bug can't freeze the game.
+const errSeen = new Set();
+let badFrames = 0, rebootedOnError = false;
+function reportError(where, e) {
+  const msg = (e && e.message) || String(e);
+  if (errSeen.has(where + msg)) return; errSeen.add(where + msg);
+  try { console.error(where, e); log(`INTERNAL ERROR IN ${where.toUpperCase()}: ${msg}`.slice(0, 90), 'bad'); } catch (_) { /* nothing more to do */ }
+}
+function guard(where, fn) { try { fn(); } catch (e) { reportError(where, e); } }
 function loop(now) {
+  requestAnimationFrame(loop);
   let dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (armedT > 0 && state === 'play') { armedT -= dt; if (armedT <= 0) { armedT = 0; log('BREAKPOINT EXPIRED', 'sys'); } }
   acc += dt * (abil.bullet && state === 'play' ? 0.7 : 1);      // BULLET TIME
   let steps = 0;
-  while (acc >= 1 / 60 && steps < 5) { update(); acc -= 1 / 60; steps++; }
+  while (acc >= 1 / 60 && steps < 5) {
+    try { update(); badFrames = 0; } catch (e) {
+      reportError('update', e);
+      if (++badFrames === 20 && !rebootedOnError && state === 'play') { rebootedOnError = true; log('RECOVERING: LEVEL RESTARTED', 'warn'); guard('recover', reboot); }
+    }
+    acc -= 1 / 60; steps++;
+  }
   if (steps === 5) acc = 0;
-  render();
-  drawMem();
-  if (!$('tool').hidden) { stepWires(); drawBoard(); }
+  guard('render', render);
+  guard('screen 2', drawMem);
+  if (!$('tool').hidden) guard('board', () => { stepWires(); drawBoard(); });
   $('fbB').classList.toggle('armed', armedT > 0);
   $('led').classList.toggle('on', armedT > 0 || (bands.length > 0 && (frame >> 2) % 2 === 0));
-  requestAnimationFrame(loop);
 }
 
 /* ================= boot ================= */

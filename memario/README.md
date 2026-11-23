@@ -32,14 +32,15 @@ CONTINUE and DEL (tap twice), and NEW GAME sits at the top.
 SCAN HACKS at the bottom of the register list opens it mid-level (the game pauses). It is one scrolling
 environment:
 
-1. **The wiring board.** Along the top, the edge connector of a hack cartridge: 24 gold pins in three lines,
-   A, B and C. Along the bottom, the top edge of your hack board: six sockets, banks 0 to 5. Your wires lie on
-   the board; each is a rope with a plug at both ends, simulated point by point, so it swings, drapes and
-   piles up. Drag a plug onto a pin or a socket and it clicks in; drag it out again to move it. A drag
-   anywhere else on the board scrolls the tool.
-2. **What your wires expose.** Every hack lives on one line of one bank. A wire from a pin to a socket
-   exposes everything on that line of that bank, listed right under the board: hacks on the left, curses
-   on the right. A socket's light turns green when its wire exposes something and red when the line is
+1. **The wiring board**, modelled on a real cartridge PCB. Along the top, the cartridge's green board with
+   its chips, traces and 24 gold edge fingers in three lines (A, B, C). Along the bottom, the top edge of
+   your hack board with the same 24 gold fingers, in six banks of four. The wires lie on the bench between
+   them, seen from above: there's no gravity, only friction, so a new wire lies loose and wiggly until you
+   pull it, and it trails behind whatever end you drag. Each wire ends in a 3.5 mm jack plug; touch the tip
+   to a finger and it clicks in straight, drag it away to unplug. A drag anywhere else scrolls the tool.
+2. **What your wires expose.** Every hack lives on one line of one bank. A wire from a top finger to a bottom
+   finger exposes everything on that line of that bank, listed right under the board: hacks on the left, curses
+   on the right. A bank's light turns green when its wire exposes something and red when the line is
    dead. Move the plugs around to explore.
 3. **Search and the full catalog**, filtered by ALL, IN SET, LEVEL, CHEATS, MACROS, WARPS, LOOK or GLITCHES.
    Locked entries say which level unlocks them; unlocked ones that aren't wired say which bank and line
