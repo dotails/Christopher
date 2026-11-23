@@ -168,23 +168,45 @@ body.mode-switch:not(.mode-side) .tool{position:fixed;inset:var(--sat) 0 0 0;z-i
 .tool .tcats{display:flex;gap:5px;padding:5px 6px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--rule)}
 .tool .tcats button{flex:0 0 auto;font:11px var(--f-pix);background:transparent;color:var(--muted);border:1px solid var(--rule);border-radius:10px;padding:3px 9px}
 .tool .tcats button.on{color:#04130a;background:var(--cyan);border-color:var(--cyan)}
-.tool .tlist{padding:5px 6px 10px;display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start}
+.tool .tlist{padding:0 0 10px}
 .tool .hk.lock{opacity:.38;filter:grayscale(1)}
 .tool .hk.lvl{border-style:dashed}
-body.mode-side .tool .hk .k{display:none}
-body.mode-side .tool .hk .n{font-size:12px}
-body.mode-side .tool .hk .d{font-size:10px}
-.tool .hk.on .lv{color:var(--phos)}
-.tool .hk{display:grid;grid-template-columns:1fr auto;gap:2px 6px;align-items:baseline;text-align:left;background:var(--term2);border:1px solid var(--rule);border-radius:4px;padding:4px 6px;cursor:pointer}
-.tool .hk .n{font-size:13px;color:#fff} .tool .hk.b .n{color:#ff8ab8}
-.tool .hk .st{font-size:10px;color:var(--muted);align-self:start}
-.tool .hk .k{grid-column:1/3;font-size:9px;color:#6f7aa0;letter-spacing:.05em}
-.tool .hk .d{grid-column:1/3;font:11px/1.25 var(--f-mono);color:#e8ecff;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tool .hk{display:grid;grid-template-columns:auto 1fr auto;column-gap:6px;row-gap:4px;align-items:center;text-align:left;background:var(--term2);border:1px solid var(--rule);border-radius:4px;padding:5px 7px;cursor:pointer}
+.tool .hk .d{grid-column:1/3;grid-row:1;font:700 11px/1.25 var(--f-mono);color:#e8ecff;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .tool .hk.b .d{color:#ffb3d1}
-.tool .hk .lv{font-size:10px;color:var(--muted)}
-.tool .hk .s{font-size:12px;color:var(--cyan);letter-spacing:.1em;white-space:nowrap;overflow:hidden}
-.tool .hk.on{border-color:var(--phos);background:#0d2a1a} .tool .hk.on .st{color:var(--phos)}
-.tool .hk.b.on{border-color:var(--hot);background:#2a0d1c} .tool .hk.b.on .st{color:var(--hot)}
+.tool .hk .lv{grid-column:3;grid-row:1;align-self:start;font-size:10px;color:var(--muted)}
+.tool .hk .c{grid-column:1;grid-row:2;width:17px;height:17px;border-radius:50%;background:#2b2858;display:grid;place-items:center;color:#fff;font:10px/1 var(--f-pix)}
+.tool .hk .c.jump{background:#d42626}
+.tool .hk .c.left::before,.tool .hk .c.right::before{content:'';width:0;height:0;border:4px solid transparent}
+.tool .hk .c.left::before{border-right:6px solid #fff;border-left:0;margin-right:2px}
+.tool .hk .c.right::before{border-left:6px solid #fff;border-right:0;margin-left:2px}
+.tool .hk .s{grid-column:2/4;grid-row:2;font:13px/1 var(--f-pix);white-space:nowrap;overflow:hidden;color:#8f97c0}
+.tool .hk .s i{font-style:normal;margin-right:.4em;display:inline-block}
+.tool .hk .s i.w{color:var(--phos)} .tool .hk.b .s i.w{color:var(--hot)}
+.tool .hk .s i.nx{color:var(--cyan);font-size:1.3em}
+.tool .hk.m{border-color:var(--phos);box-shadow:0 0 0 1px var(--phos),0 0 10px rgba(57,255,136,.35)}
+.tool .hk.b.m{border-color:var(--hot);box-shadow:0 0 0 1px var(--hot),0 0 10px rgba(255,61,138,.35)}
+.tool .hk.m .s i.nx{color:#fff;text-shadow:0 0 6px var(--phos)} .tool .hk.b.m .s i.nx{text-shadow:0 0 6px var(--hot)}
+.tool .hk.on{border-color:var(--phos);background:#0d2a1a} .tool .hk.on .lv{color:var(--phos)}
+.tool .hk.b.on{border-color:var(--hot);background:#2a0d1c} .tool .hk.b.on .lv{color:var(--hot)}
+.tool .hk.live .s i{color:var(--phos)} .tool .hk.b.live .s i{color:var(--hot)}
+.tool .cols{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 6px 4px}
+.tool .cols>div{display:grid;gap:5px;align-content:start}
+.tool .sec{font-size:10px;color:var(--cyan);padding:7px 8px 4px;letter-spacing:.08em}
+/* while playing the digits are the big bold line; paused or on the title, the description is */
+.tool.playing .tbar{position:static}
+.tool.playing .hk .s{font-size:16px}
+.tool.playing .hk .s i{margin-right:.28em}
+body.mode-side .tool.playing .hk .s{font-size:14px}
+.tool.playing .hk .d{font-weight:400;font-size:10px;color:#a9b2d2}
+.tool:not(.playing) .hk .d{font:400 13px/1.2 var(--f-pix);color:#fff}
+.tool:not(.playing) .hk.b .d{color:#ffb3d1}
+.tool:not(.playing) .hk .s{font-size:12px}
+/* screen 2 during a level: the memory row on top, the list under it */
+#stage2.listmode #cv2{bottom:auto;height:var(--memh,0px)}
+#stage2.listmode:not(.withrow) #cv2{display:none}
+#stage2.listmode .tool{top:var(--memh,0px)}
+#stage2.listmode:not(.withrow) .tool{top:0}
 .tool .tfoot{position:absolute;left:0;right:0;bottom:0;pointer-events:none;padding:6px 8px;border-top:1px solid var(--gold);background:rgba(10,8,22,.94);font-size:11px;color:var(--gold);transition:opacity .4s}
 .tool .tfoot.quiet{opacity:0}
 .tool .empty{grid-column:1/3;color:var(--muted);font-size:12px;padding:10px}
@@ -201,6 +223,7 @@ body.mode-side .tool .hk .d{font-size:10px}
       <canvas id="cv2" width="320" height="240" aria-label="Memory row and registers. Drag to scroll; tap a register to have it explained."></canvas>
       <div class="tool" id="tool" hidden>
         <div class="tscroll" id="tscroll">
+          <div id="tact"></div>
           <div class="tbar"><input id="tq" type="search" placeholder="SEARCH EVERY HACK" enterkeyhint="search" autocomplete="off" spellcheck="false" aria-label="Search hacks"><button id="tDone">DONE</button></div>
           <div class="tcats" id="tcats"></div>
           <div class="xhead" id="xhead"></div>
@@ -1484,14 +1507,15 @@ function drawMem() {
     for (let i = 0; i < 10; i++) { g.fillStyle = i < Math.round(stab / 10) ? scol : '#211c3d'; g.fillRect(3 + i * 6, RH + 45, 5, 4); }
     drawList(g, T, 70, RH + 1, SW - 73, SH - RH - 1);
   } else {
-    // header: face, the digit you'd write, which layer it's from, and what each control would do with it
+    // over the list: the digit you'd write, its layer, what each control would do, and the latest message
     const hy = RH + 2;
-    portrait(3, hy); nowBox(36, hy, 30);
-    T(layerTxt + '  ' + colAddr(cellNow[0]), 72, hy + 1, '#8a93b4');
-    drawParts(72, hy + 9, 2, SW - 76);
-    for (let i = 0; i < 12; i++) { g.fillStyle = i < Math.round(stab / 8.4) ? scol : '#211c3d'; g.fillRect(72 + i * 4, hy + 23, 3, 5); }
-    T(statTxt, 124, hy + 23, '#c9cfe6');
-    drawList(g, T, 3, hy + 33, SW - 9, SH - hy - 33);
+    g.fillStyle = '#0a0816'; g.fillRect(0, RH, SW, SH - RH);
+    portrait(2, hy); nowBox(34, hy, 30);
+    drawParts(68, hy + 1, 2, SW - 72);
+    for (let i = 0; i < 10; i++) { g.fillStyle = i < Math.round(stab / 10) ? scol : '#211c3d'; g.fillRect(68 + i * 4, hy + 14, 3, 4); }
+    T(layerTxt + '  ' + statTxt, 110, hy + 14, '#8a93b4');
+    const l = logLines[logLines.length - 1];
+    if (l) { const t = typed(l), mx = Math.floor((SW - 72) / 4); T(t.length > mx ? t.slice(0, mx - 1) + '.' : t, 68, hy + 23, LOG_COL[l.cls] || LOG_COL['']); }
   }
   // the whole screen's frame flashes the verdict, so it reads from the corner of your eye
   if (vd !== 'none' && state === 'play') { g.fillStyle = vc; g.globalAlpha = (frame >> 3) % 2 ? 0.95 : 0.55; g.fillRect(0, RH, SW, 2); g.fillRect(0, SH - 2, SW, 2); g.fillRect(0, RH, 2, SH - RH); g.fillRect(SW - 2, RH, 2, SH - RH); g.globalAlpha = 1; }
@@ -1556,6 +1580,7 @@ cv2.addEventListener('pointerup', (e) => { if (!drag2 || e.pointerId !== drag2.i
 cv2.addEventListener('pointercancel', () => { drag2 = null; });
 // A tap on a register explains it (taps never write); a tap on SCAN opens the hack tool.
 function tapScreen2(x, y) {
+  if (!wideStrip()) return;                                  // screen 2 is the hack list; its strip isn't tappable
   if (state !== 'play' || y < listTop || y >= listTop + listH) return;
   const inR = (q) => q && x >= q[0] && x < q[0] + q[2] && y >= q[1] && y < q[1] + q[3];
   if (inR(scanBtn)) { haptic(); openTool('game'); return; }
@@ -3450,7 +3475,7 @@ const inSet = (id) => loadout.find((q) => q.id === id);
 let toolMsg = '';
 function toggleSet(id) {
   const e = catOf(id), cur = inSet(id), lv = inLevel() && regs.find((r) => r.id === id && !r.custom);
-  if (lv) { toolMsg = `${e.name} COMES WITH THIS LEVEL: WRITE ${lv.seq.join(' ')} ON ${GLYPH[lv.ctrl]}`; return; }
+  if (lv) { toolMsg = `${e.name}: WRITE ${lv.seq.join(' ')} ON ${GLYPH[lv.ctrl]}${lv.unlocked ? ' AGAIN TO SWITCH IT OFF' : ''}`; return; }
   if (cur) {
     if (cur.auto) { const g = catOf(cur.of); toolMsg = `${e.name} CAME WITH ${g ? g.name : 'A HACK'}. REMOVE THAT TO DROP IT.`; return; }
     loadout = loadout.filter((q) => q.id !== id && q.of !== id);
@@ -3518,32 +3543,66 @@ trimLoadout();
 
 /* ================= the hack tool (screen 2 on the title; SCAN in a level) ================= */
 let toolCat = 'ALL', toolFrom = null;
+// Screen 2 is the hack list everywhere (title, playing, paused). Only the stacked landscape layout keeps the
+// drawn register strip, opening the list full screen on demand.
 function openTool(from) {
+  if (!wideStrip()) { renderTool(); return; }
   toolFrom = from; $('tool').hidden = false; toolMsg = '';
   if (from === 'game') { state = 'tool'; held.left = held.right = held.jump = false; }
-  $('tDone').hidden = (from === 'title' || from === 'pause') && !wideStrip();
+  $('tDone').hidden = false;
   renderTool();
 }
 function closeTool() {
-  $('tool').hidden = true; $('tq').blur();
+  $('tq').blur();
+  if (!wideStrip()) return;
+  $('tool').hidden = true;
   if (toolFrom === 'game' && state === 'tool') state = 'play';
   toolFrom = null;
 }
+let toolSig = '';
+function syncScreen2() {
+  const st2 = $('stage2'), list = !wideStrip();
+  st2.classList.toggle('listmode', list);
+  if (!list) { st2.classList.remove('withrow'); return; }
+  const titleish = state === 'title' || (demo && demo.title);
+  const from = titleish ? 'title' : state === 'pause' ? 'pause' : 'play';
+  st2.classList.toggle('withrow', !titleish);
+  $('tool').hidden = false; $('tDone').hidden = true;
+  $('tool').classList.toggle('playing', from === 'play');
+  // redraw the list when what it shows changes: where you are in each register, what's lit, what's in your set
+  const sig = from + '|' + (from === 'title' ? '' : levelIdx + ':' + regs.map((r) => r.id + r.slots.length + (r.unlocked ? 'u' : '') + (state === 'play' && nextMatches(r) ? 'm' : '')).join(',')) + '|' + loadout.length;
+  if (from !== toolFrom || sig !== toolSig) {
+    const entering = from === 'play' && toolFrom === 'title';
+    toolFrom = from; toolSig = sig; renderTool();
+    if (entering) $('tscroll').scrollTop = 0;                 // a new level: its own registers, at the top
+  }
+}
 const GLYPH = { left: '◀', right: '▶', jump: 'A' };
-const inLevel = () => toolFrom === 'pause' || toolFrom === 'game';
-function hkCard(e) {
+const inLevel = () => toolFrom === 'pause' || toolFrom === 'game' || toolFrom === 'play';
+function hkCard(e, sec) {
   const L = inSet(e.id), unl = isUnlocked(e.id), live = inLevel() ? regs.find((r) => r.id === e.id) : null, lvl = live && !live.custom;
-  const prog = live ? (live.unlocked ? ' · ON' : live.slots.length ? ` · ${live.slots.length}/${live.seq.length}` : '') : '';
-  const st = (lvl ? 'THIS LEVEL' : L ? (L.auto ? 'CAME WITH ' + ((catOf(L.of) || {}).short || 'A HACK') : 'IN SET') : !unl ? 'LOCKED · LEVEL ' + (unlockLevelOf(e.id) + 1) : 'TAP TO ADD') + prog;
-  const active = !!L || !!(live && (lvl || live.unlocked));
-  return `<button class="hk ${e.good ? 'g' : 'b'} ${active ? 'on' : ''} ${lvl ? 'lvl' : ''} ${!active && !unl ? 'lock' : ''}" data-id="${e.id}" aria-label="${e.name}: ${st}"><span class="d">${e.desc}</span><span class="s">${GLYPH[e.ctrl]} ${e.seq.join(' ')}${prog}</span><span class="lv">L${unlockLevelOf(e.id) + 1}</span></button>`;
+  const seq = live ? live.seq : e.seq, ctrl = live ? live.ctrl : e.ctrl, done = live ? live.slots.length : 0, on = !!(live && live.unlocked);
+  const m = !!(live && state === 'play' && nextMatches(live)), active = !!L || !!lvl || on;
+  const digits = seq.map((d, j) => `<i class="${j < done ? 'w' : j === done ? 'nx' : ''}">${d}</i>`).join('');
+  const lv = lvl ? levelIdx + 1 : unlockLevelOf(e.id) + 1;
+  const st = lvl ? 'this level' : L ? (L.auto ? 'came with ' + ((catOf(L.of) || {}).name || 'a hack') : 'in your set') : unl ? 'available' : 'locked until level ' + lv;
+  return `<button class="hk ${e.good ? 'g' : 'b'} ${active ? 'on' : ''} ${on ? 'live' : ''} ${lvl ? 'lvl' : ''} ${m ? 'm' : ''} ${!active && !unl ? 'lock' : ''}" data-id="${e.id}" data-sec="${sec}" aria-label="${e.name}, ${st}"><span class="d">${e.desc}</span><span class="lv">L${lv}</span><span class="c ${ctrl}">${ctrl === 'jump' ? 'A' : ''}</span><span class="s">${digits}</span></button>`;
 }
 function renderTool() {
+  const sc = $('tscroll'), top0 = sc.getBoundingClientRect().top;
+  // keep the list where it is: remember the first item of the full list on screen, and put it back there after
+  const anchor = [...$('tlist').querySelectorAll('.hk[data-sec="all"]')].find((el) => el.getBoundingClientRect().bottom > top0 + 4);
+  const aId = anchor && anchor.dataset.id, aTop = anchor && anchor.getBoundingClientRect().top;
   $('tcats').innerHTML = CATS.map((c) => `<button class="${c === toolCat ? 'on' : ''}" data-c="${c}">${c}${c === 'IN SET' ? ' ' + loadout.length : ''}</button>`).join('');
   const q = $('tq').value.trim().toUpperCase();
-  const list = CAT.filter((e) => (toolCat === 'ALL' || (toolCat === 'IN SET' ? inSet(e.id) : e.cat === toolCat)) && (!q || (e.name + ' ' + e.short + ' ' + e.desc + ' ' + e.kind).includes(q)));
-  $('xhead').textContent = `${CAT.filter((e) => isUnlocked(e.id)).length} OF ${CAT.length} UNLOCKED · ${loadout.length} IN YOUR SET${inLevel() ? ' · THIS LEVEL\'S ARE DASHED' : ''}`;
-  $('tlist').innerHTML = list.length ? list.map(hkCard).join('') : '<div class="empty">NOTHING MATCHES. GAMES ARRIVE IN A LATER VERSION.</div>';
+  const lvIds = inLevel() && regs ? regs.map((r) => r.id) : [];
+  const match = (e) => (toolCat === 'ALL' || (toolCat === 'IN SET' ? inSet(e.id) : e.cat === toolCat)) && (!q || (e.name + ' ' + e.short + ' ' + e.desc + ' ' + e.kind).includes(q));
+  const act = CAT.filter((e) => (inSet(e.id) || lvIds.includes(e.id)) && match(e)), all = CAT.filter(match);
+  const cols = (arr, sec) => `<div class="cols"><div>${arr.filter((e) => e.good).map((e) => hkCard(e, sec)).join('')}</div><div>${arr.filter((e) => !e.good).map((e) => hkCard(e, sec)).join('')}</div></div>`;
+  $('xhead').textContent = '';
+  $('tact').innerHTML = act.length ? `<div class="sec">ACTIVE · ${act.length}</div>` + cols(act, 'act') : '';
+  $('tlist').innerHTML = `<div class="sec">ALL HACKS · ${CAT.filter((e) => isUnlocked(e.id)).length} OF ${CAT.length} UNLOCKED</div>` + (all.length ? cols(all, 'all') : '<div class="empty">NOTHING MATCHES.</div>');
+  if (aId) { const now = $('tlist').querySelector(`.hk[data-sec="all"][data-id="${aId}"]`); if (now) sc.scrollTop += now.getBoundingClientRect().top - aTop; }
   $('tfoot').textContent = toolMsg;
   $('tfoot').classList.toggle('quiet', !toolMsg);
   clearTimeout(renderTool.t); if (toolMsg) renderTool.t = setTimeout(() => { toolMsg = ''; $('tfoot').classList.add('quiet'); }, 3500);
@@ -3558,7 +3617,7 @@ function drawMap() {
   if (cvm.width !== Math.round(W * dpr) || cvm.height !== Math.round(H * dpr)) { cvm.width = Math.round(W * dpr); cvm.height = Math.round(H * dpr); }
   const g = cvm.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
   const total = Math.max(sc.scrollHeight, 1), k = H / total, half = $('tlist').clientWidth / 2;
-  for (const el of $('tlist').querySelectorAll('.hk')) {
+  for (const el of $('tscroll').querySelectorAll('.hk')) {
     const y = el.offsetTop * k, h = Math.max(2, el.offsetHeight * k - 1), col = el.offsetLeft > half ? 1 : 0, x = 4 + col * 16;
     const c = el.classList.contains('on') ? '#39ff88' : el.classList.contains('lock') ? '#3a3f55' : '#e8ecff';
     g.fillStyle = c; g.globalAlpha = 0.9; g.fillRect(x, y, 13, Math.min(1.4, h));                  // the name line
@@ -3580,7 +3639,7 @@ addEventListener('resize', () => requestAnimationFrame(drawMap));
 $('tq').addEventListener('input', () => { titleAt = frame; renderTool(); });
 $('tool').addEventListener('pointerdown', () => { titleAt = frame; }, { passive: true });
 $('tcats').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { toolCat = b.dataset.c; renderTool(); } });
-for (const id of ['tlist']) $(id).addEventListener('click', (e) => { const b = e.target.closest('.hk'); if (b) { ensureAudio(); toggleSet(b.dataset.id); SFX.click(); haptic(); renderTool(); } });
+for (const id of ['tlist', 'tact']) $(id).addEventListener('click', (e) => { const b = e.target.closest('.hk'); if (b) { ensureAudio(); toggleSet(b.dataset.id); SFX.click(); haptic(); renderTool(); } });
 $('tDone').addEventListener('click', closeTool);
 
 /* ================= sizing & loop ================= */
@@ -3599,16 +3658,17 @@ function resize() {
     // game edge to edge (4:3 when it fits); the register screen takes the rest, never less than its compact size
     const memMin = Math.ceil(W / 320 * 172);
     gh = Math.floor(Math.min(W * 3 / 4, H - memMin)); mh = H - gh;
-    memMode = 'panel'; SW = 320; SH = Math.max(120, Math.round(320 * (mh - 2) / W));
+    memMode = 'panel'; SW = 320; SH = 52;
   } else if (side) {
     // game on the left, the hack screen on the right, both full height
     const w2 = Math.round(clamp(W * 0.42, 240, W * 0.5)); gw = W - w2; gh = mh = H;
-    memMode = 'panel'; SW = 256; SH = Math.max(160, Math.round(256 * H / (w2 - 2)));
+    memMode = 'panel'; SW = 256; SH = 52;
   } else {
     mh = Math.round(Math.min(W * 78 / 480, H * 0.4)); gh = H - mh;
     memMode = 'strip'; SW = 480; SH = Math.max(56, Math.round(480 * (mh - 2) / W));
   }
   stageEl.style.height = gh + 'px'; stage2El.style.height = mh + 'px';
+  if (memMode === 'panel') stage2El.style.setProperty('--memh', Math.round(52 * (side ? W - gw : W) / SW) + 'px');
   stageEl.style.width = side ? gw + 'px' : ''; stage2El.style.width = side ? (W - gw) + 'px' : '';
   if (cv2.width !== SW || cv2.height !== SH) { cv2.width = SW; cv2.height = SH; }
   const vw = clamp(Math.round(VH * gw / gh), 320, 576);   // wide screens see further instead of getting black bars
@@ -3640,6 +3700,7 @@ function loop(now) {
   if (steps === 5) acc = 0;
   guard('render', render);
   guard('screen 2', drawMem);
+  guard('hack list', syncScreen2);
   $('fbB').classList.toggle('armed', armedT > 0);
   // the two lights on the controller: will a press write (and into what), and how stable the game is
   const vd = state === 'play' && !demo ? verdict() : 'none', l1 = $('led'), l2 = $('led2');

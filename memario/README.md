@@ -31,13 +31,20 @@ CONTINUE and DEL (tap twice), and NEW GAME sits at the top.
 
 **Settings** (remembered): sound, music, vibration, grid, hints, the title demo, and the landscape layout.
 
-**The hack tool** is screen 2 on the title (in the stacked landscape layout, the HACK TOOL button opens
-it full screen), and SCAN HACKS at the bottom of the register list opens it mid-level (the game pauses). It
-is the full list of hacks, every one from every level plus the extras below, with a search box and filters
-(ALL, IN SET, LEVEL, CHEATS, MACROS, WARPS, LOOK, GLITCHES). Each card is short: what the hack does, its
-register digits (with the control) and its level number. White cards are available, green ones are active
-(in your set, or this level's own while paused), grey ones are still locked. Down the right edge runs a
-minimap of the whole list in the same colours, with a frame for what's on screen; tap or drag it to jump.
+**Screen 2 is one searchable hack list, everywhere** (title, playing, paused; in the stacked landscape
+layout the list opens full screen from HACK TOOL or SCAN HACKS). At the top, ACTIVE: copies of what's in
+play right now (in a level, that level's own registers and your set; on the title, your set), hacks on
+the left and curses on the right. Below the search box and filters (ALL, IN SET, LEVEL, CHEATS, MACROS,
+WARPS, LOOK, GLITCHES) comes the whole list, the originals staying where they are. Adding or removing a
+hack never makes the list jump: it holds its place while the copy appears or disappears above.
+
+Each card looks like the game's register cards: the top row is what the hack does, with its level number
+on the right; the bottom row is the control (A, ◀ or ▶) and the register's digits, written ones lit, the
+next one a little bigger and coloured, glowing when you're standing on it. While you play, the digits are
+the big bold line; paused or on the title, the description is. Colour: white available, green active
+(pink for curses), grey still locked. Down the right edge runs a minimap of the whole list in the same
+colours, with a frame for what's on screen; tap or drag it to jump. During a level a thin strip above the
+list keeps the memory row, the digit you'd write, what each control would do and the latest message.
 
 **Unlocking:** clearing a level for the first time unlocks that level's hacks and curses plus a batch of
 the rest (eight or so cheats, macros, warps, looks and glitches); the level number on a card is the level
@@ -59,15 +66,6 @@ away when you remove the hack. Looks (palettes, sprite scale) come free.
 
 Cheats can carry you past a level's gates; that's the point of bringing them, and the paired curse is the
 price. Minigames will join the catalog in a later version.
-
-## Screen 2 in a level
-
-From the top: the memory row (two lanes, its columns lined up with the game above), a header with the digit
-you'd write and what each control would do with it, then the registers: **hacks on the left, curses on the
-right**, the level's first and your set below, each card showing its control, its next digit large, its
-name and its whole string at double size. Drag to scroll; a register you could write right now that's
-scrolled out of sight shows as "PRESS ..." at the edge. The frame flashes green, red or gold with the
-verdict. The latest message shows along the bottom for a few seconds.
 
 ## Writing digits: three layers, and touch
 
