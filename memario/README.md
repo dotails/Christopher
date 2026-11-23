@@ -19,7 +19,8 @@ with the music and sound on, showing good play and bad (feeding a curse, side co
 eleven-block gap, walking into the void), and loops. The menu: NEW, SAVES, SETTINGS and TUTORIAL. TUTORIAL is a list of fifteen lessons (writing a digit,
 digits from viruses, air digits, finishing a hack, curses, crashes, Super Jump, Speed Boost, Phase Shift,
 Multi Jump, Quarantine, Alloc Bridge, Gravity Flip, flip and phase, KERNEL PANIC): pick one and the bot
-plays it with captions, then offers the next one, again, the list, or play; pressing anything during a
+plays it with a caption at the top of the game screen and a note on screen 2 whose arrow points at the part
+being explained (the memory row, a register card, the status line), then offers the next one, again, the list, or play; pressing anything during a
 lesson goes back to the list (plus
 HACK TOOL in the stacked landscape layout). Levels start straight away, with a small banner.
 A or START on the title continues your latest unfinished run.
@@ -178,7 +179,7 @@ The platforming follows modern conventions and is tuned to feel snappy:
 - **Wall slide and wall jump**: press into a wall in mid-air to slide down it slowly; A kicks off it. Ground, blocks and conduits hold you; ROM, firewalls, the bus, NULL blocks, ice and bit blocks are too smooth, and nothing holds you once you've dropped below the ground line, so pits stay pits.
 - **Forgiving stomps**: clip the top corner of a virus on the way down and it counts as landing on it.
 - **Corner correction**: clip the corner of a block on the way up and you're nudged past it instead of stopped dead (hidden sectors excepted).
-- **Fast fall**: hold down in the air.
+- **Crouch**: hold down, anywhere, even mid-air or on the raptor. You get shorter (head down, feet put), crouch-walk slowly, and stay down under a low block until there's room.
 - Quick acceleration, quicker turnarounds with skid dust, squash on landing, stretch on take-off, dust puffs.
 
 Every gate was re-checked by an automated sweep of about 2,900 attempts (jumps from every quarter
@@ -245,7 +246,7 @@ slim screen 2 under it, whose registers run in four columns (hack, curse, hack, 
 | SELECT | Scan: decrypts 29 columns of ground, air and platform digits around you (5 s cooldown) |
 | X (blue) | Flip gravity (when the level's Gravity Flip is online); on the raptor, hop off |
 | Y (yellow) | Grab a shell or lit fork bomb (hold Y while touching it, or press Y beside it); press again to throw. On the raptor: tongue / spit |
-| D-pad down | Drop what you hold, or hop off the raptor; hold in the air to fall fast |
+| D-pad down | Crouch (on the ground, in the air or on the raptor); also sets down what you hold |
 | Right stick | Look ahead |
 | START | Pause menu; on the title, the title menu |
 | Phone back button | Pause menu (quits only from the title screen) |
