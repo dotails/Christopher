@@ -1190,6 +1190,9 @@ const isOpen = (r) => !r.cond || r.cond.test();
 const nextOf = (r) => r.seq[r.slots.length];
 // A register only ever moves forward. An online one takes its whole string again to switch off.
 const nextMatches = (r) => isOpen(r) && nextOf(r) === digitNow;
+let pendKey = null;
+const PEND_FRAMES = 7;
+const onFloor = () => (p.riding ? !!(dino && dino.grounded) : p.grounded);
 function pickFor(k) {
   const c = regs.filter((r) => r.ctrl === k && nextMatches(r));
   return c.find((r) => r.good && !r.unlocked) || c.find((r) => !r.good && !r.unlocked) || c[0] || null;
@@ -1234,6 +1237,7 @@ const corruption = () => clamp((unlockedCount() * 0.16 + volatileC) * (abil.stab
 
 function loadLevel(i) {
   levelIdx = i; LV = LEVELS[i]; levelSeed = i;
+  pendKey = null;
   regs = LV.regs.map((d) => ({ ...d, slots: [], unlocked: false, activeAt: 0, flashT: 0 }));
   for (const key in abil) delete abil[key];
   PATCH_BLOCKS = new Set(LV.patches);
@@ -2148,7 +2152,7 @@ function die(reason) {
 function respawn() {
   const s = saves[checkpoint];
   if (abil.reload && p.safe) { p.x = p.safe.x; p.y = p.safe.y; log('HOT RELOAD: RESUMED IN PLACE', 'ok'); musicRewind(); }
-  else { p.x = s.x + 1; p.y = 208 - p.h; } p.vx = p.vy = 0; p.flip = false; p.inv = 100; p.dead = 0; p.landT = 0; p.actT = 0; p.dissolved = false;
+  else { p.x = s.x + 1; p.y = 208 - p.h; } p.vx = p.vy = 0; pendKey = null; p.noMount = false; p.flip = false; p.inv = 100; p.dead = 0; p.landT = 0; p.actT = 0; p.dissolved = false;
 }
 
 /* ================= update ================= */
@@ -2169,8 +2173,16 @@ function updateInner() {
   // B scans; ◀ ▶ A on a register's next digit write it (and still move or jump)
   if (scanCd > 0) scanCd--;
   if (edges.sel) scan();
+  // ◀ ▶ pressed on the ground wait a beat: if you jump with (or just after) them, the AIR digit is the one written
+  if (pendKey && (frame - pendKey.at >= 1 && !onFloor() || frame - pendKey.at >= PEND_FRAMES)) {
+    const d = onFloor() ? pendKey.d : digitNow, k = pendKey.k; pendKey = null;
+    const c = regs.filter((r) => r.ctrl === k && isOpen(r) && nextOf(r) === d);
+    const r = c.find((q) => q.good && !q.unlocked) || c.find((q) => !q.good && !q.unlocked) || c[0];
+    if (r) write(r, d, 'key'); else hint(k);
+  }
   for (const k of ['left', 'right', 'jump']) {
     if (!(edges[k] || (k === 'jump' && edges.up)) || consumed[k] || (demo && !demo.allow)) continue;   // the demo bot only writes when it means to (up counts as A)
+    if (k !== 'jump' && onFloor() && regs.some((r) => r.ctrl === k && isOpen(r))) { pendKey = { k, at: frame, d: digitNow }; continue; }
     const r = pickFor(k);
     if (r) write(r, digitNow, 'key'); else hint(k);
   }
@@ -2350,7 +2362,8 @@ function updatePlayer(L, Rt, J) {
   if (p.jumpHeld && !J) { p.jumpHeld = false; if (rising && p.vy * g < -2) p.vy *= 0.5; }    // let go early: a short hop
   if (!rising) p.jumpHeld = false;
   const apex = J && !p.grounded && Math.abs(p.vy) < 0.5, fast = false;
-  p.vy += g * gm * (apex ? 0.16 : rising && J ? 0.24 : rising ? 0.6 : fast ? 0.6 : 0.4);
+  if (p.boostT > 0) p.boostT--;
+  p.vy += g * gm * (apex ? 0.16 : rising && (J || p.boostT > 0) ? 0.24 : rising ? 0.6 : fast ? 0.6 : 0.4);
   const maxFall = p.wall && p.vy * g > 0 ? 1.5 : fast ? 9 : 7;
   if (p.vy * g > maxFall) p.vy = maxFall * g;
   if (p.wall && p.vy * g > 0 && (frame % 4 === 0)) puff(p.x + (p.wall > 0 ? p.w : 0), p.y + 6, 1, -p.wall);
@@ -2387,7 +2400,8 @@ function updatePlayer(L, Rt, J) {
   if (p.grounded) { p.airJumps = abil.triple ? 3 : 1; p.flutter = 18; }
   if (p.sq) { p.sq *= 0.8; if (Math.abs(p.sq) < 0.03) p.sq = 0; }
   // mount the raptor by landing on it
-  if (dino && dino.st === 'idle' && !p.riding && !p.flip && p.vy > 0 && overlap(p, dino) && p.y + p.h - p.vy <= dino.y + 10) mount();
+  if (p.noMount && p.grounded && !p.riding) p.noMount = false;
+  if (dino && dino.st === 'idle' && !p.riding && !p.noMount && !p.flip && p.vy > 0 && overlap(p, dino) && p.y + p.h - p.vy <= dino.y + 10) mount();
   // carry: the held shell or bomb sits in your hands
   if (p.carry) { const c = p.carry; if (c.dead) p.carry = null; else { c.x = p.x + p.w / 2 + p.face * 9 - c.w / 2; c.y = p.y + (p.flip ? p.h - 10 - c.h : 8); c.vx = 0; c.vy = 0; if (c.type === 'bomb' && --c.t <= 0) explode(c); } }
   if (p.grounded && !p.flip && frame % 15 === 0) p.safe = { x: p.x, y: p.y };   // for HOT RELOAD
@@ -2630,13 +2644,14 @@ function solidTops() {                                               // things y
 const EDIBLE = (e) => e.type === 'walker' || e.type === 'sheller' || e.type === 'thrower' || e.type === 'bomb';
 function mount() {
   p.riding = dino; dino.st = 'ridden'; const by = dino.y + dino.h;
-  p.w = 18; p.h = 36; p.y = by - 36; p.x = dino.x + 2; p.vy = 0; p.flutter = 24;
+  p.w = 14; p.h = 36; p.y = by - 36; p.x = dino.x + 2; p.vy = 0; p.flutter = 24;
   SFX.save(); haptic(20); log('MOUNTED /DEV/RAPTOR: HOLD A TO FLUTTER, Y FOR TONGUE, X TO HOP OFF', 'sys');
 }
 function dismount(hop) {
   const d = p.riding; if (!d) return;
   p.riding = null; const by = p.y + p.h;
-  p.w = 14; p.h = 26; p.y = by - 26 - (hop ? 4 : 0); p.vy = hop ? -(p.flip ? -1 : 1) * 4 : 0;
+  p.w = 14; p.h = 26; p.y = by - 26 - (hop ? 4 : 0); p.vy = hop ? -(p.flip ? -1 : 1) * 5.9 : 0;
+  if (hop) { p.noMount = true; p.boostT = 18; p.grounded = false; p.jumpHeld = false; SFX.jump(); }   // X: a full jump off, and no remount until you land
   d.st = 'idle'; d.x = p.x + p.w / 2 - 11; d.y = by - d.h; d.vy = 0;
   if (d.mouth && d.mouth.d !== undefined) orphans.push({ x: d.x + 20, y: d.y - 4, d: d.mouth.d, rev: d.mouth.rev, born: frame });
   d.mouth = null; d.tongue = 0;

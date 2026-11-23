@@ -81,7 +81,7 @@ Digits live in three layers, and the one you write from is the one you're in:
 
 - **Ground:** every column's digit, on the memory row at the top of screen 2. It decrypts the first time you pass.
 - **Platform:** every block you can stand on has its own digit, printed on its face once you get near.
-- **Air:** every column also has an air digit. While you're airborne (jumping, falling, on a wall) you read it.
+- **Air:** every column also has an air digit. While you're airborne (jumping, falling, on a wall) you read it. You don't have to be in the air first: press ◀ or ▶ together with A (or a moment before it) and the air digit is the one written; on its own, ◀ ▶ on the ground write the ground digit.
 
 The memory row (at the top of screen 2) has two lanes: the top lane shows air digits, gold symbols and the digits viruses and boxes
 carry; the bottom lane shows ground digits. Your column shows the digit you would write right now, with a
@@ -161,7 +161,8 @@ shoes, a warm visor for a face). Every virus carries a digit.
 ride. Hold A in the air to flutter (a hover, not extra height). Y shoots its tongue: it swallows a
 crawler, trojan, spam worm or fork bomb and keeps the creature's digit in its mouth, readable like a held
 shell; Y again spits it out (shells come out spinning). Get hit while riding and the raptor bolts
-instead of you crashing; catch it again. Down hops off.
+instead of you crashing; catch it again. Riding, you're still one block wide, so you fit down 1-tile holes.
+X jumps you off (a full jump); you can't land back on it until you've touched the ground or a platform.
 
 **Level toolbox:** springs and bounce buffers, one-way scaffolds, page lifts (moving platforms),
 volatile platforms that drop after you stand on them, pipelines (conveyors), cold storage (ice),
@@ -244,7 +245,7 @@ slim screen 2 under it, whose registers run in four columns (hack, curse, hack, 
 | B (red) | Hold to run (walking is three quarters of running speed). In menus: back |
 | ◀ / ▶ / A on a register's next digit | Writes that digit into the register (and still moves or jumps) |
 | SELECT | Scan: decrypts 29 columns of ground, air and platform digits around you (5 s cooldown) |
-| X (blue) | Flip gravity (when the level's Gravity Flip is online); on the raptor, hop off |
+| X (blue) | Flip gravity (when the level's Gravity Flip is online); on the raptor, jump off (no remount until you land) |
 | Y (yellow) | Grab a shell or lit fork bomb (hold Y while touching it, or press Y beside it); press again to throw. On the raptor: tongue / spit |
 | D-pad down | Crouch (on the ground, in the air or on the raptor); also sets down what you hold |
 | Right stick | Look ahead |
