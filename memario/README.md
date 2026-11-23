@@ -47,7 +47,7 @@ next one a little bigger and coloured, glowing when you're standing on it. While
 the big bold line; paused or on the title, the description is. Colour: white available, green active
 (pink for curses), grey still locked. Down the right edge runs a minimap of the whole list in the same
 colours, with a frame for what's on screen; tap or drag it to jump. During a level a thin strip above the
-list keeps the memory row, the digit you'd write, what each control would do and the latest message.
+list keeps the memory row and one status line: what happened last, and why.
 
 **Unlocking:** clearing a level for the first time unlocks that level's hacks and curses plus a batch of
 the rest (eight or so cheats, macros, warps, looks and glitches); the level number on a card is the level
@@ -143,7 +143,7 @@ shoes, a warm visor for a face). Every virus carries a digit.
 | Virus | Role | Behaviour |
 | --- | --- | --- |
 | CRAWLER | the walker | a round capsid ringed with spike proteins; walks, turns at edges; stomp it |
-| TROJAN | the shell | stomped, it retreats into its hex capsid, which keeps its digit. Touch the shell to kick it; hold Y (or press Y beside it) to pick it up and carry its digit anywhere (even mid-air for Phase Shift); Y throws it, down drops it. A kicked shell mows down viruses, breaks RAM blocks into pixels and bumps 0x boxes. An abandoned shell climbs back out after a while |
+| TROJAN | the shell | stomped, it retreats into its hex capsid, which keeps its digit. Touch the shell to kick it; hold Y (or press Y beside it) to pick it up and carry its digit anywhere (even mid-air for Phase Shift); Y throws it, down drops it. A kicked shell mows down viruses, breaks RAM blocks into pixels and bumps 0x boxes. A shell you leave stays a shell, and a lit fork bomb you set down holds its fuse until you pick it up again |
 | BOTNET | the winged shell | a winged trojan that hops; a stomp clips its wings |
 | SPIKE PROTEIN | the spiny | can't be stomped (except from the raptor); shells, fire and bombs work |
 | SPAM WORM | the thrower | paces and lobs arcing packets at you |
@@ -176,6 +176,7 @@ The platforming follows modern conventions and is tuned to feel snappy:
 - **Variable height**: let go of A early for a short hop (rising speed is cut in half). A short **hang at the apex** while A is held.
 - **Double jump, always**: a second jump in mid-air is yours from the start.
 - **Wall slide and wall jump**: press into a wall in mid-air to slide down it slowly; A kicks off it. Ground, blocks and conduits hold you; ROM, firewalls, the bus, NULL blocks, ice and bit blocks are too smooth, and nothing holds you once you've dropped below the ground line, so pits stay pits.
+- **Forgiving stomps**: clip the top corner of a virus on the way down and it counts as landing on it.
 - **Corner correction**: clip the corner of a block on the way up and you're nudged past it instead of stopped dead (hidden sectors excepted).
 - **Fast fall**: hold down in the air.
 - Quick acceleration, quicker turnarounds with skid dust, squash on landing, stretch on take-off, dust puffs.
@@ -237,15 +238,16 @@ slim screen 2 under it, whose registers run in four columns (hack, curse, hack, 
 
 | Control | Action |
 | --- | --- |
-| D-pad ◀ ▶ / left stick | Move |
-| A | Jump (hold for height, tap for a hop; in mid-air against a wall: wall jump) |
+| D-pad / left stick | Move (up also jumps). In menus and the hack list: move the highlight |
+| A (green) | Jump (hold for height, tap for a hop; in mid-air against a wall: wall jump). In menus: press the highlighted button |
+| B (red) | Hold to run (walking is three quarters of running speed). In menus: back |
 | ◀ / ▶ / A on a register's next digit | Writes that digit into the register (and still moves or jumps) |
-| B | Scan: decrypts 29 columns of ground, air and platform digits around you (5 s cooldown) |
-| X | Flip gravity (when the level's Gravity Flip is online) |
-| Y | Grab a shell or lit fork bomb (hold Y while touching it, or press Y beside it); press again to throw. On the raptor: tongue / spit |
+| SELECT | Scan: decrypts 29 columns of ground, air and platform digits around you (5 s cooldown) |
+| X (blue) | Flip gravity (when the level's Gravity Flip is online); on the raptor, hop off |
+| Y (yellow) | Grab a shell or lit fork bomb (hold Y while touching it, or press Y beside it); press again to throw. On the raptor: tongue / spit |
 | D-pad down | Drop what you hold, or hop off the raptor; hold in the air to fall fast |
 | Right stick | Look ahead |
-| SELECT / START | Sound on/off / menu (pause, sound, grid, reboot) |
+| START | Pause menu; on the title, the title menu |
 | Phone back button | Pause menu (quits only from the title screen) |
 | The two lights on the right | Top: lit green, red or gold when a press would write (hack, curse, both). Bottom: stability, green to amber to red, blinking when critical |
 
