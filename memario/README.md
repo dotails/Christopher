@@ -14,9 +14,13 @@ on the bottom screen.
 
 ## Menus, save files and the hack tool
 
-**Title:** the game plays itself behind the menu, without dimming it: a bot runs through all four levels
+**Title:** START always brings up the title menu (A plays). The game plays itself behind the menu, without dimming it: a bot runs through all four levels
 with the music and sound on, showing good play and bad (feeding a curse, side contact, two jumps over an
-eleven-block gap, walking into the void), and loops. The menu: NEW, SAVES, SETTINGS and TUTORIAL (plus
+eleven-block gap, walking into the void), and loops. The menu: NEW, SAVES, SETTINGS and TUTORIAL. TUTORIAL is a list of fifteen lessons (writing a digit,
+digits from viruses, air digits, finishing a hack, curses, crashes, Super Jump, Speed Boost, Phase Shift,
+Multi Jump, Quarantine, Alloc Bridge, Gravity Flip, flip and phase, KERNEL PANIC): pick one and the bot
+plays it with captions, then offers the next one, again, the list, or play; pressing anything during a
+lesson goes back to the list (plus
 HACK TOOL in the stacked landscape layout). Levels start straight away, with a small banner.
 A or START on the title continues your latest unfinished run.
 
@@ -32,9 +36,8 @@ CONTINUE and DEL (tap twice), and NEW GAME sits at the top.
 **Settings** (remembered): sound, music, vibration, grid, hints, the title demo, and the landscape layout.
 
 **Screen 2 is one searchable hack list, everywhere** (title, playing, paused; in the stacked landscape
-layout the list opens full screen from HACK TOOL or SCAN HACKS). At the top, ACTIVE: copies of what's in
-play right now (in a level, that level's own registers and your set; on the title, your set), hacks on
-the left and curses on the right. Below the search box and filters (ALL, IN SET, LEVEL, CHEATS, MACROS,
+layout the list opens full screen from HACK TOOL or SCAN HACKS). At the top, ACTIVE: copies of the rows in
+play right now (in a level, that level's own registers paired up, then your set; on the title, your set). Below the search box and filters (ALL, IN SET, LEVEL, CHEATS, MACROS,
 WARPS, LOOK, GLITCHES) comes the whole list, the originals staying where they are. Adding or removing a
 hack never makes the list jump: it holds its place while the copy appears or disappears above.
 
@@ -52,6 +55,10 @@ that unlocks it. Tap an available card to put it in your set, or take it out. Yo
 every level, listed under YOUR SET below the level's own registers; like the level's, each has a digit
 string you write in to switch it on.
 
+**Hacks and curses come in fixed pairs**, shown as rows: the hack on the left, its curse on the right
+(Super Jump with Heavy Boots, God Mode with Echo Rootkits, and so on; looks come alone). Tapping either side
+turns the whole row on or off; an active row is outlined, its hack filled green and its curse red.
+
 **Every hack you add brings a curse with it**, picked for you and marked "came with" in the tool; it goes
 away when you remove the hack. Looks (palettes, sprite scale) come free.
 
@@ -62,7 +69,7 @@ away when you remove the hack. Looks (palettes, sprite scale) come free.
 | Macros | Auto-Run, Bunny Hop (hold A), Auto-Write (writes hack digits without a press) |
 | Warps | Warp: Next Save, Save Anywhere (both fire once, then reset) |
 | Look | Sprite Scale 0.6 / 1.5, palettes: Neon, Handheld, Sepia, Mono, Inverted |
-| Glitches | Heavy Gravity, Virus Growth, Overclocked Viruses, Byte Drain, Memory Fog, Screen Quake, Row Scramble, Virus Spawner, Sticky Floor |
+| Glitches | Heavy Gravity, Virus Growth, Overclocked Viruses, Byte Drain, Memory Fog, Screen Quake, Row Scramble, Virus Spawner, Sticky Floor, Virus Armor, No Grace, Sluggish, Hiccups, Bit Rot, Echo Rootkits, Palette Rot, Screen Tear, Memory Blinds, Write Tax |
 
 Cheats can carry you past a level's gates; that's the point of bringing them, and the paired curse is the
 price. Minigames will join the catalog in a later version.

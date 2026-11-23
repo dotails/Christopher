@@ -141,6 +141,8 @@ body:not(.touch) .pad{display:none}
 .ov.clear h2,.ov.clear p{text-shadow:0 2px 0 #000,0 0 8px #000}
 .ov .menu{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:min(100%,360px)}
 .ov .menu .act{width:100%}
+.ov .menu.learn{max-height:54cqh;overflow:auto}
+.ov .menu.learn .act{font-size:12px;padding:8px 6px}
 .ov .note{font-size:11px;color:var(--muted)}
 .ov .saves{display:grid;gap:6px;width:min(100%,440px);max-height:58cqh;overflow:auto;text-align:left}
 .ov .save{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;background:var(--term2);border:1px solid var(--rule);padding:6px 8px;border-radius:4px}
@@ -190,8 +192,13 @@ body.mode-switch:not(.mode-side) .tool{position:fixed;inset:var(--sat) 0 0 0;z-i
 .tool .hk.on{border-color:var(--phos);background:#0d2a1a} .tool .hk.on .lv{color:var(--phos)}
 .tool .hk.b.on{border-color:var(--hot);background:#2a0d1c} .tool .hk.b.on .lv{color:var(--hot)}
 .tool .hk.live .s i{color:var(--phos)} .tool .hk.b.live .s i{color:var(--hot)}
-.tool .cols{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 6px 4px}
-.tool .cols>div{display:grid;gap:5px;align-content:start}
+.tool .rows{display:grid;gap:4px;padding:0 4px 4px}
+.tool .prow{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:2px;border-radius:6px;border:1px solid transparent}
+.tool .prow.on{border-color:#3c4a78;background:rgba(255,255,255,0.03)}
+.tool .prow.on .hk.g{background:#0e3b20;border-color:var(--phos)}
+.tool .prow.on .hk.b{background:#3d0e24;border-color:var(--hot)}
+.tool .prow.on .hk.lock{opacity:1;filter:none}
+.tool .hk.none{border-style:dashed;background:transparent;opacity:.35;cursor:default;min-height:44px}
 .tool .sec{font-size:10px;color:var(--cyan);padding:7px 8px 4px;letter-spacing:.08em}
 /* while playing the digits are the big bold line; paused or on the title, the description is */
 .tool.playing .tbar{position:static}
@@ -1279,7 +1286,8 @@ function setKey(source, k, v) {
   src[source][k] = v;
   if (demo && source !== 'bot') {
     if (demo.title) {                                                    // behind the title: A or START plays
-      if (v && (k === 'jump' || k === 'start') && document.activeElement !== $('tq') && ovBox.querySelector('#tNew')) { ensureAudio(); closeTool(); const r = loadRuns().find((q) => !q.done); if (r) continueRun(r.id); else newRun(); }
+      if (v && k === 'start') { ensureAudio(); showTitle(); }                                   // START: back to the title menu
+      else if (v && k === 'jump' && document.activeElement !== $('tq') && ovBox.querySelector('#tNew')) { ensureAudio(); closeTool(); const r = loadRuns().find((q) => !q.done); if (r) continueRun(r.id); else newRun(); }
       return;
     }
     if (v) stopDemo(); return;                                           // any real input ends the tutorial
@@ -1293,6 +1301,7 @@ function setKey(source, k, v) {
 function onPress(k) {
   ensureAudio();
   const go = k === 'jump' || k === 'start';
+  if (state === 'title' && k === 'start') { showTitle(); return; }
   if (state === 'title' && go && document.activeElement !== $('tq')) { edges[k] = false; consumed[k] = true; closeTool(); const r = loadRuns().find((q) => !q.done); if (r) continueRun(r.id); else newRun(); return; }
   if (state === 'tool' && k === 'start') { closeTool(); return; }
   if (state === 'intro' && go) { edges[k] = false; consumed[k] = true; beginLevel(); return; }
@@ -1597,6 +1606,7 @@ function write(r, d, how, wx, wy) {
   if (!r || state !== 'play' || p.dead) return;
   const i = r.slots.length, off = r.unlocked;
   r.slots.push({ d, ok: true }); injections++; musicWrite(d, true, r.good && !off);
+  if (abil.tax) bytes = Math.max(0, bytes - 2);                        // WRITE TAX
   const col = off ? '#c9c2ff' : r.good ? '#39ff88' : '#ff3d8a';
   writeFx.push({ c: cellNow[0], d, t: 0, col, sx: wx !== undefined ? wx : cellNow[0] * 16 + 8, sy: wy !== undefined ? wy : VH - 7 });
   if (symNow && how === 'key') for (let n = 0; n < 16; n++) pSpawn(p.x + p.w / 2, p.y + p.h, PK.SPARK, '#ffc23d', (Math.random() - 0.5) * 3, -Math.random() * 2.5, 22);
@@ -2059,6 +2069,7 @@ function enemySprite(e) {
   }
 }
 function killEnemy(e, fly, force) {
+  if (abil.armor && !force && !e.armored) { e.armored = true; e.flash = 14; SFX.stomp(); return; }   // VIRUS ARMOR: one hit only dents it
   if (!force && (e.type === 'ghost' || e.type === 'chomp')) return;
   e.hp--; if (e.hp > 0) { e.flash = 12; SFX.stomp(); return; }
   bytes += 2; SFX.stomp(); noise(0.12, 0.05);
@@ -2128,7 +2139,7 @@ function updateInner() {
   const now = { L: held.left && !consumed.left, R: (held.right && !consumed.right) || (abil.autorun && !held.left), J: held.jump && !consumed.jump, e: edges.jump && !consumed.jump };
   lagQ.push(now); if (lagQ.length > 10) lagQ.shift();
   const inp = abil.lag ? lagQ[0] : now;                    // the PACKET LAG curse
-  if (inp.e) jumpBuf = 8;
+  if (inp.e) jumpBuf = abil.nograce ? 1 : 8;
   if (abil.bunny && inp.J && p.grounded && !jumpBuf) jumpBuf = 2;             // MACRO: BUNNY HOP
   hackTick();
   updatePlayer(inp.L, inp.R, inp.J);
@@ -2258,12 +2269,12 @@ function updatePlayer(L, Rt, J) {
   if (p.on && !p.on.gone) { p.x += p.on.dx || 0; p.y += p.on.dy || 0; }          // ride whatever you stand on
   if (p.wjLock > 0) p.wjLock--;
   if (dir && !p.wjLock) {                                                          // snappy: quick to start, quicker to turn
-    const turn = dir * p.vx < 0, acc = p.grounded ? (icy ? 0.06 : turn ? 0.6 : 0.38) : (turn ? 0.3 : 0.22);
+    const turn = dir * p.vx < 0, acc = (p.grounded ? (icy ? 0.06 : turn ? 0.6 : 0.38) : (turn ? 0.3 : 0.22)) * (abil.sluggish ? 0.45 : 1);
     p.vx += clamp(dir * maxS - p.vx, -acc, acc);
     if (turn && p.grounded && !icy && Math.abs(p.vx) > 0.7 && (frame & 1)) puff(p.x + p.w / 2 - dir * 4, p.flip ? p.y : p.y + p.h, 1, -dir);
     p.face = dir;
   } else if (!dir) { p.vx *= p.grounded ? (icy ? 0.985 : 0.6) : 0.93; if (Math.abs(p.vx) < 0.05) p.vx = 0; }
-  if (p.grounded) coyote = 7; else if (coyote > 0) coyote--;
+  if (p.grounded) coyote = abil.nograce ? 0 : 7; else if (coyote > 0) coyote--;
   if (jumpBuf > 0) jumpBuf--;
   // walls: press into a wall in mid-air to slide down it; jump to kick off. ROM, firewalls, the bus and NULL won't hold you,
   // and nothing holds you once you've dropped below the ground line.
@@ -2936,7 +2947,7 @@ function drawRibbon(g, cx0, y, W, span = VW) {
       dT(dec ? String(hash2(c, (frame - ad) >> 1, 7) % 10) : String(d), x + 7, y + 2, dec ? '#4ff0ff' : '#5fb6cc');
     }
     // bottom lane
-    if (at === undefined || frame < at) { g.fillStyle = '#2c3350'; g.fillRect(x + 7, y + 10, 2, 1); continue; }
+    if (at === undefined || frame < at || abil.blind) { g.fillStyle = '#2c3350'; g.fillRect(x + 7, y + 10, 2, 1); continue; }   // MEMORY BLINDS hide all but your column
     const age = frame - at, dec = age < 16, d = dec ? hash2(c, age >> 1, 5) % 10 : colDigit(c), nb = !dec && NEED[d];
     if (nb) { g.fillStyle = NEED_BG[nb]; g.fillRect(x + 2, y + 8, 13, 6); }
     dT(String(d), x + 7, y + 8, dec ? '#4ff0ff' : writeFx.some((w) => w.c === c) ? '#ffffff' : nb ? '#e8ecff' : '#7f8db8');
@@ -3061,7 +3072,7 @@ function showTitle() {
   ov.classList.add('clear');
   $('tSaves').onclick = () => { ensureAudio(); showSaves(showTitle); };
   $('tSet').onclick = () => { ensureAudio(); showSettings(showTitle); };
-  $('tTut').onclick = () => { ensureAudio(); closeTool(); startDemo('tutorial'); };
+  $('tTut').onclick = () => { ensureAudio(); showLearn(); };
   $('tTool').onclick = () => { ensureAudio(); openTool('title'); };
 }
 // Saves are automatic and historical: every run is kept, newest first. NEW starts another.
@@ -3098,6 +3109,27 @@ function showSettings(back) {
     showSettings(menuBack);
   }; });
   $('oBack').onclick = () => menuBack();
+}
+function showLearn() {
+  titleAt = frame;
+  if (SETTINGS.demo && (!demo || !demo.title)) startDemo('title');
+  ov.hidden = false; ov.classList.add('clear');
+  ovBox.innerHTML = `<h2 class="lt">LEARN</h2>
+    <div class="menu learn">${LESSONS.map((L, i) => `<button class="act alt" data-l="${i}">${L.name}</button>`).join('')}</div>
+    <button class="act alt" id="lBack">BACK</button>`;
+  ovBox.querySelectorAll('[data-l]').forEach((b) => { b.onclick = () => { ensureAudio(); startDemo('lesson', +b.dataset.l); }; });
+  $('lBack').onclick = showTitle;
+}
+function showLessonEnd(i) {
+  showLearn();
+  const nxt = (i + 1) % LESSONS.length;
+  ovBox.innerHTML = `<div class="lvl">LESSON ${i + 1} OF ${LESSONS.length}</div><h2 class="lt">${LESSONS[i].name}</h2>
+    <div class="menu"><button class="act" id="eNext">NEXT: ${LESSONS[nxt].name}</button><button class="act alt" id="eAgain">AGAIN</button>
+      <button class="act alt" id="eAll">ALL LESSONS</button><button class="act alt" id="ePlay">PLAY</button></div>`;
+  $('eNext').onclick = () => startDemo('lesson', nxt);
+  $('eAgain').onclick = () => startDemo('lesson', i);
+  $('eAll').onclick = showLearn;
+  $('ePlay').onclick = () => { const r = loadRuns().find((q) => !q.done); if (r) continueRun(r.id); else newRun(); };
 }
 function showTutorialEnd() {
   state = 'title'; titleAt = frame;
@@ -3148,7 +3180,7 @@ function openMenu() {
   $('mCheck').onclick = () => { const sv = saves[checkpoint]; p.x = sv.x + 1; p.y = 208 - p.h; p.vx = p.vy = 0; p.flip = false; p.inv = 60; p.dead = 0; if (p.riding) dismount(false); closeMenu(); log(`BACK TO SAVE ${checkpoint}`, 'sys'); };
   $('mSaves').onclick = () => showSaves(openMenu);
   $('mSet').onclick = () => showSettings(openMenu);
-  $('mTut').onclick = () => { closeTool(); startDemo('tutorial'); };
+  $('mTut').onclick = () => { closeTool(); showLearn(); };
   $('mQuit').onclick = () => { guard('hack tool', closeTool); loadLevel(0); showTitle(); };
   if ($('mTool')) $('mTool').onclick = () => { ov.hidden = true; openTool('game'); };
   if (!wideStrip()) guard('hack tool', () => openTool('pause'));      // the buttons work even if the tool can't draw
@@ -3189,28 +3221,28 @@ function nextLevel() {
 // and Super Jump over the ROM wall. Any input ends it.
 let demo = null;
 const bot = (k, v) => setKey('bot', k, v);
-function startDemo(mode) {
+function startDemo(mode, lesson) {
   if (demo) stopDemo(() => {});
   const title = mode === 'title';
-  demo = { cap: null, jh: 0, t0: frame, tutorial: mode === 'tutorial', title };
+  demo = { cap: null, jh: 0, t0: frame, title, lesson: mode === 'lesson' ? lesson : undefined };
   if (!title) closeTool();
   run = { time: 0, crashes: 0, curses: 0 }; ensureAudio();
   stageDemo(0, 3, [0, 44]);
   if (!title) { ov.hidden = true; ov.classList.remove('clear'); log('DEMO: TAP ANYWHERE TO PLAY', 'sys'); }
-  demo.it = title ? titleScript() : demoScript();
+  demo.it = title ? titleScript() : lessonScript(lesson);
 }
 function stopDemo(then) {
   if (!demo) return;
   const d = demo; demo = null;
   for (const k of KEYS) { src.bot[k] = false; held[k] = src.kb[k] || src.dpad[k] || src.stick[k] || src.btn[k] || false; }
   loadLevel(0); stopMusic();
-  if (then) then(); else if (d.tutorial && d.finished) showTutorialEnd(); else showTitle();
+  if (then) then(); else if (d.lesson !== undefined) { if (d.finished) showLessonEnd(d.lesson); else showLearn(); } else showTitle();
 }
 function demoTick() {
   if (demo.jh > 0 && --demo.jh === 0) bot('jump', false);
   const r = demo.it.next();
   if (r.done) { demo.finished = true; if (demo.title) { demo.it = titleScript(); return; } }
-  if (!demo.title && (r.done || frame - demo.t0 > 6000)) stopDemo();
+  if (!demo.title && (r.done || frame - demo.t0 > 9000)) stopDemo();
 }
 // Cut to a spot in a level: load it if needed, clear the stretch the bot is about to play, start its music.
 function stageDemo(lv, x, clear, y) {
@@ -3241,99 +3273,6 @@ function* runRight(o) {
   }
   bot('right', false);
 }
-// The title's demo: the bot plays through all four levels, the right way and the wrong way, forever.
-function* titleScript() {
-  const G = '#39ff88', B = '#ff3d8a', I = '#4ff0ff';
-  // Boot Sector: writing digits
-  stageDemo(0, 3, [0, 44]);
-  yield* say('BOOT SECTOR', 'WRITE DIGITS INTO REGISTERS TO HACK YOURSELF', I, 60);
-  yield* demoBasics();
-  // Boot Sector: the wall and the pit
-  stageDemo(0, 157, [138, 210]); online('super'); online('speed');
-  yield* say('GOOD: SUPER JUMP + DOUBLE JUMP', 'OVER THE ROM WALL', G);
-  yield* runRight({ to: 172, jumps: [164], hold: 40, air: 1 });
-  for (let f = 0; f < 120 && !p.grounded; f++) yield;
-  yield* walkTo(171 * 16 + 8, true);
-  yield* say('GOOD: SPEED BOOST', 'ACROSS THE THIRTEEN-BLOCK PIT', G);
-  yield* runRight({ to: 216, jumps: [174.6], hold: 40, air: 1 }); yield* wait(60);
-  // Firewall
-  stageDemo(1, 50, [40, 100]); online('phase');
-  yield* say('FIREWALL', 'PHASE SHIFT WALKS THROUGH FIREWALLS', G);
-  yield* runRight({ to: 64 });
-  yield* say('BAD: TWO JUMPS', 'ELEVEN BLOCKS IS TOO FAR WITHOUT MULTI JUMP', B);
-  yield* runRight({ to: 90, jumps: [71.6], hold: 30, air: 1, low: true }); yield* wait(100);
-  stageDemo(1, 64, [40, 100]); online('triple');
-  yield* say('GOOD: MULTI JUMP', 'SAVE EACH JUMP FOR WHEN YOU START TO FALL', G);
-  yield* runRight({ to: 88, jumps: [71.6], hold: 30, air: 3, low: true }); yield* wait(40);
-  // Cloud Storage
-  stageDemo(2, 44, [16, 47]); online('freeze');
-  const cage = enemies.find((e) => !e.dead && e.type === 'sheller' && Math.abs(e.x / 16 - 50) < 3);
-  if (cage) { cage.x = 50.2 * 16; cage.y = 208 - cage.h; }
-  yield* say('CLOUD STORAGE', 'QUARANTINE FREEZES THE TROJAN. CLIMB OFF ITS BACK', G, 50);
-  if (cage) { p.x = cage.x + cage.w / 2 - 7; p.y = cage.y - p.h - 1; p.vy = 0; yield* wait(12); }
-  yield* runRight({ to: 58, jumps: [0], hold: 40, air: 1 }); yield* wait(20);
-  stageDemo(2, 60, [56, 110]); online('bridge');
-  yield* say('GOOD: ALLOC BRIDGE', 'NULL BLOCKS TURN SOLID OVER THE VOID', G);
-  yield* runRight({ to: 104, jumps: [60.6], hold: 24 });
-  yield* say('BAD: NO FLOOR', 'WALK INTO THE VOID AND YOU CRASH', B);
-  yield* runRight({ to: 130 }); yield* wait(100);
-  stageDemo(2, 109, [104, 180]); online('grav');
-  yield* say('GOOD: GRAVITY FLIP', 'WALK THE CEILING OVER THE VOID', G);
-  yield* runRight({ to: 172, flipAt: [110, 168], frames: 900 }); yield* wait(30);
-  // Root Access
-  stageDemo(3, 117, [110, 194]); online('grav'); online('phase');
-  yield* say('ROOT ACCESS', 'FLIP AND PHASE THROUGH THE FIREWALLS OVER LAVA', G);
-  yield* runRight({ to: 190, flipAt: [118, 188], frames: 1000 });
-  stageDemo(3, 191, [186, 194]); online('super');
-  const boss = hazards.find((h) => h.t === 'panic');
-  if (boss) { boss.hop = boss.cd = 1e9; boss.x = 201 * 16; }                 // a steady boss for the show
-  yield* say('KERNEL PANIC', 'JUMP IT, THEN PULL THE KILL SWITCH', G);
-  bot('right', true);
-  for (let f = 0; f < 600 && demo.cleared !== 3; f++) {
-    if (boss && !boss.dead && !boss.falling && p.grounded && demo.jh === 0 && boss.x - p.x < 70 && boss.x - p.x > 0) botJump(40);
-    else if (!p.grounded && demo.jh === 0 && p.vy >= -0.4 && p.airJumps > 0) botJump(30);
-    yield;
-  }
-  bot('right', false); yield* wait(90);
-  yield* say('YOUR TURN', 'PRESS NEW, OR A', '#ffffff', 120);
-}
-// The basics, played on Boot Sector's first screens: digits from the ground, a virus and the air; then a curse and a crash.
-function* demoBasics() {
-  const sup = regs.find((r) => r.id === 'super');
-  yield* walkTo(11 * 16 + 8); yield* wait(20);
-  yield* say('GOOD: A GROUND DIGIT', 'SUPER JUMP WANTS 3 ON <. STAND ON A 3, PRESS <', '#39ff88');
-  yield* writeGround(3, 'left', 3, 26); yield* wait(60);
-  yield* say('8 IS MISSING FROM MEMORY', 'A VIRUS CARRIES IT. STOMP IT: ITS 8 GOES IN', '#ff6fa8');
-  const v = mkEnemy('walker', Math.min(40, cellNow[0] + 8) * 16, {}); v.d = 8; v.rev = frame; enemies.push(v);
-  for (let f = 0; f < 700 && !v.dead && sup.slots.length < 2; f++) {
-    if (p.dead) { bot('left', false); bot('right', false); yield; continue; }
-    const dx = v.x + v.w / 2 - heroX(), dir = Math.sign(dx) || 1;
-    bot(dir > 0 ? 'left' : 'right', false); bot(dir > 0 ? 'right' : 'left', true);
-    if (p.grounded && demo.jh === 0 && Math.abs(dx) < 34) botJump(12);
-    yield;
-  }
-  bot('left', false); bot('right', false); yield* wait(50);
-  const ca = nearCol((c) => layerDigit('air', c) === 5 && openAbove(c), 3, 30);
-  if (ca !== null && sup.slots.length === 2) {
-    yield* say('GOOD: AN AIR DIGIT', 'JUMP, THEN PRESS < MID-AIR WHERE THE AIR HOLDS 5', '#39ff88');
-    yield* walkTo(ca * 16 + 8); yield* wait(12); botJump(14);
-    for (let f = 0; f < 60 && !(Math.abs(p.vy) < 1 && !p.grounded); f++) yield;
-    yield* tapKey('left');
-    for (let f = 0; f < 90 && !p.grounded; f++) yield;
-    yield* wait(24);
-  }
-  if (sup.slots.length === 2) { yield* say('GOOD: A GROUND 5', 'STAND ON A 5, PRESS <', '#39ff88'); yield* writeGround(5, 'left', 3, 30); yield* wait(30); }
-  yield* say('GOOD: 2 COMPLETES IT', 'STAND ON A 2, PRESS <', '#39ff88');
-  yield* writeGround(2, 'left', 3, 30); yield* wait(24);
-  if (sup.unlocked) yield* say('SUPER JUMP ONLINE', 'RE-ENTER 3 8 5 2 ANY TIME TO SWITCH IT OFF', '#39ff88', 110);
-  yield* say('BAD: FEEDING A CURSE', 'A ON A 2 FEEDS HEAVY BOOTS. RED MEANS DANGER', '#ff3d8a');
-  yield* writeGround(2, 'jump', 3, 30); yield* wait(90);
-  yield* say('BAD: SIDE CONTACT', 'TOUCH A VIRUS FROM THE SIDE AND YOU CRASH', '#ff3d8a');
-  const side = cellNow[0] <= 22 ? 1 : -1, w = mkEnemy('walker', (cellNow[0] + side * 4) * 16, {}); w.d = 1; w.dir = -side; enemies.push(w);
-  const c0 = crashes, k1 = side > 0 ? 'right' : 'left';
-  for (let f = 0; f < 400 && crashes === c0; f++) { bot(side > 0 ? 'left' : 'right', false); bot(k1, true); yield; }
-  bot(k1, false); yield* wait(100);
-}
 function drawCaption() {
   const c = demo && demo.cap; if (!c) return;
   const k = Math.min(1, (frame - c.at) / 8), y = demo.title ? VH - 46 : 14, w = VW - 16;
@@ -3341,7 +3280,7 @@ function drawCaption() {
   ctx.fillStyle = c.col; ctx.fillRect(8, y, w, 1); ctx.fillRect(8, y + 30, w, 1); ctx.fillRect(8, y, 2, 31);
   drawText(c.t, 15, y + 4, c.col, 2); drawText(c.sub, 15, y + 20, '#e8ecff');
   ctx.globalAlpha = 1;
-  if (!demo.title && (frame >> 5) % 2) drawText('DEMO - TAP TO PLAY', VW - 6, VH - 10, '#ffffff', 1, 'right');
+  if (!demo.title && (frame >> 5) % 2) drawText('LESSON - PRESS ANYTHING TO LEAVE', VW - 6, VH - 10, '#ffffff', 1, 'right');
 }
 function* wait(n) { for (let i = 0; i < n; i++) yield; }
 function* say(t, sub, col, n = 0) { demo.cap = { t, sub, col, at: frame }; yield* wait(n); }
@@ -3368,15 +3307,134 @@ const walkable = (c) => tileAt(c, 13) === T.G && tileAt(c, 12) === T.E && tileAt
 function nearCol(test, a, b) { let best = null; for (let c = a; c <= b; c++) if (walkable(c) && test(c) && (best === null || Math.abs(c - cellNow[0]) < Math.abs(best - cellNow[0]))) best = c; return best; }
 const openAbove = (c) => { for (let r = 6; r <= 11; r++) if (tileAt(c, r) !== T.E) return false; return true; };
 function* writeGround(d, k, a, b) { const c = nearCol((q) => colDigit(q) === d, a, b); if (c === null) return false; yield* walkTo(c * 16 + 8); yield* wait(12); yield* tapKey(k); return true; }
-function* demoScript() {
-  yield* say('MEMARIO', 'A DEMO. TAP ANYWHERE TO PLAY.', '#ffffff', 90);
-  yield* say('WALK TO DECRYPT MEMORY', 'THE BOTTOM ROW HOLDS ONE DIGIT PER COLUMN', '#4ff0ff');
-  yield* demoBasics();
-  stageDemo(0, 157, [138, 200]); online('super');
-  yield* say('THE ROM WALL', 'SUPER JUMP, THEN A DOUBLE JUMP AT THE TOP', '#39ff88');
-  yield* runRight({ to: 172, jumps: [164], hold: 40, air: 1 }); yield* wait(40);
-  yield* say('NOW YOU TRY', 'PRESS START OR A TO PLAY', '#ffffff', 150);
+// Lessons: short scenes the bot plays with captions. The title plays them all, in order, forever;
+// TUTORIAL lets you pick one.
+const CG = '#39ff88', CB = '#ff3d8a', CI = '#4ff0ff';
+function fresh(lv, x, clear, y) { if (demo) demo.cleared = undefined; loadLevel(lv); stageDemo(lv, x, clear, y); }
+function prep(id, n) { const r = regs.find((q) => q.id === id); if (!r) return; r.slots = []; for (let i = 0; i < n; i++) write(r, r.seq[i], 'key'); }
+function* stompVirus(d, regId, want) {
+  const r = regs.find((q) => q.id === regId), v = mkEnemy('walker', Math.min(40, cellNow[0] + 8) * 16, {}); v.d = d; v.rev = frame; enemies.push(v);
+  for (let f = 0; f < 700 && !v.dead && r.slots.length < want; f++) {
+    if (p.dead) { bot('left', false); bot('right', false); yield; continue; }
+    const dx = v.x + v.w / 2 - heroX(), dir = Math.sign(dx) || 1;
+    bot(dir > 0 ? 'left' : 'right', false); bot(dir > 0 ? 'right' : 'left', true);
+    if (p.grounded && demo.jh === 0 && Math.abs(dx) < 34) botJump(12);
+    yield;
+  }
+  bot('left', false); bot('right', false);
 }
+const LESSONS = [
+  { name: 'WRITE A DIGIT', *run() {
+    fresh(0, 3, [0, 44]);
+    yield* say('WRITE A DIGIT', "SCREEN 2'S TOP ROW HOLDS ONE DIGIT PER COLUMN", CI, 70);
+    yield* walkTo(11 * 16 + 8); yield* wait(15);
+    yield* say('GOOD: A GROUND DIGIT', 'SUPER JUMP WANTS 3 ON <. STAND ON A 3, PRESS <', CG);
+    yield* writeGround(3, 'left', 3, 26); yield* wait(70);
+  } },
+  { name: 'DIGITS FROM VIRUSES', *run() {
+    fresh(0, 11, [0, 44]); prep('super', 1);
+    yield* say('8 IS MISSING FROM MEMORY', 'A VIRUS CARRIES IT. STOMP IT: ITS 8 GOES IN', '#ff6fa8');
+    yield* stompVirus(8, 'super', 2); yield* wait(60);
+  } },
+  { name: 'DIGITS IN THE AIR', *run() {
+    fresh(0, 11, [0, 44]); prep('super', 2);
+    const ca = nearCol((c) => layerDigit('air', c) === 5 && openAbove(c), 3, 30), sup = regs.find((r) => r.id === 'super');
+    yield* say('GOOD: AN AIR DIGIT', 'JUMP, THEN PRESS < MID-AIR WHERE THE AIR HOLDS 5', CG);
+    if (ca !== null) {
+      yield* walkTo(ca * 16 + 8); yield* wait(12); botJump(14);
+      for (let f = 0; f < 60 && !(Math.abs(p.vy) < 1 && !p.grounded); f++) yield;
+      yield* tapKey('left');
+      for (let f = 0; f < 90 && !p.grounded; f++) yield;
+    }
+    if (sup.slots.length === 2) yield* writeGround(5, 'left', 3, 30);
+    yield* wait(60);
+  } },
+  { name: 'FINISH A HACK', *run() {
+    fresh(0, 11, [0, 44]); prep('super', 3);
+    yield* say('GOOD: 2 COMPLETES IT', 'STAND ON A 2, PRESS <', CG);
+    yield* writeGround(2, 'left', 3, 30); yield* wait(24);
+    yield* say('SUPER JUMP ONLINE', 'RE-ENTER 3 8 5 2 ANY TIME TO SWITCH IT OFF', CG, 110);
+  } },
+  { name: 'CURSES', *run() {
+    fresh(0, 11, [0, 44]);
+    yield* say('BAD: FEEDING A CURSE', 'A ON A 2 FEEDS HEAVY BOOTS. RED MEANS DANGER', CB);
+    yield* writeGround(2, 'jump', 3, 30); yield* wait(100);
+  } },
+  { name: 'CRASHES', *run() {
+    fresh(0, 14, [0, 44]);
+    yield* say('BAD: SIDE CONTACT', 'TOUCH A VIRUS FROM THE SIDE AND YOU CRASH. LAND ON IT INSTEAD', CB);
+    const w = mkEnemy('walker', 18 * 16, {}); w.d = 1; w.dir = -1; enemies.push(w);
+    const c0 = crashes;
+    for (let f = 0; f < 400 && crashes === c0; f++) { bot('left', false); bot('right', true); yield; }
+    bot('right', false); yield* wait(100);
+  } },
+  { name: 'SUPER JUMP', *run() {
+    fresh(0, 157, [138, 210]); online('super');
+    yield* say('GOOD: SUPER JUMP + DOUBLE JUMP', 'OVER THE ROM WALL. A SECOND JUMP AT THE TOP', CG);
+    yield* runRight({ to: 172, jumps: [164], hold: 40, air: 1 }); yield* wait(50);
+  } },
+  { name: 'SPEED BOOST', *run() {
+    fresh(0, 170, [138, 210]); online('super'); online('speed');
+    yield* say('GOOD: SPEED BOOST', 'ACROSS THE THIRTEEN-BLOCK PIT', CG);
+    yield* runRight({ to: 216, jumps: [174.6], hold: 40, air: 1 }); yield* wait(60);
+  } },
+  { name: 'PHASE SHIFT', *run() {
+    fresh(1, 50, [40, 100]); online('phase');
+    yield* say('GOOD: PHASE SHIFT', 'WALK STRAIGHT THROUGH FIREWALLS', CG);
+    yield* runRight({ to: 64 }); yield* wait(30);
+  } },
+  { name: 'MULTI JUMP', *run() {
+    fresh(1, 64, [40, 100]);
+    yield* say('BAD: TWO JUMPS', 'ELEVEN BLOCKS IS TOO FAR WITHOUT MULTI JUMP', CB);
+    yield* runRight({ to: 90, jumps: [71.6], hold: 30, air: 1, low: true }); yield* wait(100);
+    stageDemo(1, 64, [40, 100]); online('triple');
+    yield* say('GOOD: MULTI JUMP', 'SAVE EACH JUMP FOR WHEN YOU START TO FALL', CG);
+    yield* runRight({ to: 88, jumps: [71.6], hold: 30, air: 3, low: true }); yield* wait(40);
+  } },
+  { name: 'QUARANTINE', *run() {
+    fresh(2, 44, [16, 47]); online('freeze');
+    const cage = enemies.find((e) => !e.dead && e.type === 'sheller' && Math.abs(e.x / 16 - 50) < 3);
+    if (cage) { cage.x = 50.2 * 16; cage.y = 208 - cage.h; }
+    yield* say('GOOD: QUARANTINE', 'FREEZE THE TROJAN. CLIMB OFF ITS BACK', CG, 50);
+    if (cage) { p.x = cage.x + cage.w / 2 - 7; p.y = cage.y - p.h - 1; p.vy = 0; yield* wait(12); }
+    yield* runRight({ to: 58, jumps: [0], hold: 40, air: 1 }); yield* wait(30);
+  } },
+  { name: 'ALLOC BRIDGE', *run() {
+    fresh(2, 60, [56, 110]); online('bridge');
+    yield* say('GOOD: ALLOC BRIDGE', 'NULL BLOCKS TURN SOLID OVER THE VOID', CG);
+    yield* runRight({ to: 104, jumps: [60.6], hold: 24 });
+    yield* say('BAD: NO FLOOR', 'WALK INTO THE VOID AND YOU CRASH', CB);
+    yield* runRight({ to: 130 }); yield* wait(100);
+  } },
+  { name: 'GRAVITY FLIP', *run() {
+    fresh(2, 109, [104, 180]); online('grav');
+    yield* say('GOOD: GRAVITY FLIP', 'X FLIPS YOU. WALK THE CEILING OVER THE VOID', CG);
+    yield* runRight({ to: 172, flipAt: [110, 168], frames: 900 }); yield* wait(30);
+  } },
+  { name: 'FLIP AND PHASE', *run() {
+    fresh(3, 117, [110, 194]); online('grav'); online('phase');
+    yield* say('GOOD: FLIP AND PHASE', 'UPSIDE DOWN, THROUGH THE FIREWALLS, OVER THE LAVA', CG);
+    yield* runRight({ to: 190, flipAt: [118, 188], frames: 1000 }); yield* wait(20);
+  } },
+  { name: 'KERNEL PANIC', *run() {
+    fresh(3, 191, [186, 194]); online('super');
+    const boss = hazards.find((h) => h.t === 'panic');
+    if (boss) { boss.hop = boss.cd = 1e9; boss.x = 202 * 16; boss.vx = 0; }   // it holds still for the lesson
+    yield* say('KERNEL PANIC', 'JUMP IT, THEN PULL THE KILL SWITCH', CG);
+    bot('right', true);
+    for (let f = 0; f < 600 && demo.cleared !== 3; f++) {
+      if (boss && !boss.dead && !boss.falling && p.grounded && demo.jh === 0 && boss.x - p.x < 84 && boss.x - p.x > 0) botJump(40);
+      else if (!p.grounded && demo.jh === 0 && p.vy >= -0.4 && p.airJumps > 0) botJump(30);
+      yield;
+    }
+    bot('right', false); yield* wait(90);
+  } },
+];
+function* titleScript() {
+  for (const L of LESSONS) yield* L.run();
+  yield* say('YOUR TURN', 'PRESS NEW, OR A', '#ffffff', 120);
+}
+function* lessonScript(i) { yield* LESSONS[i].run(); yield* say('NOW YOU TRY', 'PICK ANOTHER LESSON, OR PLAY', '#ffffff', 90); }
 /* ================= storage: settings, save files, your hack set ================= */
 function loadJSON(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch (e) { return d; } }
 function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage off */ } }
@@ -3455,6 +3513,22 @@ X('quake', false, 'GLITCHES', 'QUAKE', 'SCREEN QUAKE', 'THE SCREEN NEVER STOPS S
 X('scramble', false, 'GLITCHES', 'SCRAMB', 'ROW SCRAMBLE', 'THE MEMORY RE-ENCRYPTS EVERY 10 SECONDS');
 X('spawner', false, 'GLITCHES', 'SPAWN', 'VIRUS SPAWNER', 'A CRAWLER SPAWNS AHEAD EVERY 10 SECONDS');
 X('sticky', false, 'GLITCHES', 'STICKY', 'STICKY FLOOR', 'RUN SPEED X0.7');
+X('armor', false, 'GLITCHES', 'ARMOR', 'VIRUS ARMOR', 'EVERY VIRUS TAKES TWO HITS');
+X('nograce', false, 'GLITCHES', 'NOGRACE', 'NO GRACE', 'NO LATE JUMPS OFF LEDGES, NO EARLY PRESSES');
+X('sluggish', false, 'GLITCHES', 'SLUG', 'SLUGGISH', 'YOU SPEED UP AND TURN AT HALF THE RATE');
+X('hiccup', false, 'GLITCHES', 'HICCUP', 'HICCUPS', 'A LITTLE HOP EVERY FOUR SECONDS');
+X('bitrot', false, 'GLITCHES', 'BITROT', 'BIT ROT', 'UNCOLLECTED BITS VANISH OVER TIME');
+X('echo', false, 'GLITCHES', 'ECHO', 'ECHO ROOTKITS', 'A ROOTKIT TURNS UP EVERY 15 SECONDS');
+X('palrot', false, 'GLITCHES', 'PALROT', 'PALETTE ROT', 'THE COLOURS SCRAMBLE EVERY 10 SECONDS');
+X('tear', false, 'GLITCHES', 'TEAR', 'SCREEN TEAR', 'THE PICTURE KEEPS TEARING SIDEWAYS');
+X('blind', false, 'GLITCHES', 'BLIND', 'MEMORY BLINDS', 'ONLY YOUR OWN COLUMN SHOWS ITS DIGIT');
+X('tax', false, 'GLITCHES', 'TAX', 'WRITE TAX', 'EVERY WRITE COSTS TWO BYTES');
+// Every hack has a curse it comes with, and they sit together as a row. (Looks come alone.)
+const PAIR = { fire: 'armor', super: 'heavy', speed: 'sticky', shield: 'watchdog', phase: 'nullptr', triple: 'hgrav', reload: 'leak', magnet: 'bitrot',
+  freeze: 'swarm', bridge: 'tear', grav: 'storm', glide: 'hiccup', slow: 'fastv', moon: 'slip', spring: 'nograce', turbo: 'sluggish', god: 'echo',
+  printer: 'drain', stab: 'quake', xray: 'scramble', bullet: 'lag', tinyv: 'bigv', rapid: 'spawner', autorun: 'fog', bunny: 'dark', autowrite: 'tax',
+  warp: 'palrot', saveany: 'blind' };
+const PARTNER = {}; for (const [g, b] of Object.entries(PAIR)) { PARTNER[g] = b; PARTNER[b] = g; }
 const CATS = ['ALL', 'IN SET', 'LEVEL', 'CHEATS', 'MACROS', 'WARPS', 'LOOK', 'GLITCHES'];
 // Clearing a level earns a wire, and unlocks that level's hacks and curses plus one batch from the rest.
 const TRANCHE = [
@@ -3466,28 +3540,30 @@ const TRANCHE = [
 let cleared = loadJSON('memario.cleared', null);
 if (!cleared) { const top = loadRuns().reduce((m, r) => Math.max(m, r.done ? LEVELS.length : r.level || 0), 0); cleared = []; for (let i = 0; i < top; i++) cleared.push(i); saveJSON('memario.cleared', cleared); }
 function markCleared(i) { if (!cleared.includes(i)) { cleared.push(i); saveJSON('memario.cleared', cleared); } }
-const unlockLevelOf = (id) => { for (let i = 0; i < LEVELS.length; i++) if (LEVELS[i].regs.some((r) => r.id === id) || TRANCHE[i].includes(id)) return i; return 0; };
+const unlockLevelOf = (id) => {
+  if (PARTNER[id] && !catOf(id).good) id = PARTNER[id];                 // a curse unlocks with its hack
+  for (let i = 0; i < LEVELS.length; i++) if (LEVELS[i].regs.some((r) => r.id === id) || TRANCHE[i].includes(id)) return i;
+  return 0;
+};
 const isUnlocked = (id) => cleared.includes(unlockLevelOf(id));
 const catOf = (id) => CAT.find((e) => e.id === id);
 // Your set: what you bring into every level. Each hack you add brings a curse with it (looks don't).
-let loadout = loadJSON('memario.loadout', []).filter((q) => catOf(q.id));   // trimmed to what's wired once the board loads
+let loadout = loadJSON('memario.loadout', []).filter((q) => catOf(q.id) && !q.auto && catOf(q.id).good);
+loadout = loadout.flatMap((q) => (PAIR[q.id] ? [q, { id: PAIR[q.id], auto: true, of: q.id }] : [q]));
 const inSet = (id) => loadout.find((q) => q.id === id);
 let toolMsg = '';
 function toggleSet(id) {
-  const e = catOf(id), cur = inSet(id), lv = inLevel() && regs.find((r) => r.id === id && !r.custom);
+  const e = catOf(id), lv = inLevel() && regs.find((r) => r.id === id && !r.custom);
   if (lv) { toolMsg = `${e.name}: WRITE ${lv.seq.join(' ')} ON ${GLYPH[lv.ctrl]}${lv.unlocked ? ' AGAIN TO SWITCH IT OFF' : ''}`; return; }
-  if (cur) {
-    if (cur.auto) { const g = catOf(cur.of); toolMsg = `${e.name} CAME WITH ${g ? g.name : 'A HACK'}. REMOVE THAT TO DROP IT.`; return; }
-    loadout = loadout.filter((q) => q.id !== id && q.of !== id);
-    toolMsg = `REMOVED ${e.name}`;
+  const g = e.good ? id : PARTNER[id]; if (!g) return;                 // either side of a row toggles the whole row
+  const ge = catOf(g), be = PAIR[g] ? catOf(PAIR[g]) : null;
+  if (inSet(g)) {
+    loadout = loadout.filter((q) => q.id !== g && q.of !== g);
+    toolMsg = `REMOVED ${ge.name}${be ? ' AND ' + be.name : ''}`;
   } else {
-    if (!isUnlocked(id)) { toolMsg = `${e.name} IS LOCKED: CLEAR LEVEL ${unlockLevelOf(id) + 1} TO UNLOCK IT.`; return; }
-    loadout.push({ id });
-    toolMsg = `ADDED ${e.name}`;
-    if (e.good && !e.look) {
-      const pool = CAT.filter((q) => !q.good && !inSet(q.id));
-      if (pool.length) { const b = pool[(hashStr(id) + loadout.length) % pool.length]; loadout.push({ id: b.id, auto: true, of: id }); toolMsg += `. IT BRINGS A CURSE: ${b.name}`; }
-    }
+    if (!isUnlocked(g)) { toolMsg = `${ge.name} IS LOCKED: CLEAR LEVEL ${unlockLevelOf(g) + 1} TO UNLOCK IT.`; return; }
+    loadout.push({ id: g }); if (be && !inSet(be.id)) loadout.push({ id: be.id, auto: true, of: g });
+    toolMsg = `ADDED ${ge.name}${be ? ' WITH ITS CURSE, ' + be.name : ''}`;
   }
   saveJSON('memario.loadout', loadout);
   if (LV) syncCustomRegs();
@@ -3528,6 +3604,11 @@ function hackTick() {
   if (abil.printer && frame % 120 === 0) bytes++;
   if (abil.drain && frame % 180 === 0 && bytes > 0) bytes--;
   if (abil.quake) shakeT = Math.max(shakeT, 3);
+  if (abil.hiccup && frame % 240 === 0 && p.grounded && !p.dead) { p.vy = (p.flip ? 1 : -1) * 3; p.grounded = false; }
+  if (abil.bitrot && frame % 300 === 0) { const b = bits.find((q) => !q.taken && Math.abs(q.x - p.x) < VW); if (b) { b.taken = true; for (let n = 0; n < 8; n++) pSpawn(b.x + 4, b.y + 4, PK.DUST, '#39ff88', (Math.random() - 0.5), 0); } }
+  if (abil.echo && frame % 900 === 450) { const c = clamp(cellNow[0] + 9, 1, LW - 2); spawnEnt({ t: 'ghost', x: c, y: 5 }); }
+  if (abil.palrot && frame % 600 === 300) glitch('pal');
+  if (abil.tear && frame % 90 === 0) addBand(18);
   if (abil.scramble && frame % 600 === 0) { revealed.clear(); revealedAir.clear(); log('ROW SCRAMBLE: MEMORY RE-ENCRYPTED', 'bad'); }
   if (abil.spawner && frame % 600 === 300) { const c = clamp(cellNow[0] + 10, 0, LW - 1); if (tileAt(c, 12) === T.E && tileAt(c, 13) !== T.E) { const e = mkEnemy('walker', c * 16, {}); e.d = hash2(c, frame, 3) % 10; enemies.push(e); } }
   if (abil.autowrite && !p.dead) for (const k of ['left', 'right', 'jump']) { const r = pickFor(k); if (r && r.good && !r.unlocked) { write(r, digitNow, 'macro'); break; } }
@@ -3597,8 +3678,14 @@ function renderTool() {
   const q = $('tq').value.trim().toUpperCase();
   const lvIds = inLevel() && regs ? regs.map((r) => r.id) : [];
   const match = (e) => (toolCat === 'ALL' || (toolCat === 'IN SET' ? inSet(e.id) : e.cat === toolCat)) && (!q || (e.name + ' ' + e.short + ' ' + e.desc + ' ' + e.kind).includes(q));
-  const act = CAT.filter((e) => (inSet(e.id) || lvIds.includes(e.id)) && match(e)), all = CAT.filter(match);
-  const cols = (arr, sec) => `<div class="cols"><div>${arr.filter((e) => e.good).map((e) => hkCard(e, sec)).join('')}</div><div>${arr.filter((e) => !e.good).map((e) => hkCard(e, sec)).join('')}</div></div>`;
+  const slot = '<div class="hk none"></div>';
+  const row = (gE, bE, sec, on, lvl) => `<div class="prow ${on ? 'on' : ''} ${lvl ? 'lvlrow' : ''}">${gE ? hkCard(gE, sec) : slot}${bE ? hkCard(bE, sec) : slot}</div>`;
+  const rows = [];                                                     // ACTIVE: this level's registers paired in order, then your set's rows
+  if (lvIds.length) { const G = regs.filter((r) => !r.custom && r.good), B = regs.filter((r) => !r.custom && !r.good); for (let i = 0; i < Math.max(G.length, B.length); i++) rows.push([G[i] && catOf(G[i].id), B[i] && catOf(B[i].id), true]); }
+  for (const q of loadout) if (!q.auto && !lvIds.includes(q.id)) rows.push([catOf(q.id), PAIR[q.id] && !lvIds.includes(PAIR[q.id]) ? catOf(PAIR[q.id]) : null, false]);
+  const act = rows.filter(([a, b]) => (a && match(a)) || (b && match(b)));
+  const all = CAT.filter((e) => e.good).map((e) => [e, PAIR[e.id] ? catOf(PAIR[e.id]) : null]).filter(([a, b]) => match(a) || (b && match(b)));
+  const cols = (arr, sec) => `<div class="rows">${arr.map(([a, b, lvl]) => row(a, b, sec, sec === 'act' || !!inSet(a.id), lvl && sec === 'act')).join('')}</div>`;
   $('xhead').textContent = '';
   $('tact').innerHTML = act.length ? `<div class="sec">ACTIVE · ${act.length}</div>` + cols(act, 'act') : '';
   $('tlist').innerHTML = `<div class="sec">ALL HACKS · ${CAT.filter((e) => isUnlocked(e.id)).length} OF ${CAT.length} UNLOCKED</div>` + (all.length ? cols(all, 'all') : '<div class="empty">NOTHING MATCHES.</div>');
@@ -3619,7 +3706,9 @@ function drawMap() {
   const total = Math.max(sc.scrollHeight, 1), k = H / total, half = $('tlist').clientWidth / 2;
   for (const el of $('tscroll').querySelectorAll('.hk')) {
     const y = el.offsetTop * k, h = Math.max(2, el.offsetHeight * k - 1), col = el.offsetLeft > half ? 1 : 0, x = 4 + col * 16;
-    const c = el.classList.contains('on') ? '#39ff88' : el.classList.contains('lock') ? '#3a3f55' : '#e8ecff';
+    if (el.classList.contains('none')) continue;
+    const on = el.classList.contains('on') || (el.parentElement && el.parentElement.classList.contains('on'));
+    const c = on ? (el.classList.contains('b') ? '#ff3d8a' : '#39ff88') : el.classList.contains('lock') ? '#3a3f55' : '#e8ecff';
     g.fillStyle = c; g.globalAlpha = 0.9; g.fillRect(x, y, 13, Math.min(1.4, h));                  // the name line
     g.globalAlpha = 0.5; for (let ly = y + 2.2; ly < y + h - 0.5; ly += 2.2) g.fillRect(x, ly, 4 + ((el.dataset.id.length * 7 + ly * 3) % 9), 0.9);   // the text under it
     g.globalAlpha = 1;
