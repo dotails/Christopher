@@ -12,15 +12,52 @@ idle, walk, jump/fall, a pointing action played whenever a digit is written, and
 before respawning. `img/faces.png` holds four portraits (normal, grin, shocked, bruised) that react
 on the bottom screen.
 
+## Menus, save files and the hack tool
+
+**Title menu:** NEW starts a run; SAVES lists every run (level reached, time, crashes, curses, when you
+last played) with CONTINUE and DEL (tap twice); SETTINGS toggles sound, music, vibration, grid, hints and
+the idle demo (all remembered); TUTORIAL plays the captioned demo and ends on a "your turn" card.
+A or START on the title continues your latest unfinished run.
+
+**The hack tool** is screen 2 on the title (in landscape, the HACK TOOL button opens it full screen), and
+SCAN HACKS at the bottom of the register list opens it mid-level (the game pauses). Search by name or
+effect, filter by ALL, IN SET, LEVEL, CHEATS, MACROS, WARPS, LOOK or GLITCHES, and tap any entry to put it in
+your set or take it out. Your set comes with you into every level, listed under YOUR SET below the
+level's own registers. Like the level's, each has a digit string you write in to switch it on.
+
+**Every hack you add brings a curse with it**, picked for you and marked "came with" in the tool; it goes
+away when you remove the hack. Looks (palettes, sprite scale) come free.
+
+| Group | Entries |
+| --- | --- |
+| Level | every hack and curse from all four levels |
+| Cheats | Moon Gravity, Spring Legs, Turbo, God Mode, Byte Printer, Stabilizer, Memory Dump (reveals every digit), Bullet Time (whole game at 70%), Virus Shrink, Rapid Fire |
+| Macros | Auto-Run, Bunny Hop (hold A), Auto-Write (writes hack digits without a press) |
+| Warps | Warp: Next Save, Save Anywhere (both fire once, then reset) |
+| Look | Sprite Scale 0.6 / 1.5, palettes: Neon, Handheld, Sepia, Mono, Inverted |
+| Glitches | Heavy Gravity, Virus Growth, Overclocked Viruses, Byte Drain, Memory Fog, Screen Quake, Row Scramble, Virus Spawner, Sticky Floor |
+
+Cheats can carry you past a level's gates; that's the point of bringing them, and the paired curse is the
+price. Minigames will join the catalog in a later version.
+
+## Screen 2 in a level
+
+From the top: the memory row (two lanes, its columns lined up with the game above), a header with the digit
+you'd write and what each control would do with it, then the registers: **hacks on the left, curses on the
+right**, the level's first and your set below, each card showing its control, its next digit large, its
+name and its whole string at double size. Drag to scroll; a register you could write right now that's
+scrolled out of sight shows as "PRESS ..." at the edge. The frame flashes green, red or gold with the
+verdict. The latest message shows along the bottom for a few seconds.
+
 ## Writing digits: three layers, and touch
 
 Digits live in three layers, and the one you write from is the one you're in:
 
-- **Ground:** every column's digit, on the row along the bottom of the map. It decrypts the first time you pass.
+- **Ground:** every column's digit, on the memory row at the top of screen 2. It decrypts the first time you pass.
 - **Platform:** every block you can stand on has its own digit, printed on its face once you get near.
 - **Air:** every column also has an air digit. While you're airborne (jumping, falling, on a wall) you read it.
 
-The bottom bar has two lanes: the top lane shows air digits, gold symbols and the digits viruses and boxes
+The memory row (at the top of screen 2) has two lanes: the top lane shows air digits, gold symbols and the digits viruses and boxes
 carry; the bottom lane shows ground digits. Your column shows the digit you would write right now, with a
 mark for its layer (a caret for air, a bar for a platform). Digits that some register wants next are lit:
 green for a hack, red for a curse, gold for both.
@@ -51,7 +88,7 @@ carry them. They are the digits that level's key hacks need:
 | 4 Root Access | 0 and 7 | Phase Shift, Super Jump |
 
 Every virus and every 0x box carries a digit (every other one carries a missing digit), written by
-touching it (see above). Their digits show in the top lane of the bottom bar at the column they occupy
+touching it (see above). Their digits show in the top lane of the memory row at the column they occupy
 (pink for a virus, gold for a box, red and flickering for an orphan), as `?` until you come within three
 columns. A virus's digit slides along as it walks. A killed virus leaves its digit behind as an orphaned
 pointer; brush past it to write it, so a missing digit can't be lost.
@@ -164,8 +201,8 @@ Faults are physical, not just pictures:
 
 ## Layout
 
-Held upright: the game screen runs edge to edge on top, the register screen fills the space between it
-and the controller, and nothing scrolls. Held sideways (and on desktop), Switch-style: one big game
+Held upright: the game screen runs edge to edge on top, and screen 2 (memory row, registers, hack tool)
+fills the space between it and the controller. Held sideways (and on desktop), Switch-style: one big game
 screen with a slim 3×3 register strip under it and the controller halves either side.
 
 ## Controls (on-screen handheld controller)

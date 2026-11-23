@@ -136,6 +136,39 @@ body:not(.touch) .pad{display:none}
   .led{display:none}
 }
 @media (prefers-reduced-motion:reduce){ .dpad{transform:none!important} }
+/* ---------- title menu, saves, settings ---------- */
+.ov .menu{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:min(100%,360px)}
+.ov .menu .act{width:100%}
+.ov .note{font-size:11px;color:var(--muted)}
+.ov .saves{display:grid;gap:6px;width:min(100%,440px);max-height:58cqh;overflow:auto;text-align:left}
+.ov .save{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;background:var(--term2);border:1px solid var(--rule);padding:6px 8px;border-radius:4px}
+.ov .save b{font-family:var(--f-pix);font-weight:400;color:#fff} .ov .save span{color:var(--muted);font-size:11px}
+.ov .save .act{padding:6px 10px;font-size:12px}
+.ov .opts{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:min(100%,380px)}
+.ov .opts .act{width:100%;font-size:13px}
+.ov .opts .act.on{border-color:var(--phos);color:var(--phos)}
+body.mode-stack .ov .only-wide{display:none}
+/* ---------- the hack tool: every hack, searchable; tap to bring it with you ---------- */
+.tool{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;background:#0a0816;font-family:var(--f-pix);color:var(--ink);user-select:none}
+body.mode-switch .tool{position:fixed;inset:var(--sat) 0 0 0;z-index:30}
+.tool .tbar{display:flex;gap:6px;padding:6px;border-bottom:1px solid var(--rule)}
+.tool input{flex:1;min-width:0;font:14px var(--f-pix);background:#05040a;color:#fff;border:1px solid var(--cyan);border-radius:4px;padding:7px 9px;user-select:text;-webkit-user-select:text}
+.tool input::placeholder{color:#4a5a7a}
+.tool .tbar button{font:13px var(--f-pix);background:var(--phos);color:#04130a;border:0;border-radius:4px;padding:0 12px}
+.tool .tcats{display:flex;gap:5px;padding:5px 6px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--rule)}
+.tool .tcats button{flex:0 0 auto;font:11px var(--f-pix);background:transparent;color:var(--muted);border:1px solid var(--rule);border-radius:10px;padding:3px 9px}
+.tool .tcats button.on{color:#04130a;background:var(--cyan);border-color:var(--cyan)}
+.tool .tlist{flex:1;min-height:0;overflow-y:auto;padding:5px 6px;display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start;-webkit-overflow-scrolling:touch}
+.tool .hk{display:grid;grid-template-columns:1fr auto;gap:1px 6px;text-align:left;background:var(--term2);border:1px solid var(--rule);border-radius:4px;padding:6px 7px;cursor:pointer}
+.tool .hk .n{font-size:13px;color:#fff} .tool .hk.b .n{color:#ff8ab8}
+.tool .hk .st{font-size:10px;color:var(--muted);align-self:start}
+.tool .hk .k{grid-column:1/3;font-size:9px;color:#6f7aa0;letter-spacing:.05em}
+.tool .hk .d{grid-column:1/3;font:11px/1.3 var(--f-mono);color:#b9c2dc}
+.tool .hk .s{grid-column:1/3;font-size:12px;color:var(--cyan);letter-spacing:.12em}
+.tool .hk.on{border-color:var(--phos);background:#0d2a1a} .tool .hk.on .st{color:var(--phos)}
+.tool .hk.b.on{border-color:var(--hot);background:#2a0d1c} .tool .hk.b.on .st{color:var(--hot)}
+.tool .tfoot{padding:6px 8px;border-top:1px solid var(--rule);font-size:11px;color:var(--gold);min-height:26px}
+.tool .empty{grid-column:1/3;color:var(--muted);font-size:12px;padding:10px}
 </style>
 </head>
 <body>
@@ -146,7 +179,13 @@ body:not(.touch) .pad{display:none}
       <div class="ov" id="ov"><div class="ov-box" id="ovBox"></div></div>
     </div>
     <div class="scr" id="stage2">
-      <canvas id="cv2" width="320" height="240" aria-label="Memory registers. Tap a register to force-write the current digit."></canvas>
+      <canvas id="cv2" width="320" height="240" aria-label="Memory row and registers. Drag to scroll; tap a register to have it explained."></canvas>
+      <div class="tool" id="tool" hidden>
+        <div class="tbar"><input id="tq" type="search" placeholder="SEARCH HACKS, CHEATS, GLITCHES" enterkeyhint="search" autocomplete="off" spellcheck="false" aria-label="Search hacks"><button id="tDone">DONE</button></div>
+        <div class="tcats" id="tcats"></div>
+        <div class="tlist" id="tlist"></div>
+        <div class="tfoot" id="tfoot"></div>
+      </div>
     </div>
   </div>
 
@@ -173,7 +212,7 @@ body:not(.touch) .pad{display:none}
         <button class="fb x" data-k="flip" aria-label="X: flip gravity">X</button>
         <button class="fb y" data-k="grab" aria-label="Y: grab, throw, or the raptor's tongue">Y</button>
         <button class="fb a" data-k="jump" aria-label="A: jump">A</button>
-        <button class="fb b" data-k="inj" id="fbB" aria-label="B: inject">B</button>
+        <button class="fb b" data-k="inj" id="fbB" aria-label="B: scan">B</button>
       </div>
       <div class="well stickw"><div class="stick" id="stickR" aria-label="Right stick: look ahead"><div class="gate"></div><div class="cap"></div></div></div>
       <i class="led r1" id="led"></i><i class="led r2"></i>
@@ -1074,6 +1113,7 @@ setInterval(() => {
 
 const NATIVE = window.MemarioAndroid || null;
 function haptic(ms = 8) {
+  if (typeof SETTINGS !== 'undefined' && !SETTINGS.haptics) return;
   try { if (NATIVE) NATIVE.vibrate(ms); else if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* no vibrator */ }
 }
 
@@ -1128,7 +1168,7 @@ let symNow = null;
 let boxes = [], orphans = [], reading = null, hazards = [], plats = [], shots = [], flashes = [], dino = null;   // digit carriers, and the one the hero is reading from
 let lagQ = [], wdT = 0, respawnQ = [], run = { time: 0, crashes: 0, curses: 0 };
 const unlockedCount = () => goodCount();
-const corruption = () => clamp(unlockedCount() * 0.16 + volatileC, 0, 1);
+const corruption = () => clamp((unlockedCount() * 0.16 + volatileC) * (abil.stab ? 0.5 : 1), 0, 1);
 
 function loadLevel(i) {
   levelIdx = i; LV = LEVELS[i]; levelSeed = i;
@@ -1157,6 +1197,7 @@ function loadLevel(i) {
   cellNow = [-1, -1]; digitNow = colDigit(Math.floor((p.x + 7) / 16)); revealedAir.clear(); revealedPlat.clear(); combo = 0; scanCd = 0;
   resetWorldFx();
   logLines.length = 0; resetMusicFx(); faults.clear(); fgrid.fill(0);
+  syncCustomRegs(); applyPalette(); listScroll = 0;
 }
 const SIZE = { walker: [14, 13], sheller: [16, 19], flyer: [16, 19], spiky: [16, 14], thrower: [14, 19], bomb: [14, 14], ghost: [16, 15], chomp: [18, 18] };
 function mkEnemy(type, X, d) {
@@ -1201,21 +1242,23 @@ function setKey(source, k, v) {
 function onPress(k) {
   ensureAudio();
   const go = k === 'jump' || k === 'start';
-  if (state === 'title' && (go || k === 'inj')) { edges[k] = false; consumed[k] = true; startGame(savedLevel()); return; }
+  if (state === 'title' && go && document.activeElement !== $('tq')) { edges[k] = false; consumed[k] = true; closeTool(); const r = loadRuns().find((q) => !q.done); if (r) continueRun(r.id); else newRun(); return; }
+  if (state === 'tool' && k === 'start') { closeTool(); return; }
   if (state === 'intro' && go) { edges[k] = false; consumed[k] = true; beginLevel(); return; }
   if (state === 'clear' && go) { edges[k] = false; consumed[k] = true; nextLevel(); return; }
-  if (state === 'win' && go) { edges[k] = false; consumed[k] = true; startGame(0); return; }
+  if (state === 'win' && go) { edges[k] = false; consumed[k] = true; newRun(); return; }
   if (k === 'start') { if (state === 'play') openMenu(); else if (state === 'pause') closeMenu(); return; }
   if (k === 'sel') { toggleSound(); }
 }
 const KB = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', ArrowUp: 'jump', KeyW: 'jump', KeyZ: 'jump',
   KeyX: 'inj', ArrowDown: 'down', KeyS: 'down', KeyG: 'flip', KeyC: 'flip', KeyH: 'grab', KeyF: 'grab', ShiftLeft: 'grab', Enter: 'start', Escape: 'start', KeyP: 'start', KeyM: 'sel' };
 addEventListener('keydown', (e) => {
+  if (e.target && e.target.tagName === 'INPUT') return;
   const k = KB[e.code];
   if (k) { e.preventDefault(); setKey('kb', k, true); return; }
   // (number keys used to force-write; writes only ever come from matching digits now)
 });
-addEventListener('keyup', (e) => { const k = KB[e.code]; if (k) { e.preventDefault(); setKey('kb', k, false); } });
+addEventListener('keyup', (e) => { if (e.target && e.target.tagName === 'INPUT') return; const k = KB[e.code]; if (k) { e.preventDefault(); setKey('kb', k, false); } });
 addEventListener('blur', () => { for (const s in src) for (const k of KEYS) setKey(s, k, false); });
 
 // ---- controller: face buttons & small buttons
@@ -1331,23 +1374,23 @@ function drawCard(g, T, r, i, x, y, w, h) {
   if (r.ctrl === 'jump') { pcircle(g, cx, cy, rad, pulse ? '#ff7a7a' : '#d42626'); T('A', cx - (big ? 2 : 1), cy - (big ? 4 : 2), '#ffffff', big ? 2 : 1); }
   else { pcircle(g, cx, cy, rad, pulse ? '#6a66d8' : '#2b2858'); ptri(g, cx, cy, r.ctrl === 'left' ? -1 : 1, '#ffffff', big ? 6 : 4); }
   // the next digit it wants, big
-  const nx = cx + rad + 3, bs = h - 4, nd = nextOf(r), sc = bs >= 18 ? 3 : bs >= 12 ? 2 : 1;
+  const nx = cx + rad + 3, bs = h - 4, nd = nextOf(r), sc = bs >= 22 ? 4 : bs >= 18 ? 3 : bs >= 12 ? 2 : 1;
   g.fillStyle = m ? (off ? '#c9c2ff' : base) : '#2a2548'; g.fillRect(nx, y + 2, bs, bs); g.fillStyle = '#05040a'; g.fillRect(nx + 1, y + 3, bs - 2, bs - 2);
   T(String(nd), nx + ((bs - 3 * sc) >> 1) + (sc > 1 ? 1 : 0), y + 2 + ((bs - 5 * sc) >> 1), m ? (off ? '#c9c2ff' : base) : off ? '#8a84b8' : r.good ? '#ffffff' : '#ff8ab8', sc);
   // its name and the whole string, written digits lit
   const tx = nx + bs + 4, nameBig = h >= 20;
-  T((r.good ? '' : '!') + r.short, tx, y + 2, off ? base : r.good ? '#ffffff' : '#ff8ab8', nameBig ? 2 : 1);
-  const sy = y + h - 7;
-  if (!open && !off) T(r.cond.label, tx, sy, '#9a9fc4');
-  else r.seq.forEach((d, j) => { const done = j < r.slots.length, nxt = j === r.slots.length; T(String(d), tx + j * 7, sy, done ? (off ? '#c9c2ff' : base) : nxt ? (m ? base : '#ffffff') : '#4a4478'); });
+  T(r.short, tx, y + 2, off ? base : r.good ? '#ffffff' : '#ff8ab8', nameBig ? 2 : 1);
+  const ss = h >= 24 ? 2 : 1, sy = y + h - (ss === 2 ? 12 : 7);
+  if (!open && !off) T(r.cond.label, tx, sy + (ss === 2 ? 3 : 0), '#9a9fc4');
+  else r.seq.forEach((d, j) => { const done = j < r.slots.length, nxt = j === r.slots.length; T(String(d), tx + j * (ss === 2 ? 9 : 7), sy, done ? (off ? '#c9c2ff' : base) : nxt ? (m ? base : '#ffffff') : '#4a4478', ss); });
   g.globalAlpha = 1;
-  const tag = m ? (off ? 'PRESS: OFF' : 'PRESS') : off ? (r.good ? 'ON' : 'CURSED') : '';
+  const tag = m ? (off ? 'PRESS: OFF' : 'PRESS') : '';
   if (tag) T(tag, x + w - 4, y + (nameBig ? 4 : 2), m ? (off ? '#c9c2ff' : base) : base, 1, 'right');
 }
 // What a press would do right now, or what the registers want.
 function promptParts() {
   const out = [];
-  for (const k of ['left', 'right', 'jump']) { const r = pickFor(k); if (r) out.push([CTRL_GLYPH[k] + ' ' + (r.good ? '' : '!') + r.short + (r.unlocked ? ' OFF' : ''), r.unlocked ? '#c9c2ff' : r.good ? '#39ff88' : '#ff3d8a']); }
+  for (const k of ['left', 'right', 'jump']) { const r = pickFor(k); if (r) out.push([CTRL_GLYPH[k] + ' ' + r.short + (r.unlocked ? ' OFF' : ''), r.unlocked ? '#c9c2ff' : r.good ? '#39ff88' : '#ff3d8a']); }
   if (out.length) return out;
   const want = regs.filter((r) => r.good && !r.unlocked && isOpen(r)).map((r) => nextOf(r) + (r.ctrl === 'jump' ? 'A' : CTRL_GLYPH[r.ctrl]));
   return [[want.length ? 'NEED ' + want.join(' ') : 'NOTHING TO WRITE', '#8a93b4']];
@@ -1401,42 +1444,89 @@ function drawMem() {
   const drawParts = (x, y, sc, maxW) => { let px = x; for (const [t, c] of parts) { const w = t.length * 4 * sc; if (px + w > x + maxW) break; T(t, px, y, c, sc); px += w + 4 * sc; } };
   const statTxt = `STB ${stab}%  BYTES ${String(bytes).padStart(3, '0')}  CRASH ${crashes}` + (combo > 1 && frame - comboAt < COMBO_T ? `  COMBO X${combo}` : '') + (scanCd > 0 ? '  SCAN ' + Math.ceil(scanCd / 60) : '  B SCAN');
 
+  const RH = 15;
+  g.fillStyle = '#05040a'; g.fillRect(0, 0, SW, RH);
+  drawRibbon(g, Math.round(camX), 0, SW);
   if (memMode === 'strip') {
-    portrait(3, 3); nowBox(36, 3, 30);
-    T(layerTxt, 3, 37, '#8a93b4');
-    for (let i = 0; i < 10; i++) { g.fillStyle = i < Math.round(stab / 10) ? scol : '#211c3d'; g.fillRect(3 + i * 6, 46, 5, 4); }
-    T('B' + String(bytes).padStart(3, '0') + ' X' + crashes, 3, Math.min(SH - 7, 54), '#ffffff');
-    const gx = 70, cols = 3, rows = Math.ceil(regs.length / cols), cw = Math.floor((SW - gx - 2) / cols), rh = Math.floor((SH - 2) / rows);
-    regs.forEach((r, i) => drawCard(g, T, r, i, gx + Math.floor(i / rows) * cw, 1 + (i % rows) * rh, cw - 2, rh - 2));
+    portrait(3, RH + 2); nowBox(36, RH + 2, 30);
+    T(layerTxt, 3, RH + 36, '#8a93b4');
+    for (let i = 0; i < 10; i++) { g.fillStyle = i < Math.round(stab / 10) ? scol : '#211c3d'; g.fillRect(3 + i * 6, RH + 45, 5, 4); }
+    drawList(g, T, 70, RH + 1, SW - 73, SH - RH - 1);
   } else {
     // header: face, the digit you'd write, which layer it's from, and what each control would do with it
-    portrait(3, 3); nowBox(36, 3, 30);
-    T(layerTxt + '  ' + colAddr(cellNow[0]), 72, 4, '#8a93b4');
-    drawParts(72, 12, 2, SW - 76);
-    for (let i = 0; i < 12; i++) { g.fillStyle = i < Math.round(stab / 8.4) ? scol : '#211c3d'; g.fillRect(72 + i * 4, 26, 3, 5); }
-    T(statTxt, 124, 26, '#c9cfe6');
-    const top = 36, rows = Math.ceil(regs.length / 2);
-    let rh = clamp(Math.floor((SH - top - 1) / rows), 14, 30);
-    const logN = SH - top - rows * rh >= 11 ? 1 : 0;
-    if (!logN && rows * rh > SH - top - 1) rh = Math.floor((SH - top - 1) / rows);
-    const cw = Math.floor((SW - 6) / 2);
-    regs.forEach((r, i) => drawCard(g, T, r, i, 3 + (i % 2) * (cw + 1), top + Math.floor(i / 2) * rh, cw - 1, rh - 2));
-    if (logN) { const a = logLines[logLines.length - 1]; if (a) { const t = typed(a); T(t.length > 78 ? t.slice(0, 77) + '.' : t, 4, SH - 8, LOG_COL[a.cls] || LOG_COL['']); } }
+    const hy = RH + 2;
+    portrait(3, hy); nowBox(36, hy, 30);
+    T(layerTxt + '  ' + colAddr(cellNow[0]), 72, hy + 1, '#8a93b4');
+    drawParts(72, hy + 9, 2, SW - 76);
+    for (let i = 0; i < 12; i++) { g.fillStyle = i < Math.round(stab / 8.4) ? scol : '#211c3d'; g.fillRect(72 + i * 4, hy + 23, 3, 5); }
+    T(statTxt, 124, hy + 23, '#c9cfe6');
+    drawList(g, T, 3, hy + 33, SW - 9, SH - hy - 33);
   }
   // the whole screen's frame flashes the verdict, so it reads from the corner of your eye
-  if (vd !== 'none' && state === 'play') { g.fillStyle = vc; g.globalAlpha = (frame >> 3) % 2 ? 0.95 : 0.55; g.fillRect(0, 0, SW, 2); g.fillRect(0, SH - 2, SW, 2); g.fillRect(0, 0, 2, SH); g.fillRect(SW - 2, 0, 2, SH); g.globalAlpha = 1; }
+  if (vd !== 'none' && state === 'play') { g.fillStyle = vc; g.globalAlpha = (frame >> 3) % 2 ? 0.95 : 0.55; g.fillRect(0, RH, SW, 2); g.fillRect(0, SH - 2, SW, 2); g.fillRect(0, RH, 2, SH - RH); g.fillRect(SW - 2, RH, 2, SH - RH); g.globalAlpha = 1; }
+}
+// Hacks on the left, curses on the right (no labels: the side says it). The level's own first, then your set,
+// then the SCAN button that opens the hack tool. Drag to scroll.
+let listScroll = 0, listMax = 0, listTop = 0, listH = 0, scanBtn = null;
+function drawList(g, T, x0, y0, w, h) {
+  regRects.length = 0; listTop = y0; listH = h;
+  const strip = memMode === 'strip', ch = strip ? 22 : 30, cw = Math.floor((w - 3) / 2), labelH = 11, btnH = strip ? 16 : 22;
+  const split = (rs) => { const L = rs.filter((r) => r.good), R = rs.filter((r) => !r.good); return { L, R, n: Math.max(L.length, R.length) }; };
+  const lv = split(regs.filter((r) => !r.custom)), cu = split(regs.filter((r) => r.custom));
+  listMax = Math.max(0, lv.n * ch + (cu.n ? labelH + cu.n * ch : 0) + 3 + btnH + 2 - h);
+  listScroll = clamp(listScroll, 0, listMax);
+  g.save(); g.beginPath(); g.rect(x0 - 2, y0, w + 6, h); g.clip();
+  let y = y0 - listScroll;
+  const rows = (S) => { for (let i = 0; i < S.n; i++) { if (S.L[i]) drawCard(g, T, S.L[i], regs.indexOf(S.L[i]), x0, y, cw, ch - 2); if (S.R[i]) drawCard(g, T, S.R[i], regs.indexOf(S.R[i]), x0 + cw + 3, y, cw, ch - 2); y += ch; } };
+  rows(lv);
+  if (cu.n) { T('YOUR SET', x0 + 1, y + 3, '#4ff0ff'); g.fillStyle = '#262046'; g.fillRect(x0 + 38, y + 5, w - 38, 1); y += labelH; rows(cu); }
+  y += 3;
+  g.fillStyle = '#4ff0ff'; g.fillRect(x0, y, w, btnH); g.fillStyle = '#071a20'; g.fillRect(x0 + 1, y + 1, w - 2, btnH - 2);
+  T(strip ? 'SCAN HACKS: SEARCH AND ADD' : 'SCAN HACKS', x0 + (w >> 1), y + (btnH >> 1) - (strip ? 2 : 4), '#4ff0ff', strip ? 1 : 2, 'center');
+  scanBtn = [x0, y, w, btnH];
+  g.restore();
+  // a register you could write right now, scrolled out of sight, still shows at the edge
+  let up = null, dn = null;
+  regRects.forEach((q, i) => { if (!q || state !== 'play' || !nextMatches(regs[i])) return; if (q[1] + q[3] <= y0) up = regs[i]; else if (q[1] >= y0 + h) dn = regs[i]; });
+  for (const [r, yy, dir] of [[up, y0, -1], [dn, y0 + h - 9, 1]]) if (r) {
+    const col = r.unlocked ? '#c9c2ff' : r.good ? '#39ff88' : '#ff3d8a';
+    g.fillStyle = '#05040a'; g.fillRect(x0 + (w >> 1) - 40, yy, 80, 9); g.fillStyle = col; g.fillRect(x0 + (w >> 1) - 40, dir < 0 ? yy + 8 : yy, 80, 1);
+    T((dir < 0 ? '^ ' : 'V ') + 'PRESS ' + r.short, x0 + (w >> 1), yy + 2, col, 1, 'center');
+  }
+  if (listMax > 0) { const bh = Math.max(8, h * h / (h + listMax)), by = y0 + (h - bh) * listScroll / listMax; g.fillStyle = '#3a3566'; g.fillRect(SW - 3, by, 2, bh); }
+  // the latest message rides along the bottom for a few seconds
+  const l = logLines[logLines.length - 1];
+  if (l && frame - l.at < 200 && state === 'play' && !strip) {
+    const t = typed(l), mx = Math.floor((SW - 8) / 4), tt = t.length > mx ? t.slice(0, mx - 1) + '.' : t;
+    g.fillStyle = 'rgba(5,4,10,0.92)'; g.fillRect(0, SH - 10, SW, 10); g.fillStyle = LOG_COL[l.cls] || LOG_COL['']; g.fillRect(0, SH - 10, SW, 1);
+    T(tt, 4, SH - 7, LOG_COL[l.cls] || LOG_COL['']);
+  }
 }
 // Tap a register on the register screen to have it explained in the log (taps never write).
+let drag2 = null;
 cv2.addEventListener('pointerdown', (e) => {
   e.preventDefault(); ensureAudio();
-  const rc = cv2.getBoundingClientRect();
-  const x = (e.clientX - rc.left) / rc.width * SW, y = (e.clientY - rc.top) / rc.height * SH;
   if (demo) { stopDemo(); return; }
-  if (state === 'title') { startGame(savedLevel()); return; }
-  if (state !== 'play') return;
-  const i = regRects.findIndex((q) => q && x >= q[0] && x < q[0] + q[2] && y >= q[1] && y < q[1] + q[3]);
-  if (i >= 0) { const r = regs[i]; haptic(); log(`${r.name}: ${r.unlocked ? (r.good ? 'ONLINE' : 'ACTIVE') + '. RE-ENTER ' + r.seq.join(' ') + ' TO SWITCH OFF' : !isOpen(r) ? r.cond.label : 'NEXT ' + nextOf(r) + ' ON ' + CTRL_GLYPH[r.ctrl]}`, 'sys'); }
+  const rc = cv2.getBoundingClientRect();
+  drag2 = { id: e.pointerId, y0: e.clientY, s0: listScroll, k: SH / rc.height, moved: false, x: (e.clientX - rc.left) / rc.width * SW, y: (e.clientY - rc.top) / rc.height * SH };
+  try { cv2.setPointerCapture(e.pointerId); } catch (_) { /* fine */ }
 });
+cv2.addEventListener('pointermove', (e) => {
+  if (!drag2 || e.pointerId !== drag2.id) return;
+  const dy = e.clientY - drag2.y0;
+  if (Math.abs(dy) > 6) drag2.moved = true;
+  if (drag2.moved) listScroll = clamp(drag2.s0 - dy * drag2.k, 0, listMax);
+});
+cv2.addEventListener('pointerup', (e) => { if (!drag2 || e.pointerId !== drag2.id) return; const d = drag2; drag2 = null; if (!d.moved) tapScreen2(d.x, d.y); });
+cv2.addEventListener('pointercancel', () => { drag2 = null; });
+// A tap on a register explains it (taps never write); a tap on SCAN opens the hack tool.
+function tapScreen2(x, y) {
+  if (state !== 'play' || y < listTop || y >= listTop + listH) return;
+  const inR = (q) => q && x >= q[0] && x < q[0] + q[2] && y >= q[1] && y < q[1] + q[3];
+  if (inR(scanBtn)) { haptic(); openTool('game'); return; }
+  const i = regRects.findIndex(inR);
+  if (i >= 0) { const r = regs[i]; haptic(); log(`${r.name}: ${r.unlocked ? 'ON. RE-ENTER ' + r.seq.join(' ') + ' TO SWITCH OFF' : !isOpen(r) ? r.cond.label : 'NEXT ' + nextOf(r) + ' ON ' + CTRL_GLYPH[r.ctrl]}. ${r.desc}`, 'sys'); }
+}
 cv2.addEventListener('contextmenu', (e) => e.preventDefault());
 
 /* ================= injection ================= */
@@ -1466,7 +1556,7 @@ function write(r, d, how, wx, wy) {
   if (r.slots.length === r.seq.length) { r.slots = []; if (off) offline(r); else (r.good ? unlock : curse)(r); }
 }
 function offline(r) {
-  r.unlocked = false; abil[r.id] = false;
+  r.unlocked = false; abil[r.id] = false; hackOff(r.id);
   if (r.id === 'grav' && p.flip) p.flip = false;
   SFX.patch(); haptic(40);
   log(`${r.name} ${r.good ? 'SWITCHED OFF' : 'CURSE LIFTED'}: STRING RE-ENTERED`, r.good ? 'sys' : 'ok');
@@ -1474,7 +1564,7 @@ function offline(r) {
 }
 // A press that wrote nothing says why, when the digit is wanted somewhere else.
 function hint(k) {
-  if (frame - hintAt < 45 || state !== 'play') return;
+  if (frame - hintAt < 45 || state !== 'play' || !SETTINGS.hints) return;
   const other = regs.find((r) => !r.unlocked && r.ctrl !== k && isOpen(r) && nextOf(r) === digitNow);
   const closed = regs.find((r) => !r.unlocked && !isOpen(r) && nextOf(r) === digitNow);
   let text = null, col = '#ffc23d';
@@ -1507,7 +1597,7 @@ function scan() {
 }
 function unlock(r) {
   faceT.happy = 150;
-  r.unlocked = true; abil[r.id] = true; r.activeAt = frame;
+  r.unlocked = true; abil[r.id] = true; r.activeAt = frame; hackOn(r);
   SFX.unlock(); haptic(60);
   burstT = 70; flashT = 18; shakeT = Math.max(shakeT, 24);
   log(`${r.name} ONLINE: ${r.desc}`, 'ok');
@@ -1521,7 +1611,7 @@ function unlock(r) {
 function curse(r) {
   faceT.shock = 150; run.curses++;
   if (r.id === 'watchdog') wdT = 40 * 60;
-  r.unlocked = true; abil[r.id] = true; r.activeAt = frame;
+  r.unlocked = true; abil[r.id] = true; r.activeAt = frame; hackOn(r);
   volatileC += 0.05;
   SFX.segv(); haptic(120);
   burstT = 60; shakeT = Math.max(shakeT, 30);
@@ -1573,7 +1663,7 @@ function applyPatch() {
   let flushed = 0;
   regs.forEach((r) => { if (!r.good && !r.unlocked && r.slots.length) { r.slots = []; flushed++; } });
   const active = regs.filter((r) => !r.good && r.unlocked).sort((a, b) => b.activeAt - a.activeAt)[0];
-  if (active) { active.unlocked = false; active.slots = []; abil[active.id] = false; log(`PATCH PURGED THE ${active.name} CURSE`, 'ok'); }
+  if (active) { active.unlocked = false; active.slots = []; abil[active.id] = false; hackOff(active.id); log(`PATCH PURGED THE ${active.name} CURSE`, 'ok'); }
   if (!abil.leak) leakDrift = 0;
   else if (flushed) log(`PATCH FLUSHED ${flushed} CURSE REGISTER${flushed > 1 ? 'S' : ''}`, 'ok');
   floaters.push({ x: p.x + 7, y: p.y - 26, t: 60, text: 'PATCHED', col: '#39ff88' });
@@ -1921,6 +2011,7 @@ function killEnemy(e, fly, force) {
 }
 function die(reason) {
   if (state !== 'play' || p.inv > 0 || p.dead) return;
+  if (abil.god && p.y < VH && p.y > -20) { p.inv = 40; return; }        // GOD MODE
   if (abil.shield && p.y < VH && p.y > -20) {                       // SHIELD: soaks one crash, then has to be rewritten at its symbol
     abil.shield = false; const r = regs.find((q) => q.id === 'shield'); if (r) { r.unlocked = false; r.slots = []; }
     p.inv = 90; p.vy = (p.flip ? 1 : -1) * 5; SFX.flip(); haptic(40); shakeT = Math.max(shakeT, 12);
@@ -1947,7 +2038,7 @@ function respawn() {
 /* ================= update ================= */
 function update() {
   frame++;
-  if (state === 'title' && !demo && frame - titleAt > 540 && !ov.hidden) { startDemo(); return; }   // idle on the title: the game plays itself
+  if (state === 'title' && !demo && SETTINGS.demo && frame - titleAt > 600 && !ov.hidden && document.activeElement !== $('tq') && !$('tq').value) { startDemo(); return; }   // idle on the title: the game plays itself
   if (state !== 'play') {
     if (state === 'title') camX = (Math.sin(frame / 900) * 0.5 + 0.5) * (WORLD_W - VW) * 0.6;
     if (state === 'intro') camX = 0;
@@ -1971,10 +2062,12 @@ function update() {
   if (edges.grab) grabAction();
   if (edges.down) downAction();
 
-  const now = { L: held.left && !consumed.left, R: held.right && !consumed.right, J: held.jump && !consumed.jump, e: edges.jump && !consumed.jump };
+  const now = { L: held.left && !consumed.left, R: (held.right && !consumed.right) || (abil.autorun && !held.left), J: held.jump && !consumed.jump, e: edges.jump && !consumed.jump };
   lagQ.push(now); if (lagQ.length > 10) lagQ.shift();
   const inp = abil.lag ? lagQ[0] : now;                    // the PACKET LAG curse
   if (inp.e) jumpBuf = 8;
+  if (abil.bunny && inp.J && p.grounded && !jumpBuf) jumpBuf = 2;             // MACRO: BUNNY HOP
+  hackTick();
   updatePlayer(inp.L, inp.R, inp.J);
   updatePlats(); updateMount(inp.J);
   if (!abil.slow || (frame & 1)) { updateEnemies(); updateHazards(); updateShots(); }   // OVERCLOCK: the world at half speed
@@ -2098,7 +2191,7 @@ function updatePlayer(L, Rt, J) {
   const g = p.flip ? -1 : 1;
   const dir = (Rt ? 1 : 0) - (L ? 1 : 0);
   if (!dir && Math.abs(stickVec.L[0]) > 0.35) dir = 0; // stick already mapped via keys
-  const maxS = abil.speed ? 2.8 : 1.6, icy = p.grounded && (p.ft === T.ICE || abil.slip), jv = abil.heavy ? 0.78 : 1;
+  const maxS = (abil.speed ? 2.8 : 1.6) * (abil.turbo ? 1.4 : 1) * (abil.sticky ? 0.7 : 1), icy = p.grounded && (p.ft === T.ICE || abil.slip), jv = (abil.heavy ? 0.78 : 1) * (abil.spring ? 1.2 : 1), gm = (abil.moon ? 0.55 : 1) * (abil.hgrav ? 1.3 : 1);
   if (p.on && !p.on.gone) { p.x += p.on.dx || 0; p.y += p.on.dy || 0; }          // ride whatever you stand on
   if (p.wjLock > 0) p.wjLock--;
   if (dir && !p.wjLock) {                                                          // snappy: quick to start, quicker to turn
@@ -2130,7 +2223,7 @@ function updatePlayer(L, Rt, J) {
   if (p.jumpHeld && !J) { p.jumpHeld = false; if (rising && p.vy * g < -2) p.vy *= 0.5; }    // let go early: a short hop
   if (!rising) p.jumpHeld = false;
   const apex = J && !p.grounded && Math.abs(p.vy) < 0.5, fast = held.down && !rising && !p.grounded && !p.riding;
-  p.vy += g * (apex ? 0.16 : rising && J ? 0.24 : rising ? 0.6 : fast ? 0.6 : 0.4);
+  p.vy += g * gm * (apex ? 0.16 : rising && J ? 0.24 : rising ? 0.6 : fast ? 0.6 : 0.4);
   const maxFall = p.wall && p.vy * g > 0 ? 1.5 : fast ? 9 : 7;
   if (p.vy * g > maxFall) p.vy = maxFall * g;
   if (p.wall && p.vy * g > 0 && (frame % 4 === 0)) puff(p.x + (p.wall > 0 ? p.w : 0), p.y + 6, 1, -p.wall);
@@ -2191,7 +2284,7 @@ function updatePlayer(L, Rt, J) {
   if (overlap(p, { x: LV.exit * 16 + 6, y: 160, w: 20, h: 48 }) && !(ks && ks.pulled && ks.pulled < 80)) levelClear();
 }
 function walk(e, speed) {
-  e.vx = e.dir * speed * (abil.swarm ? 1.8 : 1) * (e.s > 1.5 ? 0.75 : e.s < 0.8 ? 1.6 : 1);
+  e.vx = e.dir * speed * (abil.swarm ? 1.8 : 1) * (abil.fastv ? 1.6 : 1) * (e.s > 1.5 ? 0.75 : e.s < 0.8 ? 1.6 : 1);
   if (moveX(e, solidE)) e.dir *= -1;
   fall(e);
   if (e.grounded && !e.wings) {
@@ -2484,7 +2577,7 @@ function downAction() {
 function updateFire() {
   if (abil.fire) {
     if (fireCd > 0) fireCd--;
-    else if (fireballs.length < 3) { fireballs.push({ x: p.x + 7 + p.face * 7, y0: p.y + 12, y: p.y + 12, vx: p.face * 4.2 + p.vx * 0.4, t: 0 }); fireCd = 34; SFX.fire(); }
+    else if (fireballs.length < 3) { fireballs.push({ x: p.x + 7 + p.face * 7, y0: p.y + 12, y: p.y + 12, vx: p.face * 4.2 + p.vx * 0.4, t: 0 }); fireCd = abil.rapid ? 11 : 34; SFX.fire(); }
   }
   for (let i = fireballs.length - 1; i >= 0; i--) {
     const f = fireballs[i]; f.t++; f.x += f.vx; f.y = f.y0 + Math.sin(f.t * 0.45) * 3;
@@ -2642,7 +2735,6 @@ function render() {
   for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.t / 20); drawText(f.text, Math.round(f.x - cx0) + 1, Math.round(f.y) + 1, '#000', 1, 'center'); drawText(f.text, Math.round(f.x - cx0), Math.round(f.y), f.col, 1, 'center'); ctx.globalAlpha = 1; }
   ctx.restore();
   drawBands();
-  drawRibbon(cx0);
   drawHUD(C);
   if (demo) drawCaption();
 }
@@ -2686,11 +2778,11 @@ function glowSpr(col) {
 const lightCan = mk(8, 8), lctx = lightCan.getContext('2d');
 function drawLighting(cx0) {
   if (lightCan.width !== VW || lightCan.height !== VH) { lightCan.width = VW; lightCan.height = VH; }
-  const amb = abil.dark ? 0.95 : LV.theme.dark;
+  const amb = abil.dark ? 0.95 : abil.fog ? Math.min(0.92, LV.theme.dark + 0.3) : LV.theme.dark;
   lctx.globalCompositeOperation = 'source-over'; lctx.clearRect(0, 0, VW, VH);
   lctx.globalAlpha = amb; lctx.fillStyle = LV.theme.shade; lctx.fillRect(0, 0, VW, VH); lctx.globalAlpha = 1;
   const L = [], on = (x) => x > -60 && x < VW + 60;
-  if (state !== 'title') L.push([p.x + p.w / 2 - cx0, p.y + p.h / 2, abil.dark ? 44 : 86, 1, null]);
+  if (state !== 'title') L.push([p.x + p.w / 2 - cx0, p.y + p.h / 2, abil.dark ? 44 : abil.fog ? 54 : 86, 1, null]);
   for (const f of fireballs) L.push([f.x + 3 - cx0, f.y + 3, 42, 0.9, '#ffb03d']);
   const c0 = Math.floor(cx0 / 16), c1 = c0 + Math.ceil(VW / 16);
   for (let c = c0; c <= c1; c++) for (let r = 0; r < LH; r++) {
@@ -2748,40 +2840,41 @@ const CARRY_COL = { bug: '#ff6fa8', box: '#ffc23d', ptr: '#ff3d8a', held: '#4ff0
 // Two lanes along the bottom. Top: what's in the air over each column (air digits, gold symbols) and the digits
 // creatures and boxes carry (touch them to write). Bottom: the ground digits. Your column shows the digit you
 // would write right now, from whichever layer you're in.
-function drawRibbon(cx0) {
+function drawRibbon(g, cx0, y, W) {
   if (state === 'title') return;
-  const y = VH - 14, c0 = Math.floor(cx0 / 16), c1 = Math.ceil((cx0 + VW) / 16), vcol = VERDICT_COL[verdict()];
-  ctx.fillStyle = 'rgba(6,5,14,0.92)'; ctx.fillRect(0, y, VW, 14);
-  ctx.fillStyle = '#1e2a44'; ctx.fillRect(0, y, VW, 1); ctx.fillStyle = '#0f1424'; ctx.fillRect(0, y + 7, VW, 1);
+  const k = W / VW, dT = (t, x, yy, c) => drawText(t, x, yy, c, 1, 'left', g);
+  const c0 = Math.floor(cx0 / 16), c1 = Math.ceil((cx0 + VW) / 16), vcol = VERDICT_COL[verdict()];
+  g.fillStyle = 'rgba(6,5,14,0.92)'; g.fillRect(0, y, W, 14);
+  g.fillStyle = '#1e2a44'; g.fillRect(0, y, W, 1); g.fillStyle = '#0f1424'; g.fillRect(0, y + 7, W, 1);
   for (let c = Math.max(0, c0); c <= Math.min(LW - 1, c1); c++) {
-    const x = c * 16 - cx0, at = revealed.get(c), cur = c === cellNow[0] && state === 'play';
-    ctx.fillStyle = '#131a2c'; ctx.fillRect(x, y + 1, 1, 13);
+    const x = Math.round((c * 16 - cx0) * k), at = revealed.get(c), cur = c === cellNow[0] && state === 'play';
+    g.fillStyle = '#131a2c'; g.fillRect(x, y + 1, 1, 13);
     if (cur) {
-      ctx.globalAlpha = 0.28; ctx.fillStyle = vcol; ctx.fillRect(x + 1, y + 1, 15, 13); ctx.globalAlpha = 1;
-      ctx.fillStyle = vcol; ctx.fillRect(x + 1, y, 15, 1); ctx.fillRect(x + 6, y - 2, 5, 1); ctx.fillRect(x + 7, y - 3, 3, 1); ctx.fillRect(x + 8, y - 4, 1, 1);
+      g.globalAlpha = 0.28; g.fillStyle = vcol; g.fillRect(x + 1, y + 1, 15, 13); g.globalAlpha = 1;
+      g.fillStyle = vcol; g.fillRect(x + 1, y, 15, 1); g.fillRect(x + 6, y - 2, 5, 1); g.fillRect(x + 7, y - 3, 3, 1); g.fillRect(x + 8, y - 4, 1, 1);
       // the layer you're reading from, as a mark in the top lane
-      if (symNow) drawText(symNow.ch, x + 7, y + 2, '#ffc23d');
-      else if (layerNow === 'air') { ctx.fillRect(x + 8, y + 2, 1, 1); ctx.fillRect(x + 7, y + 3, 3, 1); ctx.fillRect(x + 6, y + 4, 5, 1); }
-      else if (layerNow === 'plat') { ctx.fillRect(x + 4, y + 4, 9, 2); }
-      drawText(String(digitNow), x + 7, y + 8, vcol);
+      if (symNow) dT(symNow.ch, x + 7, y + 2, '#ffc23d');
+      else if (layerNow === 'air') { g.fillRect(x + 8, y + 2, 1, 1); g.fillRect(x + 7, y + 3, 3, 1); g.fillRect(x + 6, y + 4, 5, 1); }
+      else if (layerNow === 'plat') { g.fillRect(x + 4, y + 4, 9, 2); }
+      dT(String(digitNow), x + 7, y + 8, vcol);
       continue;
     }
     // top lane
     const sym = symAt(c), ov = rowOver.get(c), ad = revealedAir.get(c);
-    if (sym && at !== undefined) drawText(sym.ch, x + 7, y + 2, (frame >> 3) % 5 ? '#ffc23d' : '#fff3c0');
+    if (sym && at !== undefined) dT(sym.ch, x + 7, y + 2, (frame >> 3) % 5 ? '#ffc23d' : '#fff3c0');
     else if (ov) {
-      if (ov.o.rev === undefined) drawText('?', x + 7, y + 2, '#7a3a5a');
-      else if (!(ov.kind === 'ptr' && (frame + c) % 23 < 2)) { const kc = CARRY_COL[ov.kind], nb = NEED[ov.d]; if (nb) { ctx.fillStyle = NEED_BG[nb]; ctx.fillRect(x + 2, y + 1, 13, 6); } drawText(String(ov.d), x + 7, y + 2, kc); ctx.fillStyle = kc; ctx.fillRect(x + 12, y + 2, 2, 2); }
+      if (ov.o.rev === undefined) dT('?', x + 7, y + 2, '#7a3a5a');
+      else if (!(ov.kind === 'ptr' && (frame + c) % 23 < 2)) { const kc = CARRY_COL[ov.kind], nb = NEED[ov.d]; if (nb) { g.fillStyle = NEED_BG[nb]; g.fillRect(x + 2, y + 1, 13, 6); } dT(String(ov.d), x + 7, y + 2, kc); g.fillStyle = kc; g.fillRect(x + 12, y + 2, 2, 2); }
     } else if (ad !== undefined && frame >= ad) {
       const d = layerDigit('air', c), dec = frame - ad < 16, nb = NEED[d];
-      if (nb && !dec) { ctx.fillStyle = NEED_BG[nb]; ctx.fillRect(x + 2, y + 1, 13, 6); }
-      drawText(dec ? String(hash2(c, (frame - ad) >> 1, 7) % 10) : String(d), x + 7, y + 2, dec ? '#4ff0ff' : '#5fb6cc');
+      if (nb && !dec) { g.fillStyle = NEED_BG[nb]; g.fillRect(x + 2, y + 1, 13, 6); }
+      dT(dec ? String(hash2(c, (frame - ad) >> 1, 7) % 10) : String(d), x + 7, y + 2, dec ? '#4ff0ff' : '#5fb6cc');
     }
     // bottom lane
-    if (at === undefined || frame < at) { ctx.fillStyle = '#2c3350'; ctx.fillRect(x + 7, y + 10, 2, 1); continue; }
+    if (at === undefined || frame < at) { g.fillStyle = '#2c3350'; g.fillRect(x + 7, y + 10, 2, 1); continue; }
     const age = frame - at, dec = age < 16, d = dec ? hash2(c, age >> 1, 5) % 10 : colDigit(c), nb = !dec && NEED[d];
-    if (nb) { ctx.fillStyle = NEED_BG[nb]; ctx.fillRect(x + 2, y + 8, 13, 6); }
-    drawText(String(d), x + 7, y + 8, dec ? '#4ff0ff' : writeFx.some((w) => w.c === c) ? '#ffffff' : nb ? '#e8ecff' : '#7f8db8');
+    if (nb) { g.fillStyle = NEED_BG[nb]; g.fillRect(x + 2, y + 8, 13, 6); }
+    dT(String(d), x + 7, y + 8, dec ? '#4ff0ff' : writeFx.some((w) => w.c === c) ? '#ffffff' : nb ? '#e8ecff' : '#7f8db8');
   }
 }
 // Platform digits sit on the faces of the blocks you can stand on, once decrypted.
@@ -2840,6 +2933,7 @@ function drawPlayer(cx0) {
   ctx.save();
   if (p.flip) { ctx.translate(fx, sy); ctx.scale(p.face < 0 ? -1 : 1, -1); }
   else { ctx.translate(fx, sy + p.h); ctx.scale(p.face < 0 ? -1 : 1, 1); }
+  if (abil.tiny || abil.giant) ctx.scale(abil.tiny ? 0.6 : 1.5, abil.tiny ? 0.6 : 1.5);   // SPRITE SCALE
   if (p.sq && !p.dead && !reduceMotion) ctx.scale(1 + p.sq * 0.18, 1 - p.sq * 0.16);              // squash on landing, stretch on take-off
   if (HERO_IMG.naturalWidth) {
     ctx.drawImage(HERO_IMG, col * HF, row * HF, HF, HF, -HERO_CX, -HF, HF, HF);
@@ -2852,8 +2946,8 @@ function drawHUD(C) {
   if (state === 'title' || state === 'intro') return;
   if (memMode === 'strip' && logLines.length && frame - lastLogAt < 200) {
     const l = logLines[logLines.length - 1], tt = typed(l), t = tt.length > 70 ? tt.slice(0, 69) + '.' : tt;
-    ctx.fillStyle = 'rgba(8,7,15,0.75)'; ctx.fillRect(0, VH - 28, t.length * 4 + 8, 12);           // above the memory row, never over it
-    drawText(t, 4, VH - 25, LOG_COL[l.cls] || LOG_COL['']);
+    ctx.fillStyle = 'rgba(8,7,15,0.75)'; ctx.fillRect(0, VH - 12, t.length * 4 + 8, 12);
+    drawText(t, 4, VH - 9, LOG_COL[l.cls] || LOG_COL['']);
   }
   const secs = Math.floor(playFrames / 60);
   drawText(`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`, VW - 6, 8, '#ffffff', 1, 'right');
@@ -2875,25 +2969,61 @@ function drawHUD(C) {
 
 /* ================= overlays & flow ================= */
 const ov = $('ov'), ovBox = $('ovBox');
-function savedLevel() { try { return clamp(parseInt(localStorage.getItem('memario.level') || '0', 10) || 0, 0, LEVELS.length - 1); } catch (e) { return 0; } }
-function saveLevel(i) { try { if (i > savedLevel()) localStorage.setItem('memario.level', String(i)); } catch (e) { /* storage off */ } }
 function showTitle() {
-  state = 'title'; stopMusic(); titleAt = frame;
-  const sl = savedLevel();
+  state = 'title'; stopMusic(); titleAt = frame; runId = null;
   ovBox.innerHTML = `<h2>MEMARIO</h2>
-    <p>Hack your own memory with numbers you find in the world. Four levels, each impossible without its own hacks.</p>
-    <ol class="steps">
-      <li>Leave this screen alone for a few seconds to watch a demo.</li>
-      <li>Digits live in three layers: the <b>ground row</b> along the bottom, the <b>blocks</b> you stand on, and the <b>air</b> while you jump.</li>
-      <li>On a register's <b>next digit</b>, press its control (<b>◀</b>, <b>▶</b> or <b>A</b>) to write it. Lit digits are ones a register wants.</li>
-      <li><b>Viruses and 0x boxes</b> carry digits: stomp, kick, bump or grab one and its digit goes into every register that needs it next.</li>
-      <li>Green = hack, red = curse. Progress never undoes. Re-enter a full string to switch a hack off or lift a curse.</li>
-      <li>B scans the memory around you. Gold symbols read only from up high. Reach the EXIT.</li>
-    </ol>
-    <div class="row">${sl > 0 ? `<button class="act" id="cont">CONTINUE · LEVEL ${sl + 1}</button><button class="act alt" id="boot">NEW RUN</button>` : '<button class="act" id="boot">BOOT ▸</button>'}</div>`;
+    <p>Hack your own memory with numbers you find in the world.</p>
+    <div class="menu">
+      <button class="act" id="tNew">NEW</button><button class="act alt" id="tSaves">SAVES</button>
+      <button class="act alt" id="tSet">SETTINGS</button><button class="act alt" id="tTut">TUTORIAL</button>
+      <button class="act alt only-wide" id="tTool" style="grid-column:1/3">HACK TOOL</button>
+    </div>
+    <p class="note">${document.body.classList.contains('mode-stack') ? 'The screen below is your hack tool: search and tap any hack to bring it into every level.' : 'The hack tool: search and tap any hack to bring it into every level.'}</p>`;
   ov.hidden = false;
-  $('boot').addEventListener('click', () => { ensureAudio(); startGame(0); });
-  if (sl > 0) $('cont').addEventListener('click', () => { ensureAudio(); startGame(sl); });
+  if (document.body.classList.contains('mode-stack')) openTool('title'); else closeTool();
+  $('tNew').onclick = () => { ensureAudio(); closeTool(); newRun(); };
+  $('tSaves').onclick = () => { ensureAudio(); showSaves(); };
+  $('tSet').onclick = () => { ensureAudio(); showSettings(); };
+  $('tTut').onclick = () => { ensureAudio(); closeTool(); startDemo(true); };
+  $('tTool').onclick = () => { ensureAudio(); openTool('title'); };
+}
+function showSaves() {
+  titleAt = frame;
+  const runs = loadRuns();
+  ovBox.innerHTML = `<h2 class="lt">SAVES</h2>
+    <div class="saves">${runs.length ? runs.map((r) => `<div class="save"><div><b>RUN ${r.n}</b> &nbsp;${r.done ? 'ALL CLEAR' : 'LEVEL ' + (r.level + 1) + ' · ' + LEVELS[clamp(r.level, 0, LEVELS.length - 1)].name}<br>
+      <span>${fmtTime(r.time || 0)} · ${r.crashes || 0} CRASHES · ${r.curses || 0} CURSES · ${ago(r.at)}</span></div>
+      <button class="act" data-c="${r.id}">${r.done ? 'REPLAY' : 'CONTINUE'}</button><button class="act alt" data-d="${r.id}" aria-label="Delete run ${r.n}">DEL</button></div>`).join('') : '<p>No runs yet. Start one with NEW.</p>'}</div>
+    <button class="act alt" id="sBack">BACK</button>`;
+  ovBox.querySelectorAll('[data-c]').forEach((b) => { b.onclick = () => { ensureAudio(); closeTool(); continueRun(+b.dataset.c); }; });
+  ovBox.querySelectorAll('[data-d]').forEach((b) => { b.onclick = () => {
+    if (b.textContent !== 'SURE?') { b.textContent = 'SURE?'; return; }
+    saveRuns(loadRuns().filter((r) => r.id !== +b.dataset.d)); showSaves();
+  }; });
+  $('sBack').onclick = showTitle;
+}
+function showSettings() {
+  titleAt = frame;
+  const opt = (k, label) => `<button class="act alt ${SETTINGS[k] ? 'on' : ''}" data-k="${k}">${label}: ${SETTINGS[k] ? 'ON' : 'OFF'}</button>`;
+  ovBox.innerHTML = `<h2 class="lt">SETTINGS</h2>
+    <div class="opts">${opt('sound', 'SOUND')}${opt('music', 'MUSIC')}${opt('haptics', 'VIBRATION')}${opt('grid', 'GRID')}${opt('hints', 'HINTS')}${opt('demo', 'IDLE DEMO')}</div>
+    <button class="act alt" id="oBack">BACK</button>`;
+  ovBox.querySelectorAll('[data-k]').forEach((b) => { b.onclick = () => { SETTINGS[b.dataset.k] = !SETTINGS[b.dataset.k]; saveSettings(); applySettings(); if (b.dataset.k === 'sound' && SETTINGS.sound) { ensureAudio(); SFX.click(); } showSettings(); }; });
+  $('oBack').onclick = showTitle;
+}
+function showTutorialEnd() {
+  state = 'title'; titleAt = frame;
+  ovBox.innerHTML = `<h2 class="lt">YOUR TURN</h2>
+    <ol class="steps" style="display:grid">
+      <li>Stand on a register's <b>next digit</b> and press its control (<b>◀ ▶ A</b>). Mid-jump you write the air digit; on a block, the block's.</li>
+      <li>Touch viruses and 0x boxes (stomp, kick, bump) to write the digits they carry.</li>
+      <li>Hacks are on the left of screen 2, curses on the right. Avoid feeding the right side.</li>
+      <li>Re-enter a full string to switch it off. B scans. Drag screen 2 to scroll.</li>
+    </ol>
+    <div class="row"><button class="act" id="uPlay">PLAY LEVEL 1</button><button class="act alt" id="uBack">BACK</button></div>`;
+  ov.hidden = false;
+  $('uPlay').onclick = () => { ensureAudio(); newRun(); };
+  $('uBack').onclick = showTitle;
 }
 let typeTimer = 0;
 function typeInto(el) {                         // briefing text types out like a terminal
@@ -2901,10 +3031,7 @@ function typeInto(el) {                         // briefing text types out like 
   const full = el.textContent; let n = 0; el.textContent = '';
   typeTimer = setInterval(() => { n += 2; el.textContent = full.slice(0, n) + (n < full.length ? '█' : ''); if (n >= full.length) clearInterval(typeTimer); }, 16);
 }
-function startGame(i) {
-  if (i === 0) run = { time: 0, crashes: 0, curses: 0 };
-  loadLevel(i); showIntro();
-}
+
 function showIntro() {
   state = 'intro'; startMusic(levelIdx);
   const chip = (r) => `<span class="${r.good ? 'g' : 'b'}">${r.good ? '' : '! '}${r.name}</span>`;
@@ -2918,7 +3045,7 @@ function showIntro() {
   typeInto(ovBox.querySelector('p'));
 }
 function beginLevel() {
-  state = 'play'; ov.hidden = true; SFX.save(); startMusic(levelIdx);
+  state = 'play'; ov.hidden = true; SFX.save(); startMusic(levelIdx); closeTool(); updateRun({ level: levelIdx });
   log(`LEVEL ${levelIdx + 1}: ${LV.name}. ${regs.filter((r) => r.good).length} HACKS, ${regs.filter((r) => !r.good).length} CURSES`, 'sys');
   log(`ON A REGISTER'S NEXT DIGIT PRESS ITS CONTROL · TOUCH VIRUSES FOR THEIRS · B SCAN`, 'sys');
 }
@@ -2928,17 +3055,18 @@ function openMenu() {
   ovBox.innerHTML = `<h2>PAUSED</h2>
     <div class="row"><button class="act" id="mResume">RESUME</button><button class="act alt" id="mReboot">RESTART LEVEL</button></div>
     <div class="row"><button class="act alt" id="mSound">SOUND: ${muted ? 'OFF' : 'ON'}</button><button class="act alt" id="mMusic">MUSIC: ${musicOn ? 'ON' : 'OFF'}</button><button class="act alt" id="mGrid">GRID: ${showGrid ? 'ON' : 'OFF'}</button></div>
-    <div class="row"><button class="act alt" id="mQuit">QUIT TO TITLE</button></div>`;
+    <div class="row"><button class="act alt" id="mTool">HACK TOOL</button><button class="act alt" id="mQuit">QUIT TO TITLE</button></div>`;
   ov.hidden = false;
   $('mResume').onclick = closeMenu;
   $('mReboot').onclick = () => reboot();
   $('mSound').onclick = (e) => { toggleSound(); e.target.textContent = 'SOUND: ' + (muted ? 'OFF' : 'ON'); };
-  $('mGrid').onclick = (e) => { showGrid = !showGrid; e.target.textContent = 'GRID: ' + (showGrid ? 'ON' : 'OFF'); };
-  $('mMusic').onclick = (e) => { musicOn = !musicOn; e.target.textContent = 'MUSIC: ' + (musicOn ? 'ON' : 'OFF'); };
+  $('mGrid').onclick = (e) => { showGrid = SETTINGS.grid = !showGrid; saveSettings(); e.target.textContent = 'GRID: ' + (showGrid ? 'ON' : 'OFF'); };
+  $('mMusic').onclick = (e) => { musicOn = SETTINGS.music = !musicOn; saveSettings(); e.target.textContent = 'MUSIC: ' + (musicOn ? 'ON' : 'OFF'); };
+  $('mTool').onclick = () => { state = 'play'; ov.hidden = true; openTool('game'); };
   $('mQuit').onclick = () => { loadLevel(0); showTitle(); };
 }
 function closeMenu() { if (state !== 'pause') return; state = 'play'; ov.hidden = true; }
-function toggleSound() { muted = !muted; if (!muted) { ensureAudio(); SFX.click(); } log('SOUND ' + (muted ? 'OFF' : 'ON'), 'sys'); }
+function toggleSound() { muted = !muted; SETTINGS.sound = !muted; saveSettings(); if (!muted) { ensureAudio(); SFX.click(); } log('SOUND ' + (muted ? 'OFF' : 'ON'), 'sys'); }
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function levelClear() {
   if (state !== 'play') return;
@@ -2946,7 +3074,7 @@ function levelClear() {
   const secs = playFrames / 60, n = goodCount(), cursed = regs.filter((r) => !r.good && r.unlocked).length;
   run.time += secs;
   const last = levelIdx === LEVELS.length - 1;
-  saveLevel(last ? levelIdx : levelIdx + 1);
+  updateRun({ level: last ? levelIdx : levelIdx + 1, time: run.time, crashes: run.crashes, curses: run.curses, done: last });
   ovBox.innerHTML = `<div class="lvl">LEVEL ${levelIdx + 1} CLEAR</div><h2 class="lt">${LV.name}</h2>
     <dl><dt>Time</dt><dd>${fmtTime(secs)}</dd><dt>Hacks online</dt><dd>${n} / ${regs.filter((r) => r.good).length}</dd>
     <dt>Curses active</dt><dd>${cursed}</dd><dt>Crashes</dt><dd>${crashes}</dd><dt>Stability left</dt><dd>${Math.round((1 - corruption()) * 100)}%</dd></dl>
@@ -2963,7 +3091,7 @@ function nextLevel() {
     <dl><dt>Total time</dt><dd>${fmtTime(run.time)}${best && best < run.time ? ` (best ${fmtTime(best)})` : ''}</dd>
     <dt>Crashes</dt><dd>${run.crashes}</dd><dt>Curses suffered</dt><dd>${run.curses}</dd></dl>
     <button class="act" id="again">NEW RUN ▸</button>`;
-  ov.hidden = false; $('again').addEventListener('click', () => startGame(0));
+  ov.hidden = false; $('again').addEventListener('click', newRun);
 }
 
 /* ================= attract mode: the game plays itself on the title screen ================= */
@@ -2971,11 +3099,12 @@ function nextLevel() {
 // and Super Jump over the ROM wall. Any input ends it.
 let demo = null;
 const bot = (k, v) => setKey('bot', k, v);
-function startDemo() {
-  demo = { mutedWas: muted, cap: null, jh: 0, t0: frame };
+function startDemo(tutorial) {
+  demo = { mutedWas: muted, cap: null, jh: 0, t0: frame, tutorial: !!tutorial }; closeTool();
   muted = true; run = { time: 0, crashes: 0, curses: 0 };
   loadLevel(0); state = 'play'; ov.hidden = true;
   hazards = []; dino = null; enemies = enemies.filter((e) => e.x > 42 * 16);   // a clear stage to show the basics on
+  regs = regs.filter((r) => !r.custom);
   log('DEMO: TAP ANYWHERE TO PLAY', 'sys');
   demo.it = demoScript();
 }
@@ -2983,11 +3112,13 @@ function stopDemo() {
   if (!demo) return;
   const d = demo; demo = null;
   for (const k of KEYS) { src.bot[k] = false; held[k] = src.kb[k] || src.dpad[k] || src.stick[k] || src.btn[k] || false; }
-  muted = d.mutedWas; loadLevel(0); showTitle();
+  muted = d.mutedWas; loadLevel(0);
+  if (d.tutorial && d.finished) showTutorialEnd(); else showTitle();
 }
 function demoTick() {
   if (demo.jh > 0 && --demo.jh === 0) bot('jump', false);
   const r = demo.it.next();
+  if (r.done) demo.finished = true;
   if (r.done || frame - demo.t0 > 6000) stopDemo();
 }
 function drawCaption() {
@@ -2997,7 +3128,7 @@ function drawCaption() {
   ctx.fillStyle = c.col; ctx.fillRect(8, y, w, 1); ctx.fillRect(8, y + 30, w, 1); ctx.fillRect(8, y, 2, 31);
   drawText(c.t, 15, y + 4, c.col, 2); drawText(c.sub, 15, y + 20, '#e8ecff');
   ctx.globalAlpha = 1;
-  if ((frame >> 5) % 2) drawText('DEMO - TAP TO PLAY', VW - 6, VH - 26, '#ffffff', 1, 'right');
+  if ((frame >> 5) % 2) drawText('DEMO - TAP TO PLAY', VW - 6, VH - 10, '#ffffff', 1, 'right');
 }
 function* wait(n) { for (let i = 0; i < n; i++) yield; }
 function* say(t, sub, col, n = 0) { demo.cap = { t, sub, col, at: frame }; yield* wait(n); }
@@ -3077,6 +3208,173 @@ function* demoScript() {
   yield* say('NOW YOU TRY', 'PRESS START OR A TO BOOT', '#ffffff', 150);
 }
 
+/* ================= storage: settings, save files, your hack set ================= */
+function loadJSON(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch (e) { return d; } }
+function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage off */ } }
+const SETTINGS = Object.assign({ sound: true, music: true, haptics: true, grid: false, demo: true, hints: true }, loadJSON('memario.settings', {}));
+const saveSettings = () => saveJSON('memario.settings', SETTINGS);
+function applySettings() { muted = !SETTINGS.sound; musicOn = SETTINGS.music; showGrid = SETTINGS.grid; }
+// Save files: one per run. Each remembers the level reached, time, crashes and curses.
+let runId = null;
+const loadRuns = () => loadJSON('memario.runs', []);
+const saveRuns = (a) => saveJSON('memario.runs', a);
+(() => {                                                    // carry over the single save from before 5.3
+  const old = parseInt(loadJSON('memario.level', 0), 10) || 0;
+  if (old > 0 && !loadRuns().length) saveRuns([{ id: 1, n: 1, level: old, time: 0, crashes: 0, curses: 0, at: Date.now(), done: false }]);
+})();
+function newRun() {
+  const runs = loadRuns(), n = runs.reduce((m, r) => Math.max(m, r.n || 0), 0) + 1, r = { id: Date.now(), n, level: 0, time: 0, crashes: 0, curses: 0, at: Date.now(), done: false };
+  runs.unshift(r); saveRuns(runs.slice(0, 12)); runId = r.id; run = { time: 0, crashes: 0, curses: 0 };
+  loadLevel(0); showIntro();
+}
+function continueRun(id) {
+  const r = loadRuns().find((q) => q.id === id); if (!r) return;
+  runId = id; run = { time: r.time || 0, crashes: r.crashes || 0, curses: r.curses || 0 };
+  loadLevel(clamp(r.level, 0, LEVELS.length - 1)); showIntro();
+}
+function updateRun(patch) {
+  if (!runId) return;
+  const runs = loadRuns(), r = runs.find((q) => q.id === runId); if (!r) return;
+  Object.assign(r, patch, { at: Date.now() }); runs.sort((a, b) => b.at - a.at); saveRuns(runs);
+}
+const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'JUST NOW' : m < 60 ? m + ' MIN AGO' : m < 1440 ? Math.round(m / 60) + ' H AGO' : Math.round(m / 1440) + ' D AGO'; };
+
+/* ================= the hack catalog: every hack from every level, and everything else ================= */
+const hashStr = (t) => { let h = 7; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return h >>> 0; };
+const CAT = [];
+LEVELS.forEach((L, li) => L.regs.forEach((r) => {
+  if (CAT.some((e) => e.id === r.id)) return;
+  CAT.push({ id: r.id, good: r.good, short: r.short, name: r.name, desc: r.desc, cat: 'LEVEL', kind: (r.good ? 'HACK' : 'CURSE') + ' FROM LEVEL ' + (li + 1), seq: r.seq.filter((d) => typeof d === 'number'), ctrl: r.ctrl });
+}));
+function X(id, good, cat, short, name, desc) {
+  const h = hashStr(id), len = 3 + (h % 2), seq = [];
+  for (let i = 0; i < len; i++) seq.push(hash2(h & 0xffff, i, 99) % 10);
+  CAT.push({ id, good, cat, short, name, desc, kind: cat === 'LOOK' ? 'LOOK' : cat === 'GLITCHES' ? 'GLITCH' : cat.replace(/S$/, ''), seq, ctrl: ['left', 'right', 'jump'][(h >>> 9) % 3], look: cat === 'LOOK' });
+}
+X('moon', true, 'CHEATS', 'MOON', 'MOON GRAVITY', 'GRAVITY X0.55');
+X('spring', true, 'CHEATS', 'SPRING', 'SPRING LEGS', 'JUMP HEIGHT X1.2');
+X('turbo', true, 'CHEATS', 'TURBO', 'TURBO', 'RUN SPEED X1.4');
+X('god', true, 'CHEATS', 'GOD', 'GOD MODE', 'NOTHING CRASHES YOU. FALLS STILL DO');
+X('printer', true, 'CHEATS', 'PRINT', 'BYTE PRINTER', '+1 BYTE EVERY 2 SECONDS');
+X('stab', true, 'CHEATS', 'STABLE', 'STABILIZER', 'CORRUPTION HALVED');
+X('xray', true, 'CHEATS', 'XRAY', 'MEMORY DUMP', 'EVERY DIGIT IN THE LEVEL DECRYPTED');
+X('bullet', true, 'CHEATS', 'BULLET', 'BULLET TIME', 'THE WHOLE GAME AT 70% SPEED');
+X('tinyv', true, 'CHEATS', 'SHRINK', 'VIRUS SHRINK', 'VIRUSES AT 60% SIZE');
+X('rapid', true, 'CHEATS', 'RAPID', 'RAPID FIRE', 'FIRE POWER SHOOTS 3X FASTER');
+X('autorun', true, 'MACROS', 'AUTORUN', 'MACRO: AUTO-RUN', 'RUNS RIGHT WHENEVER YOU LET GO');
+X('bunny', true, 'MACROS', 'BUNNY', 'MACRO: BUNNY HOP', 'HOLD A TO KEEP JUMPING');
+X('autowrite', true, 'MACROS', 'AUTOWR', 'MACRO: AUTO-WRITE', 'WRITES HACK DIGITS WITHOUT A PRESS');
+X('warp', true, 'WARPS', 'WARP', 'WARP: NEXT SAVE', 'JUMPS YOU TO THE NEXT SAVE POINT, THEN RESETS');
+X('saveany', true, 'WARPS', 'SAVE', 'SAVE ANYWHERE', 'A SAVE POINT WHERE YOU STAND, THEN RESETS');
+X('tiny', true, 'LOOK', 'TINY', 'SPRITE SCALE 0.6', 'THE HERO DRAWS SMALL');
+X('giant', true, 'LOOK', 'GIANT', 'SPRITE SCALE 1.5', 'THE HERO DRAWS BIG');
+X('palNeon', true, 'LOOK', 'NEON', 'PALETTE: NEON', 'EVERY HUE ROTATED');
+X('palGB', true, 'LOOK', 'GBOY', 'PALETTE: HANDHELD', 'FOUR SHADES OF GREEN');
+X('palSepia', true, 'LOOK', 'SEPIA', 'PALETTE: SEPIA', 'OLD PHOTOGRAPH');
+X('palMono', true, 'LOOK', 'MONO', 'PALETTE: MONO', 'BLACK AND WHITE');
+X('palInv', true, 'LOOK', 'INVERT', 'PALETTE: INVERTED', 'EVERY COLOUR FLIPPED');
+X('hgrav', false, 'GLITCHES', 'HEAVYG', 'HEAVY GRAVITY', 'GRAVITY X1.3');
+X('bigv', false, 'GLITCHES', 'GROWTH', 'VIRUS GROWTH', 'VIRUSES GROW 1.7X');
+X('fastv', false, 'GLITCHES', 'FASTV', 'OVERCLOCKED VIRUSES', 'VIRUSES MOVE 1.6X FASTER');
+X('drain', false, 'GLITCHES', 'DRAIN', 'BYTE DRAIN', '-1 BYTE EVERY 3 SECONDS');
+X('fog', false, 'GLITCHES', 'FOG', 'MEMORY FOG', 'YOUR LIGHT SHRINKS');
+X('quake', false, 'GLITCHES', 'QUAKE', 'SCREEN QUAKE', 'THE SCREEN NEVER STOPS SHAKING');
+X('scramble', false, 'GLITCHES', 'SCRAMB', 'ROW SCRAMBLE', 'THE MEMORY RE-ENCRYPTS EVERY 10 SECONDS');
+X('spawner', false, 'GLITCHES', 'SPAWN', 'VIRUS SPAWNER', 'A CRAWLER SPAWNS AHEAD EVERY 10 SECONDS');
+X('sticky', false, 'GLITCHES', 'STICKY', 'STICKY FLOOR', 'RUN SPEED X0.7');
+const CATS = ['ALL', 'IN SET', 'LEVEL', 'CHEATS', 'MACROS', 'WARPS', 'LOOK', 'GLITCHES'];
+const catOf = (id) => CAT.find((e) => e.id === id);
+// Your set: what you bring into every level. Each hack you add brings a curse with it (looks don't).
+let loadout = loadJSON('memario.loadout', []).filter((q) => catOf(q.id));
+const inSet = (id) => loadout.find((q) => q.id === id);
+let toolMsg = '';
+function toggleSet(id) {
+  const e = catOf(id), cur = inSet(id);
+  if (cur) {
+    if (cur.auto) { const g = catOf(cur.of); toolMsg = `${e.name} CAME WITH ${g ? g.name : 'A HACK'}. REMOVE THAT TO DROP IT.`; return; }
+    loadout = loadout.filter((q) => q.id !== id && q.of !== id);
+    toolMsg = `REMOVED ${e.name}`;
+  } else {
+    loadout.push({ id });
+    toolMsg = `ADDED ${e.name}`;
+    if (e.good && !e.look) {
+      const pool = CAT.filter((q) => !q.good && !inSet(q.id));
+      if (pool.length) { const b = pool[(hashStr(id) + loadout.length) % pool.length]; loadout.push({ id: b.id, auto: true, of: id }); toolMsg += `. IT BRINGS A CURSE: ${b.name}`; }
+    }
+  }
+  saveJSON('memario.loadout', loadout);
+  if (LV) syncCustomRegs();
+}
+// Custom registers ride along under the level's own, unless the level already has that hack.
+function syncCustomRegs() {
+  const lvIds = new Set(LV.regs.map((r) => r.id));
+  const keep = regs.filter((r) => !r.custom);
+  for (const r of regs) if (r.custom && !inSet(r.id) && r.unlocked) { abil[r.id] = false; hackOff(r.id); }
+  for (const q of loadout) {
+    if (lvIds.has(q.id)) continue;
+    const old = regs.find((r) => r.custom && r.id === q.id), e = catOf(q.id);
+    keep.push(old || { ...e, addr: '0x' + (hashStr(e.id) & 0xfffff).toString(16).toUpperCase().padStart(5, '0'), custom: true, slots: [], unlocked: false, activeAt: 0, flashT: 0 });
+  }
+  regs = keep;
+}
+function applyPalette() {
+  cv.style.filter = abil.palNeon ? 'hue-rotate(150deg) saturate(1.6)' : abil.palGB ? 'grayscale(1) sepia(1) hue-rotate(55deg) saturate(2.2) brightness(.95)' : abil.palSepia ? 'sepia(.9) contrast(1.05)' : abil.palMono ? 'grayscale(1) contrast(1.15)' : abil.palInv ? 'invert(1) hue-rotate(180deg)' : '';
+}
+function hackOn(r) {
+  const id = r.id;
+  if (id === 'xray') { for (let c = 0; c < LW; c++) { revealed.set(c, frame); revealedAir.set(c, frame); for (let rr = 0; rr < 13; rr++) if (standable(c, rr)) revealedPlat.set(c + ',' + rr, { c, r: rr, at: frame }); } for (const o of [...enemies, ...boxes]) if (o.rev === undefined) o.rev = frame; }
+  if (id === 'tinyv' || id === 'bigv') for (const e of enemies) if (!e.dead && e.type !== 'chomp' && e.type !== 'ghost') setScale(e, id === 'tinyv' ? 0.6 : 1.7);
+  if (id === 'warp' || id === 'saveany') {                   // one-shot: do it, then the register resets
+    if (id === 'warp') { const i = Math.min(checkpoint + 1, saves.length - 1), sv = saves[i]; checkpoint = i; saves.forEach((o, j) => { o.on = j <= i; }); p.x = sv.x + 1; p.y = 208 - p.h; p.vx = p.vy = 0; p.flip = false; burstT = 20; addBand(20); log(`WARPED TO SAVE ${i}`, 'ok'); }
+    else { saves.push({ x: Math.round(p.x), y: Math.round(p.y + p.h - 32), on: true }); checkpoint = saves.length - 1; SFX.save(); log('SAVE POINT WRITTEN WHERE YOU STAND', 'ok'); }
+    r.unlocked = false; r.slots = []; abil[id] = false;
+  }
+  applyPalette();
+}
+function hackOff(id) {
+  if (id === 'tinyv' || id === 'bigv') for (const e of enemies) if (!e.dead && e.s !== 1) setScale(e, 1);
+  applyPalette();
+}
+// Hacks that act every frame.
+function hackTick() {
+  if (abil.printer && frame % 120 === 0) bytes++;
+  if (abil.drain && frame % 180 === 0 && bytes > 0) bytes--;
+  if (abil.quake) shakeT = Math.max(shakeT, 3);
+  if (abil.scramble && frame % 600 === 0) { revealed.clear(); revealedAir.clear(); log('ROW SCRAMBLE: MEMORY RE-ENCRYPTED', 'bad'); }
+  if (abil.spawner && frame % 600 === 300) { const c = clamp(cellNow[0] + 10, 0, LW - 1); if (tileAt(c, 12) === T.E && tileAt(c, 13) !== T.E) { const e = mkEnemy('walker', c * 16, {}); e.d = hash2(c, frame, 3) % 10; enemies.push(e); } }
+  if (abil.autowrite && !p.dead) for (const k of ['left', 'right', 'jump']) { const r = pickFor(k); if (r && r.good && !r.unlocked) { write(r, digitNow, 'macro'); break; } }
+}
+
+/* ================= the hack tool (screen 2 on the title; SCAN in a level) ================= */
+let toolCat = 'ALL', toolFrom = null;
+function openTool(from) {
+  toolFrom = from; $('tool').hidden = false; toolMsg = '';
+  if (from === 'game') { state = 'tool'; held.left = held.right = held.jump = false; }
+  $('tDone').hidden = from === 'title' && document.body.classList.contains('mode-stack');
+  renderTool();
+}
+function closeTool() {
+  $('tool').hidden = true; $('tq').blur();
+  if (toolFrom === 'game' && state === 'tool') state = 'play';
+  toolFrom = null;
+}
+function renderTool() {
+  $('tcats').innerHTML = CATS.map((c) => `<button class="${c === toolCat ? 'on' : ''}" data-c="${c}">${c}${c === 'IN SET' ? ' ' + loadout.length : ''}</button>`).join('');
+  const q = $('tq').value.trim().toUpperCase();
+  const list = CAT.filter((e) => (toolCat === 'ALL' || (toolCat === 'IN SET' ? inSet(e.id) : e.cat === toolCat)) && (!q || (e.name + ' ' + e.short + ' ' + e.desc + ' ' + e.kind).includes(q)));
+  const glyph = { left: '◀', right: '▶', jump: 'A' };
+  $('tlist').innerHTML = list.length ? list.map((e) => {
+    const L = inSet(e.id);
+    return `<button class="hk ${e.good ? 'g' : 'b'} ${L ? 'on' : ''}" data-id="${e.id}"><span class="n">${e.name}</span><span class="st">${L ? (L.auto ? 'CAME WITH ' + catOf(L.of).short : 'IN SET') : 'TAP TO ADD'}</span><span class="k">${e.kind}</span><span class="d">${e.desc}</span><span class="s">${glyph[e.ctrl]} ${e.seq.join(' ')}</span></button>`;
+  }).join('') : '<div class="empty">NOTHING MATCHES. GAMES ARRIVE IN A LATER VERSION.</div>';
+  $('tfoot').textContent = toolMsg || `${loadout.length} IN YOUR SET. EVERY HACK YOU ADD BRINGS A CURSE.`;
+}
+$('tq').addEventListener('input', () => { titleAt = frame; renderTool(); });
+$('tool').addEventListener('pointerdown', () => { titleAt = frame; }, { passive: true });
+$('tcats').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { toolCat = b.dataset.c; renderTool(); } });
+$('tlist').addEventListener('click', (e) => { const b = e.target.closest('.hk'); if (b) { ensureAudio(); toggleSet(b.dataset.id); SFX.click(); haptic(); renderTool(); } });
+$('tDone').addEventListener('click', closeTool);
+
 /* ================= sizing & loop ================= */
 const screensEl = $('screens'), stageEl = $('stage'), stage2El = $('stage2');
 VW = 320; cv.width = VW; cv.height = VH; ctx.imageSmoothingEnabled = false;
@@ -3105,7 +3403,7 @@ let last = performance.now(), acc = 0;
 function loop(now) {
   let dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (armedT > 0 && state === 'play') { armedT -= dt; if (armedT <= 0) { armedT = 0; log('BREAKPOINT EXPIRED', 'sys'); } }
-  acc += dt * (armedT > 0 ? 0.3 : 1);      // a breakpoint slows the world to a crawl
+  acc += dt * (abil.bullet && state === 'play' ? 0.7 : 1);      // BULLET TIME
   let steps = 0;
   while (acc >= 1 / 60 && steps < 5) { update(); acc -= 1 / 60; steps++; }
   if (steps === 5) acc = 0;
@@ -3119,6 +3417,7 @@ function loop(now) {
 /* ================= boot ================= */
 buildTiles();
 function boot() {
+  applySettings();
   buildCreatures(); buildShades();
   buildAtlas();
   loadLevel(0);
@@ -3133,7 +3432,8 @@ window.memarioBack = () => {
   if (state === 'pause') { closeMenu(); return 'resume'; }
   if (state === 'intro') { beginLevel(); return 'resume'; }
   if (state === 'clear') { nextLevel(); return 'resume'; }
-  if (state === 'win') { startGame(0); return 'reboot'; }
+  if (state === 'tool') { closeTool(); return 'resume'; }
+  if (state === 'win') { newRun(); return 'reboot'; }
   return 'exit';
 };
 window.memarioPause = () => {
