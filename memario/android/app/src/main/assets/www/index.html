@@ -553,10 +553,10 @@ const BUG = [
 const BUG_ICE = spriteFromRows([...BUG_TOP, '..k.k..kk..k.k..', '.k..k......k..k.'], { k: '#1a5a7a', b: '#8fe8ff', B: '#ffffff', g: '#c8ffff', w: '#ffffff', r: '#4ff0ff' });
 
 // The hero: the player's own character sheet. 34x34 frames, facing right, feet on the bottom row.
-// Rows: idle(5) walk(6) jump(5: crouch, rise, apex, fall, land) action(5: point) hurt(4: hit, hit, KO, KO).
+// Rows: idle(5) walk(6) jump(5: crouch, rise, apex, fall, land) action(5: point) hurt(4: hit, hit, KO, KO) crouch(4).
 const HERO_IMG = new Image(), FACES_IMG = new Image();
 const HF = 34, HERO_CX = 16;                 // frame size, body centre column
-const HROW = { idle: 0, walk: 1, jump: 2, action: 3, hurt: 4 };
+const HROW = { idle: 0, walk: 1, jump: 2, action: 3, hurt: 4, crouch: 5 };   // crouch(4: still, shuffle, shuffle, tucked in the air)
 const heroReady = Promise.all([[HERO_IMG, 'img/hero.png'], [FACES_IMG, 'img/faces.png']].map(([img, src]) =>
   new Promise((res) => { img.onload = res; img.onerror = res; img.src = src; })));
 const TEX = {};
@@ -830,6 +830,18 @@ function buildCreatures() {
     f('O', 17, 11, 2, 2); f('K', 17, 13, 2, 1);                                                       // little arm
     f('K', 6 + leg * 2, 18, 4, 5); f('N', 7 + leg * 2, 18, 2, 4); f('P', 6 + leg * 2, 22, 5, 2);      // legs, pink shoes
     f('K', 13 - leg * 2, 18, 4, 5); f('N', 14 - leg * 2, 18, 2, 4); f('P', 13 - leg * 2, 22, 5, 2);
+  }));
+  ART.dinoLow = [0, 1, 2].map((fr) => draw(26, 24, (f) => {         // ducked: belly to the floor, head stretched forward, rider's eyes peeking over its back
+    const leg = fr === 1 ? 1 : 0, open = fr === 2;
+    f('K', 0, 17, 6, 3); f('N', 1, 18, 5, 1);                                                         // tail
+    f('K', 4, 16, 14, 6); f('N', 5, 17, 12, 4); f('2', 6, 17, 5, 1);                                  // body
+    f('O', 8, 20, 8, 1); f('P', 7, 16, 2, 1); f('P', 11, 16, 2, 1);                                   // belly, back stripes
+    f('K', 16, 14, 10, 7); f('N', 17, 15, 8, 5); f('2', 18, 15, 3, 1);                                // head, low and forward
+    f('K', 16, 13, 8, 2); f('N', 17, 13, 6, 1); f('K', 23, 14, 3, 1);                                 // the cap
+    f('W', 21, 15, 2, 2); f('K', 22, 15, 1, 2);                                                       // eye
+    if (open) { f('K', 19, 18, 7, 3); f('P', 20, 19, 6, 1); } else f('K', 20, 19, 6, 1);             // mouth
+    f('K', 5 + leg, 21, 5, 1); f('P', 4 + leg, 22, 7, 2);                                             // bent legs, pink shoes
+    f('K', 12 - leg, 21, 5, 1); f('P', 12 - leg, 22, 7, 2);
   }));
   ART.lift = draw(48, 7, (f) => { f('K', 0, 0, 48, 7); f('N', 1, 1, 46, 5); f('2', 1, 1, 46, 1); for (let i = 3; i < 46; i += 8) f('C', i, 3, 2, 2); });
   ART.drop = draw(32, 7, (f) => { f('K', 0, 0, 32, 7); f('Q', 1, 1, 30, 5); for (let i = 1; i < 31; i += 6) f('P', i, 1, 3, 5); f('W', 1, 1, 30, 1); });
@@ -2923,8 +2935,8 @@ function drawDino(d, cx0, ridden) {
   const fr = d.tongue > 0 || (ridden && d.mouth) ? 2 : Math.abs(ridden ? p.vx : d.vx) > 0.2 ? (frame >> 3) & 1 : 0;
   const x = Math.round(d.x - cx0) - 2, y = Math.round(d.y) - 1;
   ctx.save();
-  if (ridden && p.crouch) { ctx.translate(0, y + d.h + 1); ctx.scale(1, 0.42); ctx.translate(0, -(y + d.h + 1)); }   // ducking
-  if (d.dir < 0) { ctx.translate(x + 26, y); ctx.scale(-1, 1); ctx.drawImage(ART.dino[fr], 0, 0); } else ctx.drawImage(ART.dino[fr], x, y);
+  const spr = (ridden && p.crouch ? ART.dinoLow : ART.dino)[fr];      // ducking: low pose
+  if (d.dir < 0) { ctx.translate(x + 26, y); ctx.scale(-1, 1); ctx.drawImage(spr, 0, 0); } else ctx.drawImage(spr, x, y);
   ctx.restore();
   if (ridden && d.tongue > 0 && d.tip) {                         // the tongue
     const mx = Math.round(d.x + 11 + d.dir * 12 - cx0), tx = Math.round(d.tip[0] - cx0), ty = Math.round(d.tip[1]);
@@ -3076,6 +3088,7 @@ function heroFrame() {
     return [HROW.hurt, p.deadMax < 40 ? 1 : t < 10 ? 0 : t < 22 ? 1 : t < 34 ? 2 : 3];
   }
   const g = p.flip ? -1 : 1;
+  if (p.crouch) return [HROW.crouch, !p.grounded ? 3 : Math.abs(p.vx) > 0.2 ? 1 + (((p.anim / 9) | 0) % 2) : 0];
   if (!p.grounded) { const v = p.vy * g; return [HROW.jump, v < -2.5 ? 1 : v < 1.2 ? 2 : 3]; }
   if (p.actT > 0) return [HROW.action, [1, 2, 2, 2, 4][Math.min(4, ((20 - p.actT) / 4) | 0)]];
   if (p.landT > 0) return [HROW.jump, 4];
@@ -3091,16 +3104,15 @@ function drawPlayer(cx0) {
   const [row, col] = heroFrame();
   const fx = sx + (p.w >> 1);                                     // body centre on screen
   if (p.riding) {                                                 // seated on the raptor: legs hidden by its body
-    const low = p.crouch;                                         // ducked: rider flat on the raptor's back, raptor squashed down
-    ctx.save(); ctx.translate(fx - p.face * 2, sy + p.h - (low ? 8 : 13)); ctx.scale(p.face < 0 ? -1 : 1, low ? 0.36 : 1);
-    if (HERO_IMG.naturalWidth) ctx.drawImage(HERO_IMG, 0, 0, HF, 26, -HERO_CX, -26, HF, 26);
+    const low = p.crouch;                                         // ducked: only the cap shows over the raptor's back
+    ctx.save(); ctx.translate(fx - p.face * (low ? 4 : 2), sy + p.h - (low ? 0 : 13)); ctx.scale(p.face < 0 ? -1 : 1, 1);
+    if (HERO_IMG.naturalWidth) { if (low) ctx.drawImage(HERO_IMG, 0, HROW.crouch * HF, HF, HF, -HERO_CX, -HF - 1, HF, HF); else ctx.drawImage(HERO_IMG, 0, 0, HF, 26, -HERO_CX, -26, HF, 26); }
     ctx.restore(); drawDino(p.riding, cx0, true); return;
   }
   ctx.save();
   if (p.flip) { ctx.translate(fx, sy); ctx.scale(p.face < 0 ? -1 : 1, -1); }
   else { ctx.translate(fx, sy + p.h); ctx.scale(p.face < 0 ? -1 : 1, 1); }
   if (abil.tiny || abil.giant) ctx.scale(abil.tiny ? 0.6 : 1.5, abil.tiny ? 0.6 : 1.5);   // SPRITE SCALE
-  if (p.crouch) ctx.scale(1.12, 0.64);                            // crouched
   if (p.sq && !p.dead && !reduceMotion) ctx.scale(1 + p.sq * 0.18, 1 - p.sq * 0.16);              // squash on landing, stretch on take-off
   if (HERO_IMG.naturalWidth) {
     ctx.drawImage(HERO_IMG, col * HF, row * HF, HF, HF, -HERO_CX, -HF, HF, HF);

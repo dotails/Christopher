@@ -182,6 +182,8 @@ The platforming follows modern conventions and is tuned to feel snappy:
 - **Corner correction**: clip the corner of a block on the way up and you're nudged past it instead of stopped dead (hidden sectors excepted).
 - **Crouch**: hold down, anywhere, even mid-air or on the raptor. You get shorter (head down, feet put), crouch-walk slowly, and stay down under a low block until there's room.
   Crouched you're under a block tall, so you fit a one-block-high gap; on the raptor, the raptor ducks too and you ride through.
+  Both have their own crouch art: the hero's sheet has a crouch row (still, two shuffle frames, tucked in the air), and the raptor
+  has a low pose, belly to the floor and head forward, with your cap and eyes peeking over its back.
 - **Hitbox**: the hero is 10 pixels wide, narrower than a block, so jumping up through a one-block hole doesn't need perfect lining up.
 - **Phase Shift**: besides firewalls and conduits, walk (or jump) into any wall from the side and you drift through it to the
   first spot on the far side where you fit (up to 12 blocks). Floors and ceilings still hold.
