@@ -57,7 +57,7 @@ every level, listed under YOUR SET below the level's own registers; like the lev
 string you write in to switch it on.
 
 **Hacks and curses come in fixed pairs**, shown as rows: the hack on the left, its curse on the right
-(Super Jump with Heavy Boots, God Mode with Echo Rootkits, and so on; looks come alone). Tapping either side
+(Super Jump with Pixel Snow, God Mode with Echo Rootkits, and so on; looks come alone). Tapping either side
 turns the whole row on or off; an active row is outlined, its hack filled green and its curse red.
 
 **Every hack you add brings a curse with it**, picked for you and marked "came with" in the tool; it goes
@@ -72,7 +72,7 @@ away when you remove the hack. Looks (palettes, sprite scale) come free.
 | Macros | Auto-Run, Bunny Hop (hold A), Auto-Write (writes hack digits without a press), Auto-Scan |
 | Warps | Warp: Next Save, Save Anywhere (both fire once, then reset); Warp: Last Save, Warp: Level Start, Warp: Exit (one-shots too) |
 | Look | Big Head Mode, Sprite Scale 0.6 / 1.5, palettes: Neon, Handheld, Sepia, Mono, Inverted; Rainbow Trail, Party Mode (confetti), Disco, CRT Scanlines, Red Screen palette |
-| Glitches | Heavy Gravity, Virus Growth, Overclocked Viruses, Byte Drain, Memory Fog, Screen Quake, Row Scramble, Virus Spawner, Sticky Floor, Virus Armor, No Grace, Sluggish, Hiccups, Bit Rot, Echo Rootkits, Palette Rot, Screen Tear, Memory Blinds, Write Tax, Crosswind, Virus Attraction, Butterfingers (1 press in 8 dropped), Control Swap (A and B), Low Res, Mirror World (left and right swapped), Crash Fine (-10 bytes), Static, Gremlin (switches one of your hacks off every 20 s), Upside-Down Screen, Mirrored Screen, Twitch |
+| Glitches | Double Vision (a faint second copy of the picture), Virus Growth, Overclocked Viruses, Byte Drain, Memory Fog, Screen Quake, Row Scramble, Virus Spawner, Sticky Floor, Virus Armor, Blurry, Sluggish, Hiccups, Bit Rot, Echo Rootkits, Palette Rot, Screen Tear, Memory Blinds, Write Tax, Crosswind, Virus Attraction, Dropsy (what you carry slips every 8 s), Phantoms (harmless fake viruses flicker), Low Res, Mirror World (left and right swapped), Crash Fine (-10 bytes), Static, Gremlin (switches one of your hacks off every 20 s), Upside-Down Screen, Mirrored Screen, Twitch |
 
 Cheats can carry you past a level's gates; that's the point of bringing them, and the paired curse is the
 price. Games, power-ups, looks and the classic cheats come alone (no curse); the other new hacks pair with the new glitches.
@@ -194,6 +194,9 @@ The platforming follows modern conventions and is tuned to feel snappy:
 - **Wall slide and wall jump**: press into a wall in mid-air to slide down it slowly; A kicks off it. Ground, blocks and conduits hold you; ROM, firewalls, the bus, NULL blocks, ice and bit blocks are too smooth, and nothing holds you once you've dropped below the ground line, so pits stay pits.
 - **Forgiving stomps**: clip the top corner of a virus on the way down and it counts as landing on it.
 - **Corner correction**: clip the corner of a block on the way up and you're nudged past it instead of stopped dead (hidden sectors excepted).
+- **Nothing cripples your jump.** No curse lowers, delays, drops or swaps your jump. The old ones that did are now
+  harmless picture glitches: Pixel Snow, Choppy Screen (only the picture slows; your inputs don't), Double Vision,
+  Blurry, Dropsy and Phantoms.
 - **Crashing**: every crash plays a beat of the knock-out pose, then the hero crumbles to ash (with a few embers) before the save restores you.
 - **Crouch**: hold down, anywhere, even mid-air or on the raptor. You get shorter (head down, feet put), crouch-walk slowly, and stay down under a low block until there's room. On the raptor you hunker down on its back, holding on.
   Crouched you're under a block tall, so you fit a one-block-high gap; on the raptor, the raptor ducks too and you ride through.
@@ -286,17 +289,17 @@ conditions. Progress is saved; the title screen offers to continue from the furt
 
 | Level | Theme | Impossible without | Hacks (sequence, control, opens when) | Curses |
 | --- | --- | --- | --- | --- |
-| 1 Boot Sector | overworld | ROM wall, ten blocks tall under open sky (Super Jump and a double jump); thirteen-block pit (Speed Boost) | Fire Power 4 2 7 1 9 A · Super Jump 3 8 5 2 ◀ · Speed Boost 6 1 4 8 3 ▶ (16 bytes) · Shield 5 * 5 ▶ | Heavy Boots 2 7 2 7 A · Memory Slip 1 6 6 1 ▶ |
-| 2 Firewall | underground | floor-to-ceiling firewalls (Phase); eleven-block pits (Multi Jump) | Phase Shift 9 9 0 1 A (mid-air) · Multi Jump 2 6 0 4 ▶ (10 bytes) · Hot Reload 3 1 4 1 ◀ · Bit Magnet # 5 5 ◀ | Memory Leak 0 0 7 3 ◀ · Packet Lag 6 6 2 2 ▶ · Blackout 3 3 9 9 A (below 60%) |
+| 1 Boot Sector | overworld | ROM wall, ten blocks tall under open sky (Super Jump and a double jump); thirteen-block pit (Speed Boost) | Fire Power 4 2 7 1 9 A · Super Jump 3 8 5 2 ◀ · Speed Boost 6 1 4 8 3 ▶ (16 bytes) · Shield 5 * 5 ▶ | Pixel Snow 2 7 2 7 A · Memory Slip 1 6 6 1 ▶ |
+| 2 Firewall | underground | floor-to-ceiling firewalls (Phase); eleven-block pits (Multi Jump) | Phase Shift 9 9 0 1 A (mid-air) · Multi Jump 2 6 0 4 ▶ (10 bytes) · Hot Reload 3 1 4 1 ◀ · Bit Magnet # 5 5 ◀ | Memory Leak 0 0 7 3 ◀ · Choppy Screen 6 6 2 2 ▶ · Blackout 3 3 9 9 A (below 60%) |
 | 3 Cloud Storage | sky | caged trojan by a nine-block wall (Quarantine, climb off its back with a double jump); the void under open sky (Bridge); the void under the bus (Gravity Flip) | Quarantine 4 4 1 2 A · Alloc Bridge 6 2 8 0 ▶ (12 bytes) · Gravity Flip 7 3 1 5 0 ◀ (1 online) · Glide 2 @ 6 A | Outbreak 1 9 1 9 ▶ · Null Pointer 3 0 3 0 A · Packet Storm 5 5 2 5 ◀ |
-| 4 Root Access | castle | firewall (Phase); lava under the bus (Flip); a ten-block wall under open sky (Super Jump and a double jump, or Phase through it); firewalls through a lava floor (Flip + Phase together); KERNEL PANIC on the bridge (get past it, pull the kill switch) | Phase Shift 0 4 0 4 A (mid-air) · Gravity Flip 5 1 3 9 ▶ (1 online) · Super Jump 7 7 2 1 ◀ (below 70% stability) · Overclock $ 9 1 ▶ | Watchdog 2 2 8 ◀ · Packet Lag 1 1 6 6 ▶ · Heavy Boots 8 3 8 3 A · Blackout 9 2 9 2 A (below 60%) · Null Pointer 4 9 4 9 ▶ (after a crash) |
+| 4 Root Access | castle | firewall (Phase); lava under the bus (Flip); a ten-block wall under open sky (Super Jump and a double jump, or Phase through it); firewalls through a lava floor (Flip + Phase together); KERNEL PANIC on the bridge (get past it, pull the kill switch) | Phase Shift 0 4 0 4 A (mid-air) · Gravity Flip 5 1 3 9 ▶ (1 online) · Super Jump 7 7 2 1 ◀ (below 70% stability) · Overclock $ 9 1 ▶ | Watchdog 2 2 8 ◀ · Choppy Screen 1 1 6 6 ▶ · Pixel Snow 8 3 8 3 A · Blackout 9 2 9 2 A (below 60%) · Null Pointer 4 9 4 9 ▶ (after a crash) |
 
 What the new hacks and curses do:
 
 - **Multi Jump**: two more jumps in mid-air on top of the double jump; save each one for when you start to fall. **Hot Reload**: a crash respawns you where you last stood instead of at the save.
 - **Quarantine**: viruses stop, stop hurting you, and become platforms. **Alloc Bridge**: dashed null blocks become solid.
 - **Memory Slip**: every floor is as slick as ice. **Packet Storm**: a steady wind pushes you back.
-- **Packet Lag**: every input reaches the hero 10 frames late. **Outbreak**: viruses run faster and respawn.
+- **Choppy Screen**: every input reaches the hero 10 frames late. **Outbreak**: viruses run faster and respawn.
 - **Null Pointer**: one in three platform blocks drops out of memory for a second every four seconds (they flicker first).
 - **Watchdog**: a countdown on screen; when it reaches zero you crash, every 40 seconds, until a patch purges it.
 - Root Access's Super Jump only opens once stability drops below 70%: unlock the other two hacks (or take some damage) first.
@@ -324,9 +327,9 @@ game, through a Web Audio effect chain:
 | Quarantine | thin, icy, with a short echo |
 | Alloc Bridge | bass boost |
 | Gravity Flip | while upside down, the EQ flips (bass cut, treble up) |
-| ! Heavy Boots | slows and sinks |
+| ! Pixel Snow | slows and sinks |
 | ! Memory Slip, ! Packet Storm | plays backwards, left and right channels swapped |
-| ! Packet Lag | a late slap-back echo |
+| ! Choppy Screen | a late slap-back echo |
 | ! Memory Leak | the pitch slowly drifts down (a patch restores it) |
 | ! Blackout | muffled |
 | ! Outbreak | frantic hi-hats on top |

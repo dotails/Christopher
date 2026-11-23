@@ -413,7 +413,7 @@ const LEVELS = [
       reg('super',  true,  'JUMP',   'SUPER JUMP',   '0x2D22E', [3, 8, 5, 2],    'left',  'JUMP HEIGHT X2'),
       reg('speed',  true,  'SPEED',  'SPEED BOOST',  '0xC003A', [6, 1, 4, 8, 3], 'right', 'RUN SPEED X1.75', C_BYTES(16)),
       reg('shield', true,  'SHIELD', 'SHIELD',       '0x5A1E1', [5, '*', 5],    'right', 'ABSORBS ONE CRASH'),
-      reg('heavy',  false, 'HEAVY',  'HEAVY BOOTS',  '0xBAD01', [2, 7, 2, 7],    'jump',  'JUMP HEIGHT CUT'),
+      reg('heavy',  false, 'SNOW',   'PIXEL SNOW',   '0xBAD01', [2, 7, 2, 7],    'jump',  'CORRUPT PIXELS SNOW DOWN THE SCREEN'),
       reg('slip',   false, 'SLIP',   'MEMORY SLIP',  '0xBAD02', [1, 6, 6, 1],    'right', 'EVERY FLOOR IS AS SLICK AS ICE'),
     ],
   },
@@ -450,7 +450,7 @@ const LEVELS = [
       reg('reload', true,  'RELOAD', 'HOT RELOAD',   '0x40AD1', [3, 1, 4, 1],    'left',  'CRASHES RESPAWN WHERE YOU STOOD'),
       reg('magnet', true,  'MAGNET', 'BIT MAGNET',   '0x3A6E7', ['#', 5, 5],    'left',  'BITS FLY TO YOU'),
       reg('leak',   false, 'LEAK',   'MEMORY LEAK',  '0xBAD03', [0, 0, 7, 3],    'left',  'STABILITY DRAINS OVER TIME'),
-      reg('lag',    false, 'LAG',    'PACKET LAG',   '0xBAD05', [6, 6, 2, 2],    'right', 'EVERY INPUT ARRIVES LATE'),
+      reg('lag',    false, 'CHOPPY', 'CHOPPY SCREEN','0xBAD05', [6, 6, 2, 2],    'right', 'THE PICTURE UPDATES AT HALF SPEED (YOUR INPUTS DON\'T)'),
       reg('dark',   false, 'DARK',   'BLACKOUT',     '0xBAD04', [3, 3, 9, 9],    'jump',  'THE SCREEN GOES DARK', C_STB(60)),
     ],
   },
@@ -517,8 +517,8 @@ const LEVELS = [
       reg('super',  true,  'JUMP',   'SUPER JUMP',   '0x2D22E', [7, 7, 2, 1],    'left',  'JUMP HEIGHT X2', C_STB(70)),
       reg('slow',   true,  'SLOW',   'OVERCLOCK',    '0x0C10C', ['$', 9, 1],    'right', 'THE WORLD RUNS AT HALF SPEED'),
       reg('watchdog',false,'WDOG',   'WATCHDOG',     '0xBAD08', [2, 2, 8],       'left',  'A CRASH EVERY 40 SECONDS'),
-      reg('lag',    false, 'LAG',    'PACKET LAG',   '0xBAD05', [1, 1, 6, 6],    'right', 'EVERY INPUT ARRIVES LATE'),
-      reg('heavy',  false, 'HEAVY',  'HEAVY BOOTS',  '0xBAD01', [8, 3, 8, 3],    'jump',  'JUMP HEIGHT CUT'),
+      reg('lag',    false, 'CHOPPY', 'CHOPPY SCREEN','0xBAD05', [1, 1, 6, 6],    'right', 'THE PICTURE UPDATES AT HALF SPEED (YOUR INPUTS DON\'T)'),
+      reg('heavy',  false, 'SNOW',   'PIXEL SNOW',   '0xBAD01', [8, 3, 8, 3],    'jump',  'CORRUPT PIXELS SNOW DOWN THE SCREEN'),
       reg('dark',   false, 'DARK',   'BLACKOUT',     '0xBAD04', [9, 2, 9, 2],    'jump',  'THE SCREEN GOES DARK', C_STB(60)),
       reg('nullptr',false, 'NULL',   'NULL POINTER', '0xBAD07', [4, 9, 4, 9],    'right', 'PLATFORMS BLINK OUT OF MEMORY', C_CRASH),
     ],
@@ -2230,13 +2230,11 @@ function updateInner() {
   if (edges.grab) grabAction();
   if (edges.down) downAction();
 
-  if (abil.jitter) for (const k of ['jump', 'up']) if (edges[k] && Math.random() < 0.125) { edges[k] = false; floaters.push({ x: p.x + p.w / 2, y: p.y - 20, t: 30, text: 'DROPPED', col: '#ff3d8a' }); }   // BUTTERFINGERS
-  const AJ = abil.swapab ? 'inj' : 'jump';                                  // CONTROL SWAP: A and B trade places
-  const now = { L: held.left && !consumed.left, R: (held.right && !consumed.right) || (abil.autorun && !held.left), J: (held[AJ] && !consumed[AJ]) || held.up, e: (edges[AJ] && !consumed[AJ]) || edges.up };
+  const now = { L: held.left && !consumed.left, R: (held.right && !consumed.right) || (abil.autorun && !held.left), J: (held.jump && !consumed.jump) || held.up, e: (edges.jump && !consumed.jump) || edges.up };
   if (abil.mirror) { const t = now.L; now.L = now.R; now.R = t; }            // MIRROR WORLD
   lagQ.push(now); if (lagQ.length > 10) lagQ.shift();
-  const inp = abil.lag ? lagQ[0] : now;                    // the PACKET LAG curse
-  if (inp.e) jumpBuf = abil.nograce ? 1 : 8;
+  const inp = now;                                          // (inputs are never delayed: CHOPPY SCREEN only slows the picture)
+  if (inp.e) jumpBuf = 8;
   if (abil.bunny && inp.J && p.grounded && !jumpBuf) jumpBuf = 2;             // MACRO: BUNNY HOP
   hackTick();
   updatePlayer(inp.L, inp.R, inp.J);
@@ -2384,10 +2382,10 @@ function updatePlayer(L, Rt, J) {
     const nh = want ? lowH : baseH;
     if (p.h !== nh) { if (!p.flip) p.y += p.h - nh; p.h = nh; }
     p.crouch = want; }
-  if (abil.airdash && edges[abil.swapab ? 'jump' : 'inj'] && !p.grounded && !p.riding && !p.dashUsed && !p.dead) { p.dashUsed = true; p.dashT = 9; p.vx = (dir || p.face) * 5.2; p.vy = 0; p.wjLock = 10; SFX.flip(); haptic(15); }
+  if (abil.airdash && edges.inj && !p.grounded && !p.riding && !p.dashUsed && !p.dead) { p.dashUsed = true; p.dashT = 9; p.vx = (dir || p.face) * 5.2; p.vy = 0; p.wjLock = 10; SFX.flip(); haptic(15); }
   if (p.grounded) p.dashUsed = false;
   if (abil.pound && edges.down && !p.grounded && !p.riding && !p.pound && !p.dead) { p.pound = true; p.vx = 0; p.vy = 7 * g; p.dashT = 0; SFX.flip(); }   // GROUND POUND
-  const maxS = (p.crouch && p.grounded && !p.riding && !abil.slide ? 0.45 : 1) * (abil.overdrive ? 1.3 : 1) * (abil.speed ? 2.8 : 1.6) * (held[abil.swapab ? 'jump' : 'inj'] ? 1 : 0.75) * (abil.turbo ? 1.4 : 1) * (abil.sticky ? 0.7 : 1), icy = p.grounded && (p.ft === T.ICE || abil.slip), jv = (abil.heavy ? 0.78 : 1) * (abil.spring ? 1.2 : 1), gm = (abil.moon ? 0.55 : 1) * (abil.hgrav ? 1.3 : 1) * (abil.micro ? 0.8 : 1);   // B held: run
+  const maxS = (p.crouch && p.grounded && !p.riding && !abil.slide ? 0.45 : 1) * (abil.overdrive ? 1.3 : 1) * (abil.speed ? 2.8 : 1.6) * (held.inj ? 1 : 0.75) * (abil.turbo ? 1.4 : 1) * (abil.sticky ? 0.7 : 1), icy = p.grounded && (p.ft === T.ICE || abil.slip), jv = abil.spring ? 1.2 : 1, gm = (abil.moon ? 0.55 : 1) * (abil.micro ? 0.8 : 1);   // no curse ever weakens your jump   // B held: run
   if (p.on && !p.on.gone) { p.x += p.on.dx || 0; p.y += p.on.dy || 0; }          // ride whatever you stand on
   if (p.wjLock > 0) p.wjLock--;
   if (dir && !p.wjLock) {                                                          // snappy: quick to start, quicker to turn
@@ -2396,7 +2394,7 @@ function updatePlayer(L, Rt, J) {
     if (turn && p.grounded && !icy && Math.abs(p.vx) > 0.7 && (frame & 1)) puff(p.x + p.w / 2 - dir * 4, p.flip ? p.y : p.y + p.h, 1, -dir);
     p.face = dir;
   } else if (!dir) { p.vx *= p.grounded ? (icy ? 0.985 : 0.6) : 0.93; if (Math.abs(p.vx) < 0.05) p.vx = 0; }
-  if (p.grounded) coyote = abil.nograce ? 0 : 7; else if (coyote > 0) coyote--;
+  if (p.grounded) coyote = 7; else if (coyote > 0) coyote--;
   if (jumpBuf > 0) jumpBuf--;
   // walls: press into a wall in mid-air to slide down it; jump to kick off. ROM, firewalls, the bus and NULL won't hold you,
   // and nothing holds you once you've dropped below the ground line.
@@ -3065,6 +3063,9 @@ function render() {
   for (const w of writeFx) if (w.x !== undefined) { drawText(String(w.d), Math.round(w.x - cx0) - 3, Math.round(w.y) - 5, '#05040a', 2); drawText(String(w.d), Math.round(w.x - cx0) - 4, Math.round(w.y) - 6, w.col, 2); }
   for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.t / 20); drawText(f.text, Math.round(f.x - cx0) + 1, Math.round(f.y) + 1, '#000', 1, 'center'); drawText(f.text, Math.round(f.x - cx0), Math.round(f.y), f.col, 1, 'center'); ctx.globalAlpha = 1; }
   ctx.restore();
+  if (abil.heavy) { ctx.fillStyle = '#c9c2ff'; for (let n = 0; n < 40; n++) { const sx = (hash2(n, 7, 3) % VW + Math.sin(frame / 40 + n) * 6 + VW) % VW, sy = (hash2(n, 9, 5) % VH + frame * (0.6 + (n % 5) * 0.2)) % VH; ctx.fillRect(sx | 0, sy | 0, n % 3 ? 1 : 2, n % 3 ? 1 : 2); } }   // PIXEL SNOW
+  if (abil.swapab && (frame % 50) < 34) { ctx.globalAlpha = 0.55; for (let n = 0; n < 3; n++) { const k = (frame / 50 | 0) * 3 + n; ctx.drawImage(BUG[(frame >> 4) & 1], hash2(k, 1, 11) % (VW - 16), 30 + hash2(k, 2, 13) % (VH - 70)); } ctx.globalAlpha = 1; }   // PHANTOMS
+  if (abil.hgrav) { ctx.globalAlpha = 0.22; ctx.drawImage(cv, 3, 2); ctx.globalAlpha = 1; }   // DOUBLE VISION
   if (abil.scanlines) { ctx.fillStyle = 'rgba(0,0,0,0.28)'; for (let y = 0; y < VH; y += 2) ctx.fillRect(0, y, VW, 1); }
   if (abil.static && frame % 360 < 34) { for (let n = 0; n < 900; n++) { const v = (Math.random() * 255) | 0; ctx.fillStyle = `rgb(${v},${v},${v})`; ctx.fillRect((Math.random() * VW) | 0, (Math.random() * VH) | 0, 2, 2); } }
   if (abil.lowres) { const w = Math.ceil(VW / 3), h = VH / 3, g = LOWRES.getContext('2d'); LOWRES.width = w; LOWRES.height = h; g.imageSmoothingEnabled = false; g.drawImage(cv, 0, 0, w, h); ctx.drawImage(LOWRES, 0, 0, w, h, 0, 0, VW, VH); }
@@ -3657,7 +3658,7 @@ const LESSONS = [
   { name: 'CURSES', *run() {
     fresh(0, 11, [0, 44]);
     tip('card:heavy', 'CURSES SIT ON THE RIGHT. THE SAME PRESSES FEED THEM: KEEP THEM EMPTY.');
-    yield* say('BAD: FEEDING A CURSE', 'A ON A 2 FEEDS HEAVY BOOTS. RED MEANS DANGER', CB);
+    yield* say('BAD: FEEDING A CURSE', 'A ON A 2 FEEDS PIXEL SNOW. RED MEANS DANGER', CB);
     yield* writeGround(2, 'jump', 3, 30); yield* wait(100);
   } },
   { name: 'CRASHES', *run() {
@@ -3815,7 +3816,7 @@ X('palGB', true, 'LOOK', 'GBOY', 'PALETTE: HANDHELD', 'FOUR SHADES OF GREEN');
 X('palSepia', true, 'LOOK', 'SEPIA', 'PALETTE: SEPIA', 'OLD PHOTOGRAPH');
 X('palMono', true, 'LOOK', 'MONO', 'PALETTE: MONO', 'BLACK AND WHITE');
 X('palInv', true, 'LOOK', 'INVERT', 'PALETTE: INVERTED', 'EVERY COLOUR FLIPPED');
-X('hgrav', false, 'GLITCHES', 'HEAVYG', 'HEAVY GRAVITY', 'GRAVITY X1.3');
+X('hgrav', false, 'GLITCHES', 'DOUBLE', 'DOUBLE VISION', 'A FAINT SECOND COPY OF THE PICTURE');
 X('bigv', false, 'GLITCHES', 'GROWTH', 'VIRUS GROWTH', 'VIRUSES GROW 1.7X');
 X('fastv', false, 'GLITCHES', 'FASTV', 'OVERCLOCKED VIRUSES', 'VIRUSES MOVE 1.6X FASTER');
 X('drain', false, 'GLITCHES', 'DRAIN', 'BYTE DRAIN', '-1 BYTE EVERY 3 SECONDS');
@@ -3825,7 +3826,7 @@ X('scramble', false, 'GLITCHES', 'SCRAMB', 'ROW SCRAMBLE', 'THE MEMORY RE-ENCRYP
 X('spawner', false, 'GLITCHES', 'SPAWN', 'VIRUS SPAWNER', 'A CRAWLER SPAWNS AHEAD EVERY 10 SECONDS');
 X('sticky', false, 'GLITCHES', 'STICKY', 'STICKY FLOOR', 'RUN SPEED X0.7');
 X('armor', false, 'GLITCHES', 'ARMOR', 'VIRUS ARMOR', 'EVERY VIRUS TAKES TWO HITS');
-X('nograce', false, 'GLITCHES', 'NOGRACE', 'NO GRACE', 'NO LATE JUMPS OFF LEDGES, NO EARLY PRESSES');
+X('nograce', false, 'GLITCHES', 'BLURRY', 'BLURRY', 'THE PICTURE GOES SOFT');
 X('sluggish', false, 'GLITCHES', 'SLUG', 'SLUGGISH', 'YOU SPEED UP AND TURN AT HALF THE RATE');
 X('hiccup', false, 'GLITCHES', 'HICCUP', 'HICCUPS', 'A LITTLE HOP EVERY FOUR SECONDS');
 X('bitrot', false, 'GLITCHES', 'BITROT', 'BIT ROT', 'UNCOLLECTED BITS VANISH OVER TIME');
@@ -3881,8 +3882,8 @@ X('ff', true, 'CHEATS', 'FFWD', 'FAST FORWARD', 'THE WHOLE GAME AT 150% SPEED');
 X('bighead', true, 'LOOK', 'BIGHEAD', 'BIG HEAD MODE', 'A VERY BIG HEAD');
 X('wind', false, 'GLITCHES', 'WIND', 'CROSSWIND', 'A WIND PUSHES YOU, AND IT CHANGES DIRECTION');
 X('magnetv', false, 'GLITCHES', 'MAGNETV', 'VIRUS ATTRACTION', 'VIRUSES NEARBY WALK STRAIGHT AT YOU');
-X('jitter', false, 'GLITCHES', 'JITTER', 'BUTTERFINGERS', 'ONE PRESS IN EIGHT GETS DROPPED');
-X('swapab', false, 'GLITCHES', 'SWAPAB', 'CONTROL SWAP', 'A AND B TRADE PLACES');
+X('jitter', false, 'GLITCHES', 'DROPSY', 'DROPSY', 'WHAT YOU CARRY SLIPS OUT OF YOUR HANDS EVERY 8 SECONDS');
+X('swapab', false, 'GLITCHES', 'PHANTOM', 'PHANTOMS', 'HARMLESS FAKE VIRUSES FLICKER AROUND THE SCREEN');
 X('lowres', false, 'GLITCHES', 'LOWRES', 'LOW RES', 'THE PICTURE DROPS TO A THIRD OF ITS PIXELS');
 X('mirror', false, 'GLITCHES', 'MIRROR', 'MIRROR WORLD', 'LEFT AND RIGHT ARE SWAPPED');
 X('pricey', false, 'GLITCHES', 'FINE', 'CRASH FINE', 'EVERY CRASH COSTS TEN BYTES');
@@ -3955,6 +3956,7 @@ function syncCustomRegs() {
 }
 function applyPalette() {
   cv.style.transform = (abil.flipscreen ? 'scaleY(-1) ' : '') + (abil.hscreen ? 'scaleX(-1)' : '');
+  if (abil.nograce) { cv.style.filter = 'blur(0.8px)'; return; }   // BLURRY
   if (abil.palRed) { cv.style.filter = 'grayscale(1) sepia(1) hue-rotate(-50deg) saturate(6) brightness(.8)'; return; }
   cv.style.filter = abil.palNeon ? 'hue-rotate(150deg) saturate(1.6)' : abil.palGB ? 'grayscale(1) sepia(1) hue-rotate(55deg) saturate(2.2) brightness(.95)' : abil.palSepia ? 'sepia(.9) contrast(1.05)' : abil.palMono ? 'grayscale(1) contrast(1.15)' : abil.palInv ? 'invert(1) hue-rotate(180deg)' : '';
 }
@@ -3978,7 +3980,7 @@ function hackOn(r) {
     else { go(LV.exit * 16 - 40); log('WARPED TO THE EXIT', 'ok'); }
     r.unlocked = false; r.slots = []; abil[id] = false;
   }
-  if (id === 'swapab' || id === 'mirror') for (const k of ['left', 'right', 'jump', 'inj']) { held[k] = false; for (const q in src) src[q][k] = false; }
+  if (id === 'mirror') for (const k of ['left', 'right']) { held[k] = false; for (const q in src) src[q][k] = false; }
   if (id === 'warp' || id === 'saveany') {                   // one-shot: do it, then the register resets
     if (id === 'warp') { const i = Math.min(checkpoint + 1, saves.length - 1), sv = saves[i]; checkpoint = i; saves.forEach((o, j) => { o.on = j <= i; }); p.x = sv.x + 1; p.y = 208 - p.h; p.vx = p.vy = 0; p.flip = false; burstT = 20; addBand(20); log(`WARPED TO SAVE ${i}`, 'ok'); }
     else { saves.push({ x: Math.round(p.x), y: Math.round(p.y + p.h - 32), on: true }); checkpoint = saves.length - 1; SFX.save(); log('SAVE POINT WRITTEN WHERE YOU STAND', 'ok'); }
@@ -3988,7 +3990,7 @@ function hackOn(r) {
 }
 function hackOff(id) {
   if (id === 'tinyv' || id === 'bigv') for (const e of enemies) if (!e.dead && e.s !== 1) setScale(e, 1);
-  if (id === 'swapab' || id === 'mirror') for (const k of ['left', 'right', 'jump', 'inj']) { held[k] = false; for (const q in src) src[q][k] = false; }
+  if (id === 'mirror') for (const k of ['left', 'right']) { held[k] = false; for (const q in src) src[q][k] = false; }
   if (id === 'micro' && !p.riding) { const cx = p.x + p.w / 2; p.w = HERO_W; p.x = cx - HERO_W / 2; p.crouch = true; }   // stands back up when there's room
   if (id === 'noclip') { p.vy = 0; if (!boxFree(p.x, p.y, p.w, p.h)) { for (let dy = 0; dy < 240; dy += 4) { if (boxFree(p.x, p.y - dy, p.w, p.h)) { p.y -= dy; break; } } } }
   applyPalette();
@@ -4019,6 +4021,7 @@ function hackTick() {
   if (abil.wind && !p.dead && !p.ghost) { const wd = Math.sin(frame / 300) > 0 ? 1 : -1; p.vx += wd * (p.grounded ? 0.05 : 0.08); if ((frame & 3) === 0) pSpawn(wd > 0 ? camX - 2 : camX + VW + 2, 20 + Math.random() * 180, PK.HEAT, '#c9c2ff', wd * 3, 0, 80); }
   if (abil.magnetv) for (const e of enemies) if (!e.dead && !e.carried && (e.type === 'walker' || (e.type === 'sheller' && e.st === 'walk')) && Math.abs(e.x - p.x) < 160) { const d = Math.sign(p.x - e.x) || 1; e.dir = d; if (e.vx) e.vx = Math.abs(e.vx) * d; }
   if (abil.gremlin && frame % 1200 === 600) { const on = regs.filter((r) => r.custom && r.good && r.unlocked); if (on.length) { const r = on[(Math.random() * on.length) | 0]; offline(r); log(`GREMLIN: ${r.name} SWITCHED OFF`, 'bad'); } }
+  if (abil.jitter && p.carry && frame % 480 === 240) { downAction(); floaters.push({ x: p.x + p.w / 2, y: p.y - 20, t: 40, text: 'SLIPPED', col: '#ff3d8a' }); }   // DROPSY
   if (abil.twitch && p.grounded && !p.dead && !p.riding && Math.random() < 1 / 260) { p.vy = (p.flip ? 1 : -1) * 4.8; p.grounded = false; SFX.jump(); }
   if (abil.printer && frame % 120 === 0) bytes++;
   if (abil.drain && frame % 180 === 0 && bytes > 0) bytes--;
@@ -4448,7 +4451,7 @@ function loop(now) {
     acc -= 1 / 60; steps++;
   }
   if (steps === 5) acc = 0;
-  guard('render', render);
+  if (!(abil.lag && state === 'play' && !mini && (frame & 1))) guard('render', render);   // CHOPPY SCREEN: the picture skips every other update
   guard('screen 2', drawMem);
   guard('hack list', syncScreen2);
   guard('lesson note', drawUiTip);
