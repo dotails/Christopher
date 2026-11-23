@@ -181,6 +181,10 @@ The platforming follows modern conventions and is tuned to feel snappy:
 - **Forgiving stomps**: clip the top corner of a virus on the way down and it counts as landing on it.
 - **Corner correction**: clip the corner of a block on the way up and you're nudged past it instead of stopped dead (hidden sectors excepted).
 - **Crouch**: hold down, anywhere, even mid-air or on the raptor. You get shorter (head down, feet put), crouch-walk slowly, and stay down under a low block until there's room.
+  Crouched you're under a block tall, so you fit a one-block-high gap; on the raptor, the raptor ducks too and you ride through.
+- **Hitbox**: the hero is 10 pixels wide, narrower than a block, so jumping up through a one-block hole doesn't need perfect lining up.
+- **Phase Shift**: besides firewalls and conduits, walk (or jump) into any wall from the side and you drift through it to the
+  first spot on the far side where you fit (up to 12 blocks). Floors and ceilings still hold.
 - Quick acceleration, quicker turnarounds with skid dust, squash on landing, stretch on take-off, dust puffs.
 
 Every gate was re-checked by an automated sweep of about 2,900 attempts (jumps from every quarter
@@ -268,7 +272,7 @@ conditions. Progress is saved; the title screen offers to continue from the furt
 | 1 Boot Sector | overworld | ROM wall, ten blocks tall under open sky (Super Jump and a double jump); thirteen-block pit (Speed Boost) | Fire Power 4 2 7 1 9 A · Super Jump 3 8 5 2 ◀ · Speed Boost 6 1 4 8 3 ▶ (16 bytes) · Shield 5 * 5 ▶ | Heavy Boots 2 7 2 7 A · Memory Slip 1 6 6 1 ▶ |
 | 2 Firewall | underground | floor-to-ceiling firewalls (Phase); eleven-block pits (Multi Jump) | Phase Shift 9 9 0 1 A (mid-air) · Multi Jump 2 6 0 4 ▶ (10 bytes) · Hot Reload 3 1 4 1 ◀ · Bit Magnet # 5 5 ◀ | Memory Leak 0 0 7 3 ◀ · Packet Lag 6 6 2 2 ▶ · Blackout 3 3 9 9 A (below 60%) |
 | 3 Cloud Storage | sky | caged trojan by a nine-block wall (Quarantine, climb off its back with a double jump); the void under open sky (Bridge); the void under the bus (Gravity Flip) | Quarantine 4 4 1 2 A · Alloc Bridge 6 2 8 0 ▶ (12 bytes) · Gravity Flip 7 3 1 5 0 ◀ (1 online) · Glide 2 @ 6 A | Outbreak 1 9 1 9 ▶ · Null Pointer 3 0 3 0 A · Packet Storm 5 5 2 5 ◀ |
-| 4 Root Access | castle | firewall (Phase); lava under the bus (Flip); a ten-block wall under open sky (Super Jump and a double jump); firewalls through a lava floor (Flip + Phase together); KERNEL PANIC on the bridge (get past it, pull the kill switch) | Phase Shift 0 4 0 4 A (mid-air) · Gravity Flip 5 1 3 9 ▶ (1 online) · Super Jump 7 7 2 1 ◀ (below 70% stability) · Overclock $ 9 1 ▶ | Watchdog 2 2 8 ◀ · Packet Lag 1 1 6 6 ▶ · Heavy Boots 8 3 8 3 A · Blackout 9 2 9 2 A (below 60%) · Null Pointer 4 9 4 9 ▶ (after a crash) |
+| 4 Root Access | castle | firewall (Phase); lava under the bus (Flip); a ten-block wall under open sky (Super Jump and a double jump, or Phase through it); firewalls through a lava floor (Flip + Phase together); KERNEL PANIC on the bridge (get past it, pull the kill switch) | Phase Shift 0 4 0 4 A (mid-air) · Gravity Flip 5 1 3 9 ▶ (1 online) · Super Jump 7 7 2 1 ◀ (below 70% stability) · Overclock $ 9 1 ▶ | Watchdog 2 2 8 ◀ · Packet Lag 1 1 6 6 ▶ · Heavy Boots 8 3 8 3 A · Blackout 9 2 9 2 A (below 60%) · Null Pointer 4 9 4 9 ▶ (after a crash) |
 
 What the new hacks and curses do:
 

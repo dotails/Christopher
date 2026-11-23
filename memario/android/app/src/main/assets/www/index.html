@@ -1190,9 +1190,10 @@ const isOpen = (r) => !r.cond || r.cond.test();
 const nextOf = (r) => r.seq[r.slots.length];
 // A register only ever moves forward. An online one takes its whole string again to switch off.
 const nextMatches = (r) => isOpen(r) && nextOf(r) === digitNow;
+const HERO_W = 10;    // narrower than a block, so a one-tile gap doesn't need pixel-perfect lining up
 let pendKey = null;
 const PEND_FRAMES = 7;
-const onFloor = () => (p.riding ? !!(dino && dino.grounded) : p.grounded);
+const onFloor = () => p.grounded;
 function pickFor(k) {
   const c = regs.filter((r) => r.ctrl === k && nextMatches(r));
   return c.find((r) => r.good && !r.unlocked) || c.find((r) => !r.good && !r.unlocked) || c[0] || null;
@@ -1243,7 +1244,7 @@ function loadLevel(i) {
   PATCH_BLOCKS = new Set(LV.patches);
   LV.build(levelKit());
   buildGround(LV.theme); buildSkyline(); if (VW) buildSky(); buildShades();
-  p = { x: LV.saves[0] * 16 + 24, y: 208 - 26, w: 14, h: 26, vx: 0, vy: 0, face: 1, grounded: false, flip: false, inv: 0, anim: 0,
+  p = { x: LV.saves[0] * 16 + 24, y: 208 - 26, w: HERO_W, h: 26, vx: 0, vy: 0, face: 1, grounded: false, flip: false, inv: 0, anim: 0,
         dead: 0, deadMax: 0, landT: 0, actT: 0, idleT: 0, airJumps: 1, safe: null, sq: 0, wall: 0, wallT: 0, wallDir: 0, wjLock: 0, jumpHeld: false };
   faceT = { happy: 0, shock: 0, hurt: 0 };
   enemies = []; hazards = []; plats = []; shots = []; flashes = []; dino = null; onOff = true;
@@ -1260,7 +1261,7 @@ function loadLevel(i) {
   saves = LV.saves.map((tx, i) => ({ x: tx * 16, y: 208 - 32, on: i === 0 }));
   checkpoint = 0; camX = 0; bytes = 0; crashes = 0; injections = 0; playFrames = 0; wdT = 0;
   volatileC = 0; burstT = shakeT = desyncT = flashT = armedT = 0; revealed.clear(); writeFx.length = 0;
-  cellNow = [-1, -1]; digitNow = colDigit(Math.floor((p.x + 7) / 16)); revealedAir.clear(); revealedPlat.clear(); combo = 0; scanCd = 0;
+  cellNow = [-1, -1]; digitNow = colDigit(Math.floor((p.x + p.w / 2) / 16)); revealedAir.clear(); revealedPlat.clear(); combo = 0; scanCd = 0;
   resetWorldFx();
   logLines.length = 0; resetMusicFx(); faults.clear(); fgrid.fill(0);
   syncCustomRegs(); applyPalette(); listScroll = 0;
@@ -1669,7 +1670,7 @@ function write(r, d, how, wx, wy) {
   if (off) log(`${r.name} OFF-STRING ${i + 1}/${r.seq.length}: ${d}${via}`, 'sys');
   else if (r.good) log(`MOV ${r.addr}[${i}], ${d}  OK${via}${combo > 1 ? '  COMBO X' + combo : ''}`, 'ok');
   else log(`!! CURSE ${r.name} FED ${d} (${i + 1}/${r.seq.length})${via}`, 'bad');
-  floaters.push({ x: p.x + 7, y: p.y - 26 - (how === 'key' ? 0 : 10), t: 50, text: (off ? 'OFF ' : '+') + d + (combo > 1 && r.good && !off ? ' X' + combo : ''), col });
+  floaters.push({ x: p.x + p.w / 2, y: p.y - 26 - (how === 'key' ? 0 : 10), t: 50, text: (off ? 'OFF ' : '+') + d + (combo > 1 && r.good && !off ? ' X' + combo : ''), col });
   r.flashT = 16;
   if (Math.random() < 0.10) glitch();
   if (r.slots.length === r.seq.length) { r.slots = []; if (off) offline(r); else (r.good ? unlock : curse)(r); }
@@ -1679,7 +1680,7 @@ function offline(r) {
   if (r.id === 'grav' && p.flip) p.flip = false;
   SFX.patch(); haptic(40);
   log(`${r.name} ${r.good ? 'SWITCHED OFF' : 'CURSE LIFTED'}: STRING RE-ENTERED`, r.good ? 'sys' : 'ok');
-  floaters.push({ x: p.x + 7, y: p.y - 36, t: 90, text: r.short + (r.good ? ' OFF' : ' LIFTED'), col: '#c9c2ff' });
+  floaters.push({ x: p.x + p.w / 2, y: p.y - 36, t: 90, text: r.short + (r.good ? ' OFF' : ' LIFTED'), col: '#c9c2ff' });
 }
 // A press that wrote nothing says why, when the digit is wanted somewhere else.
 function hint(k) {
@@ -1690,7 +1691,7 @@ function hint(k) {
   if (other) text = `${digitNow} FITS ${other.short}: PRESS ${CTRL_GLYPH[other.ctrl]}`;
   else if (closed && k === 'jump') { text = `${closed.short} IS CLOSED: ${closed.cond.label}`; col = '#8a93b4'; }
   if (!text) return;
-  hintAt = frame; floaters.push({ x: p.x + 7, y: p.y - 30, t: 80, text, col }); log(text, 'sys');
+  hintAt = frame; floaters.push({ x: p.x + p.w / 2, y: p.y - 30, t: 80, text, col }); log(text, 'sys');
 }
 // A creature's or box's digit is written by touching it in any way: into every register that needs it next.
 function touchDigit(o, how, x, y) {
@@ -1711,7 +1712,7 @@ function scan() {
     for (let r = 0; r < 13; r++) if (standable(c, r) && !revealedPlat.has(c + ',' + r)) revealedPlat.set(c + ',' + r, { c, r, at: frame + Math.abs(c - pc) * 2 });
   }
   for (const o of [...enemies, ...boxes]) if (o.rev === undefined && Math.abs(carrierCol(o, o.c !== undefined ? 'box' : 'bug') - pc) <= 14) o.rev = frame;
-  flashes.push({ x: p.x + 7, y: p.y + 13, r: 140, t: 30, c: '#4ff0ff' }); SFX.arm(); haptic(20);
+  flashes.push({ x: p.x + p.w / 2, y: p.y + 13, r: 140, t: 30, c: '#4ff0ff' }); SFX.arm(); haptic(20);
   log('SCAN: 29 COLUMNS DECRYPTED', 'sys');
 }
 function unlock(r) {
@@ -1722,8 +1723,8 @@ function unlock(r) {
   log(`${r.name} ONLINE: ${r.desc}`, 'ok');
   log(`STABILITY DROPPING: ${Math.round((1 - corruption()) * 100)}%`, 'warn');
   addFaults(Math.min(12, 6 + unlockedCount() * 2), true, true); addBand(20);
-  for (let n = 0; n < 60; n++) pSpawn(p.x + 7, p.y + 10, PK.HEAT, n % 2 ? '#39ff88' : '#ffc23d', (Math.random() - 0.5) * 3, -Math.random() * 2.5, 40);
-  floaters.push({ x: p.x + 7, y: p.y - 36, t: 90, text: r.name + ' ONLINE', col: '#ffc23d' });
+  for (let n = 0; n < 60; n++) pSpawn(p.x + p.w / 2, p.y + 10, PK.HEAT, n % 2 ? '#39ff88' : '#ffc23d', (Math.random() - 0.5) * 3, -Math.random() * 2.5, 40);
+  floaters.push({ x: p.x + p.w / 2, y: p.y - 36, t: 90, text: r.name + ' ONLINE', col: '#ffc23d' });
   if (MUSIC_FX[r.id]) log(`MUSIC HACKED: ${MUSIC_FX[r.id]}`, 'sys');
   if (goodCount() === 5) log('ALL ABILITIES ONLINE. REALITY IS OPTIONAL NOW.', 'warn');
 }
@@ -1735,7 +1736,7 @@ function curse(r) {
   SFX.segv(); haptic(120);
   burstT = 60; shakeT = Math.max(shakeT, 30);
   log(`CURSE ACTIVE: ${r.name}. ${r.desc}. A PATCH CAN PURGE IT.`, 'bad');
-  floaters.push({ x: p.x + 7, y: p.y - 36, t: 100, text: 'CURSED: ' + r.short, col: '#ff3d8a' });
+  floaters.push({ x: p.x + p.w / 2, y: p.y - 36, t: 100, text: 'CURSED: ' + r.short, col: '#ff3d8a' });
   if (MUSIC_FX[r.id]) log(`MUSIC CORRUPTED: ${MUSIC_FX[r.id]}`, 'bad');
   addFaults(6, true, false); oamT = 90;
   for (let n = 0; n < 50; n++) pSpawn(p.x + Math.random() * 14, p.y - 2 - Math.random() * 6, PK.GOO, n % 2 ? '#ff3d8a' : '#b02a6a', (Math.random() - 0.5) * 2, -Math.random() * 2, 900);
@@ -1785,7 +1786,7 @@ function applyPatch() {
   if (active) { active.unlocked = false; active.slots = []; abil[active.id] = false; hackOff(active.id); log(`PATCH PURGED THE ${active.name} CURSE`, 'ok'); }
   if (!abil.leak) leakDrift = 0;
   else if (flushed) log(`PATCH FLUSHED ${flushed} CURSE REGISTER${flushed > 1 ? 'S' : ''}`, 'ok');
-  floaters.push({ x: p.x + 7, y: p.y - 26, t: 60, text: 'PATCHED', col: '#39ff88' });
+  floaters.push({ x: p.x + p.w / 2, y: p.y - 26, t: 60, text: 'PATCHED', col: '#39ff88' });
 }
 
 /* ================= particle world: every pixel is simulated ================= */
@@ -2139,7 +2140,7 @@ function die(reason) {
   if (abil.shield && p.y < VH && p.y > -20) {                       // SHIELD: soaks one crash, then has to be rewritten at its symbol
     abil.shield = false; const r = regs.find((q) => q.id === 'shield'); if (r) { r.unlocked = false; r.slots = []; }
     p.inv = 90; p.vy = (p.flip ? 1 : -1) * 5; SFX.flip(); haptic(40); shakeT = Math.max(shakeT, 12);
-    flashes.push({ x: p.x + 7, y: p.y + 13, r: 60, t: 20, c: '#4ff0ff' });
+    flashes.push({ x: p.x + p.w / 2, y: p.y + 13, r: 60, t: 20, c: '#4ff0ff' });
     log(`SHIELD ABSORBED ${reason}. REWRITE IT AT THE * TO RECHARGE`, 'ok'); return;
   }
   crashes++; run.crashes++; SFX.die(); haptic(120); faceT.hurt = 200;
@@ -2148,7 +2149,7 @@ function die(reason) {
   const offscreen = p.y > VH || p.y < -20;
   const [hr, hc] = heroFrame(), hpx = HERO_IMG.naturalWidth ? spritePixels(HERO_IMG, hc * HF, hr * HF, HF, HF, 'hero' + hr + ',' + hc) : [];
   p.dissolved = reason === 'CORRUPT SECTOR' || offscreen;
-  burst(hpx, p.x + 7 - HERO_CX, p.y + p.h - HF, 1, p.face < 0, HF, 0, p.dissolved ? -1 : 0, PK.DUST, p.dissolved ? 1 : 4);
+  burst(hpx, p.x + p.w / 2 - HERO_CX, p.y + p.h - HF, 1, p.face < 0, HF, 0, p.dissolved ? -1 : 0, PK.DUST, p.dissolved ? 1 : 4);
   burstT = 30; shakeT = Math.max(shakeT, 18); armedT = 0;
   log(`CORE DUMPED (${reason}). RESTORING SAVE ${checkpoint}`, 'bad');
   p.dead = p.deadMax = offscreen ? 26 : 72; p.vx = 0; p.vy = 0;
@@ -2156,7 +2157,7 @@ function die(reason) {
 function respawn() {
   const s = saves[checkpoint];
   if (abil.reload && p.safe) { p.x = p.safe.x; p.y = p.safe.y; log('HOT RELOAD: RESUMED IN PLACE', 'ok'); musicRewind(); }
-  else { p.x = s.x + 1; p.y = 208 - p.h; } p.vx = p.vy = 0; pendKey = null; p.noMount = false; p.flip = false; p.inv = 100; p.dead = 0; p.landT = 0; p.actT = 0; p.dissolved = false;
+  else { p.x = s.x + 1; p.y = 208 - p.h; } p.vx = p.vy = 0; pendKey = null; p.noMount = false; p.ghost = null; p.flip = false; p.inv = 100; p.dead = 0; p.landT = 0; p.actT = 0; p.dissolved = false;
 }
 
 /* ================= update ================= */
@@ -2218,7 +2219,7 @@ function updateInner() {
   for (const f of fireballs) { pPush(f.x, f.y, 6, 6, f.vx, 0.8); pSpawn(f.x + 3, f.y + 3, PK.HEAT, Math.random() < 0.5 ? '#ffc23d' : '#ff3d8a', -f.vx * 0.1, -0.2, 14); }
   for (let i = writeFx.length - 1; i >= 0; i--) {
     const w = writeFx[i]; w.t++;
-    const k = w.t / 18, sx = w.sx, sy = w.sy, ex = p.x + 7 + p.face * 6, ey = p.y + 12;
+    const k = w.t / 18, sx = w.sx, sy = w.sy, ex = p.x + p.w / 2 + p.face * 6, ey = p.y + 12;
     w.x = sx + (ex - sx) * k; w.y = sy + (ey - sy) * k - Math.sin(k * Math.PI) * 26;
     pSpawn(w.x + (Math.random() - 0.5) * 3, w.y, PK.HEAT, w.col, (Math.random() - 0.5) * 0.5, 0.2, 14);
     if (w.t >= 18) { for (let n = 0; n < 14; n++) pSpawn(ex, ey, PK.SPARK, w.col, (Math.random() - 0.5) * 2.4, -Math.random() * 2.2, 18); writeFx.splice(i, 1); }
@@ -2272,7 +2273,7 @@ function readRow() {
   for (const o of orphans) put(o, 'ptr');
   // which layer you're in
   let layer = 'ground', key = null;
-  if (p.riding) layer = dino && dino.grounded ? 'ground' : 'air';
+  if (p.riding) layer = p.grounded ? 'ground' : 'air';
   else if (p.grounded) {
     if (p.on) { layer = 'plat'; key = [pc, p.on.t === 'lift' || p.on.t === 'drop' ? 20 + plats.indexOf(p.on) : 30]; }
     else { const fy = p.flip ? Math.floor((p.y - 1) / 16) : Math.floor((p.y + p.h + 1) / 16); if (p.flip || fy < 13) { layer = 'plat'; key = [pc, fy]; } }
@@ -2305,6 +2306,15 @@ function boxFree(x, y, w, h) {
     for (let ty = Math.floor(y / TILE); ty <= Math.floor((y + h - 0.01) / TILE); ty++) if (solidP(tileAt(tx, ty), tx, ty)) return false;
   return true;
 }
+// PHASE SHIFT: the first spot past the wall (at your height) where you fit, up to 12 blocks away
+function phaseTarget(dir) {
+  for (let d = 2; d <= 12 * TILE; d += 2) {
+    const x = p.x + dir * d;
+    if (x < 0 || x + p.w > LW * TILE) return null;
+    if (boxFree(x, p.y, p.w, p.h)) return x;
+  }
+  return null;
+}
 // Rising into the corner of a block nudges you past it instead of stopping you dead.
 function cornerCorrect(g) {
   if (p.vy * g >= 0 || p.riding) return;
@@ -2328,7 +2338,7 @@ function updatePlayer(L, Rt, J) {
   const dir = (Rt ? 1 : 0) - (L ? 1 : 0);
   if (!dir && Math.abs(stickVec.L[0]) > 0.35) dir = 0; // stick already mapped via keys
   // DOWN: crouch, on the ground, in the air or on the raptor. The head comes down, the feet stay put.
-  { const baseH = p.riding ? 36 : 26, lowH = p.riding ? 28 : 16;
+  { const baseH = p.riding ? 36 : 26, lowH = 15;   // low enough for a one-block gap, raptor and all
     let want = held.down && !p.dead;
     if (!want && p.crouch && !(p.flip ? boxFree(p.x, p.y, p.w, baseH) : boxFree(p.x, p.y + p.h - baseH, p.w, baseH))) want = true;   // no room to stand
     const nh = want ? lowH : baseH;
@@ -2360,7 +2370,7 @@ function updatePlayer(L, Rt, J) {
     for (let i = 0; i < 6; i++) puff(p.x + (p.wallDir > 0 ? p.w : 0), p.y + p.h - 6 - i * 3, 1, -p.wallDir);
   } else if (jumpBuf > 0 && !p.grounded && !p.riding && p.airJumps > 0) {   // DOUBLE JUMP: always yours (MULTI JUMP adds two more)
     p.vy = -g * (abil.triple ? 4.6 : 5.4) * jv; p.airJumps--; jumpBuf = 0; SFX.flip(); p.landT = 0; p.jumpHeld = true; p.sq = -0.7;   // multi jumps are shorter hops
-    for (let i = 0; i < 8; i++) emit({ x: p.x + 7, y: p.flip ? p.y : p.y + p.h, vx: (Math.random() - 0.5) * 2, vy: g * Math.random(), t: 14, c: '#4ff0ff' });
+    for (let i = 0; i < 8; i++) emit({ x: p.x + p.w / 2, y: p.flip ? p.y : p.y + p.h, vx: (Math.random() - 0.5) * 2, vy: g * Math.random(), t: 14, c: '#4ff0ff' });
   }
   const rising = p.vy * g < 0;
   if (p.jumpHeld && !J) { p.jumpHeld = false; if (rising && p.vy * g < -2) p.vy *= 0.5; }    // let go early: a short hop
@@ -2377,7 +2387,14 @@ function updatePlayer(L, Rt, J) {
   if (abil.glide && !p.riding && J && !p.grounded && p.vy * g > 0.9) { p.vy = 0.9 * g; if ((frame & 3) === 0) pSpawn(p.x + p.w / 2, p.y + 4, PK.HEAT, '#c9c2ff', 0, -0.3, 16); }   // GLIDE
   if (abil.storm && !p.dead) { p.vx -= p.grounded ? 0.1 : 0.06; if ((frame & 3) === 0) pSpawn(camX + VW + 4, 20 + Math.random() * 180, PK.HEAT, '#c9c2ff', -4 - Math.random() * 2, 0.03, 70); }   // PACKET STORM
   cornerCorrect(g);
-  moveX(p, solidP);
+  if (p.ghost) {                                                       // PHASE SHIFT: drifting through a wall
+    const gh = p.ghost; p.vy = 0; p.vx = 0; p.x += gh.dir * 2.4;
+    if ((frame & 1) === 0) pSpawn(p.x + p.w / 2 + (Math.random() - 0.5) * 10, p.y + Math.random() * p.h, PK.SPARK, Math.random() < 0.5 ? '#4ff0ff' : '#c9c2ff', -gh.dir * 0.5, 0, 14);
+    if (gh.dir > 0 ? p.x >= gh.tx : p.x <= gh.tx) { p.x = gh.tx; p.ghost = null; }
+  } else if (moveX(p, solidP) && abil.phase && !p.riding && dir && !p.dead) {   // walked into a wall: pass through it
+    const tx = phaseTarget(dir);
+    if (tx !== null) { p.ghost = { dir, tx }; SFX.flip(); haptic(15); }
+  }
   const wasGrounded = p.grounded, fallV = p.vy * g;
   p.grounded = false;
   const hy = moveY(p, solidP);
@@ -2648,13 +2665,13 @@ function solidTops() {                                               // things y
 const EDIBLE = (e) => e.type === 'walker' || e.type === 'sheller' || e.type === 'thrower' || e.type === 'bomb';
 function mount() {
   p.riding = dino; dino.st = 'ridden'; const by = dino.y + dino.h;
-  p.w = 14; p.h = 36; p.y = by - 36; p.x = dino.x + 2; p.vy = 0; p.flutter = 24;
+  p.w = HERO_W; p.h = 36; p.y = by - 36; p.x = dino.x + 11 - HERO_W / 2; p.vy = 0; p.flutter = 24;
   SFX.save(); haptic(20); log('MOUNTED /DEV/RAPTOR: HOLD A TO FLUTTER, Y FOR TONGUE, X TO HOP OFF', 'sys');
 }
 function dismount(hop) {
   const d = p.riding; if (!d) return;
   p.riding = null; const by = p.y + p.h;
-  p.w = 14; p.h = 26; p.y = by - 26 - (hop ? 4 : 0); p.vy = hop ? -(p.flip ? -1 : 1) * 5.9 : 0;
+  p.w = HERO_W; p.h = 26; p.y = by - 26 - (hop ? 4 : 0); p.vy = hop ? -(p.flip ? -1 : 1) * 5.9 : 0;
   if (hop) { p.noMount = true; p.boostT = 18; p.grounded = false; p.jumpHeld = false; SFX.jump(); }   // X: a full jump off, and no remount until you land
   d.st = 'idle'; d.x = p.x + p.w / 2 - 11; d.y = by - d.h; d.vy = 0;
   if (d.mouth && d.mouth.d !== undefined) orphans.push({ x: d.x + 20, y: d.y - 4, d: d.mouth.d, rev: d.mouth.rev, born: frame });
@@ -2722,7 +2739,7 @@ function downAction() {
 function updateFire() {
   if (abil.fire) {
     if (fireCd > 0) fireCd--;
-    else if (fireballs.length < 3) { fireballs.push({ x: p.x + 7 + p.face * 7, y0: p.y + 12, y: p.y + 12, vx: p.face * 4.2 + p.vx * 0.4, t: 0 }); fireCd = abil.rapid ? 11 : 34; SFX.fire(); }
+    else if (fireballs.length < 3) { fireballs.push({ x: p.x + p.w / 2 + p.face * 7, y0: p.y + 12, y: p.y + 12, vx: p.face * 4.2 + p.vx * 0.4, t: 0 }); fireCd = abil.rapid ? 11 : 34; SFX.fire(); }
   }
   for (let i = fireballs.length - 1; i >= 0; i--) {
     const f = fireballs[i]; f.t++; f.x += f.vx; f.y = f.y0 + Math.sin(f.t * 0.45) * 3;
@@ -2906,6 +2923,7 @@ function drawDino(d, cx0, ridden) {
   const fr = d.tongue > 0 || (ridden && d.mouth) ? 2 : Math.abs(ridden ? p.vx : d.vx) > 0.2 ? (frame >> 3) & 1 : 0;
   const x = Math.round(d.x - cx0) - 2, y = Math.round(d.y) - 1;
   ctx.save();
+  if (ridden && p.crouch) { ctx.translate(0, y + d.h + 1); ctx.scale(1, 0.42); ctx.translate(0, -(y + d.h + 1)); }   // ducking
   if (d.dir < 0) { ctx.translate(x + 26, y); ctx.scale(-1, 1); ctx.drawImage(ART.dino[fr], 0, 0); } else ctx.drawImage(ART.dino[fr], x, y);
   ctx.restore();
   if (ridden && d.tongue > 0 && d.tip) {                         // the tongue
@@ -3073,7 +3091,8 @@ function drawPlayer(cx0) {
   const [row, col] = heroFrame();
   const fx = sx + (p.w >> 1);                                     // body centre on screen
   if (p.riding) {                                                 // seated on the raptor: legs hidden by its body
-    ctx.save(); ctx.translate(fx - p.face * 2, sy + p.h - 13); ctx.scale(p.face < 0 ? -1 : 1, 1);
+    const low = p.crouch;                                         // ducked: rider flat on the raptor's back, raptor squashed down
+    ctx.save(); ctx.translate(fx - p.face * 2, sy + p.h - (low ? 8 : 13)); ctx.scale(p.face < 0 ? -1 : 1, low ? 0.36 : 1);
     if (HERO_IMG.naturalWidth) ctx.drawImage(HERO_IMG, 0, 0, HF, 26, -HERO_CX, -26, HF, 26);
     ctx.restore(); drawDino(p.riding, cx0, true); return;
   }
