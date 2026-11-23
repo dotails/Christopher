@@ -1085,19 +1085,33 @@ const CTRL_NAME = { jump: 'A', left: 'LEFT', right: 'RIGHT' };
 // Each level brings its own set (see LEVELS).
 let regs = [];
 const isOpen = (r) => !r.cond || r.cond.test();
-const canTake = (r) => !r.unlocked && isOpen(r);
-const nextMatches = (r) => canTake(r) && r.seq[r.slots.length] === digitNow;
+const nextOf = (r) => r.seq[r.slots.length];
+// A register only ever moves forward. An online one takes its whole string again to switch off.
+const nextMatches = (r) => isOpen(r) && nextOf(r) === digitNow;
+function pickFor(k) {
+  const c = regs.filter((r) => r.ctrl === k && nextMatches(r));
+  return c.find((r) => r.good && !r.unlocked) || c.find((r) => !r.good && !r.unlocked) || c[0] || null;
+}
 const goodCount = () => regs.filter((r) => r.good && r.unlocked).length;
 // Where would a press of each control send the digit under you? good / bad / mixed / none
 function verdict() {
   let good = false, bad = false;
+  let off = false;
   for (const k of ['left', 'right', 'jump']) {
-    const r = regs.find((q) => q.ctrl === k && nextMatches(q));
-    if (r) { if (r.good) good = true; else bad = true; }
+    const r = pickFor(k);
+    if (r) { if (r.unlocked) off = true; else if (r.good) good = true; else bad = true; }
   }
-  return good && bad ? 'mixed' : good ? 'good' : bad ? 'bad' : 'none';
+  return good && bad ? 'mixed' : good ? 'good' : bad ? 'bad' : off ? 'off' : 'none';
 }
-const VERDICT_COL = { good: '#39ff88', bad: '#ff3d8a', mixed: '#ffc23d', none: '#ffffff' };
+function needMap() {
+  const m = {};
+  for (const r of regs) if (!r.unlocked && isOpen(r)) { const d = nextOf(r), k = r.good ? 'g' : 'b'; m[d] = m[d] && m[d] !== k ? 'x' : k; }
+  return m;
+}
+const NEED_BG = { g: 'rgba(57,255,136,0.30)', b: 'rgba(255,61,138,0.26)', x: 'rgba(255,194,61,0.30)' };
+const LAYER_NAME = { ground: 'GROUND', plat: 'PLATFORM', air: 'AIR' };
+let NEED = {};
+const VERDICT_COL = { good: '#39ff88', bad: '#ff3d8a', mixed: '#ffc23d', off: '#c9c2ff', none: '#ffffff' };
 const abil = {};
 
 /* ================= state ================= */
@@ -1140,7 +1154,7 @@ function loadLevel(i) {
   saves = LV.saves.map((tx, i) => ({ x: tx * 16, y: 208 - 32, on: i === 0 }));
   checkpoint = 0; camX = 0; bytes = 0; crashes = 0; injections = 0; playFrames = 0; wdT = 0;
   volatileC = 0; burstT = shakeT = desyncT = flashT = armedT = 0; revealed.clear(); writeFx.length = 0;
-  cellNow = [-1, -1]; digitNow = colDigit(Math.floor((p.x + 7) / 16));
+  cellNow = [-1, -1]; digitNow = colDigit(Math.floor((p.x + 7) / 16)); revealedAir.clear(); revealedPlat.clear(); combo = 0; scanCd = 0;
   resetWorldFx();
   logLines.length = 0; resetMusicFx(); faults.clear(); fgrid.fill(0);
 }
@@ -1171,13 +1185,14 @@ function spawnEnt(d) {
 
 /* ================= input ================= */
 const KEYS = ['left', 'right', 'jump', 'inj', 'flip', 'grab', 'down', 'start', 'sel'];
-const src = { kb: {}, dpad: {}, stick: {}, btn: {} };
+const src = { kb: {}, dpad: {}, stick: {}, btn: {}, bot: {} };
 const held = {}, edges = {}, consumed = {};
 KEYS.forEach((k) => { held[k] = false; edges[k] = false; consumed[k] = false; });
 function setKey(source, k, v) {
   if (src[source][k] === v) return;
   src[source][k] = v;
-  const now = src.kb[k] || src.dpad[k] || src.stick[k] || src.btn[k] || false;
+  if (demo && source !== 'bot') { if (v) stopDemo(); return; }          // any real input ends the demo
+  const now = src.kb[k] || src.dpad[k] || src.stick[k] || src.btn[k] || src.bot[k] || false;
   if (now && !held[k]) { edges[k] = true; onPress(k); }
   if (!now && held[k]) consumed[k] = false;
   held[k] = now;
@@ -1198,7 +1213,7 @@ const KB = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right'
 addEventListener('keydown', (e) => {
   const k = KB[e.code];
   if (k) { e.preventDefault(); setKey('kb', k, true); return; }
-  if (/^Digit[1-9]$/.test(e.code) && state === 'play') { e.preventDefault(); ensureAudio(); inject(regs[+e.code.slice(5) - 1]); }
+  // (number keys used to force-write; writes only ever come from matching digits now)
 });
 addEventListener('keyup', (e) => { const k = KB[e.code]; if (k) { e.preventDefault(); setKey('kb', k, false); } });
 addEventListener('blur', () => { for (const s in src) for (const k of KEYS) setKey(s, k, false); });
@@ -1260,7 +1275,7 @@ function bindStick(el, which) {
 bindStick($('stickL'), 'L'); bindStick($('stickR'), 'R');
 
 if (('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
-addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') document.body.classList.add('touch'); }, { passive: true });
+addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') document.body.classList.add('touch'); if (demo) stopDemo(); }, { passive: true });
 
 /* ================= bottom screen: the register bank ================= */
 const cv2 = $('cv2'), ctx2 = cv2.getContext('2d', { alpha: false });
@@ -1284,70 +1299,58 @@ function ptri(g, cx, cy, dir, col, n = 5) { // dir -1 points left, 1 points righ
   for (let i = 0; i < n; i++) g.fillRect(cx + dir * ((n >> 1) - i), cy - i, 1, 2 * i + 1);
 }
 const HELP = [
-  ['EVERY COLUMN HOLDS A DIGIT. THE MEMORY ROW ALONG THE', '#c9cfe6'],
-  ['BOTTOM OF THE MAP DECRYPTS IT AS YOU PASS OVER.', '#c9cfe6'],
-  ["STAND ON A REGISTER'S NEXT DIGIT AND PRESS ITS", '#ffffff'],
-  ['CONTROL (< > OR A) TO WRITE IT. FILL IT TO ACTIVATE.', '#ffffff'],
-  ['GREEN REGISTERS GRANT ABILITIES BUT CORRUPT THE GAME.', '#39ff88'],
-  ['RED REGISTERS ARE CURSES. THE SAME PRESSES FILL THEM.', '#ff3d8a'],
-  ['YOUR COLUMN: GREEN SAFE  RED CURSE  GOLD DEPENDS', '#ffc23d'],
+  ['DIGITS LIVE IN THREE LAYERS: THE GROUND ROW ALONG', '#c9cfe6'],
+  ['THE BOTTOM, THE BLOCKS YOU STAND ON, AND THE AIR.', '#c9cfe6'],
+  ["ON A REGISTER'S NEXT DIGIT, PRESS ITS CONTROL", '#ffffff'],
+  ['(< > OR A). MID-JUMP, YOU WRITE THE AIR DIGIT.', '#ffffff'],
+  ['VIRUSES AND 0X BOXES CARRY DIGITS: STOMP, KICK, BUMP', '#ff6fa8'],
+  ['OR GRAB ONE TO WRITE ITS DIGIT WHEREVER IT FITS NEXT.', '#ff6fa8'],
+  ['GREEN = HACK. RED = CURSE. PROGRESS NEVER UNDOES;', '#39ff88'],
+  ['RE-ENTER A FULL STRING TO SWITCH IT OFF (OR LIFT A CURSE).', '#39ff88'],
+  ['LIT DIGITS ON THE ROW ARE ONES A REGISTER WANTS NEXT.', '#ffc23d'],
+  ['B SCANS. GOLD SYMBOLS READ ONLY FROM UP HIGH.', '#4ff0ff'],
   ['GLITCH BLOCKS ARE REAL. UNMAPPED BLOCKS LET YOU THROUGH.', '#4ff0ff'],
-  ['SOME DIGITS ARE MISSING: VIRUSES AND 0X BOXES CARRY THEM ON THE ROW.', '#4ff0ff'],
-  ['GOLD SYMBOLS SIT IN ONE COLUMN. READ THEM FROM UP HIGH.', '#ffc23d'],
   ['PRESS INTO A WALL MID-AIR TO SLIDE, A TO WALL-JUMP.', '#c9c2ff'],
-  ['SOME REGISTERS ONLY OPEN UNDER A CONDITION.', '#c9cfe6'],
-  ['PATCHES FROM 0X BLOCKS PURGE CURSES.', '#c9cfe6'],
   ['', ''],
   ['FOUR LEVELS, EACH WITH ITS OWN HACKS. REACH THE EXIT.', '#ffffff'],
 ];
 // One register: control icon, name, five digit slots (or the condition that opens it), status.
-function drawReg(g, T, r, i, x, y, w, h, compact) {
-  const open = isOpen(r), m = state === 'play' && nextMatches(r);
+function drawCard(g, T, r, i, x, y, w, h) {
+  const open = isOpen(r), off = r.unlocked, m = state === 'play' && nextMatches(r), base = r.good ? '#39ff88' : '#ff3d8a';
   if (r.flashT > 0) r.flashT--;
-  const flash = r.flashT > 0 && (r.flashT >> 2) % 2;
-  let border, bg, nameCol, st, stCol;
-  if (r.good) {
-    border = r.unlocked ? '#1d5c3c' : m ? '#39ff88' : '#262046';
-    bg = r.unlocked ? '#0c1f16' : m ? '#0f2a1c' : '#151229';
-    nameCol = r.unlocked ? '#39ff88' : open ? '#ffffff' : '#5a5f85';
-    st = r.unlocked ? 'ONLINE' : !open ? r.cond.label : m ? 'WRITE ' + digitNow : r.slots.length + '/' + r.seq.length;
-    stCol = r.unlocked ? '#39ff88' : !open ? '#6b6f95' : m ? '#39ff88' : '#5a5f85';
-  } else {
-    border = r.unlocked || m ? '#ff3d8a' : '#3d1a33';
-    bg = r.unlocked ? '#2a0d1c' : m ? '#2a1022' : '#170f1f';
-    nameCol = r.unlocked ? '#ff3d8a' : open ? '#ff8ab8' : '#5e4060';
-    st = r.unlocked ? 'ACTIVE' : !open ? r.cond.label : m ? 'DANGER ' + digitNow : r.slots.length + '/' + r.seq.length;
-    stCol = r.unlocked || m ? '#ff3d8a' : !open ? '#6b4f6d' : '#7a5a7a';
-  }
+  const flash = r.flashT > 0 && (r.flashT >> 2) % 2, pulse = m && (frame >> 3) % 2;
+  const edge = m ? (off ? '#c9c2ff' : base) : off ? (r.good ? '#1f7a4a' : '#a02a5a') : open ? (r.good ? '#2c3a66' : '#5a2440') : '#1d1a33';
+  let bg = off ? (r.good ? '#0c2a19' : '#3a0d22') : m ? (r.good ? '#0f3a22' : '#3a0f24') : '#120f24';
   if (flash) bg = r.good ? '#20406a' : '#4a1030';
-  g.fillStyle = border; g.fillRect(x, y, w, h);
-  g.fillStyle = bg; g.fillRect(x + 1, y + 1, w - 2, h - 2);
+  const bw = m ? 2 : 1;
+  g.fillStyle = edge; g.fillRect(x, y, w, h); g.fillStyle = bg; g.fillRect(x + bw, y + bw, w - bw * 2, h - bw * 2);
   regRects[i] = [x, y, w, h];
-  const cy = y + (h >> 1), ty = y + ((h - 5) >> 1), rad = Math.min(6, (h >> 1) - 2);
-  g.globalAlpha = open || r.unlocked ? 1 : 0.5;
-  if (r.ctrl === 'jump') { pcircle(g, x + 9, cy, rad, '#d42626'); T('A', x + 8, cy - 2, '#ffffff'); }
-  else { pcircle(g, x + 9, cy, rad, '#2b2858'); ptri(g, x + 9, cy, r.ctrl === 'left' ? -1 : 1, '#ffffff', rad > 4 ? 4 : 3); }
-  const label = compact ? (r.good ? '' : '!') + r.short : (r.good ? '' : '! ') + r.name;
-  T(label, x + 19, ty, nameCol);
-  const s = Math.min(h - 2, 15), pitch = compact ? s + 1 : s + 2;
-  const sx = compact ? x + 19 + 7 * 4 + 4 : x + 106;
-  if (compact && !open && !r.unlocked) { T(r.cond.label, sx, ty, stCol); }
-  else r.seq.forEach((d, j) => {
-    const bx = sx + j * pitch, by = y + ((h - s) >> 1), sl = r.slots[j];
-    let edge = '#2d2852', fill = '#0a0816', txt = r.good ? '#4a4478' : '#5e3a5c', ch = d;
-    if (r.unlocked) { edge = r.good ? '#39ff88' : '#ff3d8a'; fill = r.good ? '#0b2618' : '#3a0d22'; txt = edge; }
-    else if (sl) {
-      ch = sl.d;
-      if (!sl.ok) { edge = '#9a96bb'; fill = '#1c1932'; txt = '#ffffff'; }
-      else if (r.good) { edge = '#39ff88'; fill = '#0b2618'; txt = '#39ff88'; }
-      else { edge = '#ff3d8a'; fill = '#3a0d22'; txt = '#ff3d8a'; }
-    } else if (j === r.slots.length && open) { edge = r.good ? (m ? '#39ff88' : '#4ff0ff') : '#ff3d8a'; txt = r.good ? (m ? '#39ff88' : '#7fb6c9') : '#ff8ab8'; }
-    g.fillStyle = edge; g.fillRect(bx, by, s, s); g.fillStyle = fill; g.fillRect(bx + 1, by + 1, s - 2, s - 2);
-    if (s >= 13) drawText(String(ch), bx + ((s - 6) >> 1), by + ((s - 10) >> 1), txt, 2, 'left', g);
-    else drawText(String(ch), bx + ((s - 3) >> 1), by + ((s - 5) >> 1), txt, 1, 'left', g);
-  });
+  g.globalAlpha = open || off ? 1 : 0.5;
+  // the control, as it looks on the pad
+  const cy = y + (h >> 1), rad = clamp((h >> 1) - 2, 4, 9), cx = x + rad + 3, big = rad >= 7;
+  if (r.ctrl === 'jump') { pcircle(g, cx, cy, rad, pulse ? '#ff7a7a' : '#d42626'); T('A', cx - (big ? 2 : 1), cy - (big ? 4 : 2), '#ffffff', big ? 2 : 1); }
+  else { pcircle(g, cx, cy, rad, pulse ? '#6a66d8' : '#2b2858'); ptri(g, cx, cy, r.ctrl === 'left' ? -1 : 1, '#ffffff', big ? 6 : 4); }
+  // the next digit it wants, big
+  const nx = cx + rad + 3, bs = h - 4, nd = nextOf(r), sc = bs >= 18 ? 3 : bs >= 12 ? 2 : 1;
+  g.fillStyle = m ? (off ? '#c9c2ff' : base) : '#2a2548'; g.fillRect(nx, y + 2, bs, bs); g.fillStyle = '#05040a'; g.fillRect(nx + 1, y + 3, bs - 2, bs - 2);
+  T(String(nd), nx + ((bs - 3 * sc) >> 1) + (sc > 1 ? 1 : 0), y + 2 + ((bs - 5 * sc) >> 1), m ? (off ? '#c9c2ff' : base) : off ? '#8a84b8' : r.good ? '#ffffff' : '#ff8ab8', sc);
+  // its name and the whole string, written digits lit
+  const tx = nx + bs + 4, nameBig = h >= 20;
+  T((r.good ? '' : '!') + r.short, tx, y + 2, off ? base : r.good ? '#ffffff' : '#ff8ab8', nameBig ? 2 : 1);
+  const sy = y + h - 7;
+  if (!open && !off) T(r.cond.label, tx, sy, '#9a9fc4');
+  else r.seq.forEach((d, j) => { const done = j < r.slots.length, nxt = j === r.slots.length; T(String(d), tx + j * 7, sy, done ? (off ? '#c9c2ff' : base) : nxt ? (m ? base : '#ffffff') : '#4a4478'); });
   g.globalAlpha = 1;
-  if (!compact) T(st, x + w - 6, ty, stCol, 1, 'right');
+  const tag = m ? (off ? 'PRESS: OFF' : 'PRESS') : off ? (r.good ? 'ON' : 'CURSED') : '';
+  if (tag) T(tag, x + w - 4, y + (nameBig ? 4 : 2), m ? (off ? '#c9c2ff' : base) : base, 1, 'right');
+}
+// What a press would do right now, or what the registers want.
+function promptParts() {
+  const out = [];
+  for (const k of ['left', 'right', 'jump']) { const r = pickFor(k); if (r) out.push([CTRL_GLYPH[k] + ' ' + (r.good ? '' : '!') + r.short + (r.unlocked ? ' OFF' : ''), r.unlocked ? '#c9c2ff' : r.good ? '#39ff88' : '#ff3d8a']); }
+  if (out.length) return out;
+  const want = regs.filter((r) => r.good && !r.unlocked && isOpen(r)).map((r) => nextOf(r) + (r.ctrl === 'jump' ? 'A' : CTRL_GLYPH[r.ctrl]));
+  return [[want.length ? 'NEED ' + want.join(' ') : 'NOTHING TO WRITE', '#8a93b4']];
 }
 function drawMem() {
   const g = ctx2;
@@ -1357,7 +1360,7 @@ function drawMem() {
   for (let y = 0; y < SH; y += 16) g.fillRect(0, y, SW, 1);
   const T = (t, x, y, c, sc = 1, al = 'left') => drawText(t, x, y, c, sc, al, g);
   const touch = document.body.classList.contains('touch');
-  const ctl1 = touch ? 'A JUMP  B FORCE  X FLIP  Y GRAB  DOWN DROP' : 'ARROWS MOVE  SPACE JUMP  X FORCE  G FLIP';
+  const ctl1 = touch ? 'A JUMP  B SCAN  X FLIP  Y GRAB  DOWN DROP' : 'ARROWS MOVE  SPACE JUMP  X SCAN  G FLIP';
   const ctl2 = touch ? 'START MENU   SELECT SOUND   R-STICK LOOK' : 'F GRAB  S DROP  M SOUND  ESC MENU';
   const boot = touch ? 'PRESS START OR A TO BOOT' : 'PRESS ENTER OR SPACE TO BOOT';
   regRects.length = 0;
@@ -1384,91 +1387,123 @@ function drawMem() {
   const stab = Math.round((1 - corruption()) * 100);
   const scol = stab < 35 ? '#ff3d8a' : stab < 65 ? '#ffc23d' : '#39ff88';
   const face = p.dead || faceT.hurt > 0 ? 3 : faceT.shock > 0 ? 2 : faceT.happy > 0 ? 1 : stab < 35 ? 3 : 0;
-  const vc = VERDICT_COL[verdict()];
+  const vd = verdict(), vc = VERDICT_COL[vd];
   const portrait = (x, y) => {
     g.fillStyle = '#262046'; g.fillRect(x, y, 30, 30); g.fillStyle = '#1b2440'; g.fillRect(x + 1, y + 1, 28, 28);
     if (FACES_IMG.naturalWidth) g.drawImage(FACES_IMG, face * 28, 0, 28, 24, x + 1, y + 4, 28, 24);
   };
+  const nowBox = (x, y, sz) => {
+    g.fillStyle = vc; g.fillRect(x, y, sz, sz); g.fillStyle = '#101018'; g.fillRect(x + 2, y + 2, sz - 4, sz - 4);
+    const sc = sz >= 30 ? 4 : 3; T(String(digitNow), x + ((sz - 3 * sc) >> 1), y + ((sz - 5 * sc) >> 1), vc, sc);
+  };
+  const layerTxt = symNow ? 'SYMBOL ' + symNow.ch : LAYER_NAME[layerNow];
+  const parts = promptParts();
+  const drawParts = (x, y, sc, maxW) => { let px = x; for (const [t, c] of parts) { const w = t.length * 4 * sc; if (px + w > x + maxW) break; T(t, px, y, c, sc); px += w + 4 * sc; } };
+  const statTxt = `STB ${stab}%  BYTES ${String(bytes).padStart(3, '0')}  CRASH ${crashes}` + (combo > 1 && frame - comboAt < COMBO_T ? `  COMBO X${combo}` : '') + (scanCd > 0 ? '  SCAN ' + Math.ceil(scanCd / 60) : '  B SCAN');
 
   if (memMode === 'strip') {
-    // left column: portrait, current digit, stability and stats; then a 3x3 grid of registers
-    portrait(4, 4);
-    g.fillStyle = vc; g.fillRect(38, 4, 30, 30); g.fillStyle = '#101018'; g.fillRect(40, 6, 26, 26);
-    T(String(digitNow), 49, 11, vc, 3);
-    T('STB ' + stab + '%', 4, 39, scol);
-    for (let i = 0; i < 10; i++) { g.fillStyle = i < Math.round(stab / 10) ? scol : '#211c3d'; g.fillRect(4 + i * 7, 47, 6, 5); }
-    T('BYTES ' + String(bytes).padStart(3, '0'), 4, Math.min(SH - 15, 56), '#ffffff');
-    T('CRASH ' + crashes, 4, Math.min(SH - 7, 64), crashes ? '#ff3d8a' : '#ffffff');
-    const gx = 76, cw = Math.floor((SW - gx - 2) / 3), rh = Math.floor((SH - 2) / 3);
-    regs.forEach((r, i) => drawReg(g, T, r, i, gx + Math.floor(i / 3) * cw, 1 + (i % 3) * rh, cw - 2, rh - 2, true));
-    return;
+    portrait(3, 3); nowBox(36, 3, 30);
+    T(layerTxt, 3, 37, '#8a93b4');
+    for (let i = 0; i < 10; i++) { g.fillStyle = i < Math.round(stab / 10) ? scol : '#211c3d'; g.fillRect(3 + i * 6, 46, 5, 4); }
+    T('B' + String(bytes).padStart(3, '0') + ' X' + crashes, 3, Math.min(SH - 7, 54), '#ffffff');
+    const gx = 70, cols = 3, rows = Math.ceil(regs.length / cols), cw = Math.floor((SW - gx - 2) / cols), rh = Math.floor((SH - 2) / rows);
+    regs.forEach((r, i) => drawCard(g, T, r, i, gx + Math.floor(i / rows) * cw, 1 + (i % rows) * rh, cw - 2, rh - 2));
+  } else {
+    // header: face, the digit you'd write, which layer it's from, and what each control would do with it
+    portrait(3, 3); nowBox(36, 3, 30);
+    T(layerTxt + '  ' + colAddr(cellNow[0]), 72, 4, '#8a93b4');
+    drawParts(72, 12, 2, SW - 76);
+    for (let i = 0; i < 12; i++) { g.fillStyle = i < Math.round(stab / 8.4) ? scol : '#211c3d'; g.fillRect(72 + i * 4, 26, 3, 5); }
+    T(statTxt, 124, 26, '#c9cfe6');
+    const top = 36, rows = Math.ceil(regs.length / 2);
+    let rh = clamp(Math.floor((SH - top - 1) / rows), 14, 30);
+    const logN = SH - top - rows * rh >= 11 ? 1 : 0;
+    if (!logN && rows * rh > SH - top - 1) rh = Math.floor((SH - top - 1) / rows);
+    const cw = Math.floor((SW - 6) / 2);
+    regs.forEach((r, i) => drawCard(g, T, r, i, 3 + (i % 2) * (cw + 1), top + Math.floor(i / 2) * rh, cw - 1, rh - 2));
+    if (logN) { const a = logLines[logLines.length - 1]; if (a) { const t = typed(a); T(t.length > 78 ? t.slice(0, 77) + '.' : t, 4, SH - 8, LOG_COL[a.cls] || LOG_COL['']); } }
   }
-
-  // panel: header, nine register rows, and as many log lines as fit
-  portrait(6, 4);
-  T('STABILITY', 42, 7, '#8a93b4');
-  for (let i = 0; i < 16; i++) { g.fillStyle = i < Math.round(stab / 6.25) ? scol : '#211c3d'; g.fillRect(42 + i * 7, 16, 6, 8); }
-  T(stab + '%', 158, 15, scol, 2);
-  g.fillStyle = vc; g.fillRect(194, 4, 30, 30); g.fillStyle = '#101018'; g.fillRect(196, 6, 26, 26);
-  T(String(digitNow), 203, 9, vc, 4);
-  if (symNow) T('SYMBOL ' + symNow.ch + ' AT ' + colAddr(cellNow[0]), 232, 7, '#ffc23d'); else T(reading ? (reading.kind === 'bug' ? 'READING ' + (reading.o.wings ? 'BOTNET' : TYPE_NAME[reading.o.type] || 'BUG').split(' ')[0] : reading.kind === 'box' ? 'READING 0X BOX' : reading.kind === 'held' ? 'HELD ' + TYPE_NAME[reading.o.type].split(' ')[0] : reading.kind === 'mouth' ? 'RAPTOR MOUTH' : 'READING ORPHAN') : 'COL ' + colAddr(cellNow[0]), 232, 7, reading ? '#4ff0ff' : '#8a93b4');
-  T('BYTES ' + String(bytes).padStart(3, '0'), 232, 17, '#ffffff');
-  T('CRASH ' + crashes, 232, 27, crashes ? '#ff3d8a' : '#ffffff');
-  g.fillStyle = '#262046'; g.fillRect(6, 37, SW - 12, 1);
-  const free = SH - 40 - 9 * 13;
-  const logN = free >= 30 ? 2 : free >= 14 ? 1 : 0;
-  const rowH = clamp(Math.floor((SH - 40 - logN * 11 - 3) / 9), 12, 20);
-  regs.forEach((r, i) => drawReg(g, T, r, i, 6, 40 + i * rowH, SW - 12, rowH - 2, false));
-  if (logN) {
-    const clip = (t) => (t.length > 76 ? t.slice(0, 75) + '.' : t);
-    const ly = SH - logN * 11 - 1;
-    g.fillStyle = '#262046'; g.fillRect(6, ly - 3, SW - 12, 1);
-    const a = logLines[logLines.length - 1], b = logLines[logLines.length - 2];
-    if (logN === 2 && b) { g.globalAlpha = 0.55; T(clip(b.msg), 8, ly, LOG_COL[b.cls] || LOG_COL['']); g.globalAlpha = 1; }
-    if (a) T(clip(typed(a)), 8, ly + (logN === 2 ? 11 : 0), LOG_COL[a.cls] || LOG_COL['']);
-  }
+  // the whole screen's frame flashes the verdict, so it reads from the corner of your eye
+  if (vd !== 'none' && state === 'play') { g.fillStyle = vc; g.globalAlpha = (frame >> 3) % 2 ? 0.95 : 0.55; g.fillRect(0, 0, SW, 2); g.fillRect(0, SH - 2, SW, 2); g.fillRect(0, 0, 2, SH); g.fillRect(SW - 2, 0, 2, SH); g.globalAlpha = 1; }
 }
-// Tap a register on the bottom screen to force-write the current digit into it.
+// Tap a register on the register screen to have it explained in the log (taps never write).
 cv2.addEventListener('pointerdown', (e) => {
   e.preventDefault(); ensureAudio();
   const rc = cv2.getBoundingClientRect();
   const x = (e.clientX - rc.left) / rc.width * SW, y = (e.clientY - rc.top) / rc.height * SH;
+  if (demo) { stopDemo(); return; }
   if (state === 'title') { startGame(savedLevel()); return; }
   if (state !== 'play') return;
   const i = regRects.findIndex((q) => q && x >= q[0] && x < q[0] + q[2] && y >= q[1] && y < q[1] + q[3]);
-  if (i >= 0) { haptic(); inject(regs[i]); }
+  if (i >= 0) { const r = regs[i]; haptic(); log(`${r.name}: ${r.unlocked ? (r.good ? 'ONLINE' : 'ACTIVE') + '. RE-ENTER ' + r.seq.join(' ') + ' TO SWITCH OFF' : !isOpen(r) ? r.cond.label : 'NEXT ' + nextOf(r) + ' ON ' + CTRL_GLYPH[r.ctrl]}`, 'sys'); }
 });
 cv2.addEventListener('contextmenu', (e) => e.preventDefault());
 
 /* ================= injection ================= */
-function injectCtrl(k) {
-  const cands = regs.filter((r) => r.ctrl === k && canTake(r));
-  if (!cands.length) { log(`NO OPEN REGISTER ON ${CTRL_NAME[k]}`, 'sys'); SFX.bad(); return; }
-  inject(cands.find((r) => r.good && nextMatches(r)) || cands.find(nextMatches) || cands.find((r) => r.good) || cands[0]);
-}
-function inject(r) {
+let combo = 0, comboAt = -9999, hintAt = -999, hitStop = 0, scanCd = 0;
+const COMBO_T = 420;
+// Write a digit into a register. `how` is 'key' (◀ ▶ A on a digit) or how a creature or box was touched.
+function write(r, d, how, wx, wy) {
   if (!r || state !== 'play' || p.dead) return;
-  if (r.unlocked) { log(`${r.name} IS ALREADY ${r.good ? 'ONLINE' : 'ACTIVE'}`, 'sys'); return; }
-  if (!isOpen(r)) { log(`${r.name} IS CLOSED: ${r.cond.label}`, 'sys'); SFX.bad(); r.flashT = 8; return; }
-  const d = digitNow, i = r.slots.length, ok = d === r.seq[i];
-  r.slots.push({ d, ok }); injections++; musicWrite(d, ok, r.good);
-  writeFx.push({ c: cellNow[0], d, t: 0, col: !r.good ? '#ff3d8a' : ok ? '#39ff88' : '#ffffff', sx: cellNow[0] * 16 + 8, sy: VH - 6 });
-  if (reading) { const [rx, ry] = carrierXY(reading); for (let n = 0; n < 10; n++) pSpawn(rx, ry, PK.SPARK, '#4ff0ff', (Math.random() - 0.5) * 2, -Math.random() * 1.5, 16); }
-  if (symNow) for (let n = 0; n < 16; n++) pSpawn(p.x + p.w / 2, p.y + p.h, PK.SPARK, '#ffc23d', (Math.random() - 0.5) * 3, -Math.random() * 2.5, 22);
-  if (p.grounded) p.actT = 20;
-  if (r.good && ok) faceT.happy = 70; else faceT.shock = 70;
-  volatileC += ok ? 0.006 : 0.02;
-  armedT = 0;
-  (ok && r.good ? SFX.ok : SFX.bad)(); haptic(ok && r.good ? 12 : 30);
-  if (r.good) log(`MOV ${r.addr}[${i}], ${d}  ${ok ? 'OK' : 'MISMATCH (want ' + r.seq[i] + ')'}`, ok ? 'ok' : 'bad');
-  else log(`!! CURSE ${r.name} ${ok ? 'FED' : 'JAMMED'} (${r.slots.length}/${r.seq.length})`, 'bad');
-  floaters.push({ x: p.x + 7, y: p.y - 26, t: 50, text: (ok ? '+' : 'X') + d, col: !r.good ? '#ff3d8a' : ok ? '#39ff88' : '#ffffff' });
+  const i = r.slots.length, off = r.unlocked;
+  r.slots.push({ d, ok: true }); injections++; musicWrite(d, true, r.good && !off);
+  const col = off ? '#c9c2ff' : r.good ? '#39ff88' : '#ff3d8a';
+  writeFx.push({ c: cellNow[0], d, t: 0, col, sx: wx !== undefined ? wx : cellNow[0] * 16 + 8, sy: wy !== undefined ? wy : VH - 7 });
+  if (symNow && how === 'key') for (let n = 0; n < 16; n++) pSpawn(p.x + p.w / 2, p.y + p.h, PK.SPARK, '#ffc23d', (Math.random() - 0.5) * 3, -Math.random() * 2.5, 22);
+  if (p.grounded && how === 'key') p.actT = 20;
+  if (off) faceT.happy = 40;
+  else if (r.good) { faceT.happy = 70; combo = frame - comboAt < COMBO_T ? combo + 1 : 1; comboAt = frame; if (combo > 1) bytes += combo - 1; }
+  else { faceT.shock = 70; combo = 0; }
+  volatileC += 0.006;
+  (r.good || off ? SFX.ok : SFX.bad)(); haptic(r.good || off ? 12 : 30);
+  const via = how === 'key' ? '' : ` (${how.toUpperCase()})`;
+  if (off) log(`${r.name} OFF-STRING ${i + 1}/${r.seq.length}: ${d}${via}`, 'sys');
+  else if (r.good) log(`MOV ${r.addr}[${i}], ${d}  OK${via}${combo > 1 ? '  COMBO X' + combo : ''}`, 'ok');
+  else log(`!! CURSE ${r.name} FED ${d} (${i + 1}/${r.seq.length})${via}`, 'bad');
+  floaters.push({ x: p.x + 7, y: p.y - 26 - (how === 'key' ? 0 : 10), t: 50, text: (off ? 'OFF ' : '+') + d + (combo > 1 && r.good && !off ? ' X' + combo : ''), col });
   r.flashT = 16;
   if (Math.random() < 0.10) glitch();
-  if (r.slots.length === r.seq.length) {
-    if (r.slots.every((s) => s.ok)) (r.good ? unlock : curse)(r); else segfault(r);
+  if (r.slots.length === r.seq.length) { r.slots = []; if (off) offline(r); else (r.good ? unlock : curse)(r); }
+}
+function offline(r) {
+  r.unlocked = false; abil[r.id] = false;
+  if (r.id === 'grav' && p.flip) p.flip = false;
+  SFX.patch(); haptic(40);
+  log(`${r.name} ${r.good ? 'SWITCHED OFF' : 'CURSE LIFTED'}: STRING RE-ENTERED`, r.good ? 'sys' : 'ok');
+  floaters.push({ x: p.x + 7, y: p.y - 36, t: 90, text: r.short + (r.good ? ' OFF' : ' LIFTED'), col: '#c9c2ff' });
+}
+// A press that wrote nothing says why, when the digit is wanted somewhere else.
+function hint(k) {
+  if (frame - hintAt < 45 || state !== 'play') return;
+  const other = regs.find((r) => !r.unlocked && r.ctrl !== k && isOpen(r) && nextOf(r) === digitNow);
+  const closed = regs.find((r) => !r.unlocked && !isOpen(r) && nextOf(r) === digitNow);
+  let text = null, col = '#ffc23d';
+  if (other) text = `${digitNow} FITS ${other.short}: PRESS ${CTRL_GLYPH[other.ctrl]}`;
+  else if (closed && k === 'jump') { text = `${closed.short} IS CLOSED: ${closed.cond.label}`; col = '#8a93b4'; }
+  if (!text) return;
+  hintAt = frame; floaters.push({ x: p.x + 7, y: p.y - 30, t: 80, text, col }); log(text, 'sys');
+}
+// A creature's or box's digit is written by touching it in any way: into every register that needs it next.
+function touchDigit(o, how, x, y) {
+  if (!o || o.d === undefined || state !== 'play' || p.dead) return;
+  if (o.wcd !== undefined && frame - o.wcd < 40) return;
+  o.wcd = frame; if (o.rev === undefined) o.rev = frame;
+  const hits = regs.filter((r) => !r.unlocked && isOpen(r) && nextOf(r) === o.d);
+  if (!hits.length) { if (!o.shown) { o.shown = 1; floaters.push({ x, y: y - 8, t: 45, text: String(o.d), col: '#8a7aa0' }); } return; }
+  for (const r of hits) write(r, o.d, how, x, y);
+}
+// B: SCAN. Decrypts the memory around you: row, air lane, platforms and carriers.
+function scan() {
+  if (scanCd > 0) { log(`SCAN RECHARGING (${Math.ceil(scanCd / 60)} S)`, 'sys'); SFX.bad(); return; }
+  scanCd = 300; const pc = cellNow[0];
+  for (let c = Math.max(0, pc - 14); c <= Math.min(LW - 1, pc + 14); c++) {
+    if (!revealed.has(c)) revealed.set(c, frame + Math.abs(c - pc) * 2);
+    if (!revealedAir.has(c)) revealedAir.set(c, frame + Math.abs(c - pc) * 2);
+    for (let r = 0; r < 13; r++) if (standable(c, r) && !revealedPlat.has(c + ',' + r)) revealedPlat.set(c + ',' + r, { c, r, at: frame + Math.abs(c - pc) * 2 });
   }
-  renderRegs();
+  for (const o of [...enemies, ...boxes]) if (o.rev === undefined && Math.abs(carrierCol(o, o.c !== undefined ? 'box' : 'bug') - pc) <= 14) o.rev = frame;
+  flashes.push({ x: p.x + 7, y: p.y + 13, r: 140, t: 30, c: '#4ff0ff' }); SFX.arm(); haptic(20);
+  log('SCAN: 29 COLUMNS DECRYPTED', 'sys');
 }
 function unlock(r) {
   faceT.happy = 150;
@@ -1840,7 +1875,7 @@ function bump(tx, ty, g) {
   bumps.set(tx + ',' + ty, 10); SFX.bump();
   for (let n = 0; n < 7; n++) pSpawn(tx * 16 + Math.random() * 16, g > 0 ? ty * 16 + 17 : ty * 16 - 2, PK.DUST, texColor(t === T.RAM ? TEX.ram : t === T.HEX ? TEX.hex[0] : TEX.used), (Math.random() - 0.5) * 1.5, g > 0 ? 0.5 : -1.5);
   const bx = boxes.find((q) => q.c === tx && q.r === ty);
-  if (bx && bx.rev === undefined) { bx.rev = frame; SFX.ok(); }
+  if (bx) touchDigit(bx, 'bump', tx * 16 + 8, ty * 16);
   if (t === T.HEX) {
     setT(tx, ty, T.USED);
     const ix = tx * 16, iy = g > 0 ? ty * 16 - 10 : ty * 16 + 16;
@@ -1881,6 +1916,7 @@ function killEnemy(e, fly, force) {
   const spr = enemySprite(e);
   burst(spritePixels(spr, 0, 0, spr.width, spr.height, spr), e.x - (spr.width - e.w) / 2, e.y + e.h - spr.height * e.s, e.s, e.dir > 0, spr.width, fly ? e.dir * 1.2 : 0, fly ? -1 : 0.3);
   e.dead = 1;                                                       // gone: it's debris now
+  if (Math.abs(e.x - p.x) < VW * 0.6) { touchDigit(e, 'hit', e.x + e.w / 2, e.y); hitStop = Math.max(hitStop, 2); }
   if (e.d !== undefined) orphans.push({ x: e.x + e.w / 2, y: Math.min(e.y - 6, 190), d: e.d, rev: e.rev, born: frame });
 }
 function die(reason) {
@@ -1911,22 +1947,22 @@ function respawn() {
 /* ================= update ================= */
 function update() {
   frame++;
+  if (state === 'title' && !demo && frame - titleAt > 540 && !ov.hidden) { startDemo(); return; }   // idle on the title: the game plays itself
   if (state !== 'play') {
     if (state === 'title') camX = (Math.sin(frame / 900) * 0.5 + 0.5) * (WORLD_W - VW) * 0.6;
     if (state === 'intro') camX = 0;
     clearEdges(); return;
   }
+  if (hitStop > 0) { hitStop--; return; }                   // a beat of weight on every stomp and kill
+  if (demo) demoTick();
   playFrames++;
-  // breakpoint / injection
-  if (edges.inj) {
-    if (armedT > 0) { armedT = 0; log('BREAKPOINT CLEARED', 'sys'); }
-    else { armedT = 5; SFX.arm(); log(`BREAKPOINT — FORCE-WRITE ${digitNow} WITH ◀ ▶ OR A`, 'sys'); }
-  }
+  // B scans; ◀ ▶ A on a register's next digit write it (and still move or jump)
+  if (scanCd > 0) scanCd--;
+  if (edges.inj) scan();
   for (const k of ['left', 'right', 'jump']) {
-    if (!edges[k]) continue;
-    if (armedT > 0) { injectCtrl(k); consumed[k] = true; edges[k] = false; armedT = 0; continue; }
-    // A control pressed while standing on its register's next digit writes it (and still moves/jumps).
-    if (!consumed[k]) { const r = regs.find((q) => q.ctrl === k && nextMatches(q)); if (r) inject(r); }
+    if (!edges[k] || consumed[k] || (demo && !demo.allow)) continue;   // the demo bot only writes when it means to
+    const r = pickFor(k);
+    if (r) write(r, digitNow, 'key'); else hint(k);
   }
   if (edges.flip) {
     if (abil.grav) { if (p.riding) dismount(false); p.flip = !p.flip; p.grounded = false; SFX.flip(); haptic(20); }
@@ -1989,24 +2025,43 @@ function carrierXY(r) {
   if (r.kind === 'mouth') return [p.x + p.w / 2 + p.face * 12, p.y + p.h - 30];
   return [o.x + o.w / 2, o.y];
 }
+// Layers: the ground row, the face of whatever block you stand on, and the air above each column.
+const layerDigit = (layer, c, r) => { let d = hash2(c, layer === 'air' ? 3 : r + 40, (layer === 'air' ? 8080 : 5151) + levelSeed * 7919) % 10; while (LV && LV.rare.includes(d)) d = (d + 3) % 10; return d; };
+const standable = (c, r) => { const t = tileAt(c, r); return (t === T.SEMI || (t !== T.E && t !== T.SPK && t !== T.FW && solidE(t, c, r))) && !solidE(tileAt(c, r - 1), c, r - 1) && tileAt(c, r - 1) !== T.SEMI; };
+const revealedAir = new Map(), revealedPlat = new Map();
+let layerNow = 'ground', platNow = null;
 function readRow() {
   rowOver = new Map();
-  const pc = cellNow[0], hy = p.y + p.h / 2;
+  const pc = cellNow[0];
   const put = (o, kind) => {
     const c = carrierCol(o, kind);
     if (o.rev === undefined && Math.abs(c - pc) <= 3 && state === 'play') { o.rev = frame; if (actx && !muted) tone(2200 + o.d * 70, 0.04, 'square', 0.015); }
-    const dist = Math.abs((kind === 'box' ? o.r * 16 + 8 : o.y + (o.h || 0) / 2) - hy), cur = rowOver.get(c);
-    if (!cur || dist < cur.dist) rowOver.set(c, { o, kind, d: o.d, dist });
+    if (!rowOver.has(c)) rowOver.set(c, { o, kind, d: o.d });
   };
   for (const e of enemies) if (!e.dead && !e.carried && e.d !== undefined) put(e, 'bug');
   for (const b of boxes) put(b, 'box');
   for (const o of orphans) put(o, 'ptr');
-  if (p.carry && p.carry.d !== undefined && !p.carry.dead) rowOver.set(pc, { o: p.carry, kind: 'held', d: p.carry.d, dist: 0 });
-  else if (p.riding && dino.mouth && dino.mouth.d !== undefined) rowOver.set(pc, { o: dino.mouth, kind: 'mouth', d: dino.mouth.d, dist: 0 });
-  const over = rowOver.get(pc), sym = symAt(pc), held = over && (over.kind === 'held' || over.kind === 'mouth');
-  symNow = !held && sym && revealed.has(pc) && symReach(sym) ? sym : null;
-  reading = !p.dead && over && !symNow && (held || over.o.rev !== undefined) ? over : null;
-  digitNow = symNow ? symNow.ch : reading ? reading.d : colDigit(pc);
+  // which layer you're in
+  let layer = 'ground', key = null;
+  if (p.riding) layer = dino && dino.grounded ? 'ground' : 'air';
+  else if (p.grounded) {
+    if (p.on) { layer = 'plat'; key = [pc, p.on.t === 'lift' || p.on.t === 'drop' ? 20 + plats.indexOf(p.on) : 30]; }
+    else { const fy = p.flip ? Math.floor((p.y - 1) / 16) : Math.floor((p.y + p.h + 1) / 16); if (p.flip || fy < 13) { layer = 'plat'; key = [pc, fy]; } }
+  } else layer = 'air';
+  layerNow = layer; platNow = key;
+  if (state === 'play') {
+    if (layer === 'air' && !revealedAir.has(pc)) revealedAir.set(pc, frame);
+    if (key && !revealedPlat.has(key[0] + ',' + key[1])) revealedPlat.set(key[0] + ',' + key[1], { c: key[0], r: key[1], at: frame });
+    if ((frame & 7) === 0) for (let c = pc - 2; c <= pc + 2; c++) for (let r = 1; r < 13; r++) if (Math.abs(r * 16 - (p.y + p.h)) < 100 && !revealedPlat.has(c + ',' + r) && standable(c, r)) revealedPlat.set(c + ',' + r, { c, r, at: frame });
+    // touching things writes their digits: standing on a 0x box or a frozen virus, brushing an orphaned pointer
+    if (p.grounded && !p.flip && !p.on) { const ty = Math.floor((p.y + p.h + 1) / 16); if (tileAt(pc, ty) === T.HEX) touchDigit(boxes.find((q) => q.c === pc && q.r === ty), 'stand', pc * 16 + 8, ty * 16); }
+    if (p.on && enemies.includes(p.on)) touchDigit(p.on, 'stand', p.on.x + p.on.w / 2, p.on.y);
+    for (const o of orphans) if (Math.abs(o.x - (p.x + p.w / 2)) < 12 && o.y > p.y - 14 && o.y < p.y + p.h + 14) touchDigit(o, 'touch', o.x, o.y);
+  }
+  const sym = symAt(pc);
+  symNow = sym && revealed.has(pc) && symReach(sym) ? sym : null;
+  digitNow = symNow ? symNow.ch : layer === 'air' ? layerDigit('air', pc) : layer === 'plat' ? layerDigit('plat', key[0], key[1]) : colDigit(pc);
+  reading = null;
   updateMatch();
 }
 // Which walls you can cling to. ROM, firewalls, the bus, NULL blocks, ice and bit blocks are too smooth.
@@ -2222,18 +2277,21 @@ function touchEnemy(e, g) {
   const stomp = g > 0 ? (p.vy > 0 && p.y + p.h - p.vy <= e.y + e.h * 0.5) : (p.vy < 0 && p.y - p.vy >= e.y + e.h * 0.5);
   const bounce = () => { p.vy = -g * 4.6; haptic(15); };
   const away = Math.sign(e.x + e.w / 2 - (p.x + p.w / 2)) || p.face;
-  if (e.type === 'ghost' || e.type === 'chomp') return hurt(TYPE_NAME[e.type]);
+  const hb = { x: p.x + 2, y: p.y + 3, w: p.w - 4, h: p.h - 5 }, eb = { x: e.x + 3, y: e.y + 4, w: e.w - 6, h: e.h - 6 };   // a few pixels of forgiveness
+  if (e.type === 'ghost' || e.type === 'chomp') return overlap(hb, eb) ? hurt(TYPE_NAME[e.type]) : undefined;
   if (stomp) {
+    touchDigit(e, 'stomp', e.x + e.w / 2, e.y); hitStop = 3;
     if (e.type === 'spiky' && !p.riding) return hurt('SPIKE');
     if (e.type === 'sheller') { if (e.wings) { e.wings = false; SFX.stomp(); } else if (e.st === 'walk') toShell(e); else if (e.st === 'spin') { e.st = 'shell'; e.vx = 0; e.t = 0; SFX.stomp(); } else kick(e, away); return bounce(); }
     if (e.type === 'bomb') { if (e.st === 'walk') { e.st = 'lit'; e.t = 180; e.vx = 0; SFX.arm(); log('FORK BOMB LIT: GRAB IT WITH Y OR RUN', 'warn'); } else kick(e, away); return bounce(); }
     killEnemy(e, false); return bounce();
   }
   if ((e.type === 'sheller' && e.st === 'shell') || (e.type === 'bomb' && e.st === 'lit')) {
-    if (held.grab && !p.carry && !p.riding) { p.carry = e; e.carried = true; e.vx = 0; SFX.click(); log(`GRABBED A ${TYPE_NAME[e.type]}${e.d !== undefined ? '. IT CARRIES ' + e.d : ''}`, 'sys'); return; }   // hold Y to pick it up
+    touchDigit(e, held.grab ? 'grab' : 'kick', e.x + e.w / 2, e.y);
+    if (held.grab && !p.carry && !p.riding) { p.carry = e; e.carried = true; e.vx = 0; SFX.click(); log(`GRABBED A ${TYPE_NAME[e.type]}`, 'sys'); return; }   // hold Y to pick it up
     return kick(e, away);
   }
-  hurt((e.wings ? 'BOTNET' : TYPE_NAME[e.type]) + ' CONTACT');
+  if (overlap(hb, eb)) hurt((e.wings ? 'BOTNET' : TYPE_NAME[e.type]) + ' CONTACT');
 }
 function explode(e) {
   if (e.dead) return;
@@ -2262,7 +2320,7 @@ function updateHazards() {
       const want = h.ph < 110 ? 0 : h.ph < 130 ? (h.ph - 110) / 20 : h.ph < 220 ? 1 : (240 - h.ph) / 20;
       h.out = onTop && h.out < 0.05 ? 0 : want;
       const H = 22 * h.out;
-      if (H > 4 && !p.dead && overlap(p, { x: h.x - 6, y: h.top - H, w: 12, h: H }, 2)) hurt('PHAGE');
+      if (H > 4 && !p.dead && overlap(p, { x: h.x - 6, y: h.top - H, w: 12, h: H }, 4)) hurt('PHAGE');
     } else if (h.t === 'crusher') {                                  // STACK SMASH: drops on whoever is underneath
       const oy = h.y;
       if (h.st === 'wait') { if (p.x + p.w > h.x - 6 && p.x < h.x + h.w + 6 && p.y > h.y + 16) { h.st = 'fall'; h.vy = 0; } }
@@ -2272,7 +2330,7 @@ function updateHazards() {
       } else if (h.st === 'stay') { if (--h.tt <= 0) h.st = 'rise'; }
       else { h.y -= 1; if (h.y <= h.y0) { h.y = h.y0; h.st = 'wait'; } }
       h.dy = h.y - oy;
-      if (!p.dead && overlap(p, h, 1) && p.y + p.h > h.y + 4) hurt('STACK SMASH');
+      if (!p.dead && overlap(p, h, 3) && p.y + p.h > h.y + 4) hurt('STACK SMASH');
       for (const e of enemies) if (!e.dead && h.st === 'fall' && overlap(e, h)) killEnemy(e, true);
     } else if (h.t === 'cannon') {                                   // PING CANNON
       const dx = p.x + p.w / 2 - (h.x + 8);
@@ -2296,7 +2354,7 @@ function updateHazards() {
       }
       const under = tileAt(Math.floor((h.x + 16) / 16), 13);
       if (under !== T.BRIDGE && h.y >= 208 - 32) { h.falling = true; h.vy = 1; SFX.segv(); log('KERNEL PANIC FELL INTO THE LAVA', 'ok'); }
-      if (!p.dead && overlap(p, h, 4)) hurt('KERNEL PANIC');
+      if (!p.dead && overlap(p, h, 7)) hurt('KERNEL PANIC');
     } else if (h.t === 'kill') {                                     // the kill switch: drops the bridge
       if (!h.pulled && !p.dead && overlap(p, h)) {
         h.pulled = 1; p.inv = Math.max(p.inv, 200); SFX.unlock(); haptic(60); shakeT = 30;
@@ -2310,7 +2368,7 @@ function updateHazards() {
       }
     } else if (h.t === 'firebar') {                                  // SPINLOCK
       h.a += h.sp;
-      for (let k = 1; k <= h.n; k++) { const ox = h.cx + Math.cos(h.a) * k * 8, oy = h.cy + Math.sin(h.a) * k * 8; if (!p.dead && overlap(p, { x: ox - 3, y: oy - 3, w: 6, h: 6 }, 1)) hurt('SPINLOCK'); }
+      for (let k = 1; k <= h.n; k++) { const ox = h.cx + Math.cos(h.a) * k * 8, oy = h.cy + Math.sin(h.a) * k * 8; if (!p.dead && overlap(p, { x: ox - 2, y: oy - 2, w: 4, h: 4 }, 1)) hurt('SPINLOCK'); }
     }
   }
 }
@@ -2326,7 +2384,7 @@ function updateShots() {
       if (cellSolid((q.x + 3) | 0, (q.y + 3) | 0)) { for (let n = 0; n < 8; n++) pSpawn(q.x + 3, q.y + 3, PK.SPARK, '#ff3d8a', (Math.random() - 0.5) * 2, -Math.random() * 2, 16); shots.splice(i, 1); continue; }
     } else { q.x += q.vx; if (frame % 3 === 0) pSpawn(q.x + (q.vx > 0 ? 0 : 16), q.y + 6, PK.HEAT, '#6a6f90', -q.vx * 0.2, -0.2, 26); }
     if (q.k === 'spit') { for (const e of enemies) if (!e.dead && !e.carried && e.type !== 'ghost' && e.type !== 'chomp' && overlap(q, e)) { killEnemy(e, true); q.dead = true; break; } continue; }
-    if (!p.dead && overlap(p, q, 1)) {
+    if (!p.dead && overlap(p, q, 3)) {
       if (q.k === 'ping' && g > 0 && p.vy > 0 && p.y + p.h - p.vy <= q.y + 6) { q.dead = true; p.vy = -g * 4.6; SFX.stomp(); bytes += 1; }
       else hurt(q.k === 'ping' ? 'PING' : 'PACKET');
     }
@@ -2390,7 +2448,7 @@ function updateMount(J) {
       const tx = p.x + p.w / 2 + p.face * (12 + ext), ty = p.y + p.h - 12; d.tip = [tx, ty];
       if (!d.mouth) for (const e of enemies) if (!e.dead && !e.carried && EDIBLE(e) && Math.abs(e.x + e.w / 2 - tx) < e.w / 2 + 3 && Math.abs(e.y + e.h / 2 - ty) < e.h / 2 + 4) {
         d.mouth = { type: e.type, d: e.d, rev: e.rev }; e.dead = 1; e.respawn = false; d.tongue = Math.min(d.tongue, 4);
-        tone(500, 0.1, 'square', 0.04, -300); log(`RAPTOR SWALLOWED A ${e.wings ? 'BOTNET' : TYPE_NAME[e.type]}${e.d !== undefined ? '. ITS ' + e.d + ' IS IN ITS MOUTH' : ''}`, 'sys'); break;
+        tone(500, 0.1, 'square', 0.04, -300); log(`RAPTOR SWALLOWED A ${e.wings ? 'BOTNET' : TYPE_NAME[e.type]}`, 'sys'); touchDigit(e, 'eat', e.x + e.w / 2, e.y); break;
       }
     }
     return;
@@ -2409,7 +2467,7 @@ function grabAction() {
     SFX.stomp(); return;
   }
   const c = enemies.find((e) => !e.dead && ((e.type === 'sheller' && e.st === 'shell') || (e.type === 'bomb' && e.st === 'lit')) && Math.abs(e.x + e.w / 2 - (p.x + p.w / 2)) < 22 && Math.abs(e.y + e.h - (p.y + p.h)) < 16);
-  if (c) { p.carry = c; c.carried = true; c.vx = 0; SFX.click(); log(`GRABBED A ${TYPE_NAME[c.type]}${c.d !== undefined ? '. IT CARRIES ' + c.d : ''}`, 'sys'); }
+  if (c) { touchDigit(c, 'grab', c.x + c.w / 2, c.y); p.carry = c; c.carried = true; c.vx = 0; SFX.click(); log(`GRABBED A ${TYPE_NAME[c.type]}`, 'sys'); }
   else tone(260, 0.04, 'square', 0.015);
 }
 function updateRespawns() {
@@ -2478,7 +2536,7 @@ function tileTex(t, c, r) {
   }
 }
 function render() {
-  const C = corruption();
+  const C = corruption(); NEED = needMap();
   const shake = (shakeT > 0 && !reduceMotion) ? Math.min(4, 1 + shakeT / 50) : 0;
   const ox = shake ? Math.round((Math.random() - 0.5) * 2 * shake) : 0, oy = shake ? Math.round((Math.random() - 0.5) * 2 * shake) : 0;
   const cx0 = Math.round(camX);
@@ -2578,6 +2636,7 @@ function render() {
   drawParticles(cx0, false);
   drawLighting(cx0);
   drawParticles(cx0, true);
+  drawPlatDigits(cx0);
   // digits in flight from the memory row
   for (const w of writeFx) if (w.x !== undefined) { drawText(String(w.d), Math.round(w.x - cx0) - 3, Math.round(w.y) - 5, '#05040a', 2); drawText(String(w.d), Math.round(w.x - cx0) - 4, Math.round(w.y) - 6, w.col, 2); }
   for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.t / 20); drawText(f.text, Math.round(f.x - cx0) + 1, Math.round(f.y) + 1, '#000', 1, 'center'); drawText(f.text, Math.round(f.x - cx0), Math.round(f.y), f.col, 1, 'center'); ctx.globalAlpha = 1; }
@@ -2585,6 +2644,7 @@ function render() {
   drawBands();
   drawRibbon(cx0);
   drawHUD(C);
+  if (demo) drawCaption();
 }
 function drawEnemy(e, cx0) {
   let spr = enemySprite(e); if (palFault.bug) spr = palVariant(spr, palFault.bug);
@@ -2685,39 +2745,57 @@ function drawParticles(cx0, energy) {
 }
 // The memory row: one digit per column along the bottom of the map, decrypted as you pass over it.
 const CARRY_COL = { bug: '#ff6fa8', box: '#ffc23d', ptr: '#ff3d8a', held: '#4ff0ff', mouth: '#4ff0ff' };
+// Two lanes along the bottom. Top: what's in the air over each column (air digits, gold symbols) and the digits
+// creatures and boxes carry (touch them to write). Bottom: the ground digits. Your column shows the digit you
+// would write right now, from whichever layer you're in.
 function drawRibbon(cx0) {
   if (state === 'title') return;
-  const y = VH - 10, c0 = Math.floor(cx0 / 16), c1 = Math.ceil((cx0 + VW) / 16), vcol = VERDICT_COL[verdict()];
-  ctx.fillStyle = 'rgba(6,5,14,0.88)'; ctx.fillRect(0, y, VW, 10);
-  ctx.fillStyle = '#1e2a44'; ctx.fillRect(0, y, VW, 1);
+  const y = VH - 14, c0 = Math.floor(cx0 / 16), c1 = Math.ceil((cx0 + VW) / 16), vcol = VERDICT_COL[verdict()];
+  ctx.fillStyle = 'rgba(6,5,14,0.92)'; ctx.fillRect(0, y, VW, 14);
+  ctx.fillStyle = '#1e2a44'; ctx.fillRect(0, y, VW, 1); ctx.fillStyle = '#0f1424'; ctx.fillRect(0, y + 7, VW, 1);
   for (let c = Math.max(0, c0); c <= Math.min(LW - 1, c1); c++) {
     const x = c * 16 - cx0, at = revealed.get(c), cur = c === cellNow[0] && state === 'play';
-    const sym = symAt(c), ov = rowOver.get(c);
-    ctx.fillStyle = '#131a2c'; ctx.fillRect(x, y + 2, 1, 7);
+    ctx.fillStyle = '#131a2c'; ctx.fillRect(x, y + 1, 1, 13);
     if (cur) {
-      ctx.globalAlpha = 0.25; ctx.fillStyle = vcol; ctx.fillRect(x + 1, y + 1, 15, 9); ctx.globalAlpha = 1;
+      ctx.globalAlpha = 0.28; ctx.fillStyle = vcol; ctx.fillRect(x + 1, y + 1, 15, 13); ctx.globalAlpha = 1;
       ctx.fillStyle = vcol; ctx.fillRect(x + 1, y, 15, 1); ctx.fillRect(x + 6, y - 2, 5, 1); ctx.fillRect(x + 7, y - 3, 3, 1); ctx.fillRect(x + 8, y - 4, 1, 1);
-    }
-    if (sym && at !== undefined && !(cur && reading && (reading.kind === 'held' || reading.kind === 'mouth'))) {     // a symbol: gold, read only from up high
-      const live = cur && symNow === sym;
-      ctx.fillStyle = '#3a2a08'; ctx.fillRect(x + 3, y + 1, 11, 9);
-      drawText(sym.ch, x + 7, y + 3, live ? vcol : (frame >> 3) % 5 ? '#ffc23d' : '#fff3c0');
-      if (!live) { ctx.fillStyle = '#ffc23d'; ctx.fillRect(x + 13, y + 2, 1, 3); ctx.fillRect(x + 12, y + 3, 3, 1); }   // read it from above
+      // the layer you're reading from, as a mark in the top lane
+      if (symNow) drawText(symNow.ch, x + 7, y + 2, '#ffc23d');
+      else if (layerNow === 'air') { ctx.fillRect(x + 8, y + 2, 1, 1); ctx.fillRect(x + 7, y + 3, 3, 1); ctx.fillRect(x + 6, y + 4, 5, 1); }
+      else if (layerNow === 'plat') { ctx.fillRect(x + 4, y + 4, 9, 2); }
+      drawText(String(digitNow), x + 7, y + 8, vcol);
       continue;
     }
-    if (ov && (ov.o.rev !== undefined || ov.kind === 'held' || ov.kind === 'mouth')) {              // a carrier's digit over the location digit
-      const age = ov.o.rev === undefined ? 99 : frame - ov.o.rev, dec = age < 16, kc = CARRY_COL[ov.kind];
-      if (ov.kind === 'ptr' && (frame + c) % 23 < 2) continue;                                          // orphaned pointers flicker
-      ctx.fillStyle = kc; ctx.fillRect(x + 4, y + 9, 9, 1);
-      drawText(dec ? String(hash2(c, age >> 1, 6) % 10) : String(ov.d), x + 7, y + 3, cur ? vcol : dec ? '#4ff0ff' : kc);
-      continue;
+    // top lane
+    const sym = symAt(c), ov = rowOver.get(c), ad = revealedAir.get(c);
+    if (sym && at !== undefined) drawText(sym.ch, x + 7, y + 2, (frame >> 3) % 5 ? '#ffc23d' : '#fff3c0');
+    else if (ov) {
+      if (ov.o.rev === undefined) drawText('?', x + 7, y + 2, '#7a3a5a');
+      else if (!(ov.kind === 'ptr' && (frame + c) % 23 < 2)) { const kc = CARRY_COL[ov.kind], nb = NEED[ov.d]; if (nb) { ctx.fillStyle = NEED_BG[nb]; ctx.fillRect(x + 2, y + 1, 13, 6); } drawText(String(ov.d), x + 7, y + 2, kc); ctx.fillStyle = kc; ctx.fillRect(x + 12, y + 2, 2, 2); }
+    } else if (ad !== undefined && frame >= ad) {
+      const d = layerDigit('air', c), dec = frame - ad < 16, nb = NEED[d];
+      if (nb && !dec) { ctx.fillStyle = NEED_BG[nb]; ctx.fillRect(x + 2, y + 1, 13, 6); }
+      drawText(dec ? String(hash2(c, (frame - ad) >> 1, 7) % 10) : String(d), x + 7, y + 2, dec ? '#4ff0ff' : '#5fb6cc');
     }
-    if (ov) { drawText('?', x + 7, y + 3, '#7a3a5a'); continue; }                                        // something carries a digit here, not yet read
-    if (at === undefined) { ctx.fillStyle = '#2c3350'; ctx.fillRect(x + 7, y + 5, 2, 1); continue; }
-    const age = frame - at, dec = age < 16;
-    const d = dec ? hash2(c, age >> 1, 5) % 10 : colDigit(c);
-    const fresh = writeFx.some((w) => w.c === c);
-    drawText(String(d), x + 7, y + 3, cur ? vcol : dec ? '#4ff0ff' : fresh ? '#ffffff' : '#7f8db8');
+    // bottom lane
+    if (at === undefined || frame < at) { ctx.fillStyle = '#2c3350'; ctx.fillRect(x + 7, y + 10, 2, 1); continue; }
+    const age = frame - at, dec = age < 16, d = dec ? hash2(c, age >> 1, 5) % 10 : colDigit(c), nb = !dec && NEED[d];
+    if (nb) { ctx.fillStyle = NEED_BG[nb]; ctx.fillRect(x + 2, y + 8, 13, 6); }
+    drawText(String(d), x + 7, y + 8, dec ? '#4ff0ff' : writeFx.some((w) => w.c === c) ? '#ffffff' : nb ? '#e8ecff' : '#7f8db8');
+  }
+}
+// Platform digits sit on the faces of the blocks you can stand on, once decrypted.
+function drawPlatDigits(cx0) {
+  if (state === 'title') return;
+  const c0 = Math.floor(cx0 / 16) - 1, c1 = c0 + Math.ceil(VW / 16) + 2, vcol = VERDICT_COL[verdict()];
+  for (const q of revealedPlat.values()) {
+    if (q.c < c0 || q.c > c1 || q.r >= 20 || frame < q.at || !standable(q.c, q.r)) continue;
+    const d = layerDigit('plat', q.c, q.r), x = q.c * 16 - cx0 + 4, y = q.r * 16 + 2, on = platNow && platNow[0] === q.c && platNow[1] === q.r && !symNow;
+    const dec = frame - q.at < 16, nb = NEED[d];
+    ctx.fillStyle = on ? vcol : 'rgba(5,4,10,0.82)'; ctx.fillRect(x - 1, y - 1, 10, 9);
+    if (!on && nb) { ctx.fillStyle = NEED_BG[nb]; ctx.fillRect(x - 1, y - 1, 10, 9); }
+    if (on) { ctx.fillStyle = '#05040a'; ctx.fillRect(x, y, 8, 7); }
+    drawText(dec ? String(hash2(q.c, frame >> 1, 9) % 10) : String(d), x + 2, y + 1, on ? vcol : dec ? '#4ff0ff' : nb ? '#ffffff' : '#9aa3c8');
   }
 }
 function drawExit(x, y) {
@@ -2774,8 +2852,8 @@ function drawHUD(C) {
   if (state === 'title' || state === 'intro') return;
   if (memMode === 'strip' && logLines.length && frame - lastLogAt < 200) {
     const l = logLines[logLines.length - 1], tt = typed(l), t = tt.length > 70 ? tt.slice(0, 69) + '.' : tt;
-    ctx.fillStyle = 'rgba(8,7,15,0.75)'; ctx.fillRect(0, VH - 24, t.length * 4 + 8, 12);           // above the memory row, never over it
-    drawText(t, 4, VH - 21, LOG_COL[l.cls] || LOG_COL['']);
+    ctx.fillStyle = 'rgba(8,7,15,0.75)'; ctx.fillRect(0, VH - 28, t.length * 4 + 8, 12);           // above the memory row, never over it
+    drawText(t, 4, VH - 25, LOG_COL[l.cls] || LOG_COL['']);
   }
   const secs = Math.floor(playFrames / 60);
   drawText(`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`, VW - 6, 8, '#ffffff', 1, 'right');
@@ -2805,12 +2883,12 @@ function showTitle() {
   ovBox.innerHTML = `<h2>MEMARIO</h2>
     <p>Hack your own memory with numbers you find in the world. Four levels, each impossible without its own hacks.</p>
     <ol class="steps">
-      <li>Every column holds a digit. The memory row along the bottom decrypts it as you pass over.</li>
-      <li>Stand on a register's <b>next digit</b> and press its control (<b>◀</b>, <b>▶</b> or <b>A</b>) to write it.</li>
-      <li>Green registers are hacks. Red ones are curses the same presses fill. Patches purge curses.</li>
-      <li>Some digits never appear on the row: viruses and 0x boxes carry them, writing them into the row at their column.</li>
-      <li>Gold symbols sit in one column and only read from up high. They feed the rarest hacks.</li>
-      <li>Some registers only open under a condition. Reach the EXIT.</li>
+      <li>Leave this screen alone for a few seconds to watch a demo.</li>
+      <li>Digits live in three layers: the <b>ground row</b> along the bottom, the <b>blocks</b> you stand on, and the <b>air</b> while you jump.</li>
+      <li>On a register's <b>next digit</b>, press its control (<b>◀</b>, <b>▶</b> or <b>A</b>) to write it. Lit digits are ones a register wants.</li>
+      <li><b>Viruses and 0x boxes</b> carry digits: stomp, kick, bump or grab one and its digit goes into every register that needs it next.</li>
+      <li>Green = hack, red = curse. Progress never undoes. Re-enter a full string to switch a hack off or lift a curse.</li>
+      <li>B scans the memory around you. Gold symbols read only from up high. Reach the EXIT.</li>
     </ol>
     <div class="row">${sl > 0 ? `<button class="act" id="cont">CONTINUE · LEVEL ${sl + 1}</button><button class="act alt" id="boot">NEW RUN</button>` : '<button class="act" id="boot">BOOT ▸</button>'}</div>`;
   ov.hidden = false;
@@ -2842,7 +2920,7 @@ function showIntro() {
 function beginLevel() {
   state = 'play'; ov.hidden = true; SFX.save(); startMusic(levelIdx);
   log(`LEVEL ${levelIdx + 1}: ${LV.name}. ${regs.filter((r) => r.good).length} HACKS, ${regs.filter((r) => !r.good).length} CURSES`, 'sys');
-  log(`STAND ON A REGISTER'S NEXT DIGIT, PRESS ITS CONTROL (◀ ▶ A) · START = MENU`, 'sys');
+  log(`ON A REGISTER'S NEXT DIGIT PRESS ITS CONTROL · TOUCH VIRUSES FOR THEIRS · B SCAN`, 'sys');
 }
 function reboot() { loadLevel(levelIdx); beginLevel(); }
 function openMenu() {
@@ -2886,6 +2964,117 @@ function nextLevel() {
     <dt>Crashes</dt><dd>${run.crashes}</dd><dt>Curses suffered</dt><dd>${run.curses}</dd></dl>
     <button class="act" id="again">NEW RUN ▸</button>`;
   ov.hidden = false; $('again').addEventListener('click', () => startGame(0));
+}
+
+/* ================= attract mode: the game plays itself on the title screen ================= */
+// A bot plays the start of Boot Sector, with captions: ground, air and virus writes, a curse fed, a crash,
+// and Super Jump over the ROM wall. Any input ends it.
+let demo = null;
+const bot = (k, v) => setKey('bot', k, v);
+function startDemo() {
+  demo = { mutedWas: muted, cap: null, jh: 0, t0: frame };
+  muted = true; run = { time: 0, crashes: 0, curses: 0 };
+  loadLevel(0); state = 'play'; ov.hidden = true;
+  hazards = []; dino = null; enemies = enemies.filter((e) => e.x > 42 * 16);   // a clear stage to show the basics on
+  log('DEMO: TAP ANYWHERE TO PLAY', 'sys');
+  demo.it = demoScript();
+}
+function stopDemo() {
+  if (!demo) return;
+  const d = demo; demo = null;
+  for (const k of KEYS) { src.bot[k] = false; held[k] = src.kb[k] || src.dpad[k] || src.stick[k] || src.btn[k] || false; }
+  muted = d.mutedWas; loadLevel(0); showTitle();
+}
+function demoTick() {
+  if (demo.jh > 0 && --demo.jh === 0) bot('jump', false);
+  const r = demo.it.next();
+  if (r.done || frame - demo.t0 > 6000) stopDemo();
+}
+function drawCaption() {
+  const c = demo && demo.cap; if (!c) return;
+  const k = Math.min(1, (frame - c.at) / 8), y = 14, w = VW - 16;
+  ctx.globalAlpha = k; ctx.fillStyle = 'rgba(6,5,14,0.9)'; ctx.fillRect(8, y, w, 31);
+  ctx.fillStyle = c.col; ctx.fillRect(8, y, w, 1); ctx.fillRect(8, y + 30, w, 1); ctx.fillRect(8, y, 2, 31);
+  drawText(c.t, 15, y + 4, c.col, 2); drawText(c.sub, 15, y + 20, '#e8ecff');
+  ctx.globalAlpha = 1;
+  if ((frame >> 5) % 2) drawText('DEMO - TAP TO PLAY', VW - 6, VH - 26, '#ffffff', 1, 'right');
+}
+function* wait(n) { for (let i = 0; i < n; i++) yield; }
+function* say(t, sub, col, n = 0) { demo.cap = { t, sub, col, at: frame }; yield* wait(n); }
+function* tapKey(k) { demo.allow = true; bot(k, false); bot(k, true); yield; demo.allow = false; bot(k, false); yield; }
+function botJump(n) { bot('jump', false); bot('jump', true); demo.jh = n; }
+const heroX = () => p.x + p.w / 2;
+function* walkTo(px, noHop) {
+  for (let f = 0; f < 900; f++) {
+    if (p.dead) { bot('left', false); bot('right', false); yield; continue; }
+    const dx = px - heroX(), dir = Math.sign(dx);
+    if (Math.abs(dx) < 5 && Math.abs(p.vx) < 0.3 && p.grounded) { bot('left', false); bot('right', false); return true; }
+    if (Math.abs(dx) < 4 + Math.abs(p.vx) * 3) { bot('left', false); bot('right', false); }
+    else { bot(dir > 0 ? 'left' : 'right', false); bot(dir > 0 ? 'right' : 'left', true); }
+    if (p.grounded && !noHop && demo.jh === 0 && Math.abs(dx) > 12) {
+      const ax = Math.floor((heroX() + dir * 14) / 16), by = Math.floor((p.y + p.h - 4) / 16);
+      const foe = enemies.find((e) => !e.dead && Math.sign(e.x + e.w / 2 - heroX()) === dir && Math.abs(e.x + e.w / 2 - heroX()) < 36 && Math.abs(e.y + e.h - (p.y + p.h)) < 14);
+      if (solidP(tileAt(ax, by), ax, by) || foe) botJump(16);
+    }
+    yield;
+  }
+  bot('left', false); bot('right', false); return false;
+}
+const walkable = (c) => tileAt(c, 13) === T.G && tileAt(c, 12) === T.E && tileAt(c, 11) === T.E;
+function nearCol(test, a, b) { let best = null; for (let c = a; c <= b; c++) if (walkable(c) && test(c) && (best === null || Math.abs(c - cellNow[0]) < Math.abs(best - cellNow[0]))) best = c; return best; }
+const openAbove = (c) => { for (let r = 6; r <= 11; r++) if (tileAt(c, r) !== T.E) return false; return true; };
+function* writeGround(d, k, a, b) { const c = nearCol((q) => colDigit(q) === d, a, b); if (c === null) return false; yield* walkTo(c * 16 + 8); yield* wait(12); yield* tapKey(k); return true; }
+function* demoScript() {
+  const sup = regs.find((r) => r.id === 'super');
+  yield* say('MEMARIO', 'A DEMO. TAP ANYWHERE TO PLAY.', '#ffffff', 100);
+  yield* say('WALK TO DECRYPT MEMORY', 'THE BOTTOM ROW HOLDS ONE DIGIT PER COLUMN', '#4ff0ff');
+  yield* walkTo(11 * 16 + 8); yield* wait(30);
+  // a ground digit
+  yield* say('GOOD: A GROUND DIGIT', 'SUPER JUMP WANTS 3 ON <. STAND ON A 3, PRESS <', '#39ff88');
+  yield* writeGround(3, 'left', 3, 26); yield* wait(70);
+  // a carried digit
+  yield* say('8 IS MISSING FROM MEMORY', 'A VIRUS CARRIES IT. STOMP IT: ITS 8 GOES IN', '#ff6fa8');
+  const v = mkEnemy('walker', Math.min(40, cellNow[0] + 8) * 16, {}); v.d = 8; v.rev = frame; enemies.push(v);
+  for (let f = 0; f < 700 && !v.dead && sup.slots.length < 2; f++) {
+    if (p.dead) { bot('left', false); bot('right', false); yield; continue; }
+    const dx = v.x + v.w / 2 - heroX(), dir = Math.sign(dx) || 1;
+    bot(dir > 0 ? 'left' : 'right', false); bot(dir > 0 ? 'right' : 'left', true);
+    if (p.grounded && demo.jh === 0 && Math.abs(dx) < 34) botJump(12);
+    yield;
+  }
+  bot('left', false); bot('right', false); yield* wait(60);
+  // an air digit
+  const ca = nearCol((c) => layerDigit('air', c) === 5 && openAbove(c), 3, 30);
+  if (ca !== null && sup.slots.length === 2) {
+    yield* say('GOOD: AN AIR DIGIT', 'JUMP, THEN PRESS < MID-AIR WHERE THE AIR HOLDS 5', '#39ff88');
+    yield* walkTo(ca * 16 + 8); yield* wait(15); botJump(14);
+    for (let f = 0; f < 60 && !(Math.abs(p.vy) < 1 && !p.grounded); f++) yield;
+    yield* tapKey('left');
+    for (let f = 0; f < 90 && !p.grounded; f++) yield;
+    yield* wait(30);
+  }
+  if (sup.slots.length === 2) { yield* say('GOOD: A GROUND 5', 'STAND ON A 5, PRESS <', '#39ff88'); yield* writeGround(5, 'left', 3, 30); yield* wait(40); }
+  yield* say('GOOD: 2 COMPLETES IT', 'STAND ON A 2, PRESS <', '#39ff88');
+  yield* writeGround(2, 'left', 3, 30); yield* wait(30);
+  if (sup.unlocked) yield* say('SUPER JUMP ONLINE', 'RE-ENTER 3 8 5 2 ANY TIME TO SWITCH IT OFF', '#39ff88', 140);
+  // bad play: a curse, then a crash
+  yield* say('BAD: FEEDING A CURSE', 'A ON A 2 FEEDS HEAVY BOOTS. RED MEANS DANGER', '#ff3d8a');
+  yield* writeGround(2, 'jump', 3, 30); yield* wait(100);
+  yield* say('BAD: SIDE CONTACT', 'TOUCH A VIRUS FROM THE SIDE AND YOU CRASH', '#ff3d8a');
+  const side = cellNow[0] <= 22 ? 1 : -1, w = mkEnemy('walker', (cellNow[0] + side * 4) * 16, {}); w.d = 1; w.dir = -side; enemies.push(w);
+  const c0 = crashes, k1 = side > 0 ? 'right' : 'left';
+  for (let f = 0; f < 400 && crashes === c0; f++) { bot(side > 0 ? 'left' : 'right', false); bot(k1, true); yield; }
+  bot(k1, false); yield* wait(110);
+  // later: the wall
+  yield* say('LATER: THE ROM WALL', 'TOO TALL TO JUMP. TOO SMOOTH TO WALL-JUMP.', '#ffc23d');
+  enemies = enemies.filter((e) => e.x < 140 * 16 || e.x > 192 * 16); checkpoint = 3; burstT = 20; addBand(20);
+  p.x = 157 * 16; p.y = 208 - p.h; p.vx = p.vy = 0; p.inv = 0; camX = clamp(p.x - VW * 0.42, 0, WORLD_W - VW);
+  yield* wait(40);
+  yield* say('GOOD: SUPER JUMP CLEARS IT', 'THE PIT BEYOND NEEDS SPEED BOOST TOO', '#39ff88');
+  bot('right', true);
+  for (let f = 0; f < 300 && heroX() < 172 * 16; f++) { if (heroX() > 165.6 * 16 && p.grounded && demo.jh === 0 && heroX() < 167 * 16) botJump(32); yield; }
+  bot('right', false); yield* wait(50);
+  yield* say('NOW YOU TRY', 'PRESS START OR A TO BOOT', '#ffffff', 150);
 }
 
 /* ================= sizing & loop ================= */
@@ -2939,6 +3128,7 @@ function boot() {
 }
 // Hooks for the Android host: the back button and the app leaving the screen.
 window.memarioBack = () => {
+  if (demo) { stopDemo(); return 'menu'; }
   if (state === 'play') { openMenu(); return 'menu'; }
   if (state === 'pause') { closeMenu(); return 'resume'; }
   if (state === 'intro') { beginLevel(); return 'resume'; }
@@ -2947,6 +3137,7 @@ window.memarioBack = () => {
   return 'exit';
 };
 window.memarioPause = () => {
+  if (demo) stopDemo();
   for (const s2 in src) for (const k of KEYS) setKey(s2, k, false);
   if (state === 'play') openMenu();
   if (actx && actx.state === 'running') actx.suspend().catch(() => {});

@@ -12,14 +12,31 @@ idle, walk, jump/fall, a pointing action played whenever a digit is written, and
 before respawning. `img/faces.png` holds four portraits (normal, grin, shocked, bruised) that react
 on the bottom screen.
 
-## The memory row
+## Writing digits: three layers, and touch
 
-Every 16-pixel column of a level holds one digit. They run along the bottom of the map as a row of
-memory: a column decrypts (its digit scrambles, then settles) the first time you pass over it, and
-stays revealed. Your column is boxed, with a caret, and a faint beam rises from it to the hero. Its
-colour says where a press would send the digit: **green** feeds a hack, **red** feeds a curse, **gold**
-depends on the button, **white** feeds nothing. When you write a digit it flies up out of the row
-into the hero, who points at it, and the line types itself into the log on the register screen.
+Digits live in three layers, and the one you write from is the one you're in:
+
+- **Ground:** every column's digit, on the row along the bottom of the map. It decrypts the first time you pass.
+- **Platform:** every block you can stand on has its own digit, printed on its face once you get near.
+- **Air:** every column also has an air digit. While you're airborne (jumping, falling, on a wall) you read it.
+
+The bottom bar has two lanes: the top lane shows air digits, gold symbols and the digits viruses and boxes
+carry; the bottom lane shows ground digits. Your column shows the digit you would write right now, with a
+mark for its layer (a caret for air, a bar for a platform). Digits that some register wants next are lit:
+green for a hack, red for a curse, gold for both.
+
+**Keys:** on a register's next digit, press its control (◀, ▶ or A). The press still moves or jumps.
+If two registers on that control want it, a hack takes it before a curse. A press that writes nothing
+tells you why when the digit is wanted elsewhere ("3 FITS JUMP: PRESS ◀").
+
+**Touch:** viruses and 0x boxes carry digits. Stomp, kick, grab, bump, shoot or swallow one (or stand on
+a box or a frozen virus) and its digit goes into **every** register that needs it next, on any control,
+curses included.
+
+**Progress never undoes.** Only the right digit writes. When a register is full it turns on; entering
+its whole string again switches a hack off, or lifts a curse. B scans the memory around you (29 columns,
+the air lane and platforms) on a five-second cooldown. Tapping a register on the middle screen explains
+it in the log; taps never write.
 
 ## Digits carried by viruses and boxes
 
@@ -33,17 +50,11 @@ carry them. They are the digits that level's key hacks need:
 | 3 Cloud Storage | 4 | Quarantine (twice; the caged virus carries one) |
 | 4 Root Access | 0 and 7 | Phase Shift, Super Jump |
 
-Every virus and every 0x box carries a digit (every other one carries a missing digit). Nothing
-floats over them: a carrier writes its digit **into the memory row at the column it occupies**,
-over that column's own digit, with a coloured underline (pink for a virus, gold for a box, red and
-flickering for an orphan, cyan for something you hold). A virus's digit slides along the row as it
-walks, and the column's own digit comes back when it leaves. A carrier shows `?` on the row until
-you come within three columns; then it decrypts and stays revealed.
-
-To read a carrier, stand in its column: the row there, the badge and the register screen
-(READING CRAWLER, READING 0X BOX…) all show its digit, and a write flies up out of the row while
-the carrier sparks. A held shell or the raptor's mouthful sits at your own column. A killed virus
-leaves its digit behind as an orphaned pointer in that column, so a missing digit can't be lost.
+Every virus and every 0x box carries a digit (every other one carries a missing digit), written by
+touching it (see above). Their digits show in the top lane of the bottom bar at the column they occupy
+(pink for a virus, gold for a box, red and flickering for an orphan), as `?` until you come within three
+columns. A virus's digit slides along as it walks. A killed virus leaves its digit behind as an orphaned
+pointer; brush past it to write it, so a missing digit can't be lost.
 
 ## Symbols
 
@@ -164,7 +175,7 @@ screen with a slim 3×3 register strip under it and the controller halves either
 | D-pad ◀ ▶ / left stick | Move |
 | A | Jump (hold for height, tap for a hop; in mid-air against a wall: wall jump) |
 | ◀ / ▶ / A on a register's next digit | Writes that digit into the register (and still moves or jumps) |
-| B | Force-write: slows time; then ◀, ▶ or A writes whatever digit you stand on |
+| B | Scan: decrypts 29 columns of ground, air and platform digits around you (5 s cooldown) |
 | X | Flip gravity (when the level's Gravity Flip is online) |
 | Y | Grab a shell or lit fork bomb (hold Y while touching it, or press Y beside it); press again to throw. On the raptor: tongue / spit |
 | D-pad down | Drop what you hold, or hop off the raptor; hold in the air to fall fast |
@@ -172,7 +183,8 @@ screen with a slim 3×3 register strip under it and the controller halves either
 | SELECT / START | Sound on/off / menu (pause, sound, grid, reboot) |
 | Phone back button | Pause menu (quits only from the title screen) |
 
-Tapping a register on the bottom screen also force-writes the current digit into it.
+Tapping a register on the middle screen explains it in the log. Leave the title screen alone for nine
+seconds and the game plays a demo with captions; any input ends it.
 
 ## Levels
 
@@ -200,8 +212,8 @@ What the new hacks and curses do:
 Green registers always take a write before red ones on the same control. The badge over the hero
 shows where a press would go: **green** feeds a hack, **red** feeds a curse, **gold** depends on the
 button. Patches from 0x blocks reduce corruption, flush partly filled curses and purge the most
-recent active curse. A register filled with any wrong digit (only possible with a force-write)
-segfaults and is flushed. Every write has a 10% chance of a random glitch. Nothing ever reverses the controls.
+recent active curse. Only a register's next digit is ever written, so nothing is lost by
+pressing in the wrong place. Every write has a 10% chance of a random glitch. Nothing ever reverses the controls.
 
 ## Music
 
@@ -231,7 +243,7 @@ game, through a Web Audio effect chain:
 
 Each level gives the song a harsher base treatment (Firewall is driven, Cloud Storage dark, slow and
 echoing, Root Access fast and distorted). Written digits and symbols play as notes in F major on the song's beat
-(a wrong write clashes); a segfault skips the track; glitches stutter it, tape-stop it, bitcrush it
+(curse writes clash); glitches stutter it, tape-stop it, bitcrush it
 or bend its pitch; and instability adds micro-stutters. If the song can't be decoded, synthesised
 chiptune tracks play instead. Sound and music toggle separately in the START menu.
 
