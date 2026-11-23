@@ -20,10 +20,29 @@ the idle demo (all remembered); TUTORIAL plays the captioned demo and ends on a 
 A or START on the title continues your latest unfinished run.
 
 **The hack tool** is screen 2 on the title (in landscape, the HACK TOOL button opens it full screen), and
-SCAN HACKS at the bottom of the register list opens it mid-level (the game pauses). Search by name or
-effect, filter by ALL, IN SET, LEVEL, CHEATS, MACROS, WARPS, LOOK or GLITCHES, and tap any entry to put it in
-your set or take it out. Your set comes with you into every level, listed under YOUR SET below the
-level's own registers. Like the level's, each has a digit string you write in to switch it on.
+SCAN HACKS at the bottom of the register list opens it mid-level (the game pauses). It is one scrolling
+environment:
+
+1. **The wiring board.** Along the top, the edge connector of a hack cartridge: 24 gold pins in three lines,
+   A, B and C. Along the bottom, the top edge of your hack board: six sockets, banks 0 to 5. Your wires lie on
+   the board; each is a rope with a plug at both ends, simulated point by point, so it swings, drapes and
+   piles up. Drag a plug onto a pin or a socket and it clicks in; drag it out again to move it. A drag
+   anywhere else on the board scrolls the tool.
+2. **What your wires expose.** Every hack lives on one line of one bank. A wire from a pin to a socket
+   exposes everything on that line of that bank, listed right under the board: hacks on the left, curses
+   on the right. A socket's light turns green when its wire exposes something and red when the line is
+   dead. Move the plugs around to explore.
+3. **Search and the full catalog**, filtered by ALL, IN SET, LEVEL, CHEATS, MACROS, WARPS, LOOK or GLITCHES.
+   Locked entries say which level unlocks them; unlocked ones that aren't wired say which bank and line
+   they live on.
+
+**Unlocking:** you start with no wires. Clearing a level for the first time earns a wire and unlocks that
+level's hacks and curses plus a batch of the rest (eight or so cheats, macros, warps, looks and glitches),
+until all four levels give four wires and the whole catalog.
+
+Tap an exposed entry to put it in your set, or take it out. Your set comes with you into every level,
+listed under YOUR SET below the level's own registers; like the level's, each has a digit string you write
+in to switch it on. Unwiring a hack drops it from your set.
 
 **Every hack you add brings a curse with it**, picked for you and marked "came with" in the tool; it goes
 away when you remove the hack. Looks (palettes, sprite scale) come free.

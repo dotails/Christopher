@@ -151,14 +151,22 @@ body.mode-stack .ov .only-wide{display:none}
 /* ---------- the hack tool: every hack, searchable; tap to bring it with you ---------- */
 .tool{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;background:#0a0816;font-family:var(--f-pix);color:var(--ink);user-select:none}
 body.mode-switch .tool{position:fixed;inset:var(--sat) 0 0 0;z-index:30}
-.tool .tbar{display:flex;gap:6px;padding:6px;border-bottom:1px solid var(--rule)}
+.tool .tscroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.tool .board{position:relative;background:#06150f}
+.tool .board canvas{position:relative;inset:auto;display:block;width:100%;height:auto;object-fit:fill;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none}
+.tool #tDone{position:absolute;right:6px;top:6px;font:13px var(--f-pix);background:var(--phos);color:#04130a;border:0;border-radius:4px;padding:7px 12px}
+.tool .xhead{font-size:11px;color:var(--cyan);padding:7px 8px 3px;letter-spacing:.08em}
+.tool .xcols{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 6px 6px}
+.tool .xcols>div{display:grid;gap:5px;align-content:start}
+.tool .xnone{color:var(--muted);font-size:11px;padding:6px 2px;grid-column:1/3}
+.tool .tbar{display:flex;gap:6px;padding:6px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:2;background:#0a0816}
 .tool input{flex:1;min-width:0;font:14px var(--f-pix);background:#05040a;color:#fff;border:1px solid var(--cyan);border-radius:4px;padding:7px 9px;user-select:text;-webkit-user-select:text}
 .tool input::placeholder{color:#4a5a7a}
-.tool .tbar button{font:13px var(--f-pix);background:var(--phos);color:#04130a;border:0;border-radius:4px;padding:0 12px}
 .tool .tcats{display:flex;gap:5px;padding:5px 6px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--rule)}
 .tool .tcats button{flex:0 0 auto;font:11px var(--f-pix);background:transparent;color:var(--muted);border:1px solid var(--rule);border-radius:10px;padding:3px 9px}
 .tool .tcats button.on{color:#04130a;background:var(--cyan);border-color:var(--cyan)}
-.tool .tlist{flex:1;min-height:0;overflow-y:auto;padding:5px 6px;display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start;-webkit-overflow-scrolling:touch}
+.tool .tlist{padding:5px 6px 10px;display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start}
+.tool .hk.lock{opacity:.45}
 .tool .hk{display:grid;grid-template-columns:1fr auto;gap:1px 6px;text-align:left;background:var(--term2);border:1px solid var(--rule);border-radius:4px;padding:6px 7px;cursor:pointer}
 .tool .hk .n{font-size:13px;color:#fff} .tool .hk.b .n{color:#ff8ab8}
 .tool .hk .st{font-size:10px;color:var(--muted);align-self:start}
@@ -167,7 +175,8 @@ body.mode-switch .tool{position:fixed;inset:var(--sat) 0 0 0;z-index:30}
 .tool .hk .s{grid-column:1/3;font-size:12px;color:var(--cyan);letter-spacing:.12em}
 .tool .hk.on{border-color:var(--phos);background:#0d2a1a} .tool .hk.on .st{color:var(--phos)}
 .tool .hk.b.on{border-color:var(--hot);background:#2a0d1c} .tool .hk.b.on .st{color:var(--hot)}
-.tool .tfoot{padding:6px 8px;border-top:1px solid var(--rule);font-size:11px;color:var(--gold);min-height:26px}
+.tool .tfoot{position:absolute;left:0;right:0;bottom:0;pointer-events:none;padding:6px 8px;border-top:1px solid var(--gold);background:rgba(10,8,22,.94);font-size:11px;color:var(--gold);transition:opacity .4s}
+.tool .tfoot.quiet{opacity:0}
 .tool .empty{grid-column:1/3;color:var(--muted);font-size:12px;padding:10px}
 </style>
 </head>
@@ -181,9 +190,14 @@ body.mode-switch .tool{position:fixed;inset:var(--sat) 0 0 0;z-index:30}
     <div class="scr" id="stage2">
       <canvas id="cv2" width="320" height="240" aria-label="Memory row and registers. Drag to scroll; tap a register to have it explained."></canvas>
       <div class="tool" id="tool" hidden>
-        <div class="tbar"><input id="tq" type="search" placeholder="SEARCH HACKS, CHEATS, GLITCHES" enterkeyhint="search" autocomplete="off" spellcheck="false" aria-label="Search hacks"><button id="tDone">DONE</button></div>
-        <div class="tcats" id="tcats"></div>
-        <div class="tlist" id="tlist"></div>
+        <div class="tscroll" id="tscroll">
+          <div class="board"><canvas id="board" width="320" height="168" aria-label="Wiring board: drag a wire's plugs between the cartridge pins and your board's sockets"></canvas><button id="tDone">DONE</button></div>
+          <div class="xhead" id="xhead">EXPOSED BY YOUR WIRES</div>
+          <div class="xcols"><div id="xg"></div><div id="xb"></div></div>
+          <div class="tbar"><input id="tq" type="search" placeholder="SEARCH EVERY HACK" enterkeyhint="search" autocomplete="off" spellcheck="false" aria-label="Search hacks"></div>
+          <div class="tcats" id="tcats"></div>
+          <div class="tlist" id="tlist"></div>
+        </div>
         <div class="tfoot" id="tfoot"></div>
       </div>
     </div>
@@ -3074,10 +3088,11 @@ function levelClear() {
   const secs = playFrames / 60, n = goodCount(), cursed = regs.filter((r) => !r.good && r.unlocked).length;
   run.time += secs;
   const last = levelIdx === LEVELS.length - 1;
+  const firstClear = !cleared.includes(levelIdx); markCleared(levelIdx);
   updateRun({ level: last ? levelIdx : levelIdx + 1, time: run.time, crashes: run.crashes, curses: run.curses, done: last });
   ovBox.innerHTML = `<div class="lvl">LEVEL ${levelIdx + 1} CLEAR</div><h2 class="lt">${LV.name}</h2>
     <dl><dt>Time</dt><dd>${fmtTime(secs)}</dd><dt>Hacks online</dt><dd>${n} / ${regs.filter((r) => r.good).length}</dd>
-    <dt>Curses active</dt><dd>${cursed}</dd><dt>Crashes</dt><dd>${crashes}</dd><dt>Stability left</dt><dd>${Math.round((1 - corruption()) * 100)}%</dd></dl>
+    <dt>Curses active</dt><dd>${cursed}</dd>${firstClear ? `<dt>Unlocked</dt><dd>A WIRE AND ${LV.regs.length + TRANCHE[levelIdx].length} HACKS</dd>` : ''}<dt>Crashes</dt><dd>${crashes}</dd><dt>Stability left</dt><dd>${Math.round((1 - corruption()) * 100)}%</dd></dl>
     <button class="act" id="next">${last ? 'FINISH ▸' : 'NEXT LEVEL ▸'}</button>`;
   ov.hidden = false; $('next').addEventListener('click', nextLevel);
   log(`LEVEL ${levelIdx + 1} EXITED WITH CODE 0`, 'ok');
@@ -3283,9 +3298,21 @@ X('scramble', false, 'GLITCHES', 'SCRAMB', 'ROW SCRAMBLE', 'THE MEMORY RE-ENCRYP
 X('spawner', false, 'GLITCHES', 'SPAWN', 'VIRUS SPAWNER', 'A CRAWLER SPAWNS AHEAD EVERY 10 SECONDS');
 X('sticky', false, 'GLITCHES', 'STICKY', 'STICKY FLOOR', 'RUN SPEED X0.7');
 const CATS = ['ALL', 'IN SET', 'LEVEL', 'CHEATS', 'MACROS', 'WARPS', 'LOOK', 'GLITCHES'];
+// Clearing a level earns a wire, and unlocks that level's hacks and curses plus one batch from the rest.
+const TRANCHE = [
+  ['moon', 'turbo', 'autorun', 'palNeon', 'tiny', 'hgrav', 'sticky', 'drain'],
+  ['spring', 'printer', 'bunny', 'warp', 'palGB', 'fog', 'quake', 'fastv'],
+  ['stab', 'xray', 'rapid', 'saveany', 'palSepia', 'giant', 'scramble', 'bigv'],
+  ['god', 'bullet', 'tinyv', 'autowrite', 'palMono', 'palInv', 'spawner'],
+];
+let cleared = loadJSON('memario.cleared', null);
+if (!cleared) { const top = loadRuns().reduce((m, r) => Math.max(m, r.done ? LEVELS.length : r.level || 0), 0); cleared = []; for (let i = 0; i < top; i++) cleared.push(i); saveJSON('memario.cleared', cleared); }
+function markCleared(i) { if (!cleared.includes(i)) { cleared.push(i); saveJSON('memario.cleared', cleared); addWire(); } }
+const unlockLevelOf = (id) => { for (let i = 0; i < LEVELS.length; i++) if (LEVELS[i].regs.some((r) => r.id === id) || TRANCHE[i].includes(id)) return i; return 0; };
+const isUnlocked = (id) => cleared.includes(unlockLevelOf(id));
 const catOf = (id) => CAT.find((e) => e.id === id);
 // Your set: what you bring into every level. Each hack you add brings a curse with it (looks don't).
-let loadout = loadJSON('memario.loadout', []).filter((q) => catOf(q.id));
+let loadout = loadJSON('memario.loadout', []).filter((q) => catOf(q.id));   // trimmed to what's wired once the board loads
 const inSet = (id) => loadout.find((q) => q.id === id);
 let toolMsg = '';
 function toggleSet(id) {
@@ -3295,6 +3322,7 @@ function toggleSet(id) {
     loadout = loadout.filter((q) => q.id !== id && q.of !== id);
     toolMsg = `REMOVED ${e.name}`;
   } else {
+    if (!exposedIds().has(id)) { toolMsg = isUnlocked(id) ? `${e.name} IS ON BANK ${homeOf(id).bank}, LINE ${'ABC'[homeOf(id).line]}. WIRE IT UP TO TAKE IT.` : `${e.name} IS LOCKED: CLEAR LEVEL ${unlockLevelOf(id) + 1}.`; return; }
     loadout.push({ id });
     toolMsg = `ADDED ${e.name}`;
     if (e.good && !e.look) {
@@ -3345,6 +3373,147 @@ function hackTick() {
   if (abil.autowrite && !p.dead) for (const k of ['left', 'right', 'jump']) { const r = pickFor(k); if (r && r.good && !r.unlocked) { write(r, digitNow, 'macro'); break; } }
 }
 
+/* ================= the wiring board ================= */
+// The cartridge's edge connector along the top (24 pins in three lines, A B C), your hack board's sockets along the
+// bottom (6 banks). Every hack lives on one line of one bank. A wire from a pin to a socket exposes that line of
+// that bank. Wires are ropes: verlet points with two plugs you drag.
+const BW = 320, BH = 168, PINS = 24, BANKS = 6, PIN_Y = 58, SOCK_Y = 126, FLOOR = BH - 3;
+const pinX = (i) => 17 + i * 12.4, bankX = (j) => 33 + j * 51;
+const homeOf = (id) => { const h = hashStr(id + '#home'); return { bank: h % BANKS, line: (h >>> 5) % 3 }; };
+const WIRE_COL = ['#ff3d8a', '#4ff0ff', '#ffc23d', '#39ff88', '#c9c2ff'];
+const SEGS = 20, SEG_LEN = 14;
+let wires = [];
+function makeWire(k, saved) {
+  const x0 = 22 + k * 74, pts = [];
+  for (let i = 0; i <= SEGS; i++) { const x = x0 + i * 2.4, y = FLOOR - 2; pts.push({ x, y, px: x, py: y }); }
+  const w = { k, col: WIRE_COL[k % WIRE_COL.length], pts, ends: [null, null] };
+  if (saved) for (const e of [0, 1]) if (saved[e]) plug(w, e, saved[e]);
+  return w;
+}
+function addWire() { wires.push(makeWire(wires.length)); saveWires(); }
+const saveWires = () => saveJSON('memario.wires', wires.map((w) => w.ends));
+function endPos(t) { return t.type === 'pin' ? [pinX(t.i), PIN_Y] : [bankX(t.i), SOCK_Y]; }
+function taken(t) { return wires.some((w) => w.ends.some((e) => e && e.type === t.type && e.i === t.i)); }
+function plug(w, e, t) { w.ends[e] = t; const [x, y] = endPos(t), q = w.pts[e ? SEGS : 0]; q.x = q.px = x; q.y = q.py = y; }
+function wirePairs() { return wires.map((w) => { const a = w.ends.find((e) => e && e.type === 'pin'), b = w.ends.find((e) => e && e.type === 'sock'); return a && b ? { line: Math.floor(a.i / 8), bank: b.i, w } : null; }).filter(Boolean); }
+function exposedIds() {
+  const out = new Set();
+  for (const pr of wirePairs()) for (const e of CAT) if (isUnlocked(e.id)) { const h = homeOf(e.id); if (h.bank === pr.bank && h.line === pr.line) out.add(e.id); }
+  return out;
+}
+function trimLoadout() {                  // unwiring a hack drops it (and the curse it brought) from your set
+  const ex = exposedIds(), before = loadout.length;
+  loadout = loadout.filter((q) => (q.auto ? ex.has(q.of) : ex.has(q.id)));
+  if (loadout.length !== before) { saveJSON('memario.loadout', loadout); if (LV) syncCustomRegs(); }
+}
+{ const saved = loadJSON('memario.wires', []); for (let k = 0; k < Math.min(cleared.length, 8); k++) wires.push(makeWire(k, saved[k])); }
+trimLoadout();
+// rope physics
+function stepWires() {
+  for (const w of wires) {
+    for (let i = 0; i <= SEGS; i++) {
+      const q = w.pts[i];
+      if ((i === 0 && (w.ends[0] || grab && grab.w === w && grab.e === 0)) || (i === SEGS && (w.ends[1] || grab && grab.w === w && grab.e === 1))) continue;
+      const vx = (q.x - q.px) * 0.985, vy = (q.y - q.py) * 0.985;
+      q.px = q.x; q.py = q.y; q.x += vx; q.y += vy + 0.32;
+    }
+    for (let it = 0; it < 12; it++) {
+      for (let i = 0; i < SEGS; i++) {
+        const a = w.pts[i], b = w.pts[i + 1], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.001;
+        if (d <= SEG_LEN) continue;                                    // a wire goes slack, it doesn't stretch
+        const fa = (i === 0 && (w.ends[0] || (grab && grab.w === w && grab.e === 0))) ? 0 : 0.5;
+        const fb = (i + 1 === SEGS && (w.ends[1] || (grab && grab.w === w && grab.e === 1))) ? 0 : 0.5;
+        const k = (d - SEG_LEN) / d, tot = fa + fb || 1;
+        a.x += dx * k * fa / tot; a.y += dy * k * fa / tot; b.x -= dx * k * fb / tot; b.y -= dy * k * fb / tot;
+      }
+      for (const q of w.pts) { if (q.y > FLOOR) { q.y = FLOOR; q.px = q.x - (q.x - q.px) * 0.6; } q.x = clamp(q.x, 3, BW - 3); if (q.y < 2) q.y = 2; }
+    }
+  }
+}
+// drawing
+const bctx = $('board').getContext('2d');
+let boardBg = null;
+function buildBoardBg() {
+  const c = mk(BW, BH), g = c.getContext('2d'), R = mulberry32(5), f = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  f('#06150f', 0, 0, BW, BH);
+  for (let i = 0; i < 50; i++) { const x = (R() * BW) | 0, y = 72 + ((R() * 36) | 0), w = 10 + ((R() * 60) | 0); f('#0e2a1e', x, y, w, 1); f('#0e2a1e', x + w, y, 1, 8 + ((R() * 20) | 0)); f('#1f4a34', x, y - 1, 2, 3); }
+  // the cartridge: grey shell, label, gold edge fingers in three lines
+  f('#3a3a46', 4, 0, BW - 8, 42); f('#8a8a98', 5, 0, BW - 10, 40); for (let y = 4; y < 36; y += 5) f('#7a7a88', 9, y, 60, 2), f('#7a7a88', BW - 69, y, 60, 2);
+  f('#15152a', 96, 5, 128, 28); f('#ff3d8a', 96, 5, 128, 2); drawText('MEMARIO', 160, 11, '#ffffff', 2, 'center', g); drawText('HACK CARTRIDGE', 160, 25, '#4ff0ff', 1, 'center', g);
+  f('#2a5a3e', 6, 40, BW - 12, 4);
+  const LCOL = ['#4ff0ff', '#ff6fa8', '#ffc23d'];
+  for (let i = 0; i < PINS; i++) { const x = Math.round(pinX(i)) - 3; f('#7a5a14', x, 42, 7, 16); f('#e0b24a', x + 1, 42, 5, 15); f('#fff0b0', x + 1, 43, 1, 12); }
+  for (let l = 0; l < 3; l++) { const x0 = pinX(l * 8) - 4, x1 = pinX(l * 8 + 7) + 4; f(LCOL[l], x0, 62, x1 - x0, 1); drawText('LINE ' + 'ABC'[l], (x0 + x1) / 2, 65, LCOL[l], 1, 'center', g); }
+  // your hack board: navy like the hood, pink edge, six sockets
+  f('#1a2036', 0, 116, BW, BH - 116); f('#ff3d8a', 0, 116, BW, 1); f('#2e3858', 0, 117, BW, 2);
+  for (let j = 0; j < BANKS; j++) { const x = Math.round(bankX(j)); f('#05040a', x - 13, 119, 26, 14); f('#2a2d40', x - 12, 120, 24, 12); f('#000000', x - 3, 123, 6, 6); drawText('BANK ' + j, x, 137, '#c9c2ff', 1, 'center', g); }
+  drawText('YOUR HACK BOARD', 160, 158, '#3a4466', 1, 'center', g);
+  boardBg = c;
+}
+function drawBoard() {
+  if (!boardBg) buildBoardBg();
+  const g = bctx; g.imageSmoothingEnabled = false; g.drawImage(boardBg, 0, 0);
+  const pairs = wirePairs(), ex = exposedIds();
+  for (let j = 0; j < BANKS; j++) {                                     // a bank's LED: green if it shows something, red if the line is dead
+    const pr = pairs.filter((q) => q.bank === j), x = Math.round(bankX(j));
+    const live = pr.some((q) => CAT.some((e) => ex.has(e.id) && homeOf(e.id).bank === j && homeOf(e.id).line === q.line));
+    g.fillStyle = !pr.length ? '#2a2d40' : live ? '#39ff88' : '#ff3d5a'; g.fillRect(x - 2, 145, 4, 3);
+    if (pr.length) { g.globalAlpha = 0.25; g.fillStyle = live ? '#39ff88' : '#ff3d5a'; g.fillRect(x - 4, 143, 8, 7); g.globalAlpha = 1; }
+  }
+  for (const w of wires) {
+    g.lineJoin = g.lineCap = 'round';
+    const path = () => { g.beginPath(); g.moveTo(w.pts[0].x, w.pts[0].y); for (let i = 1; i <= SEGS; i++) g.lineTo(w.pts[i].x, w.pts[i].y); };
+    path(); g.strokeStyle = '#05040a'; g.lineWidth = 5; g.stroke();
+    path(); g.strokeStyle = w.col; g.lineWidth = 3; g.stroke();
+    g.globalAlpha = 0.5; g.translate(-0.5, -1); path(); g.strokeStyle = '#ffffff'; g.lineWidth = 1; g.stroke(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
+    for (const e of [0, 1]) {                                             // the plugs
+      const q = w.pts[e ? SEGS : 0], t = w.ends[e], up = t ? t.type === 'pin' : false, x = Math.round(q.x), y = Math.round(q.y);
+      g.fillStyle = '#05040a'; g.fillRect(x - 5, y - (up ? 1 : 10), 10, 11);
+      g.fillStyle = w.col; g.fillRect(x - 4, y - (up ? 0 : 9), 8, 9);
+      g.fillStyle = '#c8c8d8'; g.fillRect(x - 2, up ? y - 3 : y + 1, 4, 3);
+      if (grab && grab.w === w && grab.e === e) { g.fillStyle = '#ffffff'; g.fillRect(x - 6, y - 12, 12, 1); }
+    }
+  }
+  if (!wires.length) {
+    g.fillStyle = 'rgba(5,4,10,0.78)'; g.fillRect(40, 72, 240, 38);
+    drawText('NO WIRES YET', 160, 77, '#ffffff', 2, 'center', g);
+    drawText('CLEAR A LEVEL TO EARN ONE', 160, 96, '#4ff0ff', 1, 'center', g);
+  }
+}
+// dragging plugs (a drag anywhere else scrolls the tool)
+let grab = null, bdrag = null;
+const bPos = (e) => { const rc = $('board').getBoundingClientRect(); return [(e.clientX - rc.left) / rc.width * BW, (e.clientY - rc.top) / rc.height * BH]; };
+$('board').addEventListener('pointerdown', (e) => {
+  e.preventDefault(); ensureAudio(); titleAt = frame;
+  const [x, y] = bPos(e); let best = null, bd = 16;
+  for (const w of wires) for (const k of [0, 1]) { const q = w.pts[k ? SEGS : 0], d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = { w, e: k }; } }
+  try { $('board').setPointerCapture(e.pointerId); } catch (_) { /* fine */ }
+  if (best) { grab = { ...best, id: e.pointerId }; if (grab.w.ends[grab.e]) { grab.w.ends[grab.e] = null; onRewire(); } tone(500, 0.04, 'square', 0.02); haptic(6); }
+  else bdrag = { id: e.pointerId, y: e.clientY, s: $('tscroll').scrollTop };
+});
+$('board').addEventListener('pointermove', (e) => {
+  if (grab && e.pointerId === grab.id) { const [x, y] = bPos(e), q = grab.w.pts[grab.e ? SEGS : 0]; q.x = q.px = clamp(x, 4, BW - 4); q.y = q.py = clamp(y, 4, FLOOR); }
+  else if (bdrag && e.pointerId === bdrag.id) $('tscroll').scrollTop = bdrag.s - (e.clientY - bdrag.y);
+});
+const dropPlug = (e) => {
+  if (bdrag && e.pointerId === bdrag.id) bdrag = null;
+  if (!grab || e.pointerId !== grab.id) return;
+  const q = grab.w.pts[grab.e ? SEGS : 0]; let snap = null, bd = 12;
+  for (let i = 0; i < PINS; i++) { const d = Math.hypot(q.x - pinX(i), q.y - PIN_Y); if (d < bd && !taken({ type: 'pin', i })) { bd = d; snap = { type: 'pin', i }; } }
+  for (let j = 0; j < BANKS; j++) { const d = Math.hypot(q.x - bankX(j), q.y - SOCK_Y); if (d < bd + 4 && !taken({ type: 'sock', i: j })) { bd = d; snap = { type: 'sock', i: j }; } }
+  const w = grab.w, k = grab.e; grab = null;
+  if (snap) { plug(w, k, snap); SFX.click(); tone(1200, 0.05, 'square', 0.03); haptic(18); }
+  onRewire();
+};
+$('board').addEventListener('pointerup', dropPlug);
+$('board').addEventListener('pointercancel', dropPlug);
+function onRewire() {
+  saveWires(); trimLoadout();
+  const pr = wirePairs(), n = exposedIds().size;
+  toolMsg = pr.length ? `${pr.length} WIRE${pr.length > 1 ? 'S' : ''} CONNECTED: ${n} HACK${n === 1 ? '' : 'S'} EXPOSED` : wires.length ? 'WIRE A PIN TO A SOCKET TO EXPOSE HACKS' : '';
+  renderTool();
+}
+
 /* ================= the hack tool (screen 2 on the title; SCAN in a level) ================= */
 let toolCat = 'ALL', toolFrom = null;
 function openTool(from) {
@@ -3354,25 +3523,34 @@ function openTool(from) {
   renderTool();
 }
 function closeTool() {
-  $('tool').hidden = true; $('tq').blur();
+  $('tool').hidden = true; $('tq').blur(); grab = null;
   if (toolFrom === 'game' && state === 'tool') state = 'play';
   toolFrom = null;
 }
+const GLYPH = { left: '◀', right: '▶', jump: 'A' };
+function hkCard(e, ex) {
+  const L = inSet(e.id), unl = isUnlocked(e.id), on = ex.has(e.id);
+  const st = L ? (L.auto ? 'CAME WITH ' + catOf(L.of).short : 'IN SET') : !unl ? 'LOCKED · LEVEL ' + (unlockLevelOf(e.id) + 1) : on ? 'TAP TO ADD' : 'BANK ' + homeOf(e.id).bank + ' · LINE ' + 'ABC'[homeOf(e.id).line];
+  return `<button class="hk ${e.good ? 'g' : 'b'} ${L ? 'on' : ''} ${!unl || (!on && !L) ? 'lock' : ''}" data-id="${e.id}"><span class="n">${e.name}</span><span class="st">${st}</span><span class="k">${e.kind}</span><span class="d">${e.desc}</span><span class="s">${GLYPH[e.ctrl]} ${e.seq.join(' ')}</span></button>`;
+}
 function renderTool() {
+  const ex = exposedIds(), xs = CAT.filter((e) => ex.has(e.id));
+  $('xhead').textContent = `EXPOSED BY YOUR WIRES (${xs.length})  ·  ${wires.length} WIRE${wires.length === 1 ? '' : 'S'}  ·  ${CAT.filter((e) => isUnlocked(e.id)).length}/${CAT.length} UNLOCKED  ·  ${loadout.length} IN YOUR SET`;
+  $('xg').innerHTML = xs.filter((e) => e.good).map((e) => hkCard(e, ex)).join('');
+  $('xb').innerHTML = xs.filter((e) => !e.good).map((e) => hkCard(e, ex)).join('');
+  if (!xs.length) $('xg').innerHTML = `<div class="xnone">${wires.length ? 'NOTHING EXPOSED. DRAG A WIRE FROM A CARTRIDGE PIN TO A SOCKET.' : 'NO WIRES YET. CLEAR A LEVEL TO EARN ONE.'}</div>`;
   $('tcats').innerHTML = CATS.map((c) => `<button class="${c === toolCat ? 'on' : ''}" data-c="${c}">${c}${c === 'IN SET' ? ' ' + loadout.length : ''}</button>`).join('');
   const q = $('tq').value.trim().toUpperCase();
   const list = CAT.filter((e) => (toolCat === 'ALL' || (toolCat === 'IN SET' ? inSet(e.id) : e.cat === toolCat)) && (!q || (e.name + ' ' + e.short + ' ' + e.desc + ' ' + e.kind).includes(q)));
-  const glyph = { left: '◀', right: '▶', jump: 'A' };
-  $('tlist').innerHTML = list.length ? list.map((e) => {
-    const L = inSet(e.id);
-    return `<button class="hk ${e.good ? 'g' : 'b'} ${L ? 'on' : ''}" data-id="${e.id}"><span class="n">${e.name}</span><span class="st">${L ? (L.auto ? 'CAME WITH ' + catOf(L.of).short : 'IN SET') : 'TAP TO ADD'}</span><span class="k">${e.kind}</span><span class="d">${e.desc}</span><span class="s">${glyph[e.ctrl]} ${e.seq.join(' ')}</span></button>`;
-  }).join('') : '<div class="empty">NOTHING MATCHES. GAMES ARRIVE IN A LATER VERSION.</div>';
-  $('tfoot').textContent = toolMsg || `${loadout.length} IN YOUR SET. EVERY HACK YOU ADD BRINGS A CURSE.`;
+  $('tlist').innerHTML = list.length ? list.map((e) => hkCard(e, ex)).join('') : '<div class="empty">NOTHING MATCHES. GAMES ARRIVE IN A LATER VERSION.</div>';
+  $('tfoot').textContent = toolMsg;
+  $('tfoot').classList.toggle('quiet', !toolMsg);
+  clearTimeout(renderTool.t); if (toolMsg) renderTool.t = setTimeout(() => { toolMsg = ''; $('tfoot').classList.add('quiet'); }, 3500);
 }
 $('tq').addEventListener('input', () => { titleAt = frame; renderTool(); });
 $('tool').addEventListener('pointerdown', () => { titleAt = frame; }, { passive: true });
 $('tcats').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { toolCat = b.dataset.c; renderTool(); } });
-$('tlist').addEventListener('click', (e) => { const b = e.target.closest('.hk'); if (b) { ensureAudio(); toggleSet(b.dataset.id); SFX.click(); haptic(); renderTool(); } });
+for (const id of ['tlist', 'xg', 'xb']) $(id).addEventListener('click', (e) => { const b = e.target.closest('.hk'); if (b) { ensureAudio(); toggleSet(b.dataset.id); SFX.click(); haptic(); renderTool(); } });
 $('tDone').addEventListener('click', closeTool);
 
 /* ================= sizing & loop ================= */
@@ -3409,6 +3587,7 @@ function loop(now) {
   if (steps === 5) acc = 0;
   render();
   drawMem();
+  if (!$('tool').hidden) { stepWires(); drawBoard(); }
   $('fbB').classList.toggle('armed', armedT > 0);
   $('led').classList.toggle('on', armedT > 0 || (bands.length > 0 && (frame >> 2) % 2 === 0));
   requestAnimationFrame(loop);
