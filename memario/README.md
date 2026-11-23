@@ -213,8 +213,9 @@ The corruption is drawn as real memory faults rather than screen filters: tiles 
 from the wrong place in graphics memory (often misaligned across two tiles), per-tile and per-kind
 palette RAM errors (the sky, the ground, blocks, the bus or the viruses get the wrong colours),
 scroll-register desync that shifts whole bands of the screen, and sprite DMA faults that draw the
-hero again in the wrong places. Every unlock writes permanent faults into the level; instability
-adds temporary ones.
+hero again in the wrong places. Every unlock and curse writes lasting faults into the level (they heal
+after 40–70 seconds); instability adds short ones. There are never more than 36 faults at once, and at most
+10 garbage blocks, oldest healing first, so a long run never fills the sky with junk.
 
 Faults are physical, not just pictures:
 

@@ -1721,7 +1721,7 @@ function unlock(r) {
   burstT = 70; flashT = 18; shakeT = Math.max(shakeT, 24);
   log(`${r.name} ONLINE: ${r.desc}`, 'ok');
   log(`STABILITY DROPPING: ${Math.round((1 - corruption()) * 100)}%`, 'warn');
-  addFaults(6 + unlockedCount() * 4, true, true); addBand(20);
+  addFaults(Math.min(12, 6 + unlockedCount() * 2), true, true); addBand(20);
   for (let n = 0; n < 60; n++) pSpawn(p.x + 7, p.y + 10, PK.HEAT, n % 2 ? '#39ff88' : '#ffc23d', (Math.random() - 0.5) * 3, -Math.random() * 2.5, 40);
   floaters.push({ x: p.x + 7, y: p.y - 36, t: 90, text: r.name + ' ONLINE', col: '#ffc23d' });
   if (MUSIC_FX[r.id]) log(`MUSIC HACKED: ${MUSIC_FX[r.id]}`, 'sys');
@@ -1954,16 +1954,20 @@ function addFaults(n, permanent, wide) {
     const c = wide && Math.random() < 0.5 ? (Math.random() * LW) | 0 : c0 + ((Math.random() * span) | 0), r = 1 + ((Math.random() * 13) | 0);
     if (c < 0 || c >= LW) continue;
     const a = ((Math.random() * (TEX.atlas.width - 16)) | 0) & ~3;          // misaligned reads straddle two tiles
-    const t = tileAt(c, r), f = { c, r, a, perm: Math.random() < 0.4 ? 1 + ((Math.random() * 3) | 0) : 0, until: permanent ? Infinity : frame + 240 + ((Math.random() * 420) | 0) };
-    if (t === T.E) {                                                       // garbage: a real block, but never on top of anyone, a save or the exit
+    const t = tileAt(c, r), f = { c, r, a, perm: Math.random() < 0.4 ? 1 + ((Math.random() * 3) | 0) : 0, until: frame + (permanent ? 2400 + ((Math.random() * 1800) | 0) : 240 + ((Math.random() * 420) | 0)) };   // "lasting" faults heal after 40-70 s
+    if (t === T.E) {
+      if (Math.random() < 0.6 || solidFaults() >= FAULT_SOLID_MAX) continue;   // most garbage stays off empty air                                                       // garbage: a real block, but never on top of anyone, a save or the exit
       if (calm(c) || Math.abs(c - LV.exit) < 3 || LV.saves.some((sv) => Math.abs(sv - c) < 2)) continue;
       const box = { x: c * 16 - 4, y: r * 16 - 4, w: 24, h: 24 };
       if (overlap(p, box) || enemies.some((e) => !e.dead && overlap(e, box)) || (dino && overlap(dino, box))) continue;
       f.solid = true;
     } else if (UNMAPPABLE(t) && !calm(c) && Math.random() < 0.5) { f.unmap = true; f.ph = (Math.random() * 300) | 0; }
-    faults.set(c + ',' + r, f);
+    faults.delete(c + ',' + r); faults.set(c + ',' + r, f);
   }
+  while (faults.size > FAULT_MAX) faults.delete(faults.keys().next().value);   // never more than a screenful: the oldest heal first
 }
+const FAULT_MAX = 36, FAULT_SOLID_MAX = 10;
+const solidFaults = () => { let n = 0; for (const f of faults.values()) if (f.solid) n++; return n; };
 // Unmapped blocks come and go: about three seconds open, a flicker, then solid again (never on top of you).
 function syncFaults() {
   fgrid.fill(0);
