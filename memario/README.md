@@ -66,15 +66,21 @@ away when you remove the hack. Looks (palettes, sprite scale) come free.
 | Group | Entries |
 | --- | --- |
 | Level | every hack and curse from all four levels |
-| Games | whole games, each a hack: WORM.EXE (snake: gold digits you eat write into your hacks), PING.EXE (paddles against a virus, first to 5), PACKET.EXE (flap a packet through firewall gaps), DEFRAG.EXE (ball and paddle, break the memory blocks), SECTORS.EXE (turn, thrust and shoot corrupt sectors). Writing one's string turns screen 1 into the game; your score is paid out in bytes; SELECT quits |
-| Cheats | Moon Gravity, Spring Legs, Turbo, God Mode, Byte Printer, Stabilizer, Memory Dump (reveals every digit), Bullet Time (whole game at 70%), Virus Shrink, Rapid Fire, Air Dash (B in the air), Wall Climb (hold up on a wall), Ground Pound (down in the air), Homing Fire, Digit Radar (arrows to the digits your hacks need next), Jetpack (hold A while falling), Raptor Whistle (Y calls a raptor, in any level), Double Bytes |
+| Games | whole games, each a hack with a long eight-digit string: WORM.EXE (snake: gold digits you eat write into your hacks), PING.EXE (paddles against a virus, first to 5), PACKET.EXE (flap a packet through firewall gaps), DEFRAG.EXE (ball and paddle, break the memory blocks), SECTORS.EXE (turn, thrust and shoot corrupt sectors). Writing one's string in a level turns screen 1 into the game and pays your score in bytes; SELECT quits |
+| Power-ups | Size Up (the next hit only shrinks you), Overdrive (12 s invincible, fast, bursts what you touch), Cryo Shot (freeze viruses into ice you can stand on), Wrench Throw (arcing, breaks anything), Boomerang, Rotor Cap (Y in the air spins you high), Cloud Maker (X makes a cloud to stand on), Micro Patch (tiny and floaty, fits one-block gaps), Mega Patch (10 s huge, smashes blocks and viruses), Wings (15 s of flight), Shockwave (bursts every virus on screen, once), Spare Life (forgives a crash, stacks), Spike Boots, Belly Slide (crouch while running), Twin (a copy of you that bursts viruses), Gold Rush (+5 bytes a virus) |
+| Cheats | Moon Gravity, Spring Legs, Turbo, God Mode, Byte Printer, Stabilizer, Memory Dump (reveals every digit), Bullet Time (whole game at 70%), Virus Shrink, Rapid Fire, Air Dash (B in the air), Wall Climb (hold up on a wall), Ground Pound (down in the air), Homing Fire, Digit Radar (arrows to the digits your hacks need next), Jetpack (hold A while falling), Raptor Whistle (Y calls a raptor, in any level), Double Bytes , and classic cheats: Noclip (fly through anything), Infinite Jumps, Invisible, One-Hit Kills, Fast Forward (150%) |
 | Macros | Auto-Run, Bunny Hop (hold A), Auto-Write (writes hack digits without a press), Auto-Scan |
 | Warps | Warp: Next Save, Save Anywhere (both fire once, then reset); Warp: Last Save, Warp: Level Start, Warp: Exit (one-shots too) |
-| Look | Sprite Scale 0.6 / 1.5, palettes: Neon, Handheld, Sepia, Mono, Inverted; Rainbow Trail, Party Mode (confetti), Disco, CRT Scanlines, Red Screen palette |
+| Look | Big Head Mode, Sprite Scale 0.6 / 1.5, palettes: Neon, Handheld, Sepia, Mono, Inverted; Rainbow Trail, Party Mode (confetti), Disco, CRT Scanlines, Red Screen palette |
 | Glitches | Heavy Gravity, Virus Growth, Overclocked Viruses, Byte Drain, Memory Fog, Screen Quake, Row Scramble, Virus Spawner, Sticky Floor, Virus Armor, No Grace, Sluggish, Hiccups, Bit Rot, Echo Rootkits, Palette Rot, Screen Tear, Memory Blinds, Write Tax, Crosswind, Virus Attraction, Butterfingers (1 press in 8 dropped), Control Swap (A and B), Low Res, Mirror World (left and right swapped), Crash Fine (-10 bytes), Static, Gremlin (switches one of your hacks off every 20 s), Upside-Down Screen, Mirrored Screen, Twitch |
 
 Cheats can carry you past a level's gates; that's the point of bringing them, and the paired curse is the
-price. Games come alone (no curse); new hacks pair with the new glitches.
+price. Games, power-ups, looks and the classic cheats come alone (no curse); the other new hacks pair with the new glitches.
+
+**Games in SAVES.** Beating a level unlocks its game in the hack list (Boot Sector: WORM.EXE, Firewall: PING.EXE,
+Cloud Storage: PACKET.EXE, Root Access: DEFRAG.EXE and SECTORS.EXE). Inject a game once in a level and it's saved to
+the GAMES list in SAVES, where you can play it any time on its own: no level behind it, no corruption, no glitches,
+with your best score kept. START or SELECT quits back to SAVES.
 
 **Missing digits never run out.** A level's missing digits live only on viruses, 0x boxes and dropped pointers. If every
 carrier of one within reach is gone (fell into a pit, kicked off screen), the memory manager reallocates it: a virus
@@ -188,6 +194,7 @@ The platforming follows modern conventions and is tuned to feel snappy:
 - **Wall slide and wall jump**: press into a wall in mid-air to slide down it slowly; A kicks off it. Ground, blocks and conduits hold you; ROM, firewalls, the bus, NULL blocks, ice and bit blocks are too smooth, and nothing holds you once you've dropped below the ground line, so pits stay pits.
 - **Forgiving stomps**: clip the top corner of a virus on the way down and it counts as landing on it.
 - **Corner correction**: clip the corner of a block on the way up and you're nudged past it instead of stopped dead (hidden sectors excepted).
+- **Crashing**: every crash plays a beat of the knock-out pose, then the hero crumbles to ash (with a few embers) before the save restores you.
 - **Crouch**: hold down, anywhere, even mid-air or on the raptor. You get shorter (head down, feet put), crouch-walk slowly, and stay down under a low block until there's room. On the raptor you hunker down on its back, holding on.
   Crouched you're under a block tall, so you fit a one-block-high gap; on the raptor, the raptor ducks too and you ride through.
   Both have their own crouch art: the hero's sheet has a crouch row (your two crouch frames: still uses the first, crouch-walking alternates both, mid-air uses the second), and the raptor
