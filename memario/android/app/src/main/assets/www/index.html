@@ -534,6 +534,24 @@ function spriteFromRows(rows, pal) {
   rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) { const ch = r[x]; if (ch !== '.') { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); } } });
   return c;
 }
+// The raptor: the player-supplied atlas, rebuilt one game pixel per atlas pixel. Every pose faces right, snout on the right edge, feet on the bottom row.
+const RAPTOR_PAL = { O:'#0d1129', D:'#181831', B:'#303b54', H:'#516085', P:'#f05f85', F:'#cf4a73', T:'#edc377', t:'#e0a75e', W:'#fdfcff', R:'#fc9999', M:'#962846' };
+const RAPTOR_ROWS = {
+  idle: ['...................BDO......','..................OOOOOOOB..','.................ODHBBBHHOO.','.................OBBDOOBBHHO','.................OBBBWWBBBBD','.................OBBBBBBBBBB','D................OBBBDBBBBBO','OO.......DOOBOD..OBBBBBBOODO','BBO.....BOPODFPDDBBOBBBBBBBO','BBBDDDOOOBFBBBFBBBBBtOO.....','OBBBBFOBBBBBHBBBBBBTTO......','.DBBBBBBBBBBBBBBBBBTTO......','.DDBBBBBBBBBBBBBBBTTTO......','..OOtBBOBBBHBBBBBOTTtO......','...OOttOBBBHOBBDBDOtDOO.....','....DDODBBBBOTTDBBBOOBBO....','......BOOBBBOtttDDBODDOO....','.......BOBBBOtttDDBODODD....','.......OBBBBDOOODDDO.O......','.......OBBOO.ODDOB..........','.......OBBOO.OODDD..........','.......OFFOFO.ODMMMD........','.......OODOOO..OODOO........'],
+  lookup: ['.........................O.O.','....................OOOOOHHOB','...................OOHHBBBBBO','..................OBBOBBBBBBO','..................OBDWOBBBBOO','.................OBBBWWBBBBBO','.................OBBBBBBOBBBD','.................OOBBBBBBBOO.','.DB...............OBBBBBBOD..','.DOB...........O..DBBDDBD....','.OBO......DDOOOPDDDBBBtDD....','BOBBDB...DDFFBBFBHBBBTtD.....','.OBBBDDODHBBBBBBBBBBBTtO.....','.DDBBBBBBBBBBBBBBBBBTTO......','..DOBBBBBBBBBBBBBBBTTTD......','...OOtBBBBBBHDBBOBDTTtD......','....OOttDBBBHHBBOBDTtDDO.....','.....BDODBBBBHDtOBBBODDDO....','........DDBBBBtttOOBODDDO....','.........OBBBBOtttOOODDDD....','........OOBBBOOOBOOOOBDD.....','........OBBOO..ODDO..........','........OBBOD..ODDOO.........','........OFFDFD.ODMMMO........','........OOODDD..OODOOO.......'],
+  crouch: ['......................OOOOOO...','.....................OHHHHHHO..','....................OBBBBBHHOOO','....................OBBBWOBBHHH','...........DDODDDD..OBBBWOBBBBB','..........ODPPOOPPDBOBBBBBBBBBB','........BOHBFBBBFFBOOBBBDDBBBBO','.......OOBBBBBBBBBBBBBOBBBBBBBO','.......OBBBBBBBBBBBBBBOODOOOOO.','......OBBBBBDDBBBBBBBBTtDD.....','....OOBBBBBBBHDBBBBBBTTOB......','...OOHBBBDBBBBHDBOBBTTTO.......','OOOOBBBBtDBBBBBOBOBDttDOB......','DBBBBBttODDBBBBOtOBBBODDDD.....','BDOOOOOODDBBBBOOtOOBBDODDD.....','.........OBBOOODDOOOBDODD......','.........OBFPFODDMOOOO.D.......','..........DOODDODOOOB..........'],
+  headdown: ['............OO....................','...........DODDOODO...............','..........DBBPFBBPFO.....BDDDD....','.........DHBBBBBBBBBOB..DDDOOOO...','........OHBBBBBBBBBBBOOOOHHHHHHOD.','.......OBBBBBBBBBBBBBBOBBBBBBBHHOO','......OBBBBBBHOBBBBBBBBBBBDDDBBBBO','.....OOBBOBBBHHDBBBBBBBBBBBWWBBBBO','...BOBBBBOBBBBBHBBBBBBBBBBBBBBBBBB','DOOOBBBBttOBBBBDBBBBOtttDBBBBDDDDO','DOBBBBttOOODBBBDtDBOttODDDBBBBBBDO','..OOOODO.BOBBBBOtOBBOODDOBDOOODD..','.........OBBBOOODDOBBOOOOB........','.........OBPFFFDDDOOFD.OOO........','..........OMDDODOMOODDBOO.........','...........DDDO...OO..............'],
+  crawl: ['..............BOODDDDD.....DODDDDDB..','...........ODDDFPHHHPOOB..DBBBBBHHDDO','..........DODHBFBBBBFBBOODOBBOOOBBHHO','........BDBBBBBBBBBBBBBBBOBBBBWOBBBBO','......OODBBBBBBBBBBBBBBBBBBBBBBBBBBBO','OD..DDODBBBBDBBBBBBBBBBBBBBBBBOOBBBBD','OBOODHBBBtTtDBBBHDBBBBBBBBBOBBBBBOODD','ODBBBBBTTDDOBBBBBDtBBBBBBBttOOOBOOOB.','..OOODDDOOOBBBBBBtTTDBBBttDOO........','........BOBBBBBOOttODBDOODDOO........','.........OBBOOOODOOODBBDBODDDOB......','.........FPDDB.DDDOODDBDOBODDDOO.....','.........DDOOO..DOOODDFDOO.ODMOO.....','..........DD..........DD.B..DDDO.....'],
+  run: ['.......................BDDDDDDO...','.......................OBBBHBHHOO.','.......................OBBODBBBHHD','.......................OBBBWOBBBBD','.......................OBBBBBBBBBO','...............BB.BO...OBBBOOBBBBO','.OODDDB.......OOODODDDOOBBBBBBBOOO','OBBHBHOOOB..BDDFFBFFFOOBBOOOOODDO.','OODDBBBBBDDODHBBBBBBBBBBBBtOO.....','...OODBBBBBBBBBBBBBBBBBBBttO......','.....BOBBBBBBBBBBBBBBBBBTTOD......','......BOttBBOBBBBBBBBBBTTtOOO.....','........D.ttOBBBHBBBBBBDODDDOO....','.........OOOBBBBHDBTTBBBBOODMO....','..........OOBBBBBDTTttODBOODOO....','.........OBBBBBBOttttOOOOOB.......','.........BBBBBBOOODDDOOBBB........','........DFBOOOOD..DDDDODOO........','.......OFFFO.......DDDBDMMO.......','.......OFFDO........ODDMMO........','.......OOOD..........ODDO.........','......................OO..........'],
+  jump: ['.......................DOOOOO....','......................OHHHHHHD...','.....................OBBBBBBHODD.','.....................OBBBOOBBHHHO','.....................OBBBWWBBBDB.','.....................OBBBBBBBBBBO','..................O..OBBBDDDBBBOO','.OOOOOB......DOOODDOBDBBBBBBBBOO.','DBBBHHBDODBDDBPBDPFOOBBBODDDDDO..','BDDDBBBBBOOOBBBBBBBBBBBBttO......','...BBBBBBBBBBBBBBBBBBBBTTOB......','.....BOBBBBBBBBBBBBBBBTTTO.......','......BOtBBDBBBBBBBBBDTTtD.......','.......BOtBDBBBHDBBDBDTtOOO......','........OOtDBBBHOBTDBBBODDOO.....','...........OBBBBOtTtDBBOODDO.....','..........OBBBBBDttttOBOBDM......','.........OBBBBBOOOOOODFOBOO......','.........OBBBOOOODDOB............','.........OBBO..O.OOO.............','.........OFFO..O.OO..............','.........OFFO..OOM...............','.........OOOO..OO................'],
+  tongue: ['DDDDD.................ODDDDDDDDD.','OBHHHDDB....DDD......OBBDBBDBHHDO','DDOBBBBDODODDDDOO....OBBWOBBBB...','..OOBBBFODOBFFBBOOD..BBBWWBBBB...','....DtBBBHBBBBBBBFBBBDBBBBBBOD...','.....DtBBBBBBBBFBBDOOBBBBDDWMD...','......OtBBBBBBBBBBBBBBBBOMMMMM...','......OttDBBBOBBBBBBBBBBBFP......','.......DtDBBBHDBBBBBBDBBBBMMMM...','........DDBBBHDBBBBBTtOOBBDOMM...','.........OBBBBDtDBBOtOOBOOBBDD...','........BOBBBBDtDBBBODDD..OODD...','........OBBBBDOOOOBBBODDO........','........OBBDDBBODDOBBOOMO........','........OBBOD..ODDBOODOO.........','........OFPMFO..DBMOMD...........','........DDDOOO..BOOOOO...........'],
+  bite: ['.........................ODODDDDDOO','.......................DDHHHDDHBDBO','.DDODDOB..............BOHDOOBBBBBBB','DOBBBHDDDB...BODD.....OOBDWOBBBBDDD','.DDDBBBBBDDBOOFFDOOO..BOBBWWBBOOWWD','....BOBBBFBBBBFFBBPPD.BDBBBBBW.DOD.','......DBBBBBBBBBBBBBBOOBBBBDM..DD..','.......OtBBBBBBBBBBBHBBBBBBDDBDB...','.......DOtDBBBBBBBBBBBBBBBBDFFDB...','........OttBBBHDBBBBBBBBDBBBRFFDB..','.........DOBBBBHBBBBBBTTtOOBBDFFDD.','..........OBBBBHtBBBBtttDOOOBBDOD..','.........OOBBBBDttOBBOODDOBBOBBBDB.','........OBBBBBBttttOBBOODDO..OOOO..','........OBBBOOOOOOOOOBOODMD........','........OBBOD...ODDDBOOBOO.........','........OFFDD...OODDDOB............','........OOODDD...BOMDOO............'],
+  hurt: ['................DDDO........','...............BDHHHDDOOO...','...............DBBBHHHHHDD..','...............OBBBBBHDDHDO.','...............ODDBBBBDWBBO.','................DODOBBWBBBO.','................BDDMDBBWBBO.','...............ODDDFFDBBBBD.','...............OBBBBDOBBBBD.','...............OODDDBBBBODD.','.............DOOODDDDttttO..','...........DDDFFOHBBBtttO...','..........OFBBBBBBBBBTTtD...','.........ODFBBBBBBBBTTTDDOO.','O........DBBBBBBBOBODDtDDBBO','OO......OBBBBBOBBDBBBBOODDDD','OBOO..OOOBBBBBHDBTOOOFODDBDD','OBBBOODBBBBBBBBHOtttOOOD....','.OBBBBBBBBOBBBBBOttDDDB.....','..ODtBBBBttOBBBBOODBBODOO...','...OOOtttOOODBBBO.DBBOOMOD..','.....BOOOO..DBBOOBODBMMMO...','............DBBFDFO.DMMO....','.............OOFOOO..D......','..............ODOOO.........'],
+  sleep: ['........DDDDDD..............','.....BDOPPHHFPOO............','....DDHBFBBBBFBBOO..........','...DHBBBBBBBBBBBBBDDOOOD....','..OBBBBBOOBBBBBBBDBHHHHHD...','.DBBBBBBHHOBBBBBDBBBBBBHDDO.','DBBBBBBBBBHOBBBBDBBBBBBBHHO.','OBBBODBBBBBOBBBBBBBBBBBBBBBD','OBBBODBBBBBOtOBBDDBBBBBBBBBD','OBBBOOBDOBDDOOBBOOOBBOBBBBOO','OOBBBBBBBOBBFOOBBBOOBBBBBOO.','.OOBBBBBBBBOFOOOOOOODDOOOO..'],
+  defeated: ['................DDBBDD................','..............DDDOOOOOO...............','............OODBPFBBBFDO....OOOOOO....','..........DOOHBBBBBBBBBBOD.BDHHHHHD...','..........DBBBBBBBBBBBBBBDODBBBBBHHOO.','........ODBBBBBBBBBBBBBBBBBBBBBBBBHHHO','.....BODDBBBBBBBBHBBBBBBBBBBBBDDBBBBBO','...BOOOBBDDDBBBBBBBBBBBBBBBBBBBBBBBBBO','.DDDHBBBOFBBBBBBBOOtDBBBDBDBBBBOOBBBBO','OBBBBBBOFFBBBBBBOOOBBBBDtttDDBBBBBBBOO','OOOOOOOOOODDOOOOOODBBDOOOOOOOOOOOOOOO.','.......OOO............................'],
+  pounce: ['.........................OOOOOOO...','........................OOHHHHHDO..','........................OBBDOBBHDDD','........................OBBDWDBBBHO','........................OBBBWDBBBBO','.DDDDDD........ODOBDDB..OBBBBBBBBBO','OBBBHHHOOO....ODPDDPPODDBBBBBBDDOOO','OOOOBDBBFDDDDODBFBBBFBBBBBDBBBBBBOB','O..BOOBBBBFBBHBBBBHBBBBBBBttOOOOOO.','......OtBBBBBBBBBBBBBBBBBTttD......','.......OtBBBBBBBBBBBBBBDTTTOOOOOB..','........DttBDBBBBBBBBBBBTTtDBBBBDO.','.........OOtBBBBHOBBTOBBBOODBBOFDD.','..........BDOBBBBOtTTtOBBBBBDDOOOO.','..........BOBBBBBttttttOOOBBDD.OB..','.........OOBBBBBOOOOOOO...OODD.....','.........OBBBBBODDDDO.....OO.......','........OOBBOOODDOOO...............','........OFFO..OMMO.................','........OFFO..ODD..................','........ODDD..OO...................'],
+  roar: ['.........................OOOOO.','....................ODDOOHHHHOO','...................OOHHHHBBBBHO','..................OOBODBBBBODOO','.D................OBBOOBBBOWDWO','OOO...............OBBBBBBW.WDB.','OBO...............OBBBBOW.DDD..','OBOB..............OBBBOD..O....','DBBOD....BOOODDD..OBBBOMFFD....','DDBHDOODOOPPDDPPODBBBBBBRFFO...','BDBBBBOOHBBBBBBBBBBBBBBBBFWMD..','.DBBBBBBBBBBBBBBBBBBttDOBBOOD..','..OtBBBBBBBBBBBBBBBTTtD.OOBBO..','...DDBBBBBBBDBBBBBTTTD...DDO...','....DOtOBBBHBBBOBBTTtO.........','.....ODDBBBBHOBOBBOtODDO.......','......BDBBBBBOTOOBBBOODDO......','.......BOBBBBttttOBBD.DDO......','.......OOBBBOOOOOODDD.OO.......','.......OBBBO.DDDOBOD...........','.......OBBOD..DDOOO............','.......OFFOF..ODMMFO...........','.......OFDDDD..OMDDO...........']
+};
 const HERO_PAL = { k:'#160f2c', H:'#4d41a0', h:'#2c2466', s:'#f2b48a', v:'#4ff0ff', w:'#ffffff', c:'#0f0b22', p:'#24203c', m:'#ff3d8a' };
 const HERO_TOP = [
   '...kkkkkk...','..kHHHHHHk..','.kHhhhhhhHk.','.khsssssshk.','.khvvvvvvhk.','.khvwvvwvhk.','.khsssssshk.','..khhhhhhk..',
@@ -817,32 +835,7 @@ function buildCreatures() {
     f('W', 8, 3, 3, 3); f('K', 9, 4, 1, 1); f('R', 0, 1, 3, 2); f('R', 0, 9, 3, 2); f('2', 4, 2, 6, 1);
   });
   ART.orb = draw(6, 6, (f) => { f('P', 1, 0, 4, 6); f('P', 0, 1, 6, 4); f('Y', 2, 1, 2, 3); f('W', 2, 2, 1, 1); });
-  ART.dino = [0, 1, 2].map((fr) => draw(26, 24, (f) => {
-    const leg = fr === 1 ? 1 : 0, open = fr === 2;
-    f('K', 0, 11, 7, 4); f('N', 1, 12, 6, 2); f('K', 3, 10, 5, 2);                                    // tail
-    f('K', 4, 7, 15, 12); f('N', 5, 8, 13, 10); f('2', 6, 9, 5, 2);                                  // body
-    f('O', 8, 14, 9, 4); f('P', 7, 7, 2, 2); f('P', 11, 7, 2, 2); f('P', 15, 7, 2, 2);               // belly, back stripes
-    f('K', 15, 3, 6, 8); f('N', 16, 4, 4, 7);                                                         // neck
-    f('K', 15, 1, 11, 8); f('N', 16, 2, 9, 6); f('2', 17, 3, 3, 1);                                   // head
-    f('K', 15, 0, 9, 3); f('N', 16, 0, 7, 2); f('2', 17, 0, 3, 1); f('K', 22, 2, 4, 1);              // the cap, like the hero's
-    f('W', 20, 3, 2, 2); f('K', 21, 3, 1, 2);                                                         // eye
-    if (open) { f('K', 18, 6, 8, 3); f('P', 19, 7, 6, 1); } else f('K', 19, 6, 6, 1);                // mouth
-    f('O', 17, 11, 2, 2); f('K', 17, 13, 2, 1);                                                       // little arm
-    f('K', 6 + leg * 2, 18, 4, 5); f('N', 7 + leg * 2, 18, 2, 4); f('P', 6 + leg * 2, 22, 5, 2);      // legs, pink shoes
-    f('K', 13 - leg * 2, 18, 4, 5); f('N', 14 - leg * 2, 18, 2, 4); f('P', 13 - leg * 2, 22, 5, 2);
-  }));
-  ART.dinoLow = [0, 1, 2].map((fr) => draw(26, 24, (f) => {         // ducked: belly to the floor, head stretched forward, rider's eyes peeking over its back
-    const leg = fr === 1 ? 1 : 0, open = fr === 2;
-    f('K', 0, 17, 6, 3); f('N', 1, 18, 5, 1);                                                         // tail
-    f('K', 4, 16, 14, 6); f('N', 5, 17, 12, 4); f('2', 6, 17, 5, 1);                                  // body
-    f('O', 8, 20, 8, 1); f('P', 7, 16, 2, 1); f('P', 11, 16, 2, 1);                                   // belly, back stripes
-    f('K', 16, 14, 10, 7); f('N', 17, 15, 8, 5); f('2', 18, 15, 3, 1);                                // head, low and forward
-    f('K', 16, 13, 8, 2); f('N', 17, 13, 6, 1); f('K', 23, 14, 3, 1);                                 // the cap
-    f('W', 21, 15, 2, 2); f('K', 22, 15, 1, 2);                                                       // eye
-    if (open) { f('K', 19, 18, 7, 3); f('P', 20, 19, 6, 1); } else f('K', 20, 19, 6, 1);             // mouth
-    f('K', 5 + leg, 21, 5, 1); f('P', 4 + leg, 22, 7, 2);                                             // bent legs, pink shoes
-    f('K', 12 - leg, 21, 5, 1); f('P', 12 - leg, 22, 7, 2);
-  }));
+  ART.raptor = {}; for (const k in RAPTOR_ROWS) ART.raptor[k] = spriteFromRows(RAPTOR_ROWS[k], RAPTOR_PAL);
   ART.lift = draw(48, 7, (f) => { f('K', 0, 0, 48, 7); f('N', 1, 1, 46, 5); f('2', 1, 1, 46, 1); for (let i = 3; i < 46; i += 8) f('C', i, 3, 2, 2); });
   ART.drop = draw(32, 7, (f) => { f('K', 0, 0, 32, 7); f('Q', 1, 1, 30, 5); for (let i = 1; i < 31; i += 6) f('P', i, 1, 3, 5); f('W', 1, 1, 30, 1); });
   // tiles
@@ -2434,7 +2427,7 @@ function updatePlayer(L, Rt, J) {
   if (p.sq) { p.sq *= 0.8; if (Math.abs(p.sq) < 0.03) p.sq = 0; }
   // mount the raptor by landing on it
   if (p.noMount && p.grounded && !p.riding) p.noMount = false;
-  if (dino && dino.st === 'idle' && !p.riding && !p.noMount && !p.flip && p.vy > 0 && overlap(p, dino) && p.y + p.h - p.vy <= dino.y + 10) mount();
+  if (dino && (dino.st === 'idle' || dino.st === 'rest') && !p.riding && !p.noMount && !p.flip && p.vy > 0 && overlap(p, dino) && p.y + p.h - p.vy <= dino.y + 10) mount();
   // carry: the held shell or bomb sits in your hands
   if (p.carry) { const c = p.carry; if (c.dead) p.carry = null; else { c.x = p.x + p.w / 2 + p.face * 9 - c.w / 2; c.y = p.y + (p.flip ? p.h - 10 - c.h : 8); c.vx = 0; c.vy = 0; if (c.type === 'bomb' && --c.t <= 0) explode(c); } }
   if (p.grounded && !p.flip && frame % 15 === 0) p.safe = { x: p.x, y: p.y };   // for HOT RELOAD
@@ -2482,7 +2475,7 @@ function kick(e, dir) {
   if (e.type === 'sheller') { e.st = 'spin'; e.dir = dir; e.vx = dir * 3.6; } else { e.vx = dir * 3.2; e.vy = -1.5; }
   e.grace = 14; SFX.stomp(); tone(900, 0.05, 'square', 0.03, -300);
 }
-function hurt(reason) { if (p.riding) dinoBuck(); else die(reason); }
+function hurt(reason, src) { if (p.riding) dinoBuck(src); else die(reason); }
 function updateEnemies() {
   const g = p.flip ? -1 : 1;
   for (let i = enemies.length - 1; i >= 0; i--) {
@@ -2545,7 +2538,7 @@ function touchEnemy(e, g) {
   const bounce = () => { p.vy = -g * 4.6; haptic(15); };
   const away = Math.sign(e.x + e.w / 2 - (p.x + p.w / 2)) || p.face;
   const hb = { x: p.x + 2, y: p.y + 3, w: p.w - 4, h: p.h - 5 }, eb = { x: e.x + 3, y: e.y + 4, w: e.w - 6, h: e.h - 6 };   // a few pixels of forgiveness
-  if (e.type === 'ghost' || e.type === 'chomp') return overlap(hb, eb) ? hurt(TYPE_NAME[e.type]) : undefined;
+  if (e.type === 'ghost' || e.type === 'chomp') return overlap(hb, eb) ? hurt(TYPE_NAME[e.type], e) : undefined;
   if (stomp) {
     touchDigit(e, 'stomp', e.x + e.w / 2, e.y); hitStop = 3;
     if (e.type === 'spiky' && !p.riding) return hurt('SPIKE');
@@ -2558,7 +2551,7 @@ function touchEnemy(e, g) {
     if (held.grab && !p.carry && !p.riding) { p.carry = e; e.carried = true; e.vx = 0; e.parked = false; SFX.click(); log(`GRABBED A ${TYPE_NAME[e.type]}`, 'sys'); return; }   // hold Y to pick it up
     return kick(e, away);
   }
-  if (overlap(hb, eb)) hurt((e.wings ? 'BOTNET' : TYPE_NAME[e.type]) + ' CONTACT');
+  if (overlap(hb, eb)) hurt((e.wings ? 'BOTNET' : TYPE_NAME[e.type]) + ' CONTACT', e);
 }
 function explode(e) {
   if (e.dead) return;
@@ -2689,10 +2682,22 @@ function dismount(hop) {
   if (d.mouth && d.mouth.d !== undefined) orphans.push({ x: d.x + 20, y: d.y - 4, d: d.mouth.d, rev: d.mouth.rev, born: frame });
   d.mouth = null; d.tongue = 0;
 }
-function dinoBuck() {
+// Hit while riding: the raptor bucks you off, goes after whatever hurt it, then comes back and lies down by you.
+function dinoBuck(src) {
   if (p.inv > 0) return;
-  const d = p.riding; dismount(true); d.st = 'flee'; d.t = 150; d.dir = -p.face || 1; p.inv = 90;
-  tone(300, 0.3, 'square', 0.05, -200); haptic(60); log('THE RAPTOR BOLTED. CATCH IT AGAIN', 'warn');
+  const d = p.riding, face = p.face; dismount(true);
+  p.vx = -face * 2.6; p.vy = -(p.flip ? -1 : 1) * 4.6; p.wjLock = 14; p.inv = 100;          // thrown clear
+  const biteable = src && enemies.includes(src) && !src.dead && src.type !== 'ghost' && src.type !== 'chomp';
+  d.target = biteable ? src : null; d.st = 'buck'; d.t = 22; d.vx = 0; d.vy = -2.5;
+  if (src && src.x !== undefined) d.dir = Math.sign(src.x + (src.w || 0) / 2 - (d.x + d.w / 2)) || face;
+  tone(300, 0.3, 'square', 0.05, -200); haptic(60); shakeT = Math.max(shakeT, 10);
+  log(d.target ? `THE RAPTOR THREW YOU AND WENT AFTER THE ${src.wings ? 'BOTNET' : TYPE_NAME[src.type]}` : 'THE RAPTOR THREW YOU', 'warn');
+}
+function dinoKill(e) {
+  if (e.type === 'bomb') { explode(e); return; }
+  e.respawn = false; e.hp = 1; killEnemy(e, true, true);                 // a raptor bite always finishes it
+  for (let n = 0; n < 10; n++) pSpawn(e.x + e.w / 2, e.y + e.h / 2, PK.SPARK, n % 2 ? '#ff3d8a' : '#ffffff', (Math.random() - 0.5) * 3, -Math.random() * 2, 16);
+  log(`THE RAPTOR GOT THE ${e.wings ? 'BOTNET' : TYPE_NAME[e.type]}`, 'ok');
 }
 function spit() {
   const m = dino.mouth; dino.mouth = null;
@@ -2713,7 +2718,7 @@ function updateMount(J) {
     d.x = p.x + p.w / 2 - 11; d.y = p.y + p.h - d.h; d.dir = p.face;
     if (d.tongue > 0) {
       d.tongue--; const ext = (d.tongue > 7 ? 14 - d.tongue : d.tongue) * 6;
-      const tx = p.x + p.w / 2 + p.face * (12 + ext), ty = p.y + p.h - 12; d.tip = [tx, ty];
+      const tx = p.x + p.w / 2 + p.face * (12 + ext), ty = p.y + p.h - 10; d.tip = [tx, ty];
       if (!d.mouth) for (const e of enemies) if (!e.dead && !e.carried && EDIBLE(e) && Math.abs(e.x + e.w / 2 - tx) < e.w / 2 + 3 && Math.abs(e.y + e.h / 2 - ty) < e.h / 2 + 4) {
         d.mouth = { type: e.type, d: e.d, rev: e.rev }; e.dead = 1; e.respawn = false; d.tongue = Math.min(d.tongue, 4);
         tone(500, 0.1, 'square', 0.04, -300); log(`RAPTOR SWALLOWED A ${e.wings ? 'BOTNET' : TYPE_NAME[e.type]}`, 'sys'); touchDigit(e, 'eat', e.x + e.w / 2, e.y); break;
@@ -2721,10 +2726,33 @@ function updateMount(J) {
     }
     return;
   }
-  if (d.st === 'flee') { d.vx = d.dir * 2.2; if (--d.t <= 0) d.st = 'idle'; } else d.vx = 0;
-  if (moveX(d, solidE)) d.dir *= -1;
+  const SPD = 2.4, cx = d.x + d.w / 2;
+  const toward = (x) => { const dx = x - cx; if (Math.abs(dx) > 3) d.dir = Math.sign(dx); d.vx = Math.abs(dx) < 3 ? 0 : d.dir * SPD; return Math.abs(dx); };
+  const e = d.target;
+  switch (d.st) {
+    case 'buck': d.vx = 0; if (--d.t <= 0) { d.st = 'roar'; d.t = 28; tone(140, 0.35, 'sawtooth', 0.05, -60); noise(0.2, 0.04); } break;
+    case 'roar': d.vx = 0; if (e && !e.dead) d.dir = Math.sign(e.x + e.w / 2 - cx) || d.dir; if (--d.t <= 0) { d.st = e && !e.dead ? 'chase' : 'return'; d.t = 420; } break;
+    case 'chase':
+      if (!e || e.dead || e.carried || --d.t <= 0 || Math.abs(e.x - d.x) > 400) { d.st = 'return'; d.target = null; break; }
+      toward(e.x + e.w / 2);
+      if (overlap(d, e, -4)) { d.st = 'attack'; d.t = 16; d.vx = 0; d.dir = Math.sign(e.x + e.w / 2 - cx) || d.dir; }
+      break;
+    case 'attack': d.vx = 0; if (d.t === 9 && e && !e.dead) { dinoKill(e); SFX.stomp(); } if (--d.t <= 0) { d.st = 'return'; d.target = null; } break;
+    case 'return':
+      if (toward(p.x + p.w / 2) < 20 && d.grounded && !p.dead) { d.st = 'rest'; d.vx = 0; log('THE RAPTOR LAY DOWN BESIDE YOU. JUMP ON TO RIDE', 'sys'); }
+      break;
+    case 'rest': d.vx = 0; if (Math.abs(p.x + p.w / 2 - cx) > 150 && !p.dead) d.st = 'return'; break;   // you walked off: it gets up and follows
+    default: d.vx = 0;
+  }
+  const running = d.st === 'chase' || d.st === 'return';
+  if (running && d.grounded && d.vx) {                                 // hop walls and gaps on the way
+    const ac = Math.floor((cx + d.dir * 14) / 16), fr = Math.floor((d.y + d.h + 2) / 16);
+    if (!solidE(tileAt(ac, fr), ac, fr)) d.vy = -6.2;
+  }
+  if (moveX(d, solidE) && running && d.grounded) d.vy = -6.6;
+  else if (!running && d.st !== 'idle' && d.st !== 'rest') d.vx = 0;
   fall(d);
-  if (d.y > VH + 30) { d.x = saves[checkpoint].x + 20; d.y = 150; d.vy = 0; }   // it finds its way back to the save
+  if (d.y > VH + 30) { d.x = saves[checkpoint].x + 20; d.y = 150; d.vy = 0; d.target = null; d.st = 'return'; }   // fell: it finds its way back from the save
 }
 function grabAction() {
   if (p.dead) return;
@@ -2931,16 +2959,35 @@ function drawEnemy(e, cx0) {
   if (e.wings) { const wf = ART.wing[(frame >> 3) & 1]; ctx.drawImage(wf, x - 5, y + 6); ctx.save(); ctx.translate(x + w + 5, y + 6); ctx.scale(-1, 1); ctx.drawImage(wf, 0, 0); ctx.restore(); }
   if (abil.freeze && e.type !== 'ghost' && e.type !== 'chomp') { ctx.fillStyle = '#c8ffff'; for (let i = 1; i < w; i += 3) ctx.fillRect(x + i, y + ((i * 7) % 3), 1, 1); }
 }
+function dinoPose(d, ridden) {
+  if (ridden) {
+    if (d.tongue > 0) return 'tongue';
+    if (p.crouch) return p.grounded && Math.abs(p.vx) > 0.2 && (frame >> 3) & 1 ? 'crawl' : 'headdown';
+    if (!p.grounded) return 'jump';
+    return Math.abs(p.vx) > 0.2 && (frame >> 3) & 1 ? 'run' : 'idle';
+  }
+  switch (d.st) {
+    case 'buck': return 'hurt';
+    case 'roar': return 'roar';
+    case 'attack': return 'bite';
+    case 'rest': return 'sleep';
+    case 'chase': case 'return': return !d.grounded ? 'pounce' : Math.abs(d.vx) > 0.2 ? ((frame >> 2) & 1 ? 'run' : 'idle') : 'idle';
+  }
+  return frame % 420 > 360 ? 'lookup' : 'idle';
+}
 function drawDino(d, cx0, ridden) {
-  const fr = d.tongue > 0 || (ridden && d.mouth) ? 2 : Math.abs(ridden ? p.vx : d.vx) > 0.2 ? (frame >> 3) & 1 : 0;
-  const x = Math.round(d.x - cx0) - 2, y = Math.round(d.y) - 1;
+  const spr = ART.raptor[dinoPose(d, ridden)], w = spr.width, y = Math.round(d.y + d.h - spr.height);
   ctx.save();
-  const spr = (ridden && p.crouch ? ART.dinoLow : ART.dino)[fr];      // ducking: low pose
-  if (d.dir < 0) { ctx.translate(x + 26, y); ctx.scale(-1, 1); ctx.drawImage(spr, 0, 0); } else ctx.drawImage(spr, x, y);
+  if (d.dir < 0) { ctx.translate(Math.round(d.x - 4 - cx0) + w, y); ctx.scale(-1, 1); ctx.drawImage(spr, 0, 0); }   // snout 4px past the body box
+  else ctx.drawImage(spr, Math.round(d.x + d.w + 4 - cx0) - w, y);
   ctx.restore();
-  if (ridden && d.tongue > 0 && d.tip) {                         // the tongue
-    const mx = Math.round(d.x + 11 + d.dir * 12 - cx0), tx = Math.round(d.tip[0] - cx0), ty = Math.round(d.tip[1]);
+  if (ridden && d.tongue > 0 && d.tip) {                         // the tongue, from the open mouth
+    const mx = Math.round(d.x + 11 + d.dir * 9 - cx0), tx = Math.round(d.tip[0] - cx0), ty = Math.round(d.tip[1]);
     ctx.fillStyle = '#ff3d8a'; ctx.fillRect(Math.min(mx, tx), ty, Math.abs(tx - mx), 2); ctx.fillRect(tx - 2, ty - 1, 4, 4);
+  }
+  if (d.st === 'rest' && !ridden && (frame % 90) < 60) {          // asleep: a little z
+    const zx = Math.round(d.x + 11 + d.dir * 6 - cx0), zy = Math.round(d.y + d.h - 18 - ((frame % 90) / 10));
+    ctx.fillStyle = '#c9c2ff'; ctx.fillRect(zx, zy, 4, 1); ctx.fillRect(zx + 2, zy + 1, 1, 1); ctx.fillRect(zx + 1, zy + 2, 1, 1); ctx.fillRect(zx, zy + 3, 4, 1);
   }
 }
 // Light: the level is dark; the hero, fire, firewalls, the exit and other glowing things cut through it.

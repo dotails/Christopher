@@ -157,11 +157,14 @@ shoes, a warm visor for a face). Every virus carries a digit.
 | PING CANNON | the cannon | fires pings toward you; stomp a ping to bounce |
 | SPINLOCK | the fire bar | a rotating bar of fire around a hub |
 
-**The raptor** (Boot Sector, Cloud Storage, Root Access) wears a cap like the hero's. Land on it to
+**The raptor** (Boot Sector, Cloud Storage, Root Access) is drawn from the raptor sprite atlas (idle, look up,
+crouch, head-down crouch, crawl step, run, jump, tongue launch, bite, hurt, sleep, defeated, pounce, roar). Land on it to
 ride. Hold A in the air to flutter (a hover, not extra height). Y shoots its tongue: it swallows a
 crawler, trojan, spam worm or fork bomb and keeps the creature's digit in its mouth, readable like a held
-shell; Y again spits it out (shells come out spinning). Get hit while riding and the raptor bolts
-instead of you crashing; catch it again. Riding, you're still one block wide, so you fit down 1-tile holes.
+shell; Y again spits it out (shells come out spinning). Get hit while riding and you don't crash:
+the raptor bucks you off, roars, chases down whatever hurt it (hopping walls and gaps) and bites it, then runs
+back and lies down beside you; jump on to ride again. Walk away while it's lying down and it gets up and follows.
+Ghosts and chompers can't be bitten; it roars at them and comes straight back. Riding, you're still one block wide, so you fit down 1-tile holes.
 X jumps you off (a full jump); you can't land back on it until you've touched the ground or a platform.
 
 **Level toolbox:** springs and bounce buffers, one-way scaffolds, page lifts (moving platforms),
